@@ -107,3 +107,25 @@ describe('resendNotification — o reenvio', () => {
     await expect(resendNotification(ORDER_ID, 'order_paid')).resolves.toBe(false)
   })
 })
+
+// Feature `88` · T11 (`AVS-04`): o terceiro argumento chega ao dono e vira `customer: false` no corpo.
+describe('notifyOrder — a escolha da caixa (feature `88`)', () => {
+  it('`{ cliente: false }` ⇒ o corpo leva `customer: false`, na mesma porta `trigger`', async () => {
+    invoke.mockResolvedValue({ data: { sent: false }, error: null })
+
+    await notifyOrder(ORDER_ID, 'order_status_changed', { cliente: false })
+
+    expect(invoke).toHaveBeenCalledWith('send-notification?action=trigger', {
+      body: { order_id: ORDER_ID, trigger: 'order_status_changed', customer: false },
+    })
+  })
+
+  it('sem a opção ⇒ o corpo de sempre, sem a chave `customer`', async () => {
+    invoke.mockResolvedValue({ data: { sent: true }, error: null })
+
+    await notifyOrder(ORDER_ID, 'material_status_changed')
+
+    expect(invoke.mock.calls[0][1].body).toEqual({ order_id: ORDER_ID, trigger: 'material_status_changed' })
+    expect(invoke.mock.calls[0][1].body).not.toHaveProperty('customer')
+  })
+})

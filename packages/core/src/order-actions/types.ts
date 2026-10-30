@@ -18,12 +18,23 @@ import type { AppActionId } from '../orders/appAction.ts'
 export type OrderWriteClient = Pick<SupabaseClient, 'from' | 'rpc' | 'functions'>
 
 /**
+ * Feature `88` (`AVS-04`, `A-04`): `cliente: false` dispara o gatilho SEM os e-mails da cliente — o
+ * motor os grava como `skipped` e os avisos à dona saem como sempre. Ausente ⇒ o gatilho de sempre.
+ */
+export interface NotifyOptions {
+  cliente?: boolean
+}
+
+/**
  * O que o dono recebe. `notify` é a FUNÇÃO notificadora; o booleano que decide se o aviso sai, na
  * entrada de cada escrita, chama-se `avisar`. Os dois nunca têm o mesmo nome.
+ *
+ * Feature `88`: o terceiro argumento só existe quando a escrita pede `avisarCliente: false`. Sem ele a
+ * chamada é a de antes, com EXATAMENTE dois argumentos (`runAppAction` e o app não mudam).
  */
 export interface OrderWriteDeps {
   client: OrderWriteClient
-  notify: (orderId: string, trigger: NotificationTrigger) => Promise<boolean>
+  notify: (orderId: string, trigger: NotificationTrigger, opcoes?: NotifyOptions) => Promise<boolean>
 }
 
 /**

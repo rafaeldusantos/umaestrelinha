@@ -1026,6 +1026,59 @@ chaves **Computador | Celular** e um submenu de até 24 filhos. Nada desta tela 
   reexporta por referência (`lembreteNoCore.test.ts`, `toBe`). O app do ateliê o abre só com um número
   válido (`canChargeMaterial`); o painel continua como antes.
 
+### O aviso à cliente é escolha, e o pedido mostra que está trabalhando (feature `88`, `AD-069`)
+
+- **Os dez gestos que mandam e-mail à cliente passam por UM caminho**: `useGestoComAviso`
+  (`features/order-notice`) junta a previsão (`customerNoticeFor`, de `core`), o portão
+  (`useNoticeGate` + `NoticeDialog`, caixa **marcada** a cada abertura), uma gravação por vez
+  (`usePendingAction`, trava por ref) e a frase do desfecho (`fraseDoResultado`). **Sem e-mail
+  previsto, grava direto** e diz por quê ("nenhum aviso sai nesta mudança", "“…” já tinha sido
+  enviado"). **Com a caixa desmarcada a frase decide-se pela CAIXA**, nunca por `emailSent` — o motor
+  responde `sent: true` também pelo aviso à dona. **Desde o conserto r1 do Verifier, `emailSent` é "um
+  e-mail À CLIENTE saiu"**: o motor responde `customer_sent` (só público `customer`) e
+  `triggerOrderNotification` o lê, recuando para `sent` só quando o campo falta (motor antigo). Vale
+  para os dez gestos, o envelope (`setMaterialTracking` passou a devolver `emailSent`) e a soma do lote. `avisoComDonoUnico.test.ts` recusa decidir "avisa?"
+  fora de `customerNoticeFor` (status comparado numa linha de aviso, interruptor lido à mão,
+  pré-condição chamada, evento por nome) e exige a chamada em `useGestoComAviso`, `AdminOrderPage` e
+  `AdminOrdersPage`; `features/notification-settings/**` fica fora por nome.
+- **`useAdminOrders` repassa `avisarCliente`** às quatro escritas (só quando houve escolha: sem
+  diálogo, a entrada do dono não tem a chave) e ao `cancelOrder`, que desde a T23 devolve
+  `{ error, emailSent }`. O cancelamento recebe a previsão por prop (`aviso`), calculada pela página.
+- **O histórico mostra a escolha**: a linha `skipped` (`emailSkipped`) ganha o avião de papel (44 × 44,
+  "Enviar agora o e-mail “…” para a cliente"), que chama a porta `send` de sempre; os desfechos vêm de
+  `resendNotificationOutcome` (`enviado`/`desligado`/`estado`/`falhou`).
+- **A lista**: o lote lê `order_notifications` dos selecionados **uma vez, só ao acionar**
+  (`entities/order/api/sentEmails.ts`, que lança na falha — "Nada foi alterado"), pergunta uma vez
+  ("Avisar as N clientes", contagem por e-mail, "já recebeu antes"), e ao confirmar o diálogo FECHA e o
+  progresso aparece na `OrderBulkBar` ("Avançando 7 de 30…", `role="progressbar"`, ações fora de cena,
+  seleção e cartões desabilitados). `runBulk`/`runMaterialBulk`/`runStatusBulk` (`bulkMaterial.ts`) dão
+  o `onProgress` a cada pedido e contam e-mails (`emailSent`) e anotados (caixa desmarcada × previstos);
+  `bulkSummary` escreve o resumo. O "Recebi o material" do cartão do celular passa pelo mesmo gesto, com
+  o estado SÓ no cartão e o desfecho em aviso (antes, a falha era ignorada).
+- **Gravar não pisca**: `useAdminOrder.reload('revalidar')` e `useAdminOrderList.refetch('revalidar')`
+  (o `FetchMode` da `50`) mantêm a tela; a lista mostra "Atualizando…" ao lado do título
+  (`PageHeader.titleAside`) e o pedido, a faixa "Não consegui atualizar o pedido…" em falha. A
+  primeira carga é esqueleto (`OrderPageSkeleton`; `TableSkeleton` + `CardSkeleton` na lista), nunca
+  "Carregando...". Todo botão que grava é `ActionButton` (`Loader2` + gerúndio + `aria-busy`).
+- **Conserto do QA (2026-10-30)**: com a leitura de `order_notifications` falhando (`useAdminOrder.emailsError`),
+  o gesto que teria e-mail previsto é recusado com `SENT_EMAILS_READ_FAILED` (`A-14`) e o Histórico diz
+  que não leu os e-mails; a linha de e-mail que falhou diz "A tentativa de envio falhou", com o erro cru
+  num `<details>` (`A-15`). **"Para onde volta o foco" tem um dono, `shared/lib/foco.ts`**: origem → bloco
+  → `h1`, depois do commit. O jsdom não tira o foco de botão desabilitado; teste de foco usa
+  `src/test/focoDoNavegador.ts`. O resultado com aviso flutuante é anunciado só pelo sonner
+  (`gesto.informar`); o resumo do lote é uma região `status` na lista, até "Dispensar".
+- **Conserto do reteste (2026-10-30)**: o "Tentar de novo" do Histórico devolve o foco a ele ou ao `h2`
+  "Histórico"; "Dispensar" o resumo do lote, ao `h1` "Pedidos". **As ações do `PageHeader` e do
+  `RecordPageHeader` têm um dono, `shared/ui/acoesDoCabecalho.ts`**: abaixo de `md` os botões quebram
+  linha (`h-auto min-h-11 whitespace-normal`) — o `Button` do shadcn é `whitespace-nowrap` com altura
+  fixa, e a 390/200 % "Folha de separação" media 363 px numa coluna de 294. A grade do pedido tem
+  `grid-cols-1` no celular (a trilha implícita `auto` tomava 373 px), o preço do item é `min-w-[110px]`
+  (nunca `w-`: a 200 % o valor mede 134 e saía cortado). Medida: `scrollWidth` 390 a 100/130/200 % no
+  pedido, na lista e na Fila; 1440 sem mudança.
+- ⚠️ **A previsão do lote não sabe se o pedido é de retirada**: `order_list` não tem
+  `shipping_service_id`, então um lote que avança uma retirada para "Enviado" pergunta por "Pedido
+  postado", que o motor recusa (`pickup_order`). O resumo diz o real (`A-09`).
+
 ## As duas listagens de Vendas (feature `34`)
 
 - **O topo diz o que COBRA, não o que existe.** Quatro contadores clicáveis, e só o primeiro

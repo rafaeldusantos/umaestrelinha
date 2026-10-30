@@ -1654,6 +1654,30 @@
 - **Date**: 2026-10-28
 - **Status**: active (abordagem A confirmada pelo usuário em 2026-10-28)
 
+
+### AD-069
+
+- **Status**: accepted (feature `88`, Design aprovado pelo usuário em 2026-10-29)
+- **Decision**: **todo gesto do painel que dispara e-mail à cliente pergunta antes, com a caixa
+  "Avisar a cliente por e-mail" MARCADA — e só quando um e-mail sairia de fato** (a previsão é
+  `customerNoticeFor`, em `core/notifications`, a mesma regra do motor, incluindo "já enviado").
+  Desmarcar não deixa de disparar o gatilho: ele sai com `customer: false`, o motor pula **só** os
+  eventos de público `customer` e grava cada um em `order_notifications` com `status = 'skipped'`
+  (RPC `skip_order_notification`, `service_role`). Os avisos à dona saem como sempre. O histórico
+  mostra a linha pulada com um avião que a envia pela porta `send` de sempre. `customer: false` só é
+  aceito na porta de admin (`action=trigger`), nunca na da cliente (`action=notify`).
+- **Reason**: extensão da `AD-032` — a memória de "a cliente foi avisada?" continua sendo UMA
+  (`order_notifications`); nota interna não carrega o evento e tabela nova seria o segundo dono. E
+  `avisar: false` (`AD-059`) já tem significado no app do ateliê ("não dispare o gatilho", para não
+  avisar duas vezes numa ação composta), por isso a escolha da cliente é uma opção nova
+  (`avisarCliente`), não o mesmo booleano.
+- **Trade-off**: o registro do pulo depende do motor responder; se a function estiver fora do ar no
+  instante da gravação, o pedido muda sem linha `skipped` (e sem e-mail). Migration nova recria o
+  `check` de `status` — os guardas que mediam a `42` passam a medir a vigente.
+- **Scope**: `apps/backoffice/**`, `packages/core/src/{notifications,order-actions,orders}`,
+  `supabase/functions/send-notification/**`, migration da `88`
+- **Date**: 2026-10-29
+
 ## Handoff
 
 ### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), verificada, QA e reteste feitos, commitada na branch, sem push — falta o Android real**

@@ -6,6 +6,7 @@
 // O aviso `material_status_changed` sai SÓ no `ok` (escrita duas vezes, uma cópia poderia avisar em
 // `ok: false`). Ele fica fora do `try`, pelo mesmo motivo de `status.ts`.
 
+import { notifyWrite } from './notify.ts'
 import type { MaterialOutcome, OrderWriteDeps } from './types.ts'
 
 export interface WriteMaterialStatusInput {
@@ -13,6 +14,8 @@ export interface WriteMaterialStatusInput {
   to: string
   /** Padrão `true`. */
   avisar?: boolean
+  /** Feature `88`: `false` ⇒ o gatilho sai sem os e-mails da cliente (`AVS-04`). Só vale com `avisar`. */
+  avisarCliente?: boolean
 }
 
 interface RespostaDaRpc {
@@ -23,7 +26,7 @@ interface RespostaDaRpc {
 
 export async function writeMaterialStatus(
   { client, notify }: OrderWriteDeps,
-  { id, to, avisar = true }: WriteMaterialStatusInput,
+  { id, to, avisar = true, avisarCliente }: WriteMaterialStatusInput,
 ): Promise<MaterialOutcome> {
   let resposta: { data: unknown; error: unknown }
   try {
@@ -39,6 +42,6 @@ export async function writeMaterialStatus(
     return { tipo: 'material-recusado', reason: resultado.reason ?? null, status: resultado.status ?? null }
   }
 
-  const emailSent = avisar ? await notify(id, 'material_status_changed') : false
+  const emailSent = avisar ? await notifyWrite(notify, id, 'material_status_changed', avisarCliente) : false
   return { tipo: 'ok', status: resultado.status ?? to, emailSent }
 }

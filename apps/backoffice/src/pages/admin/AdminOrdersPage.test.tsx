@@ -8,11 +8,13 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
+import { DEFAULT_NOTIFICATIONS } from '@estrelinha/core/notifications'
 
 const {
   listMock, toastErrorMock, toastSuccessMock, setMaterialStatusMock, updateStatusMock,
-  fetchAllMock, refetchMock, exportMock, openMock,
+  fetchAllMock, refetchMock, exportMock, openMock, sentEmailsMock,
 } = vi.hoisted(() => ({
+  sentEmailsMock: vi.fn(),
   listMock: vi.fn(),
   toastErrorMock: vi.fn(),
   toastSuccessMock: vi.fn(),
@@ -40,6 +42,17 @@ vi.mock('@/features/export-orders/lib/exportCsv', async importOriginal => ({
   exportOrdersCsv: exportMock,
 }))
 vi.mock('@/features/pick-slip', () => ({ openPickSlips: vi.fn() }))
+// Feature `88`: a previsão do aviso lê as configurações (aqui, os padrões — `material_received` nasce
+// LIGADO) e, ao acionar o lote, os envios dos selecionados. A fiação de verdade, com o client dublado,
+// está em `AdminOrdersPage.aviso.test.tsx`.
+vi.mock('@estrelinha/core/hooks/useStoreSettings', async importOriginal => ({
+  ...(await importOriginal<typeof import('@estrelinha/core/hooks/useStoreSettings')>()),
+  useNotificationSettings: () => DEFAULT_NOTIFICATIONS,
+}))
+vi.mock('@/entities/order/api/sentEmails', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/order/api/sentEmails')>()),
+  fetchSentEmails: sentEmailsMock,
+}))
 
 import AdminOrdersPage from './AdminOrdersPage'
 
@@ -106,6 +119,7 @@ beforeEach(() => {
   fetchAllMock.mockResolvedValue([row(), row()])
   setMaterialStatusMock.mockResolvedValue({ ok: true, reason: null })
   updateStatusMock.mockResolvedValue({ error: null, emailSent: false })
+  sentEmailsMock.mockResolvedValue(new Map())
   window.localStorage.clear()
   vi.stubGlobal('open', openMock)
 })
@@ -284,12 +298,17 @@ describe('seleção em massa (PED-16, PED-17)', () => {
     renderPage()
     fireEvent.click(screen.getByLabelText('Selecionar a página'))
     fireEvent.click(screen.getByText('Marcar material recebido'))
+    // Feature `88`: "Material recebido no ateliê" nasce ligado, então o lote pergunta antes (`AVS-19`).
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar 3 recebimentos' }))
 
+    // O resumo de sempre, mais a parcela dos e-mails (`CRG-11`): o dublê não respondeu `emailSent`.
+    // Conserto do QA da `88`: o resumo FICA na lista (região `status`), em vez do aviso de ~4 s.
     await waitFor(() =>
-      expect(toastSuccessMock).toHaveBeenCalledWith(
-        '2 marcadas · 1 não estava em estado que permite',
+      expect(screen.getByRole('status', { name: 'Resumo do lote' })).toHaveTextContent(
+        '2 marcadas · 1 não estava em estado que permite · nenhum e-mail saiu',
       ),
     )
+    expect(toastSuccessMock).not.toHaveBeenCalled()
     // Recusa é o caso esperado (outra aba já atualizou). Não pode virar toast de erro.
     expect(toastErrorMock).not.toHaveBeenCalled()
   })
@@ -301,6 +320,7 @@ describe('seleção em massa (PED-16, PED-17)', () => {
     renderPage()
     fireEvent.click(screen.getByLabelText('Selecionar a página'))
     fireEvent.click(screen.getByText('Marcar material recebido'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar 3 recebimentos' }))
 
     // Três chamadas, e não uma seguida de abort: a primeira falhar não pode fazer a Adri repetir
     // o lote inteiro por causa de um pedido que outra aba já atualizou.

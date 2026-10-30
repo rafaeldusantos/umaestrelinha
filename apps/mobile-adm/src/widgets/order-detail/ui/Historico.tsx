@@ -14,7 +14,8 @@ export const HISTORICO_VAZIO = 'Nada registrado ainda.'
  * "<dia em Brasília> · <há quanto tempo>" contra o `lido_em` do SERVIDOR.
  *
  * Um aviso que FALHOU aparece em alerta: o texto de `core` já diz que falhou e, sem erro registrado,
- * que a cliente não foi avisada. Com qualquer das três fontes em falha o bloco inteiro está em falha
+ * que a cliente não foi avisada. O aviso PULADO (feature `88`, `emailSkipped`: a Adri escolheu não
+ * avisar no painel) não é falha — fica no tom neutro de qualquer evento. Com qualquer das três fontes em falha o bloco inteiro está em falha
  * (Q6): fundir com um fio faltando contaria uma história errada.
  */
 const Historico = ({
@@ -37,7 +38,7 @@ const Historico = ({
         // (o primeiro) leva o ponto em `primary`; aviso que falhou, em `alert`.
         <ol className="pt-1">
           {eventos.map((ev, i) => {
-            const falhou = ev.kind === 'email' && ev.emailSent === false
+            const falhou = ev.kind === 'email' && ev.emailSent === false && ev.emailSkipped !== true
             const ultimo = i === eventos.length - 1
             return (
               <li key={ev.id} data-testid="evento-do-historico" data-tipo={ev.kind} data-falhou={falhou ? 'true' : undefined} className="flex gap-3 text-sm">

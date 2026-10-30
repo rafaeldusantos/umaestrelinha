@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { primaryImage } from '@estrelinha/core/media'
 import { catalogProductIds } from '@estrelinha/core/orders'
 import { supabase } from '@estrelinha/supabase/client'
+import type { FetchMode } from '@/shared/lib/fetchMode'
 import type {
   DbOrder, DbOrderItem, DbOrderNote, DbOrderStatusHistory,
 } from '@estrelinha/supabase/types'
@@ -98,9 +99,26 @@ export interface AdminOrderDetail {
   history: DbOrderStatusHistory[]
   notes: DbOrderNote[]
   emails: OrderNotificationRow[]
+  /**
+   * Conserto do QA da `88` (`A-14`): a leitura de `order_notifications` FALHOU. `emails` vem vazio, e
+   * vazio aqui não é "nenhum e-mail" — é "não sei". A página recusa o gesto que dependeria da previsão
+   * e o Histórico diz que não leu os e-mails, em vez de "Nada por aqui ainda.".
+   */
+  emailsError: boolean
   loading: boolean
   error: string | null
-  reload: () => Promise<void>
+  /**
+   * Feature `88` (`CRG-04`): a releitura `'revalidar'` falhou e o pedido na tela pode estar
+   * desatualizado. O pedido **fica** — esta é a frase da faixa, nunca o motivo de trocá-lo por erro.
+   */
+  staleError: string | null
+  /**
+   * `'inicial'` (padrão) é a primeira carga: liga `loading`. `'revalidar'` é a releitura que segue uma
+   * gravação (`CRG-03`): não liga `loading`, não apaga as fotos dos itens e, em falha, mantém o pedido
+   * e grava `staleError`. Qualquer valor que não seja `'revalidar'` vale como `'inicial'` — passar a
+   * função direto num `onClick` entregaria o evento como modo.
+   */
+  reload: (modo?: FetchMode) => Promise<void>
 }
 
 export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
@@ -112,27 +130,40 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
   const [history, setHistory] = useState<DbOrderStatusHistory[]>([])
   const [notes, setNotes] = useState<DbOrderNote[]>([])
   const [emails, setEmails] = useState<OrderNotificationRow[]>([])
+  const [emailsError, setEmailsError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [staleError, setStaleError] = useState<string | null>(null)
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (modo: FetchMode = 'inicial') => {
+    const revalidar = modo === 'revalidar'
     if (!id) {
       setError('Pedido não informado')
       setLoading(false)
       return
     }
 
-    setItemsError(null)
-    setProductRefs({})
-
-    setLoading(true)
-    setError(null)
+    // Na releitura, nada some antes de a resposta chegar: zerar as fotos ou ligar `loading` aqui é
+    // exatamente a piscada que a feature `88` remove (`CRG-03`).
+    if (!revalidar) {
+      setItemsError(null)
+      setProductRefs({})
+      setLoading(true)
+      setError(null)
+      setStaleError(null)
+    }
 
     const { data, error: queryError } = await supabase
       .from('orders')
       .select('*')
       .eq('id', id)
       .maybeSingle()
+
+    if (queryError && revalidar) {
+      // `CRG-04`: o pedido que estava na tela permanece; a faixa diz que ele pode estar velho.
+      setStaleError(queryError.message ?? 'Não foi possível atualizar o pedido')
+      return
+    }
 
     if (queryError) {
       // `PED-08` vale aqui também: erro de leitura não pode virar "pedido não encontrado", que é
@@ -151,6 +182,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
     }
 
     setOrder(data as DbOrder)
+    setStaleError(null)
 
     // As quatro leituras auxiliares em paralelo: são independentes entre si, e em série somariam
     // quatro latências para desenhar uma tela só.
@@ -188,8 +220,9 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
 
     // A leitura dos itens é a ÚNICA das quatro cujo erro não pode degradar para lista vazia: um
     // pedido sem itens não existe, e a folha de separação sai deste array. As outras três degradam
-    // de propósito — histórico e notas vazios são estados legítimos, e `order_notifications` pode
-    // nem existir em ambiente antigo.
+    // de propósito — histórico e notas vazios são estados legítimos. `order_notifications` degrada
+    // para lista vazia MAS levanta `emailsError` (conserto do QA da `88`, `A-14`): vazio por falha
+    // não é "nenhum e-mail", e a previsão do aviso não pode se apoiar nele.
     setItems((itensRes.data ?? []) as DbOrderItem[])
     setItemsError(
       itensRes.error
@@ -200,6 +233,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
     setHistory((historicoRes.data ?? []) as DbOrderStatusHistory[])
     setNotes((notasRes.data ?? []) as DbOrderNote[])
     setEmails((emailsRes.data ?? []) as OrderNotificationRow[])
+    setEmailsError(Boolean(emailsRes.error))
 
     setProductRefs(await lerProdutos((itensRes.data ?? []) as DbOrderItem[]))
 
@@ -211,7 +245,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
   }, [reload])
 
   return {
-    order, customer, items, itemsError, productRefs, history, notes, emails, loading, error, reload,
+    order, customer, items, itemsError, productRefs, history, notes, emails, emailsError, loading, error, staleError, reload,
   }
 }
 

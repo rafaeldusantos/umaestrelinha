@@ -3,15 +3,27 @@
 // Molde de `features/bulk-edit/ui/BulkBar.tsx`. Componente próprio é o que permite testar cada ação
 // sem montar a listagem inteira.
 
-import { ArrowRight, CheckCircle2, Download, MessageCircle, Printer } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Download, Loader2, MessageCircle, Printer } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { BULK_LIMIT } from '../model/bulkMaterial'
+
+/**
+ * Feature `88` (`CRG-10`): o lote em curso — "Avançando 7 de 30…". `verbo` é o gerúndio da ação
+ * ("Avançando", "Registrando").
+ */
+export interface BulkProgress {
+  verbo: string
+  feitos: number
+  total: number
+}
 
 interface Props {
   count: number
   /** Total do filtro — habilita "selecionar os N do filtro" enquanto a seleção for menor. */
   total: number
   busy?: boolean
+  /** Presente ⇒ a barra vira o progresso do lote, e as ações saem de cena até ele terminar. */
+  progresso?: BulkProgress | null
   onMaterialReceived: () => void
   onAdvanceStatus: () => void
   onPickSlips: () => void
@@ -22,7 +34,7 @@ interface Props {
 }
 
 const OrderBulkBar = ({
-  count, total, busy = false,
+  count, total, busy = false, progresso = null,
   onMaterialReceived, onAdvanceStatus, onPickSlips, onChargeMaterial, onExport,
   onSelectAll, onClear,
 }: Props) => {
@@ -33,7 +45,34 @@ const OrderBulkBar = ({
       className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-3"
       role="toolbar"
       aria-label="Ações em massa"
+      aria-busy={progresso ? 'true' : undefined}
     >
+      {progresso ? (
+        // O progresso mora NA barra (`CRG-10`): é onde a Adri clicou, e o resto da lista fica
+        // desabilitado enquanto o lote corre. Barra DETERMINADA — o número de pedidos é conhecido.
+        <div className="space-y-2" role="status">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              {progresso.verbo} {progresso.feitos} de {progresso.total}…
+            </span>
+            <span className="text-xs text-muted-foreground">Não feche a página</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label={`${progresso.verbo} pedidos`}
+            aria-valuemin={0}
+            aria-valuemax={progresso.total}
+            aria-valuenow={progresso.feitos}
+            className="h-2 overflow-hidden rounded-full bg-primary/15"
+          >
+            <div
+              className="h-full bg-primary transition-[width] motion-reduce:transition-none"
+              style={{ width: `${(progresso.feitos / Math.max(1, progresso.total)) * 100}%` }}
+            />
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-sm font-medium">
           {count} selecionado{count === 1 ? '' : 's'}
@@ -68,8 +107,9 @@ const OrderBulkBar = ({
           Limpar seleção
         </Button>
       </div>
+      )}
 
-      {acimaDoTeto && (
+      {acimaDoTeto && !progresso && (
         // Avisar ANTES, e não truncar em silêncio: um lote que age sobre 50 de 80 sem dizer nada é
         // a mesma família de defeito da leitura truncada pelo PostgREST.
         <p className="mt-2 text-xs text-estrelinha-admin-amber">

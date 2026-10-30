@@ -297,3 +297,20 @@ e `J-enviar-foto-pelo-painel` (5 cenários `PNL-imagem-*`), todos `untested`. Or
 
 Ambiente: só local. As artes de `home_sections` do banco local apontam para o hospedado (bloqueado):
 o charter 3 intercepta a leitura e troca as URLs por imagens do Storage local.
+
+## Ciclo planejado — feature `88` (aviso opcional nas ações do pedido), nível *targeted*
+
+Planejado e executado em 2026-10-30 (relatório `reports/2026-10-30-backoffice-aviso-opcional-nos-pedidos.md`). Persona nova `Adri despachando pedidos`. Jornadas novas
+`J-mudar-pedido-com-ou-sem-aviso` (13 cenários) e `J-avancar-pedidos-em-lote` (2 cenários), todos
+`PNL-aviso-*`/`PNL-carregar-*`/`PNL-lote-*`, `untested`. Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-aviso-acertar-o-registro-sem-reavisar` | Money | 90 |
+| 2 | `CH-aviso-rede-lenta-e-falhas` | Network | 60 |
+| 3 | `CH-aviso-lote-do-dia` | Money | 60 |
+| 4 | `CH-aviso-fonte-grande-e-leitor` | Feature | 45 |
+
+Ambiente só local; o e-mail real não pode sair (o `general.email` local é real): o motor servido usa o
+desvio do probe `.specs/features/88-…/probes/02-motor.sh`, ou a function é interceptada no navegador.
+Canário: o app do ateliê lendo a linha `skipped` (`J-ver-um-pedido`, opcional).

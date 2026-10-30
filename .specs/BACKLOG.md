@@ -2174,3 +2174,18 @@ inteiro — conferir por `select value->>'version' from store_settings where key
 
 `menuDocumentoComDonoUnico.test.ts` muda de régua junto: a exceção do mapeador de leitura da loja deixa
 de existir e a régua 1 vira zero exceção.
+
+## BL-061 — A etiqueta do Melhor Envio grava o rastreio sem avisar a cliente
+
+- **Status**: aberto · **Registrado em**: 2026-10-29 · **Origem**: inventário da feature `88` (`A-08`).
+
+Gerar a etiqueta no bloco Melhor Envio do pedido (`melhor-envio?action=create`,
+`supabase/functions/melhor-envio/handlers.ts`) grava `tracking_code` e `shipping_carrier` direto em
+`orders` **sem disparar gatilho nenhum**. O comentário de `useAdminOrders.addTrackingCode` afirma que
+ele "cobre também o caminho do Melhor Envio" — não cobre: o painel só chama `reload()` depois da
+etiqueta. Consequência: um pedido já `shipped` que ganha o rastreio pela etiqueta nunca recebe o
+e-mail "Pedido postado"; um pedido `separating` recebe o rastreio e o e-mail só sai se alguém mudar o
+status depois (o par `TRG-12` fecha pelo status).
+
+Ligar o aviso pela etiqueta é comportamento novo de e-mail e deve passar pela mesma pergunta da `88`
+(`customerNoticeFor` + "avisar / não avisar"). A `88` corrige só o comentário.

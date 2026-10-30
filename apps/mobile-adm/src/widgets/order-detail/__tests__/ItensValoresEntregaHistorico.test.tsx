@@ -5,6 +5,7 @@ process.env.TZ = 'UTC'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { NOTIFICATION_EVENT_NAMES } from '@estrelinha/core/notifications'
 import { buildHistory, type HistoryEvent } from '@estrelinha/core/orders'
 
 import type { Bloco, ItemComFoto, ItemDoPedido } from '@/entities/order'
@@ -207,6 +208,30 @@ describe('o histórico (MAP-28, A19, Q6)', () => {
     expect(semErro).toBeDefined()
     expect(semErro!.querySelector('p')?.textContent).toMatch(/^Falha ao enviar /)
     expect(semErro!.querySelector('p')?.className).toContain('text-estrelinha-alert')
+  })
+
+  // Feature `88` (`AVS-12`): a linha `skipped` (a Adri escolheu não avisar) chega ao app pelo MESMO
+  // `buildHistory`, e o app passa a ler a frase da escolha — nunca "Falha ao enviar" nem "A cliente NÃO
+  // foi avisada", que era o que qualquer linha diferente de `sent` dizia antes.
+  it('o aviso que a Adri escolheu não mandar (`skipped`) mostra a frase da escolha, não a de falha', () => {
+    const pulado = { ...EMAIL_FALHO, id: 'n-3', event: 'order_shipped', status: 'skipped', error: null, attempts: 1 }
+    render(<Historico historico={ok(buildHistory([], [pulado], []))} lidoEm={LIDO_EM} tentarDeNovo={vi.fn()} />)
+    const [linha] = screen.getAllByTestId('evento-do-historico')
+    expect(linha.querySelector('p')?.textContent).toBe(`Aviso à cliente não enviado: ${NOTIFICATION_EVENT_NAMES.order_shipped}`)
+    expect(within(linha).getByText('Você escolheu não avisar')).toBeInTheDocument()
+    expect(linha.textContent).not.toMatch(/Falha ao enviar|NÃO foi avisada/)
+  })
+
+  it('a linha `skipped` fica em tom NEUTRO — escolha não é falha (nem `alert` no ponto, no título ou no detalhe)', () => {
+    const pulado = { ...EMAIL_FALHO, id: 'n-3', event: 'order_shipped', status: 'skipped', error: null, attempts: 1 }
+    const nota = { ...NOTA, created_at: '2026-10-19T09:00:00Z' }
+    render(<Historico historico={ok(buildHistory([], [pulado], [nota]))} lidoEm={LIDO_EM} tentarDeNovo={vi.fn()} />)
+    const [linha] = screen.getAllByTestId('evento-do-historico')
+    expect(linha).not.toHaveAttribute('data-falhou')
+    expect(linha.innerHTML).not.toMatch(/(?:^|[\s"])(?:bg|text)-estrelinha-alert(?![-\w])/)
+    // O ponto é o do evento mais recente, como qualquer outro; o detalhe, o tom suave de sempre.
+    expect(linha.querySelector('span span, div > span')?.className.split(/\s+/)).toContain('bg-estrelinha-primary')
+    expect(within(linha).getByText('Você escolheu não avisar').className.split(/\s+/)).toContain('text-estrelinha-ink-soft')
   })
 
   it('sem evento nenhum: "Nada registrado ainda."', () => {

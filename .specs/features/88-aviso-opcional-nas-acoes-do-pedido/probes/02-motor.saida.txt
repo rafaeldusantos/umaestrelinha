@@ -1,0 +1,17 @@
+ok — send-notification servida e viva (sem auth responde 401)
+ok — o P88-03 é da conta da cliente (adotado pelo e-mail)
+ok — a admin do seed entra
+ok — a cliente da fixtura entra
+ok — P88-01: a resposta do motor diz order_shipped / admin_opt_out
+ok — P88-01: a linha (pedido, order_shipped, email) é skipped
+ok — P88-01: a linha skipped não registrou tentativa de envio (attempts = default)
+ok — P88-02: o e-mail da cliente (material_tracking_registered) é skipped
+ok — P88-02: o aviso à dona (owner_material_incoming) foi reivindicado como de costume (failed)
+ok — P88-01: depois do avião a linha deixou de ser skipped (failed)
+ok — P88-01: é a MESMA linha (mesmo id), convertida — nenhuma duplicada
+ok — P88-01: continua UMA linha para o pedido
+ok — P88-03: notify com customer:false reivindicou o e-mail da cliente (failed), não pulou
+ok — P88-03: nenhuma linha skipped no pedido da cliente
+ok — nenhum e-mail das fixturas saiu de fato (sem provedor alcançável, tudo failed)
+ok — o motivo das falhas registrado no banco: error sending request for url (https://api.resend.com/emails
+banco restaurado: fixturas P88 apagadas, notifications byte a byte

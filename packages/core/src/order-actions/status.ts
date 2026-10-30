@@ -10,6 +10,7 @@
 // O aviso fica FORA do `try`: a notificadora tem contrato de nunca lançar (`triggerOrderNotification`),
 // e se um dia lançar quem chama precisa saber — é o que o painel prende hoje (`MAT-09`).
 
+import { notifyWrite } from './notify.ts'
 import type { OrderWriteDeps, WriteOutcome } from './types.ts'
 
 export interface WriteOrderStatusInput {
@@ -22,11 +23,13 @@ export interface WriteOrderStatusInput {
   note?: string
   /** Padrão `true`: dispara `order_status_changed`. */
   avisar?: boolean
+  /** Feature `88`: `false` ⇒ o gatilho sai sem os e-mails da cliente (`AVS-04`). Só vale com `avisar`. */
+  avisarCliente?: boolean
 }
 
 export async function writeOrderStatus(
   { client, notify }: OrderWriteDeps,
-  { id, to, from, expectedFrom, note, avisar = true }: WriteOrderStatusInput,
+  { id, to, from, expectedFrom, note, avisar = true, avisarCliente }: WriteOrderStatusInput,
 ): Promise<WriteOutcome> {
   let resposta: { data: unknown; error: unknown }
   try {
@@ -50,6 +53,6 @@ export async function writeOrderStatus(
     // ignorado — ver o cabeçalho
   }
 
-  const emailSent = avisar ? await notify(id, 'order_status_changed') : false
+  const emailSent = avisar ? await notifyWrite(notify, id, 'order_status_changed', avisarCliente) : false
   return { tipo: 'ok', emailSent }
 }

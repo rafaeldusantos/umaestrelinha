@@ -126,3 +126,21 @@ Muitas vezes acabou de perder alguém. Abre a folha do menu no celular, toca num
 escolhe. Qualquer item que leva a uma página vazia, a uma categoria que não existe mais ou a "Página não
 encontrada" pesa mais aqui do que numa loja comum. Não tem conta nem papel no painel. Entrou no ciclo da
 `86`.
+
+## Adri despachando pedidos (painel, notebook e celular)
+
+```yaml
+persona:
+  name: Adri despachando pedidos
+  base: Power User
+  goal: acertar o status, o rastreio e o material dos pedidos do dia sem mandar à cliente um e-mail repetido ou fora de hora
+  device: desktop (1440) e phone-large (390), com a fonte do sistema às vezes em 130 % ou 200 %
+  network: wifi-fast, às vezes Slow 3G (o ateliê tem rede ruim)
+  modality: mouse + teclado no notebook; toque no celular
+  locale: pt-BR
+  patience_seconds: 15
+```
+
+Muitas vezes já avisou a cliente pelo WhatsApp e só quer acertar o registro. O que mais a machuca: um
+e-mail repetido para quem acabou de perder alguém, e a tela dizer "avisada" quando não avisou. Entrou no
+ciclo da `88`.

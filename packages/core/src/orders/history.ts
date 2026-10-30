@@ -36,6 +36,11 @@ export interface HistoryEvent {
   emailType?: string
   /** O canal da tentativa — o reenvio repete no MESMO canal. */
   emailChannel?: string
+  /**
+   * Feature `88` (`AVS-12`): a linha `skipped` — a Adri escolheu não avisar a cliente. Não é falha: o
+   * painel desenha o avião (enviar agora) no lugar do "Reenviar".
+   */
+  emailSkipped?: boolean
   author?: string | null
 }
 
@@ -97,6 +102,10 @@ const nomeDoEvento = (event: string): string =>
 /** Como o canal aparece na linha. `email` fica implícito; o WhatsApp precisa se identificar. */
 const rotuloDoCanal = (channel: string | undefined): string =>
   channel === 'whatsapp' ? 'WhatsApp' : channel === 'push' ? 'Celular' : 'E-mail'
+
+/** Feature `88` (`AVS-12`): a linha do aviso que a Adri escolheu não mandar. */
+const AVISO_PULADO = 'Aviso à cliente não enviado'
+const AVISO_PULADO_DETALHE = 'Você escolheu não avisar'
 
 /** Feature `79`: a falha do aviso no celular tem frase própria — não é a cliente quem deixou de saber. */
 const PUSH_FALHOU = 'O aviso no celular não chegou.'
@@ -199,6 +208,22 @@ export const buildHistory = <
         title: PUSH_FALHOU,
         detail: e.error ?? null,
         emailSent: false,
+      })
+      continue
+    }
+    // Feature `88` (`AVS-12`): o aviso que a Adri escolheu não mandar (`skipped`, gravado pelo motor com
+    // `customer: false`). Vem antes da falha: não houve tentativa, houve escolha — e nomeia o EVENTO.
+    if (e.status === 'skipped') {
+      eventos.push({
+        id: `email-${e.id}`,
+        kind: 'email',
+        at: e.sent_at ?? e.created_at,
+        title: `${AVISO_PULADO}: ${nomeDoEvento(evento(e))}`,
+        detail: AVISO_PULADO_DETALHE,
+        emailSent: false,
+        emailSkipped: true,
+        emailType: evento(e),
+        emailChannel: e.channel ?? 'email',
       })
       continue
     }

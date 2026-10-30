@@ -305,8 +305,11 @@ describe('setMaterialTracking → writeMaterialTracking', () => {
     expect(entrada).toEqual({ id: ID, code: ' aa1br ' })
   })
 
-  it('`ok` ⇒ `{ ok: true, reason: null }` e relê lista e contagens', async () => {
-    dono.writeMaterialTracking.mockResolvedValue({ tipo: 'ok', status: 'material_enviado', emailSent: false })
+  // Feature `88` (Verifier r1, gap 1): o `ok` passou a devolver o `emailSent` do dono — sem ele, o
+  // gesto 6 dizia "o e-mail não saiu" com o e-mail entregue. Reescrito de `{ ok, reason }` para a forma
+  // nova, nos DOIS valores de `emailSent` (o caso antigo só tinha `false`, verdadeiro nos dois mundos).
+  it.each([true, false])('`ok` com `emailSent: %s` ⇒ `{ ok: true, reason: null, emailSent }` e relê lista e contagens', async (emailSent) => {
+    dono.writeMaterialTracking.mockResolvedValue({ tipo: 'ok', status: 'material_enviado', emailSent })
     const { result } = await montar()
     const antes = releituras()
 
@@ -315,7 +318,7 @@ describe('setMaterialTracking → writeMaterialTracking', () => {
       saida = await result.current.setMaterialTracking(ID, 'AA123456789BR')
     })
 
-    expect(saida).toEqual({ ok: true, reason: null })
+    expect(saida).toEqual({ ok: true, reason: null, emailSent })
     expect(releituras()).toEqual({ lista: antes.lista + 1, contagens: antes.contagens + 1 })
   })
 
@@ -324,7 +327,7 @@ describe('setMaterialTracking → writeMaterialTracking', () => {
     ['`recusado` com `reason: null`', { tipo: 'recusado', reason: null }, 'not_allowed'],
     ['`nao-permitido`', { tipo: 'nao-permitido' }, 'not_allowed'],
     ['`falhou`', { tipo: 'falhou', erro: { message: 'rede' } }, 'rpc_failed'],
-  ])('%s ⇒ `{ ok: false, reason: "%s" }`, sem releitura', async (_r, desfecho, reason) => {
+  ])('%s ⇒ `{ ok: false, reason: "%s", emailSent: false }`, sem releitura', async (_r, desfecho, reason) => {
     dono.writeMaterialTracking.mockResolvedValue(desfecho)
     const { result } = await montar()
     const antes = releituras()
@@ -334,7 +337,7 @@ describe('setMaterialTracking → writeMaterialTracking', () => {
       saida = await result.current.setMaterialTracking(ID, 'AA123456789BR')
     })
 
-    expect(saida).toEqual({ ok: false, reason })
+    expect(saida).toEqual({ ok: false, reason, emailSent: false })
     expect(releituras()).toEqual(antes)
   })
 })
@@ -374,5 +377,75 @@ describe('a mudança benigna declarada (§3.3): exceção SÍNCRONA do client vi
     })
 
     expect(saida).toEqual({ ok: false, reason: 'rpc_failed', emailSent: false })
+  })
+})
+
+// Feature `88` · T11 (`AVS-03`, `AVS-04`): cada escrita entrega a escolha da caixa ao dono, POR VALOR.
+// Ausente, a entrada é a de antes da `88` — nem a chave aparece.
+describe('avisarCliente chega ao dono (feature `88`)', () => {
+  it('updateStatus(…, avisarCliente: false) ⇒ `avisarCliente: false` na entrada', async () => {
+    dono.writeOrderStatus.mockResolvedValue({ tipo: 'ok', emailSent: false })
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.updateStatus(ID, 'shipped', undefined, false)
+    })
+    expect(dono.writeOrderStatus.mock.calls[0][1]).toEqual({ id: ID, to: 'shipped', from: 'paid', note: undefined, avisarCliente: false })
+    expect(dono.writeOrderStatus.mock.calls[0][1].avisarCliente).toBe(false)
+  })
+
+  it('addTrackingCode(…, avisarCliente: false) ⇒ `avisarCliente: false` na entrada', async () => {
+    dono.writeTrackingCode.mockResolvedValue({ tipo: 'ok', emailSent: false })
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.addTrackingCode(ID, 'AN123456789BR', 'Correios', false)
+    })
+    expect(dono.writeTrackingCode.mock.calls[0][1]).toEqual({ id: ID, code: 'AN123456789BR', carrier: 'Correios', avisarCliente: false })
+    expect(dono.writeTrackingCode.mock.calls[0][1].avisarCliente).toBe(false)
+  })
+
+  it('setMaterialStatus(…, false) ⇒ `avisarCliente: false` na entrada', async () => {
+    dono.writeMaterialStatus.mockResolvedValue({ tipo: 'ok', status: 'material_recebido', emailSent: false })
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.setMaterialStatus(ID, 'material_recebido', false)
+    })
+    expect(dono.writeMaterialStatus.mock.calls[0][1]).toEqual({ id: ID, to: 'material_recebido', avisarCliente: false })
+    expect(dono.writeMaterialStatus.mock.calls[0][1].avisarCliente).toBe(false)
+  })
+
+  it('setMaterialTracking(…, false) ⇒ `avisarCliente: false` na entrada', async () => {
+    dono.writeMaterialTracking.mockResolvedValue({ tipo: 'ok', status: 'material_enviado', emailSent: false })
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.setMaterialTracking(ID, 'AA123456789BR', false)
+    })
+    expect(dono.writeMaterialTracking.mock.calls[0][1]).toEqual({ id: ID, code: 'AA123456789BR', avisarCliente: false })
+    expect(dono.writeMaterialTracking.mock.calls[0][1].avisarCliente).toBe(false)
+  })
+
+  it('`true` também chega por valor (a caixa marcada é dita, não presumida)', async () => {
+    dono.writeOrderStatus.mockResolvedValue({ tipo: 'ok', emailSent: true })
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.updateStatus(ID, 'shipped', undefined, true)
+    })
+    expect(dono.writeOrderStatus.mock.calls[0][1].avisarCliente).toBe(true)
+  })
+
+  it('AUSENTE ⇒ a entrada das quatro escritas não tem a chave `avisarCliente` (a chamada de hoje)', async () => {
+    dono.writeOrderStatus.mockResolvedValue({ tipo: 'ok', emailSent: true })
+    dono.writeTrackingCode.mockResolvedValue({ tipo: 'ok', emailSent: true })
+    dono.writeMaterialStatus.mockResolvedValue({ tipo: 'ok', status: 'material_recebido', emailSent: true })
+    dono.writeMaterialTracking.mockResolvedValue({ tipo: 'ok', status: 'material_enviado', emailSent: true })
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.updateStatus(ID, 'shipped')
+      await result.current.addTrackingCode(ID, 'AN1', 'Correios')
+      await result.current.setMaterialStatus(ID, 'material_recebido')
+      await result.current.setMaterialTracking(ID, 'AA1')
+    })
+    for (const fn of [dono.writeOrderStatus, dono.writeTrackingCode, dono.writeMaterialStatus, dono.writeMaterialTracking]) {
+      expect(Object.keys(fn.mock.calls[0][1])).not.toContain('avisarCliente')
+    }
   })
 })

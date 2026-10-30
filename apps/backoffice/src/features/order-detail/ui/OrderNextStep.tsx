@@ -1,17 +1,26 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowRight, Info } from 'lucide-react'
-import { Button } from '@estrelinha/ui/button'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@estrelinha/ui/select'
 import { ORDER_STATUSES, STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
+import { isPickupOrder } from '@estrelinha/core/shipping'
+import { ActionButton } from '@/shared/ui'
 import { nextStep } from '../model/nextStep'
+import { gerundioDoStatus } from '../model/gerundio'
 import type { DbOrder } from '@estrelinha/supabase/types'
 
 interface Props {
   order: DbOrder
-  onAdvance: (status: string) => Promise<void>
+  /**
+   * A mudança de status. A promessa termina quando o gesto termina — gravado, ou desistido no diálogo
+   * de aviso —, e é isso que devolve o "Outro status" ao vazio (`AVS-05`).
+   */
+  onAdvance: (status: string, origem?: HTMLElement | null) => Promise<unknown>
+  /** Alguma gravação está em curso no pedido (`CRG-02`): o botão e o seletor ficam desabilitados. */
   busy?: boolean
+  /** O status que está sendo gravado agora — o botão dele mostra o gerúndio (`CRG-01`). */
+  gravando?: string | null
 }
 
 /**
@@ -24,9 +33,11 @@ interface Props {
  * O `Select` ao lado existe para os saltos que a máquina não prevê. Ele não é o caminho normal, e
  * por isso é secundário: o caminho normal é um botão só.
  */
-const OrderNextStep = ({ order, onAdvance, busy = false }: Props) => {
+const OrderNextStep = ({ order, onAdvance, busy = false, gravando = null }: Props) => {
   const passo = nextStep(order)
   const [outro, setOutro] = useState<string>('')
+  const gatilho = useRef<HTMLButtonElement>(null)
+  const retirada = isPickupOrder(order)
 
   if (!passo.status) {
     return (
@@ -50,14 +61,22 @@ const OrderNextStep = ({ order, onAdvance, busy = false }: Props) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* O seletor guarda a escolha enquanto o gesto corre (diálogo aberto ou gravação no ar) e
+              volta ao vazio quando ele termina — gravado ou desistido (`AVS-05`). */}
           <Select
             value={outro}
+            disabled={busy}
             onValueChange={async v => {
+              setOutro(v)
+              // Conserto do QA (foco): a opção escolhida some com a lista — o seletor é a ORIGEM do
+              // gesto, e é a ele que o foco volta quando o diálogo fecha sem gravar.
+              // A falha é de quem grava (o aviso de resultado); aqui só importa devolver o seletor ao
+              // vazio, e uma rejeição solta num manipulador de evento viraria erro não tratado.
+              await Promise.resolve(onAdvance(v, gatilho.current)).catch(() => undefined)
               setOutro('')
-              await onAdvance(v)
             }}
           >
-            <SelectTrigger className="h-11 w-[150px]">
+            <SelectTrigger ref={gatilho} className="h-11 w-[150px]" aria-label="Outro status">
               <SelectValue placeholder="Outro status" />
             </SelectTrigger>
             <SelectContent>
@@ -67,15 +86,17 @@ const OrderNextStep = ({ order, onAdvance, busy = false }: Props) => {
             </SelectContent>
           </Select>
 
-          <Button
-            className="min-h-[44px]"
+          <ActionButton
+            alvo44
             variant={passo.blockedReason ? 'outline' : 'default'}
             disabled={busy}
-            onClick={() => onAdvance(passo.status!)}
+            pending={gravando === passo.status}
+            pendingLabel={gerundioDoStatus(passo.status, retirada)}
+            onClick={e => onAdvance(passo.status!, e.currentTarget)}
           >
             {passo.blockedReason ? 'Avançar mesmo assim' : (passo.actionLabel ?? STATUS_LABELS[passo.status])}
             <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
+          </ActionButton>
         </div>
       </div>
     </section>

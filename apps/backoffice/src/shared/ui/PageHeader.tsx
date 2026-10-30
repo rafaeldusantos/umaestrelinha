@@ -2,9 +2,12 @@ import { ArrowLeft } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { ACOES_DO_CABECALHO } from './acoesDoCabecalho'
 
 interface Props {
   title: string
+  /** Ao lado do título — o selo "Atualizando…" da lista de pedidos (feature `88`, `CRG-12`). */
+  titleAside?: React.ReactNode
   subtitle?: string
   actions?: React.ReactNode
   icon?: LucideIcon
@@ -12,7 +15,7 @@ interface Props {
   className?: string
 }
 
-const PageHeader = ({ title, subtitle, actions, icon: Icon, backTo, className }: Props) => (
+const PageHeader = ({ title, titleAside, subtitle, actions, icon: Icon, backTo, className }: Props) => (
   <div className={cn('flex items-start justify-between gap-4 flex-wrap mb-6', className)}>
     <div className="flex items-center gap-3 min-w-0">
       {backTo && (
@@ -38,11 +41,18 @@ const PageHeader = ({ title, subtitle, actions, icon: Icon, backTo, className }:
         </div>
       )}
       <div className="min-w-0">
-        <h1 className="font-heading text-2xl font-bold text-foreground truncate">{title}</h1>
+        {titleAside ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="font-heading text-2xl font-bold text-foreground truncate">{title}</h1>
+            {titleAside}
+          </div>
+        ) : (
+          <h1 className="font-heading text-2xl font-bold text-foreground truncate">{title}</h1>
+        )}
         {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
     </div>
-    {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
+    {actions && <div className={ACOES_DO_CABECALHO}>{actions}</div>}
   </div>
 )
 

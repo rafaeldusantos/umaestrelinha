@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { DbOrder } from '@estrelinha/supabase/types'
 import { supabase } from '@estrelinha/supabase/client'
+import { DEFAULT_NOTIFICATIONS } from '@estrelinha/core/notifications'
 
 const { detailMock, reloadMock, updateStatusMock, materialState } = vi.hoisted(() => ({
   detailMock: vi.fn(),
@@ -46,6 +47,8 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.f
 vi.mock('@/features/pick-slip', () => ({ openPickSlips: vi.fn() }))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useMaterialSettings: () => materialState.value,
+  // Feature `88`: a página prevê o aviso pelas configurações de notificação — aqui, os padrões.
+  useNotificationSettings: () => DEFAULT_NOTIFICATIONS,
 }))
 
 import AdminOrderPage from './AdminOrderPage'

@@ -104,6 +104,11 @@ export type SkipReason =
   | 'no_provider'
   /** Feature `79`: nenhum aparelho quer o aviso — sem claim (`MAN-20`). Só no canal `push`. */
   | 'no_device'
+  /**
+   * Feature `88` (`AVS-04`, `AVS-10`): a Adri desmarcou "Avisar a cliente por e-mail". O e-mail da
+   * cliente que TERIA saído não sai, e a linha fica `skipped` (o avião do histórico o manda depois).
+   */
+  | 'admin_opt_out'
 
 export type SendResult =
   | { ok: true; event: NotificationEvent; channel: string; id: string }
@@ -127,6 +132,12 @@ export interface DispatchTriggerOptions {
   orderId: string
   trigger: NotificationTrigger
   budgetMs?: number
+  /**
+   * Feature `88` (`A-04`): `false` ⇒ os eventos de público `customer` deste gatilho NÃO são enviados —
+   * cada um que teria saído vira linha `skipped`. Os eventos `owner` (e-mail e celular) saem como
+   * sempre. Ausente ou `true` ⇒ o motor de antes. Só a porta `trigger` (admin) a repassa.
+   */
+  customer?: boolean
 }
 
 export interface DispatchEventOptions {
@@ -259,6 +270,7 @@ async function deliver(
   order: any,
   settings: Settings,
   deadline: number,
+  pular = false,
 ): Promise<SendResult> {
   const channel = provider.channel
   const base = { action: 'send-notification', order_id: order.id, event, channel }
@@ -273,6 +285,28 @@ async function deliver(
   if ('skipped' in destino) {
     log({ ...base, status: 'skipped', skipped: destino.skipped })
     return { ok: false, event, channel, skipped: destino.skipped }
+  }
+
+  // Feature `88` — o modo PULAR: as MESMAS checagens até aqui (ligado, destinatário; o remetente e a
+  // pré-condição em `forEmail`), e no lugar do claim a gravação `skipped`. Só chega aqui o e-mail que
+  // teria saído; o que não sairia não grava nada (`AVS-10`). `null` ⇒ já `sent` (ou `pending`):
+  // nada a pular, como o claim faz. Nunca lança: o pedido já foi gravado por quem chamou.
+  if (pular) {
+    const { data: skipId, error: skipError } = await deps.supabase.rpc('skip_order_notification', {
+      p_order_id: order.id,
+      p_event: event,
+      p_channel: channel,
+    })
+    if (skipError) {
+      log({ ...base, status: 'skip_failed', message: String(skipError.message ?? skipError) })
+      return { ok: false, event, channel, reason: 'skip_failed' }
+    }
+    if (!skipId) {
+      log({ ...base, status: 'already_sent' })
+      return { ok: false, event, channel, skipped: 'already_sent' }
+    }
+    log({ ...base, status: 'skipped', skipped: 'admin_opt_out' })
+    return { ok: false, event, channel, skipped: 'admin_opt_out' }
   }
 
   // Reivindicação ATÔMICA antes do envio. `null` ⇒ já foi enviado; ver a migration para o porquê de
@@ -387,7 +421,9 @@ export async function dispatchTrigger(
     for (const event of eventsForTrigger(options.trigger, order)) {
       // `comPush`: a metade do aviso no celular só existe pelo GATILHO. O reenvio (`dispatchEvent`)
       // nunca chega a ela — push perdido não volta (`MAN-38`).
-      saida.push(...(await forEvent(deps, event, order, settings, deadline, undefined, true)))
+      // `pular` (feature `88`): só os eventos da CLIENTE, e só com `customer: false` explícito.
+      const pular = options.customer === false && EVENT_AUDIENCE[event] === 'customer'
+      saida.push(...(await forEvent(deps, event, order, settings, deadline, undefined, true, pular)))
     }
     return saida
   }).catch(() => ({ found: false, results: [] as SendResult[] }))
@@ -441,8 +477,9 @@ async function forEvent(
   deadline: number,
   channel?: string,
   comPush = false,
+  pular = false,
 ): Promise<SendResult[]> {
-  const saida = await forEmail(deps, event, order, settings, deadline, channel)
+  const saida = await forEmail(deps, event, order, settings, deadline, channel, pular)
   if (comPush && isPushEvent(event)) {
     const push = await forPush(deps, event, order, deadline)
     if (push) saida.push(push)
@@ -502,6 +539,7 @@ async function forEmail(
   settings: Settings,
   deadline: number,
   channel?: string,
+  pular = false,
 ): Promise<SendResult[]> {
   const base = { action: 'send-notification', order_id: order.id, event }
 
@@ -526,6 +564,6 @@ async function forEmail(
   }
 
   const saida: SendResult[] = []
-  for (const provider of canais) saida.push(await deliver(deps, provider, event, order, settings, deadline))
+  for (const provider of canais) saida.push(await deliver(deps, provider, event, order, settings, deadline, pular))
   return saida
 }

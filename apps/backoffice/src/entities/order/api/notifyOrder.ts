@@ -1,6 +1,6 @@
 import { supabase } from '@estrelinha/supabase'
 import type { NotificationEvent, NotificationTrigger } from '@estrelinha/core/notifications'
-import { triggerOrderNotification } from '@estrelinha/core/order-actions'
+import { triggerOrderNotification, type NotifyOptions } from '@estrelinha/core/order-actions'
 
 /**
  * Conta à `send-notification` que **algo aconteceu** com um pedido (`AD-032`).
@@ -18,11 +18,18 @@ import { triggerOrderNotification } from '@estrelinha/core/order-actions'
  * recebe 422; quem fecha o par produz o e-mail. Nada aqui deve virar toast de erro; quem quer saber
  * o motivo olha o histórico do pedido, que agora mostra cada tentativa.
  */
-export async function notifyOrder(orderId: string, trigger: NotificationTrigger): Promise<boolean> {
+export async function notifyOrder(
+  orderId: string,
+  trigger: NotificationTrigger,
+  opcoes?: NotifyOptions,
+): Promise<boolean> {
   // Feature `75` (`AD-059`): o disparo subiu para `@estrelinha/core/order-actions`, com o client
   // RECEBIDO — o app do ateliê dispara o mesmo fato pela mesma porta. Este invólucro fica para os
   // chamadores do painel (e para o dono receber como `notify`).
-  return triggerOrderNotification(supabase, orderId, trigger)
+  //
+  // Feature `88` (`AVS-04`): `opcoes` é a escolha da caixa — `{ cliente: false }` vira `customer: false`
+  // no corpo. Sem ela, o corpo de sempre.
+  return triggerOrderNotification(supabase, orderId, trigger, opcoes)
 }
 
 /**
@@ -44,5 +51,32 @@ export async function resendNotification(
     return data?.sent === true
   } catch {
     return false
+  }
+}
+
+/**
+ * Feature `88` (`AVS-13`, `A-13`): o desfecho do avião do histórico, com o motivo — a mesma porta de
+ * `resendNotification`, lida por inteiro. `'desligado'` é o evento desligado em Notificações (o motor
+ * responde `skipped: 'disabled'`); `'estado'` é a pré-condição que deixou de valer (422). A linha
+ * `skipped` continua `skipped` nos três desfechos que não são `'enviado'`.
+ */
+export type ResendOutcome = 'enviado' | 'desligado' | 'estado' | 'falhou'
+
+export async function resendNotificationOutcome(
+  orderId: string,
+  event: NotificationEvent,
+  channel: 'email' = 'email',
+): Promise<ResendOutcome> {
+  try {
+    const { data, error } = await supabase.functions.invoke('send-notification?action=send', {
+      body: { order_id: orderId, event, channel },
+    })
+    if (data?.sent === true) return 'enviado'
+    if (data?.skipped === 'disabled') return 'desligado'
+    const status = (error as { context?: { status?: number } } | null)?.context?.status
+    if (status === 422) return 'estado'
+    return 'falhou'
+  } catch {
+    return 'falhou'
   }
 }

@@ -2,6 +2,7 @@
 
 export type {
   AppActionOutcome,
+  NotifyOptions,
   MaterialOutcome,
   MaterialTrackingOutcome,
   OrderWriteClient,

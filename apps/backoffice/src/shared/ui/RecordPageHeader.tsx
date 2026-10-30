@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
+import { ACOES_DO_CABECALHO } from './acoesDoCabecalho'
 
 /**
  * O cabeçalho das telas de **registro** — o pedido e a ficha da cliente (feature 34).
@@ -78,7 +79,7 @@ const RecordPageHeader = ({
         </div>
       </div>
 
-      {actions && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className={ACOES_DO_CABECALHO}>{actions}</div>}
     </div>
   </header>
 )

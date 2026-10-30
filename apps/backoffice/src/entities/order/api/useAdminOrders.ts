@@ -130,7 +130,14 @@ export const useAdminOrders = () => {
     return data ?? []
   }
 
-  const updateStatus = async (id: string, status: string, note?: string) => {
+  /**
+   * Feature `88` (`AVS-03`, `AVS-04`): `avisarCliente` é a caixa "Avisar a cliente por e-mail" das
+   * quatro escritas abaixo. `false` ⇒ o gatilho sai sem os e-mails da cliente; ausente ⇒ a entrada do
+   * dono é a de antes da `88`, sem a chave.
+   */
+  const comEscolha = (avisarCliente: boolean | undefined) => (avisarCliente === undefined ? {} : { avisarCliente })
+
+  const updateStatus = async (id: string, status: string, note?: string, avisarCliente?: boolean) => {
     // Feature `75` (`AD-059`): a escrita mora em `@estrelinha/core/order-actions`, que o app do ateliê
     // também chama. A sequência é a de sempre — update, histórico, `order_status_changed` —, com o
     // efeito conferido por `.select('id')`.
@@ -139,14 +146,14 @@ export const useAdminOrders = () => {
     // aviso é no-op silencioso — ele sai quando `addTrackingCode` completar o par. O gatilho é
     // `order_status_changed` para TODO status (`AD-032`): quais status têm aviso é decisão de `core`.
     const from = orders.find(o => o.id === id)?.status
-    const r = await writeOrderStatus({ client: supabase, notify: notifyOrder }, { id, to: status, from, note })
+    const r = await writeOrderStatus({ client: supabase, notify: notifyOrder }, { id, to: status, from, note, ...comEscolha(avisarCliente) })
     if (r.tipo !== 'ok') return falhaDaEscrita(r)
     await fetchOrders()
     await fetchStatusCounts()
     return { error: null, emailSent: r.emailSent }
   }
 
-  const cancelOrder = async (id: string, reason: string) => {
+  const cancelOrder = async (id: string, reason: string, avisarCliente?: boolean) => {
     const currentOrder = orders.find(o => o.id === id)
     const { error } = await supabase.from('orders').update({ status: 'cancelled', cancel_reason: reason }).eq('id', id)
     if (!error) {
@@ -159,18 +166,33 @@ export const useAdminOrders = () => {
       // Feature 42: o cancelamento deixou de ser mudo. `order_cancelled` nasce DESLIGADO, então até
       // a Adri ligar em `/admin/configuracoes` → Notificações isto é um no-op — e o contido de
       // sempre: falha de aviso não desfaz o cancelamento.
-      await notifyOrder(id, 'order_status_changed')
+      //
+      // Feature `88` (`AVS-09`): com a caixa desmarcada o gatilho sai com `{ cliente: false }`; sem a
+      // escolha, a chamada de sempre, com dois argumentos. A escrita acima não muda.
+      //
+      // Feature `88` · T23 (`AVS-07`): devolve o `emailSent` do aviso — o mesmo booleano das outras
+      // escritas —, para a página dizer o desfecho real em vez de mandar conferir o histórico.
+      const emailSent = avisarCliente === false
+        ? await notifyOrder(id, 'order_status_changed', { cliente: false })
+        : await notifyOrder(id, 'order_status_changed')
       await fetchOrders()
       await fetchStatusCounts()
+      return { error: null, emailSent }
     }
-    return error
+    return { error, emailSent: false }
   }
 
-  const addTrackingCode = async (id: string, trackingCode: string, carrier: string) => {
+  const addTrackingCode = async (id: string, trackingCode: string, carrier: string, avisarCliente?: boolean) => {
     // O outro lado do par (TRG-12), tentado SEMPRE pelo dono: se o pedido já está `shipped`, salvar o
-    // rastreio é o que completa e dispara. Cobre também o caminho do Melhor Envio, que grava o rastreio
-    // sem tocar em `status`. O painel não normaliza nem valida o código (A8 vale só no app).
-    const r = await writeTrackingCode({ client: supabase, notify: notifyOrder }, { id, code: trackingCode, carrier })
+    // rastreio é o que completa e dispara. O painel não normaliza nem valida o código (A8 vale só no app).
+    //
+    // NÃO cobre o caminho do Melhor Envio (feature `88`, `A-08`): a etiqueta grava o rastreio pela edge
+    // function `melhor-envio`, sem passar por aqui e sem disparar gatilho nenhum — um pedido já
+    // `shipped` que ganha o rastreio pela etiqueta nunca manda "Pedido postado" (`BL-061`).
+    const r = await writeTrackingCode(
+      { client: supabase, notify: notifyOrder },
+      { id, code: trackingCode, carrier, ...comEscolha(avisarCliente) },
+    )
     if (r.tipo !== 'ok') return falhaDaEscrita(r)
     await fetchOrders()
     return { error: null, emailSent: r.emailSent }
@@ -183,11 +205,11 @@ export const useAdminOrders = () => {
    * idempotente sob concorrência: duas admins clicando ao mesmo tempo convergem para o resultado de
    * uma só. Um `update` daqui contornaria a máquina de estado inteira.
    */
-  const setMaterialStatus = async (id: string, status: string) => {
+  const setMaterialStatus = async (id: string, status: string, avisarCliente?: boolean) => {
     // A RPC e o aviso moram no dono (`writeMaterialStatus`). O aviso é contido (MAT-09 + AD-008):
     // falha de envio não reverte o estado nem vira erro para a admin. A tradução do desfecho para a
     // forma de retorno de sempre é a tabela do design da `75` (§3.3).
-    const r = await writeMaterialStatus({ client: supabase, notify: notifyOrder }, { id, to: status })
+    const r = await writeMaterialStatus({ client: supabase, notify: notifyOrder }, { id, to: status, ...comEscolha(avisarCliente) })
     switch (r.tipo) {
       case 'ok':
         await fetchOrders()
@@ -208,24 +230,26 @@ export const useAdminOrders = () => {
    * A **mesma** RPC que a loja chama: cliente e admin fazem a mesma coisa, e duas funções seriam
    * duas máquinas de estado que divergem no primeiro ajuste.
    */
-  const setMaterialTracking = async (id: string, code: string) => {
+  const setMaterialTracking = async (id: string, code: string, avisarCliente?: boolean) => {
     // Feature `82` (`ENV-14`): a RPC e o aviso moram no dono (`writeMaterialTracking`), o mesmo que o
     // app do ateliê chama. O gatilho é o MESMO que a loja dispara quando a própria cliente registra
     // (`NTF-13`): dois gatilhos para o mesmo fato seriam duas mensagens para a mesma cliente. A
     // tradução devolve a forma de sempre: `ok: false` sem motivo continua `not_allowed`, e a falha
     // continua `rpc_failed` (a exceção síncrona do client também, como em `setMaterialStatus`).
-    const r = await writeMaterialTracking({ client: supabase, notify: notifyOrder }, { id, code })
+    const r = await writeMaterialTracking({ client: supabase, notify: notifyOrder }, { id, code, ...comEscolha(avisarCliente) })
     switch (r.tipo) {
       case 'ok':
         await fetchOrders()
         await fetchStatusCounts()
-        return { ok: true, reason: null }
+        // Feature `88` (Verifier r1, `AVS-07`): sem o `emailSent` do dono, o gesto dizia "o e-mail
+        // não saiu" com o e-mail da cliente entregue.
+        return { ok: true, reason: null, emailSent: r.emailSent }
       case 'recusado':
-        return { ok: false, reason: r.reason ?? 'not_allowed' }
+        return { ok: false, reason: r.reason ?? 'not_allowed', emailSent: false }
       case 'nao-permitido':
-        return { ok: false, reason: 'not_allowed' }
+        return { ok: false, reason: 'not_allowed', emailSent: false }
       default:
-        return { ok: false, reason: 'rpc_failed' }
+        return { ok: false, reason: 'rpc_failed', emailSent: false }
     }
   }
 

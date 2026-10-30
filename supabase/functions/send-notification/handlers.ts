@@ -21,6 +21,7 @@
 import {
   type NotificationEvent,
   CUSTOMER_TRIGGERS,
+  EVENT_AUDIENCE,
   isNotificationEvent,
   isNotificationTrigger,
   notificationDraftRefusal,
@@ -136,7 +137,8 @@ export async function send(deps: Deps, req: Request, body: any): Promise<Respons
 export async function trigger(deps: Deps, req: Request, body: any): Promise<Response> {
   const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
-  return await runTrigger(deps, body)
+  // Feature `88`: só esta porta (admin) pode pular os e-mails da cliente (`customer: false`).
+  return await runTrigger(deps, body, { podePularCliente: true })
 }
 
 // ACTION: notify — a porta da CLIENTE. Mesmo motor, autorização por dono do pedido, e um recorte
@@ -152,10 +154,16 @@ export async function notify(deps: Deps, req: Request, body: any): Promise<Respo
     return json({ error: `trigger não permitido nesta porta: ${String(body?.trigger)}` }, 400)
   }
 
-  return await runTrigger(deps, body)
+  // Feature `88`: a cliente NÃO pode suprimir o próprio e-mail nem gravar `skipped` — `customer` do
+  // corpo é ignorado aqui, e o gatilho sai inteiro.
+  return await runTrigger(deps, body, { podePularCliente: false })
 }
 
-async function runTrigger(deps: Deps, body: any): Promise<Response> {
+/**
+ * `podePularCliente` (feature `88`, `AVS-04`): só a porta `trigger` (admin) repassa `customer: false`
+ * ao motor. Qualquer outro valor do campo, ou a porta da cliente, dispara o gatilho de sempre.
+ */
+async function runTrigger(deps: Deps, body: any, opcoes: { podePularCliente: boolean }): Promise<Response> {
   if (!isNotificationTrigger(body?.trigger)) {
     return json({ error: `trigger inválido: ${String(body?.trigger)}` }, 400)
   }
@@ -163,11 +171,16 @@ async function runTrigger(deps: Deps, body: any): Promise<Response> {
   const orderId = orderIdOf(body)
   if (!orderId) return json({ error: 'order_id ausente ou não é um uuid' }, 400)
 
-  const report = await dispatchTrigger(deps, { orderId, trigger: body.trigger })
+  const pular = opcoes.podePularCliente && body?.customer === false
+  const report = await dispatchTrigger(deps, { orderId, trigger: body.trigger, ...(pular ? { customer: false } : {}) })
   if (!report.orderFound) return json({ error: 'Pedido não encontrado' }, 404)
 
   return json({
     sent: report.results.some((r) => r.ok),
+    // Feature `88` (Verifier r1, `AVS-07`): `sent` conta também o aviso à DONA. O painel diz "a cliente
+    // foi avisada" por ESTE campo, que só conta e-mail de público `customer`. `sent` fica como está
+    // para quem já o lê.
+    customer_sent: report.results.some((r) => r.ok && EVENT_AUDIENCE[r.event] === 'customer'),
     trigger: report.trigger,
     results: report.results,
   })

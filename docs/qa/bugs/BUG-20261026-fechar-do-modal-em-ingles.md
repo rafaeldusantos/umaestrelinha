@@ -5,7 +5,7 @@
 - **Severity:** Low · **Priority:** P3
 - **Persona Affected:** Adri cadastrando peças
 - **Journey Step:** J-cadastrar-peca-com-variacoes, modal de imagem
-- **Scenarios:** PNL-variacoes-imagem-na-linha-e-envio; PNL-menu-teclado-foco-e-nomes
+- **Scenarios:** PNL-variacoes-imagem-na-linha-e-envio; PNL-menu-teclado-foco-e-nomes; PNL-aviso-teclado-e-leitor
 - **Found:** 2026-10-26 · **Report:** docs/qa/reports/2026-10-26-opcoes-e-variacoes.md
 
 ## Summary
@@ -43,3 +43,14 @@ Ciclo de QA da 85 (`reports/2026-10-28-backoffice-resumo-com-imagens.md`). O X d
 
 Ciclo de QA da 86 (`reports/2026-10-28-backoffice-menu-montado-pela-dona.md`). O X do seletor "Adicionar item ao menu" e do editor "Editar “…”" em `/admin/menu`
 se anuncia "Close" e mede 16 × 16 (1440 e 390). Cenário acrescentado: PNL-menu-teclado-foco-e-nomes.
+
+## Re-found (2026-10-30)
+
+Nos diálogos novos da feature `88` — o de aviso (`NoticeDialog`), o do lote e o de cancelamento — o X
+continua anunciando "Close" e mede 16 × 16 (21 × 21 a 130 %). Cenário: `PNL-aviso-teclado-e-leitor`.
+Relatório: `reports/2026-10-30-backoffice-aviso-opcional-nos-pedidos.md`.
+
+## Re-found (2026-10-30, reteste da 88)
+
+- Adri despachando pedidos, Chromium 1440×900 · **Report:** reports/2026-10-30-backoffice-aviso-opcional-nos-pedidos-reteste.md
+- O diálogo de aviso ("Mudar para Enviado"), o de cancelamento e o do lote ainda terminam com o botão "Close" (lido no `innerText` do diálogo). Fora do conserto do QA da 88, como o `tasks.md` declara.

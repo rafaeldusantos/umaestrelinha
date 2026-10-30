@@ -284,6 +284,24 @@ dos quinze. Ligar um dos onze continua sendo ato explícito da Adri, feito ali �
   apaga a inscrição dele. Sem `VAPID_KEYS`/`VAPID_SUBJECT` o ramo registra `no_provider` e o e-mail segue.
   A porta `send` recusa `channel: 'push'`. A biblioteca (`jsr:@negrel/webpush@0.5.0`) é importada só por
   `_shared/webPush.ts` (`pushSoNoMotor.test.ts`). A `mercado-pago` passa `push` ao motor no `fireTrigger`.
+- **A cliente pode ficar sem o e-mail, por escolha da Adri** (feature `88`, `AD-069`). `?action=trigger`
+  (admin) aceita `customer: false` no corpo — só o booleano `false` conta; a porta `notify` (a dona do
+  pedido) **ignora** o campo (`runTrigger(deps, body, { podePularCliente })`). Com ele, cada evento de
+  público `customer` que **teria saído** (mesmas checagens de `deliver`: remetente, pré-condição, ligado,
+  destinatário) é gravado como `skipped` pela RPC `skip_order_notification` (`security definer`,
+  `execute` só da `service_role`) no lugar do claim, sem chamar o Resend; os eventos `owner` do mesmo
+  gatilho saem como sempre (e-mail e push). O upsert só converte `failed`/`skipped`: `sent` e `pending`
+  ficam (devolve `null` ⇒ `already_sent`). **`skipped` é reivindicável** como `failed` — o `claim` não
+  mudou (`<> 'sent'`), e é isso que faz o avião do histórico (`action=send`) e o próximo gatilho normal
+  converterem a MESMA linha. O `check` de `status` foi recriado na migration
+  `20261102120000_88-aviso-pulado.sql` (guarda `avisoPuladoSchema`, probes `01-aviso-pulado.sql` e
+  `02-motor.sh` na pasta da feature). ⚠️ Com `customer: false` o motor responde `sent: true` quando o
+  aviso à DONA saiu: quem mostra o desfecho decide pela caixa, nunca só por `emailSent`. **Desde o conserto r1
+  do Verifier, a resposta do `trigger` traz também `customer_sent`** (algum `ok` de público `customer`),
+  e é ele que o painel lê como `emailSent`; `sent` ficou igual. Ao virar `skipped`, a RPC renova
+  `created_at` (a linha do histórico mostra a hora da escolha). **Ordem de
+  publicação: migration → function → bundle do painel** — bundle novo com motor velho ignoraria o campo e
+  mandaria o e-mail que a Adri desmarcou.
 - Secrets: `RESEND_API_KEY`, `RESEND_SENDER_NAME`, `RESEND_SENDER_EMAIL`, `STORE_PUBLIC_URL` (origem **da loja**, não do Supabase),
   `RESEND_DEV_REDIRECT_TO`.
 

@@ -211,3 +211,43 @@ describe('buildHistory — o envelope da cliente (feature `82`, ENV-21)', () => 
     expect(tres).toHaveLength(3)
   })
 })
+
+/**
+ * Feature `88` (`AVS-12`): a linha `skipped` — a Adri escolheu não avisar a cliente. Não é falha: o
+ * título diz que o aviso não foi enviado e nomeia o EVENTO (`NOTIFICATION_EVENT_NAMES`), o detalhe diz
+ * que foi escolha, e a linha carrega o evento e o canal para o avião (a porta `send`) mandá-lo depois.
+ */
+describe('buildHistory — o aviso que a Adri escolheu não mandar (feature 88)', () => {
+  it('`skipped` ⇒ "Aviso à cliente não enviado: <nome>", "Você escolheu não avisar", e os campos do avião', () => {
+    const [e] = buildHistory([], [em({ id: 'p1', event: 'order_shipped', status: 'skipped', sent_at: null, created_at: '2026-10-05T12:00:00Z' })], [])
+    expect(e).toEqual({
+      id: 'email-p1',
+      kind: 'email',
+      at: '2026-10-05T12:00:00Z',
+      title: `Aviso à cliente não enviado: ${NOTIFICATION_EVENT_NAMES.order_shipped}`,
+      detail: 'Você escolheu não avisar',
+      emailSent: false,
+      emailSkipped: true,
+      emailType: 'order_shipped',
+      emailChannel: 'email',
+    })
+  })
+
+  it.each(NOTIFICATION_EVENTS)('`skipped` de %s nomeia o evento, e não é a frase de falha', (event) => {
+    const [e] = buildHistory([], [em({ event, status: 'skipped', sent_at: null })], [])
+    expect(e.title).toBe(`Aviso à cliente não enviado: ${NOTIFICATION_EVENT_NAMES[event]}`)
+    expect(e.title).not.toMatch(/^Falha/)
+  })
+
+  it('o `error` que sobrou da falha anterior não vaza para o detalhe (a RPC o limpa; a frase é a da escolha)', () => {
+    const [e] = buildHistory([], [em({ status: 'skipped', sent_at: null, error: 'resend 500' })], [])
+    expect(e.detail).toBe('Você escolheu não avisar')
+  })
+
+  it('a falha continua sem `emailSkipped`, e a enviada também', () => {
+    const [falhou] = buildHistory([], [em({ status: 'failed', sent_at: null })], [])
+    const [saiu] = buildHistory([], [em({})], [])
+    expect(falhou.emailSkipped).toBeUndefined()
+    expect(saiu.emailSkipped).toBeUndefined()
+  })
+})

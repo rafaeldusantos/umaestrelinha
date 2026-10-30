@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarIcon, Columns3, Download, Eye, MessageCircle, Printer, Search, ShoppingCart } from 'lucide-react'
+import { CalendarIcon, Columns3, Download, Eye, Loader2, MessageCircle, Printer, Search, ShoppingCart, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
 import { formatPrice, formatRelativeDate } from '@estrelinha/core/formatters'
 import { formatOrderNumber } from '@estrelinha/core/orders'
-import { MATERIAL_STATUS_LABELS, queueAge, queueAgeLabel, toMaterialStatus } from '@estrelinha/core/material'
+import {
+  MATERIAL_STATUS_LABELS, materialTransitionRefusal, queueAge, queueAgeLabel, toMaterialStatus,
+} from '@estrelinha/core/material'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Checkbox } from '@estrelinha/ui/checkbox'
@@ -16,6 +19,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@estrelinha/ui/select'
 import { cn } from '@estrelinha/ui/lib/utils'
+import {
+  customerNoticeFor,
+  NOTIFICATION_EVENT_NAMES,
+  type CustomerNotice,
+  type NotificationEvent,
+  type NotificationTrigger,
+} from '@estrelinha/core/notifications'
+import { useNotificationSettings } from '@estrelinha/core/hooks/useStoreSettings'
 
 import { useAdminOrders, ORDER_STATUSES, STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
 import { useAdminOrderList } from '@/entities/order/api/useAdminOrderList'
@@ -45,7 +56,13 @@ import QueueAge from '@/entities/order/ui/QueueAge'
 import OrderFilterChips from '@/features/order-list/ui/OrderFilterChips'
 import OrderBulkBar from '@/features/order-list/ui/OrderBulkBar'
 import QueueTiles from '@/features/order-list/ui/QueueTiles'
-import { runMaterialBulk, bulkSummary } from '@/features/order-list/model/bulkMaterial'
+import {
+  BULK_LIMIT, NEXT_STATUS, bulkSummary, runMaterialBulk, runStatusBulk, type BulkOutcome,
+} from '@/features/order-list/model/bulkMaterial'
+import type { BulkProgress } from '@/features/order-list/ui/OrderBulkBar'
+import { fetchSentEmails, SENT_EMAILS_READ_FAILED } from '@/entities/order/api/sentEmails'
+import { useGestoComAviso } from '@/features/order-notice'
+import { devolverFoco, tituloDaPagina } from '@/shared/lib/foco'
 import { rowSummary } from '@/features/order-list/model/rowSummary'
 import {
   ORDER_LIST_COLUMNS, isOrderColumnVisible, useOrderColumnPrefs,
@@ -56,7 +73,9 @@ import {
   ORDER_PAGE_SIZES, orderListHref, orderQueryFromParams, orderQueryToParams,
 } from '@/features/order-list/model/queryUrl'
 import { openPickSlips } from '@/features/pick-slip'
-import { PageHeader, AdminTable, Pagination, type AdminColumn } from '@/shared/ui'
+import {
+  ActionButton, AdminTable, CardSkeleton, PageHeader, Pagination, TableSkeleton, type AdminColumn,
+} from '@/shared/ui'
 
 /**
  * A listagem de pedidos — `PED-04`..`PED-23`.
@@ -107,7 +126,28 @@ const AdminOrdersPage = () => {
   const { setMaterialStatus, updateStatus } = useAdminOrders()
   const {
     rows, total, loading, error, viewCounts, tileCounts, oldestWaitingAt, refetch, fetchAllFiltered,
+    revalidando, contando,
   } = useAdminOrderList(query)
+
+  // Feature `88`: a previsão do aviso (`A-01`) — as configurações de notificação (os padrões enquanto
+  // a leitura não chega, os mesmos do motor). O que cada cliente JÁ recebeu é lido só ao acionar o
+  // lote ou o cartão (`fetchSentEmails`), numa consulta.
+  const notificacoes = useNotificationSettings()
+  const gesto = useGestoComAviso({ settings: notificacoes, enviados: NADA_ENVIADO })
+  // `CRG-10`: o lote em curso. Enquanto ele corre, a barra vira o progresso e o resto fica desabilitado.
+  const [progresso, setProgresso] = useState<BulkProgress | null>(null)
+  // O cartão do celular que está lendo os envios antes de decidir se pergunta (`AVS-21`).
+  const [lendoCartao, setLendoCartao] = useState<string | null>(null)
+  // Conserto do QA (`BUG-20261030-resumo-do-lote-some-em-quatro-segundos`): o resumo do lote FICA na
+  // lista, numa região `status`, até a Adri dispensar — o aviso flutuante sumia em ~4 s. Ele é o único
+  // anúncio do desfecho (sem toast junto), e recebe o foco: a barra de onde o lote saiu some com a
+  // seleção.
+  const [resumoDoLote, setResumoDoLote] = useState<{ texto: string; falhou: boolean } | null>(null)
+  const caixaDoResumo = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (resumoDoLote) caixaDoResumo.current?.focus()
+  }, [resumoDoLote])
+  const ocupado = busy || progresso !== null || gesto.pendente !== null || gesto.ocupado || lendoCartao !== null
 
   // `PED-10` — debounce de 300 ms. Sem ele, cada tecla dispara uma consulta paginada mais seis
   // contagens; com a busca alcançando cinco colunas, isso é sete `ilike` por caractere.
@@ -194,34 +234,178 @@ const AdminOrdersPage = () => {
 
   const selecionadas = [...selection.values()]
 
-  const marcarMaterialRecebido = async () => {
+  /**
+   * Feature `88` — os dois lotes (`AVS-19`, `AVS-20`, `CRG-10`, `CRG-11`).
+   *
+   * Uma leitura dos envios dos selecionados; a previsão de cada pedido no estado de destino; com algum
+   * e-mail previsto, o portão do lote (uma pergunta para todos); sem nenhum, grava direto. Ao confirmar,
+   * o diálogo fecha e o progresso aparece NA barra — é lá que a Adri clicou.
+   */
+  const acionarLote = async (tipo: TipoDeLote) => {
+    const alvo = selecionadas.slice(0, BULK_LIMIT)
+    if (alvo.length === 0) return
+    setResumoDoLote(null)
     setBusy(true)
-    const resultado = await runMaterialBulk(selecionadas, 'material_recebido', (id, status) =>
-      setMaterialStatus(id, status).then(r => ({ ok: r.ok, reason: r.reason })),
-    )
-    setBusy(false)
-    setSelection(new Map())
-    await refetch()
+    let enviados: Map<string, Set<NotificationEvent>>
+    try {
+      enviados = await fetchSentEmails(alvo.map(r => r.id))
+    } catch {
+      gesto.informar('error', SENT_EMAILS_READ_FAILED)
+      return
+    } finally {
+      setBusy(false)
+    }
 
-    // Recusa NÃO é erro: é o caso esperado quando outra aba já atualizou o pedido.
-    const resumo = bulkSummary(resultado)
-    if (resultado.failed > 0) toast.error(resumo)
-    else toast.success(resumo)
+    const plano = planejarLote(tipo, alvo, notificacoes, enviados)
+    const mudam = plano.filter(p => p.alvo)
+    const comEmail = mudam.filter(p => p.aviso.send.length > 0)
+    const previstos = new Set(comEmail.map(p => p.row.id))
+
+    // `AVS-20` — nenhum e-mail sairia: grava sem diálogo, como um gesto de um pedido (`A-10`).
+    if (comEmail.length === 0) {
+      void correrLote(tipo, alvo, { perguntou: false, avisar: true, previstos })
+      return
+    }
+
+    const ficam = plano.length - mudam.length
+    const um = tipo === 'avancar' ? 'pedido' : 'recebimento'
+    gesto.pedir({
+      // Conserto do QA (paper cut): o título diz o mesmo número que o botão — os que MUDAM. Com "Avançar
+      // 50" no título e "Avançar 48" no botão, a Adri não sabia qual dos dois ia acontecer.
+      titulo: tipo === 'avancar'
+        ? `Avançar ${mudam.length} ${mudam.length === 1 ? 'pedido' : 'pedidos'}`
+        : `Registrar o material de ${mudam.length} ${mudam.length === 1 ? 'pedido' : 'pedidos'}`,
+      mudanca: `${mudam.length} ${mudam.length === 1 ? 'muda' : 'mudam'}${
+        ficam > 0
+          ? ` · ${ficam} ${ficam === 1 ? 'fica' : 'ficam'} como ${ficam === 1 ? 'está' : 'estão'} (${
+              tipo === 'avancar' ? 'já no fim do caminho' : 'material já registrado ou sem material'
+            })`
+          : ''
+      }.`,
+      confirmar: `${tipo === 'avancar' ? 'Avançar' : 'Registrar'} ${mudam.length} ${um}${mudam.length === 1 ? '' : 's'}`,
+      gerundio: 'Preparando…',
+      lote: { comEmail: comEmail.length },
+      eventos: contarEventos(comEmail.map(p => p.aviso.send)),
+      jaRecebeu: fraseJaRecebeu(mudam.map(p => p.aviso)),
+      extra: (
+        <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border p-2 text-sm" aria-label="O que muda">
+          {mudam.map(p => (
+            <li key={p.row.id} className="flex min-w-0 flex-wrap gap-x-2">
+              <span className="font-medium">{formatOrderNumber(p.row.order_number)}</span>
+              <span className="min-w-0 truncate">{p.row.customer_name}</span>
+              <span className="text-muted-foreground">
+                {tipo === 'avancar'
+                  ? `${STATUS_LABELS[p.row.status] ?? p.row.status} → ${STATUS_LABELS[p.alvo] ?? p.alvo}`
+                  : 'material recebido'}
+                {p.aviso.send.length > 0 ? ' · e-mail' : p.aviso.alreadySent.length > 0 ? ' · já avisada' : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ),
+      // CRG-07, exceção do lote (declarada na spec, Verifier r1): o diálogo fecha ao confirmar, porque
+      // o andamento aparece na barra de lote (CRG-10), que o diálogo cobriria; o desfecho vai no
+      // resumo (CRG-11).
+      executar: async (avisar) => {
+        void correrLote(tipo, alvo, { perguntou: true, avisar, previstos })
+        return null
+      },
+    })
   }
 
-  const avancarStatus = async () => {
-    setBusy(true)
-    let mudou = 0
-    for (const row of selecionadas) {
-      const proximo = PROXIMO_STATUS[row.status]
-      if (!proximo) continue
-      const { error: erro } = await updateStatus(row.id, proximo)
-      if (!erro) mudou += 1
+  const correrLote = async (
+    tipo: TipoDeLote,
+    alvo: AdminOrderRow[],
+    { perguntou, avisar, previstos }: { perguntou: boolean; avisar: boolean; previstos: ReadonlySet<string> },
+  ) => {
+    const verbo = tipo === 'avancar' ? 'Avançando' : 'Registrando'
+    const opcoes = {
+      avisarCliente: perguntou ? avisar : undefined,
+      previstos,
+      onProgress: (feitos: number, total: number) => setProgresso({ verbo, feitos, total }),
     }
-    setBusy(false)
+    const total = tipo === 'avancar' ? alvo.filter(r => NEXT_STATUS[r.status]).length : alvo.length
+    setProgresso({ verbo, feitos: 0, total })
+    gesto.anunciar(`${verbo} ${total} pedido${total === 1 ? '' : 's'}…`)
+
+    let resultado: BulkOutcome
+    try {
+      resultado = tipo === 'avancar'
+        // `updateStatus` tem a nota no terceiro lugar: a escolha vai no quarto, e só quando houve escolha.
+        ? await runStatusBulk(alvo, (id, to, avisarCliente) =>
+          avisarCliente === undefined ? updateStatus(id, to) : updateStatus(id, to, undefined, avisarCliente),
+        opcoes)
+        : await runMaterialBulk(alvo, 'material_recebido', (id, status, avisarCliente) =>
+          (avisarCliente === undefined
+            ? setMaterialStatus(id, status)
+            : setMaterialStatus(id, status, avisarCliente)
+          ).then(r => ({ ok: r.ok, reason: r.reason, emailSent: r.emailSent })),
+        opcoes)
+    } finally {
+      setProgresso(null)
+    }
     setSelection(new Map())
-    await refetch()
-    toast.success(`${mudou} pedido(s) avançaram de status`)
+
+    // Recusa NÃO é erro: é o caso esperado quando outra aba já atualizou o pedido.
+    const resumo = bulkSummary(resultado, {
+      verbo: tipo === 'avancar' ? { um: 'avançou', varios: 'avançaram' } : undefined,
+      aviso: { perguntou, avisar },
+    })
+    gesto.anunciar('')
+    setResumoDoLote({ texto: resumo, falhou: resultado.failed > 0 })
+    await refetch('revalidar')
+  }
+
+  /**
+   * Gesto 10 — "Registrar recebimento" no cartão do celular (`AVS-21`). A mesma pergunta do pedido,
+   * com o estado SÓ no cartão tocado e o desfecho em aviso — inclusive a recusa e a falha, que antes
+   * eram ignoradas.
+   */
+  const registrarRecebimento = async (o: AdminOrderRow) => {
+    // Conserto do QA (foco): a origem é guardada ANTES da leitura dos envios — durante ela o botão fica
+    // desabilitado e o navegador já tirou o foco dele. Se o botão sumir, o foco vai ao cartão.
+    const origem = document.activeElement
+    const cartao = () => document.querySelector(`[data-cartao="${o.id}"]`)
+    setLendoCartao(o.id)
+    let enviados: ReadonlySet<NotificationEvent>
+    try {
+      enviados = (await fetchSentEmails([o.id])).get(o.id) ?? NADA_ENVIADO
+    } catch {
+      gesto.informar('error', SENT_EMAILS_READ_FAILED)
+      gesto.devolverFocoDepois(origem, cartao, tituloDaPagina)
+      return
+    } finally {
+      setLendoCartao(null)
+    }
+    const numero = formatOrderNumber(o.order_number)
+    await gesto.acionar({
+      chave: chaveDoCartao(o.id),
+      origem,
+      focoDepois: cartao,
+      trigger: 'material_status_changed',
+      depois: { ...o, material_status: 'material_recebido' },
+      enviados,
+      orderId: o.id,
+      titulo: 'Registrar o material como recebido',
+      mudanca: `O material de ${o.customer_name} (${numero}) passa a constar como recebido no ateliê.`,
+      confirmar: 'Registrar recebimento',
+      gerundio: 'Registrando recebimento…',
+      sucesso: `${numero} · material recebido`,
+      gravar: async (avisarCliente) => {
+        const r = avisarCliente === undefined
+          ? await setMaterialStatus(o.id, 'material_recebido')
+          : await setMaterialStatus(o.id, 'material_recebido', avisarCliente)
+        if (!r.ok) {
+          return {
+            erro: r.reason === 'rpc_failed'
+              ? 'O recebimento não foi registrado. Nada foi alterado — tente de novo.'
+              : 'O recebimento não foi registrado: o material deste pedido não está num estado que permita.',
+          }
+        }
+        await refetch('revalidar')
+        return { erro: null, emailSent: r.emailSent }
+      },
+    })
   }
 
   const exportar = async () => {
@@ -266,6 +450,7 @@ const AdminOrdersPage = () => {
         <Checkbox
           checked={rows.length > 0 && rows.every(r => selection.has(r.id))}
           onCheckedChange={togglePagina}
+          disabled={ocupado}
           aria-label="Selecionar a página"
         />
       ),
@@ -273,6 +458,7 @@ const AdminOrdersPage = () => {
         <Checkbox
           checked={selection.has(o.id)}
           onCheckedChange={() => toggleRow(o)}
+          disabled={ocupado}
           aria-label={`Selecionar pedido ${o.order_number}`}
         />
       ),
@@ -426,6 +612,14 @@ const AdminOrdersPage = () => {
     <div>
       <PageHeader
         title="Pedidos"
+        // `CRG-12`: a releitura depois do lote ou de uma ação de linha mantém a tabela; o sinal é este
+        // selo discreto, não a lista sumindo.
+        titleAside={revalidando ? (
+          <span role="status" className="inline-flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            Atualizando…
+          </span>
+        ) : null}
         // O subtítulo é a única frase da tela que resume a fila. Diz o que cobra e há quanto tempo.
         //
         // O número é o da visão `Precisa de ação` — a UNIÃO dos três tiles acionáveis, contada pelo
@@ -433,21 +627,24 @@ const AdminOrdersPage = () => {
         // mesmo tempo: um pedido pago que ainda espera o envelope aparece em "aguardando" e não
         // deveria aparecer em "a separar". Medido no navegador com 8 pedidos: a soma dizia 7, e a
         // aba logo abaixo dizia 4. Duas frases sobre a mesma coisa, discordando na mesma tela.
+        // Conserto do QA: enquanto as contagens não chegam, a frase não afirma nada sobre a fila.
         subtitle={
-          precisaDeAcao > 0
+          contando
+            ? 'Contando o que espera por você…'
+            : precisaDeAcao > 0
             ? `${precisaDeAcao} esperando alguma coisa sua${idadeDoMaisAntigo ? ` · o mais antigo ${queueAgeLabel(idadeDoMaisAntigo)}` : ''}`
             : 'Nada esperando você agora'
         }
         actions={
           <span className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" className="min-h-[44px] md:min-h-0" onClick={exportar} disabled={busy || total === 0}>
+            <Button variant="outline" size="sm" className="min-h-[44px] md:min-h-0" onClick={exportar} disabled={ocupado || total === 0}>
               <Download className="mr-1 h-4 w-4" /> {exportLabel(total)}
             </Button>
             <Button
               size="sm"
               className="min-h-[44px] md:min-h-0"
               onClick={() => openPickSlips(selecionadas.length > 0 ? selecionadas : rows)}
-              disabled={rows.length === 0}
+              disabled={rows.length === 0 || ocupado}
             >
               <Printer className="mr-1 h-4 w-4" /> Folha de separação
             </Button>
@@ -458,6 +655,7 @@ const AdminOrdersPage = () => {
       <QueueTiles
         tiles={tiles}
         counts={contagemDosTiles}
+        carregando={contando}
         oldestWaitingAt={oldestWaitingAt}
         filters={query.filters}
         onApply={setFilters}
@@ -480,7 +678,7 @@ const AdminOrdersPage = () => {
             )}
           >
             {view.label}
-            <span className="text-xs tabular-nums opacity-70">{viewCounts[view.id] ?? 0}</span>
+            {!contando && <span className="text-xs tabular-nums opacity-70">{viewCounts[view.id] ?? 0}</span>}
           </button>
         ))}
       </div>
@@ -623,15 +821,47 @@ const AdminOrdersPage = () => {
         <OrderBulkBar
           count={selection.size}
           total={total}
-          busy={busy}
-          onMaterialReceived={marcarMaterialRecebido}
-          onAdvanceStatus={avancarStatus}
+          busy={ocupado}
+          progresso={progresso}
+          onMaterialReceived={() => void acionarLote('material')}
+          onAdvanceStatus={() => void acionarLote('avancar')}
           onPickSlips={() => openPickSlips(selecionadas)}
           onChargeMaterial={cobrarMaterial}
           onExport={() => exportOrdersCsv(selecionadas)}
           onSelectAll={selecionarTodosDoFiltro}
           onClear={() => setSelection(new Map())}
         />
+      )}
+
+      {resumoDoLote && (
+        <div
+          ref={caixaDoResumo}
+          tabIndex={-1}
+          role="status"
+          aria-label="Resumo do lote"
+          className={cn(
+            'mb-3 flex flex-wrap items-start gap-2 rounded-xl border p-3 text-sm outline-none',
+            resumoDoLote.falhou
+              ? 'border-destructive/30 bg-destructive/5 text-destructive'
+              : 'border-border bg-estrelinha-admin-card',
+          )}
+        >
+          <span className="min-w-0 flex-1 break-words">{resumoDoLote.texto}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0"
+            aria-label="Dispensar o resumo do lote"
+            // Conserto do reteste (`BUG-20261030-foco-cai-no-body-ao-reler-e-ao-dispensar`): a região
+            // some com o botão; sem isto o foco caía no <body> e o leitor recomeçava do topo.
+            onClick={() => {
+              flushSync(() => setResumoDoLote(null))
+              devolverFoco(null, tituloDaPagina)
+            }}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       )}
 
       {/* `PED-08` — erro de leitura APARECE. Antes caía no estado vazio, e "Nenhum pedido
@@ -646,7 +876,15 @@ const AdminOrdersPage = () => {
       )}
 
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground">Carregando...</div>
+        // `CRG-13`: a primeira carga é esqueleto — tabela no computador, cartões no celular.
+        <div aria-busy="true" aria-label="Carregando os pedidos" data-testid="orders-skeleton">
+          <div className="hidden md:block"><TableSkeleton rows={8} cols={6} /></div>
+          <div className="space-y-3 md:hidden">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
+        </div>
       ) : (
         <>
           {/* Desktop: tabela. */}
@@ -689,7 +927,7 @@ const AdminOrdersPage = () => {
               const idade = rowQueueAge(o)
 
               return (
-                <li key={o.id} className="rounded-xl border border-border bg-estrelinha-admin-card p-4">
+                <li key={o.id} data-cartao={o.id} className="rounded-xl border border-border bg-estrelinha-admin-card p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       {/* `min-h-[44px]` mesmo sendo texto: no cartao do celular este link e o
@@ -724,22 +962,26 @@ const AdminOrdersPage = () => {
 
                   <div className="mt-3 flex items-center gap-2">
                     {resumo.actionLabel ? (
-                      <Button
-                        className="min-h-[44px] flex-1"
-                        disabled={busy}
-                        onClick={async () => {
-                          if (resumo.action === 'registrar-recebimento') {
-                            await setMaterialStatus(o.id, 'material_recebido')
-                            await refetch()
-                          } else {
-                            navigate(`/admin/pedidos/${o.id}`, { state: voltarPara })
-                          }
+                      <ActionButton
+                        // `min-w-0` + texto que quebra: a 390/200 % o rótulo `nowrap` empurrava o
+                        // WhatsApp para fora do cartão (conserto do reteste da `88`).
+                        className="h-auto min-h-[44px] min-w-0 flex-1 whitespace-normal"
+                        disabled={ocupado}
+                        // O estado SÓ neste cartão (`AVS-21`): os outros ficam desabilitados, sem indicador.
+                        pending={lendoCartao === o.id || gesto.pendente === chaveDoCartao(o.id)}
+                        pendingLabel="Registrando…"
+                        // Conserto do QA (`BUG-20261030-recebi-o-material-sem-o-pedido-no-nome`): numa
+                        // lista de cartões, o nome diz de qual pedido é o botão.
+                        aria-label={`${lendoCartao === o.id || gesto.pendente === chaveDoCartao(o.id) ? 'Registrando…' : resumo.actionLabel} — pedido ${formatOrderNumber(o.order_number)}, ${o.customer_name}`}
+                        onClick={() => {
+                          if (resumo.action === 'registrar-recebimento') void registrarRecebimento(o)
+                          else navigate(`/admin/pedidos/${o.id}`, { state: voltarPara })
                         }}
                       >
                         {resumo.actionLabel}
-                      </Button>
+                      </ActionButton>
                     ) : (
-                      <Button asChild variant="outline" className="min-h-[44px] flex-1">
+                      <Button asChild variant="outline" className="h-auto min-h-[44px] min-w-0 flex-1 whitespace-normal">
                         <Link to={`/admin/pedidos/${o.id}`} state={voltarPara}>Abrir pedido</Link>
                       </Button>
                     )}
@@ -769,21 +1011,64 @@ const AdminOrdersPage = () => {
           />
         </>
       )}
+
+      {gesto.dialogo}
+      {gesto.regiaoViva}
     </div>
   )
 }
 
+/** Nenhum envio conhecido — o `enviados` do hook, que a lista só lê ao acionar. */
+const NADA_ENVIADO: ReadonlySet<NotificationEvent> = new Set()
+
+type TipoDeLote = 'avancar' | 'material'
+
+const chaveDoCartao = (id: string) => `cartao:${id}`
+
+const SEM_AVISO: CustomerNotice = { send: [], alreadySent: [] }
+
 /**
- * O próximo status de cada estado — o que o lote "Avançar status" aplica.
- *
- * `delivered` e `cancelled` não têm próximo: são fim de linha, e um lote que os "avançasse" faria
- * pedido entregue voltar a andar.
+ * O plano do lote: para cada pedido, para onde vai (`null` = fica como está) e o que a cliente
+ * receberia. A previsão é `customerNoticeFor` sobre o pedido no estado de DESTINO (`AVS-19`); quem diz
+ * se o material pode ir a "recebido" é a máquina de estado de `core`.
  */
-const PROXIMO_STATUS: Record<string, string | undefined> = {
-  pending: 'paid',
-  paid: 'separating',
-  separating: 'shipped',
-  shipped: 'delivered',
+function planejarLote(
+  tipo: TipoDeLote,
+  alvo: AdminOrderRow[],
+  settings: Parameters<typeof customerNoticeFor>[2],
+  enviados: Map<string, Set<NotificationEvent>>,
+): { row: AdminOrderRow; alvo: string | null; aviso: CustomerNotice }[] {
+  const trigger: NotificationTrigger = tipo === 'avancar' ? 'order_status_changed' : 'material_status_changed'
+  return alvo.map(row => {
+    const destino = tipo === 'avancar'
+      ? NEXT_STATUS[row.status] ?? null
+      : materialTransitionRefusal(toMaterialStatus(row.material_status), 'material_recebido') === null
+        ? 'material_recebido'
+        : null
+    if (!destino) return { row, alvo: null, aviso: SEM_AVISO }
+    const depois = tipo === 'avancar' ? { ...row, status: destino } : { ...row, material_status: destino }
+    return { row, alvo: destino, aviso: customerNoticeFor(trigger, depois, settings, enviados.get(row.id) ?? NADA_ENVIADO) }
+  })
+}
+
+/** Os e-mails do lote, agrupados: cada evento com quantos pedidos o mandariam. */
+function contarEventos(listas: NotificationEvent[][]): { event: NotificationEvent; quantos: number }[] {
+  const contagem = new Map<NotificationEvent, number>()
+  for (const lista of listas) for (const e of lista) contagem.set(e, (contagem.get(e) ?? 0) + 1)
+  return [...contagem].map(([event, quantos]) => ({ event, quantos }))
+}
+
+/** "2 pedidos já receberam “Pedido postado” antes e não recebem de novo." — ou nada. */
+function fraseJaRecebeu(avisos: CustomerNotice[]): string | null {
+  const contagem = contarEventos(avisos.map(a => a.alreadySent))
+  if (contagem.length === 0) return null
+  return contagem
+    .map(({ event, quantos }) =>
+      quantos === 1
+        ? `1 pedido já recebeu “${NOTIFICATION_EVENT_NAMES[event]}” antes e não recebe de novo.`
+        : `${quantos} pedidos já receberam “${NOTIFICATION_EVENT_NAMES[event]}” antes e não recebem de novo.`,
+    )
+    .join(' ')
 }
 
 export default AdminOrdersPage

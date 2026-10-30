@@ -25,13 +25,19 @@ interface Props {
   oldestWaitingAt?: string | null
   filters: OrderFilters
   onApply: (next: OrderFilters) => void
+  /**
+   * Conserto do QA da `88`: as contagens ainda não chegaram. O número dá lugar a um esqueleto — um 0
+   * aqui seria uma afirmação falsa sobre a fila.
+   */
+  carregando?: boolean
 }
 
-const QueueTiles = ({ tiles, counts, oldestWaitingAt, filters, onApply }: Props) => (
+const QueueTiles = ({ tiles, counts, oldestWaitingAt, filters, onApply, carregando = false }: Props) => (
   <div
     className="-mx-1 mb-4 flex gap-3 overflow-x-auto px-1 pb-1"
     role="group"
     aria-label="O que precisa de ação"
+    aria-busy={carregando ? 'true' : undefined}
   >
     {tiles.map(tile => {
       const total = counts[tile.id] ?? 0
@@ -55,8 +61,16 @@ const QueueTiles = ({ tiles, counts, oldestWaitingAt, filters, onApply }: Props)
           </span>
 
           <span className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-semibold tabular-nums">{total}</span>
-            {idade && (
+            {carregando ? (
+              <span
+                aria-hidden="true"
+                data-testid="tile-skeleton"
+                className="inline-block h-8 w-10 animate-pulse rounded bg-muted motion-reduce:animate-none"
+              />
+            ) : (
+              <span className="text-2xl font-semibold tabular-nums">{total}</span>
+            )}
+            {!carregando && idade && (
               <span className="text-xs font-medium text-estrelinha-admin-amber">
                 o mais antigo {queueAgeLabel(idade)}
               </span>

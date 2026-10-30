@@ -14,6 +14,7 @@
 // validado aqui: a recusa do curto continua sendo do app (`runAppAction`, A8 da `75`).
 
 import { normalizeMaterialTrackingCode } from '../orders/tracking.ts'
+import { notifyWrite } from './notify.ts'
 import type { MaterialTrackingOutcome, OrderWriteDeps } from './types.ts'
 
 export interface WriteMaterialTrackingInput {
@@ -21,6 +22,11 @@ export interface WriteMaterialTrackingInput {
   code: string
   /** Padrão `true`. */
   avisar?: boolean
+  /**
+   * Feature `88`: `false` ⇒ o gatilho sai sem o e-mail da cliente; o aviso à dona
+   * (`owner_material_incoming`) sai como sempre (`A-04`). Só vale com `avisar`.
+   */
+  avisarCliente?: boolean
 }
 
 interface RespostaDaRpc {
@@ -31,7 +37,7 @@ interface RespostaDaRpc {
 
 export async function writeMaterialTracking(
   { client, notify }: OrderWriteDeps,
-  { id, code, avisar = true }: WriteMaterialTrackingInput,
+  { id, code, avisar = true, avisarCliente }: WriteMaterialTrackingInput,
 ): Promise<MaterialTrackingOutcome> {
   const codigo = normalizeMaterialTrackingCode(code)
   if (codigo === '') return { tipo: 'recusado', reason: 'empty_code' }
@@ -52,6 +58,6 @@ export async function writeMaterialTracking(
     return { tipo: 'recusado', reason: resultado.reason ?? null }
   }
 
-  const emailSent = avisar ? await notify(id, 'material_tracking_set') : false
+  const emailSent = avisar ? await notifyWrite(notify, id, 'material_tracking_set', avisarCliente) : false
   return { tipo: 'ok', status: resultado.status ?? null, emailSent }
 }

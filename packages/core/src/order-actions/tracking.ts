@@ -10,6 +10,7 @@
 //
 // Sem histórico (é o que o painel faz). `statusIn` é a guarda de A25.
 
+import { notifyWrite } from './notify.ts'
 import type { OrderWriteDeps, WriteOutcome } from './types.ts'
 
 export interface WriteTrackingCodeInput {
@@ -20,11 +21,13 @@ export interface WriteTrackingCodeInput {
   statusIn?: string[]
   /** Padrão `true`: dispara `order_status_changed` (o outro lado do par, TRG-12). */
   avisar?: boolean
+  /** Feature `88`: `false` ⇒ o gatilho sai sem os e-mails da cliente (`AVS-04`). Só vale com `avisar`. */
+  avisarCliente?: boolean
 }
 
 export async function writeTrackingCode(
   { client, notify }: OrderWriteDeps,
-  { id, code, carrier, statusIn, avisar = true }: WriteTrackingCodeInput,
+  { id, code, carrier, statusIn, avisar = true, avisarCliente }: WriteTrackingCodeInput,
 ): Promise<WriteOutcome> {
   const valores: { tracking_code: string; shipping_carrier?: string | null } = { tracking_code: code }
   if (carrier !== undefined) valores.shipping_carrier = carrier
@@ -40,6 +43,6 @@ export async function writeTrackingCode(
   if (resposta.error) return { tipo: 'falhou', erro: resposta.error }
   if (!Array.isArray(resposta.data) || resposta.data.length === 0) return { tipo: 'nenhuma-linha' }
 
-  const emailSent = avisar ? await notify(id, 'order_status_changed') : false
+  const emailSent = avisar ? await notifyWrite(notify, id, 'order_status_changed', avisarCliente) : false
   return { tipo: 'ok', emailSent }
 }

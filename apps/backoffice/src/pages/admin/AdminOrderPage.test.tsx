@@ -25,6 +25,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { DbOrder } from '@estrelinha/supabase/types'
+import { DEFAULT_NOTIFICATIONS } from '@estrelinha/core/notifications'
 
 const {
   detailMock, reloadMock, toastErrorMock, toastSuccessMock,
@@ -61,6 +62,12 @@ vi.mock('sonner', () => ({ toast: { error: toastErrorMock, success: toastSuccess
 // O Melhor Envio migra sem alteração interna (D9) e fala com uma API externa — fora do escopo aqui.
 vi.mock('@/features/order-management/ui/MelhorEnvioTab', () => ({ default: () => null }))
 vi.mock('@/features/pick-slip', () => ({ openPickSlips: vi.fn() }))
+// Feature `88`: a página lê as configurações de notificação para prever o aviso. Os PADRÕES aqui (os
+// mesmos do motor sem linha gravada); a prova do aviso pela página real é `AdminOrderPage.aviso.test.tsx`.
+vi.mock('@estrelinha/core/hooks/useStoreSettings', async importOriginal => ({
+  ...(await importOriginal<typeof import('@estrelinha/core/hooks/useStoreSettings')>()),
+  useNotificationSettings: () => DEFAULT_NOTIFICATIONS,
+}))
 
 import AdminOrderPage from './AdminOrderPage'
 
@@ -128,7 +135,8 @@ beforeEach(() => {
   updateStatusMock.mockResolvedValue({ error: null, emailSent: false })
   addTrackingMock.mockResolvedValue({ error: null, emailSent: false })
   addNoteMock.mockResolvedValue(null)
-  cancelMock.mockResolvedValue(null)
+  // Feature `88` · T23: `cancelOrder` devolve `{ error, emailSent }` (antes, só o erro).
+  cancelMock.mockResolvedValue({ error: null, emailSent: false })
   setMaterialStatusMock.mockResolvedValue({ ok: true, reason: null })
   sendEmailMock.mockResolvedValue(true)
 })
@@ -215,7 +223,12 @@ describe('os dois rastreios NUNCA se cruzam (PED-26)', () => {
     })
     fireEvent.click(screen.getByText('Salvar rastreio'))
 
-    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith('Rastreio salvo'))
+    // Feature `88` (`AVS-06`): sem e-mail previsto, a frase diz que nenhum aviso sai — e continua sem
+    // prometer aviso.
+    await waitFor(() =>
+      expect(toastSuccessMock).toHaveBeenCalledWith('Rastreio salvo · nenhum aviso sai nesta mudança'),
+    )
+    expect(toastSuccessMock).not.toHaveBeenCalledWith(expect.stringContaining('avisada'))
   })
 
   it('a falha de escrita vira toast, e não silêncio (UX-02, herdado)', async () => {
@@ -226,9 +239,12 @@ describe('os dois rastreios NUNCA se cruzam (PED-26)', () => {
     })
     fireEvent.click(screen.getByText('Salvar rastreio'))
 
+    // Feature `88` (`CRG-05`): o erro diz o que NÃO mudou, e o código digitado fica no campo.
     await waitFor(() =>
-      expect(toastErrorMock).toHaveBeenCalledWith('Não foi possível salvar o rastreio'),
+      expect(toastErrorMock).toHaveBeenCalledWith('O rastreio não foi salvo. Nada foi alterado — tente de novo.'),
     )
+    expect(toastSuccessMock).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Código de rastreio da joia')).toHaveValue('BR1')
   })
 })
 
@@ -268,9 +284,10 @@ describe('o próximo passo diz o que segura, e não bloqueia (PED-29, UX-01)', (
     renderPage()
     fireEvent.click(screen.getByText('Avançar mesmo assim'))
 
+    // Feature `88` (`AVS-07`): a frase ganhou "por e-mail" — a mesma das quatro formas do resultado.
     await waitFor(() =>
       expect(toastSuccessMock).toHaveBeenCalledWith(
-        'Status: Em Separação — a cliente foi avisada',
+        'Status: Em Separação — a cliente foi avisada por e-mail',
       ),
     )
   })
@@ -468,6 +485,44 @@ describe('a ordem dos blocos é a da operação (D3)', () => {
     expect(posMaterial).toBeLessThan(posProximo)
     expect(posProximo).toBeLessThan(posItens)
     expect(posItens).toBeLessThan(posHistorico)
+  })
+
+  // Conserto do reteste da feature `88` (`BUG-20261030-pedido-rola-de-lado-com-fonte-200`): sem trilha
+  // explícita no celular, a coluna implícita é `auto` e toma o min-content do conteúdo — a 390/200 % os
+  // cartões mediam 373 px numa coluna de 294 e a página rolava de lado.
+  it('a grade da página tem trilha de piso zero também no celular (`grid-cols-1`)', () => {
+    const { container } = renderPage()
+    const grade = [...container.querySelectorAll('div')].find(d => (d.getAttribute('class') ?? '').split(/\s+/).includes('lg:grid-cols-[minmax(0,1fr)_330px]'))
+    expect(grade).toBeTruthy()
+    expect((grade!.getAttribute('class') ?? '').split(/\s+/)).toContain('grid-cols-1')
+  })
+
+  // Conserto do reteste da feature `88`: a 390/200 % o preço (`w-[110px]` fixo) media 134 px e saía
+  // cortado ("R$ 100,0"), e a linha do item estourava o cartão. No celular quantidade e preço descem
+  // para baixo do nome quando não cabem; no computador a linha é a mesma (o preço continua com 110).
+  it('a linha do item embrulha e o preço nunca é cortado (fonte grande no celular)', () => {
+    renderPage()
+    const linha = screen.getByRole('link', { name: /Pingente Gota · Cinzas/ }).closest('li') as HTMLElement
+    const tk = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/)
+    expect(tk(linha)).toContain('flex-wrap')
+    const preco = [...linha.querySelectorAll('span')].find(s => tk(s).includes('text-right')) as HTMLElement
+    expect(preco).toBeTruthy()
+    expect(tk(preco)).toContain('min-w-[110px]')
+    expect(tk(preco)).toContain('whitespace-nowrap')
+    expect(tk(preco)).not.toContain('w-[110px]')
+    expect(tk(preco.parentElement!)).toContain('ml-auto')
+  })
+
+  // Conserto do reteste da `88`: os dois números da cliente ("Compras" · "Gastou") em `grid-cols-2`
+  // fixo — a 390/200 % "R$ 1.234,56" passava de uma caixa de 106 px. Abaixo de 8rem por caixa, uma
+  // coluna só; no computador (aside de 330) continuam as duas.
+  it('os números da cliente viram uma coluna quando não cabem lado a lado', () => {
+    detailMock.mockReturnValue(detail({ customer: { orders_paid: 3, total_spent: 1234.56 } }))
+    renderPage()
+    const caixa = screen.getByText('Gastou').closest('div')!.parentElement as HTMLElement
+    const tk = (caixa.getAttribute('class') ?? '').split(/\s+/)
+    expect(tk).toContain('grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))]')
+    expect(tk).not.toContain('grid-cols-2')
   })
 
   it('a gravação aparece com a contagem de caracteres — é o que vai para a bancada', () => {

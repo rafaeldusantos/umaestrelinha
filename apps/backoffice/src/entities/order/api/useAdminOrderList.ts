@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
+import type { FetchMode } from '@/shared/lib/fetchMode'
 import { readAllPages } from '@estrelinha/core/paging'
 import { QUEUE_BLOCKS, applyOrderSlice, queueBlock, toPostgrestFilter } from '@estrelinha/core/orders'
 import {
@@ -48,7 +49,26 @@ export interface OrderListResult {
   /** `PED-12` — os quatro contadores do topo, e a idade do mais antigo da fila. */
   tileCounts: Record<string, number>
   oldestWaitingAt: string | null
-  refetch: () => Promise<void>
+  /**
+   * Conserto do QA da `88` (`BUG-20261030-lista-diz-nada-esperando-enquanto-carrega`): as contagens da
+   * primeira carga ainda não chegaram. Até lá `viewCounts`/`tileCounts` valem zero por FALTA de dado, e
+   * a tela não pode afirmar "Nada esperando você agora" nem mostrar 0 nos cartões da fila.
+   */
+  contando: boolean
+  /**
+   * Feature `88` (`CRG-12`): uma releitura `'revalidar'` está em curso — o selo "Atualizando…" do
+   * cabeçalho. A tabela continua na tela.
+   */
+  revalidando: boolean
+  /** Feature `88`: a releitura `'revalidar'` falhou; as linhas na tela podem estar velhas. */
+  staleError: string | null
+  /**
+   * `'inicial'` (padrão) liga `loading` e, em falha, esvazia a lista (`PED-08`). `'revalidar'` é a
+   * releitura depois do lote ou de uma ação de linha: não liga `loading`, mantém página e tamanho, e em
+   * falha mantém as linhas e grava `staleError`. Só `'revalidar'` revalida — um evento passado direto
+   * num `onClick` vale como `'inicial'`.
+   */
+  refetch: (modo?: FetchMode) => Promise<void>
   fetchAllFiltered: () => Promise<AdminOrderRow[]>
 }
 
@@ -95,6 +115,9 @@ export const useAdminOrderList = (query: OrderQuery): OrderListResult => {
   const [viewCounts, setViewCounts] = useState<Record<OrderViewId, number>>(contagemVazia)
   const [tileCounts, setTileCounts] = useState<Record<string, number>>({})
   const [oldestWaitingAt, setOldestWaitingAt] = useState<string | null>(null)
+  const [revalidando, setRevalidando] = useState(false)
+  const [contando, setContando] = useState(true)
+  const [staleError, setStaleError] = useState<string | null>(null)
 
   const queryKey = useMemo(() => JSON.stringify(query), [query])
 
@@ -180,13 +203,27 @@ export const useAdminOrderList = (query: OrderQuery): OrderListResult => {
     setOldestWaitingAt((maisAntigo as { created_at: string }[] | null)?.[0]?.created_at ?? null)
   }, [])
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (modo: FetchMode = 'inicial') => {
     const current: OrderQuery = JSON.parse(queryKey)
-    setLoading(true)
-    setError(null)
+    const revalidar = modo === 'revalidar'
+
+    if (revalidar) {
+      setRevalidando(true)
+    } else {
+      setLoading(true)
+      setError(null)
+      setStaleError(null)
+    }
 
     const [from, to] = pageRange(current.page, current.pageSize)
     const { data, error: queryError, count } = await buildFilteredQuery(current).builder.range(from, to)
+
+    if (queryError && revalidar) {
+      // `CRG-12`: a tabela fica; a faixa diz que ela pode estar velha.
+      setStaleError((queryError as { message?: string }).message ?? 'Não foi possível atualizar os pedidos')
+      setRevalidando(false)
+      return
+    }
 
     if (queryError) {
       // `PED-08`: a lista esvazia E o erro aparece. Esvaziar sem dizer por quê é o defeito antigo.
@@ -199,9 +236,12 @@ export const useAdminOrderList = (query: OrderQuery): OrderListResult => {
 
     setRows((data ?? []) as AdminOrderRow[])
     setTotal(count ?? 0)
+    setStaleError(null)
     setLoading(false)
 
     await Promise.all([fetchCounts(current), fetchTiles()])
+    setContando(false)
+    if (revalidar) setRevalidando(false)
   }, [queryKey, buildFilteredQuery, fetchCounts, fetchTiles])
 
   useEffect(() => {
@@ -243,6 +283,9 @@ export const useAdminOrderList = (query: OrderQuery): OrderListResult => {
     viewCounts,
     tileCounts,
     oldestWaitingAt,
+    contando,
+    revalidando,
+    staleError,
     refetch,
     fetchAllFiltered,
   }

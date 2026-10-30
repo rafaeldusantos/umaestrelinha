@@ -7,9 +7,15 @@
 // - **A recusa mostra o MOTIVO.** Botão que some ou falha calada faz a Adri achar que clicou errado.
 // - **O toast não alega e-mail enviado quando ele não saiu.**
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DbOrder, DbOrderItem } from '@estrelinha/supabase/types'
+import {
+  DEFAULT_NOTIFICATIONS,
+  type NotificationEvent,
+  type NotificationSettings,
+} from '@estrelinha/core/notifications'
+import { useGestoComAviso } from '@/features/order-notice'
 
 const toastSuccess = vi.hoisted(() => vi.fn())
 const toastError = vi.hoisted(() => vi.fn())
@@ -44,15 +50,67 @@ const item = (over: Partial<DbOrderItem> = {}): DbOrderItem =>
 const onSetStatus = vi.fn()
 const onSetTracking = vi.fn()
 
-const montar = (o = order(), items = [item()]) =>
-  render(
-    <OrderMaterialCard
-      order={o}
-      items={items}
-      onSetStatus={onSetStatus}
-      onSetTracking={onSetTracking}
-    />,
+/** As configurações com UM evento desligado — para os casos em que nenhum e-mail sai. */
+const desligado = (event: NotificationEvent): NotificationSettings => ({
+  ...DEFAULT_NOTIFICATIONS,
+  events: {
+    ...DEFAULT_NOTIFICATIONS.events,
+    [event]: { email: { ...DEFAULT_NOTIFICATIONS.events[event].email, enabled: false } },
+  },
+})
+/** E com um evento ligado (o envelope nasce desligado no padrão). */
+const ligado = (event: NotificationEvent): NotificationSettings => ({
+  ...DEFAULT_NOTIFICATIONS,
+  events: {
+    ...DEFAULT_NOTIFICATIONS.events,
+    [event]: { email: { ...DEFAULT_NOTIFICATIONS.events[event].email, enabled: true } },
+  },
+})
+
+/**
+ * Feature `88`: o card descreve o gesto e a PÁGINA o roda (`useGestoComAviso`). O arnês monta o hook
+ * de verdade, com o portão e o diálogo — a fiação pela página real é provada em
+ * `AdminOrderPage.aviso.test.tsx`.
+ */
+const Arnes = ({
+  o,
+  items,
+  settings,
+  enviados,
+}: {
+  o: DbOrder
+  items: DbOrderItem[]
+  settings: NotificationSettings
+  enviados: Set<NotificationEvent>
+}) => {
+  const g = useGestoComAviso({ settings, enviados })
+  return (
+    <>
+      <div data-testid="card">
+      <OrderMaterialCard
+        order={o}
+        items={items}
+        onSetStatus={onSetStatus}
+        onSetTracking={onSetTracking}
+        acionar={g.acionar}
+        pendente={g.pendente}
+      />
+      </div>
+      {g.dialogo}
+      {g.regiaoViva}
+    </>
   )
+}
+
+const montar = (
+  o = order(),
+  items = [item()],
+  settings: NotificationSettings = DEFAULT_NOTIFICATIONS,
+  enviados = new Set<NotificationEvent>(),
+) => render(<Arnes o={o} items={items} settings={settings} enviados={enviados} />)
+
+/** Os tetos do diálogo de aviso. */
+const dialogo = () => screen.getByRole('dialog')
 
 beforeEach(() => {
   onSetStatus.mockReset().mockResolvedValue({ ok: true, reason: null, emailSent: true })
@@ -63,8 +121,9 @@ beforeEach(() => {
 
 describe('OrderMaterialCard — quando aparece', () => {
   it('pedido `nao_aplicavel` não ganha card', () => {
-    const { container } = montar(order({ material_status: 'nao_aplicavel' }))
-    expect(container).toBeEmptyDOMElement()
+    montar(order({ material_status: 'nao_aplicavel' }))
+    // O arnês monta também a região viva da página; o que se mede é o lugar do card.
+    expect(screen.getByTestId('card')).toBeEmptyDOMElement()
   })
 
   it('pedido na fila mostra o estado e o que cada item espera', () => {
@@ -104,10 +163,14 @@ describe('OrderMaterialCard — transição guardada (MAT-08)', () => {
   })
 
   it('marcar recebido chama a transição com o alvo certo', async () => {
+    // Feature `88`: "Material recebido no ateliê" nasce LIGADO, então o portão abre antes; a caixa
+    // marcada confirma com `avisarCliente: true`.
     montar()
     fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+    expect(onSetStatus).not.toHaveBeenCalled()
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Registrar recebimento' }))
 
-    await waitFor(() => expect(onSetStatus).toHaveBeenCalledWith('ord-1', 'material_recebido'))
+    await waitFor(() => expect(onSetStatus).toHaveBeenCalledWith('ord-1', 'material_recebido', true))
   })
 
   it('de `aguardando_material` "em produção" está BLOQUEADO, com o motivo visível', () => {
@@ -130,11 +193,24 @@ describe('OrderMaterialCard — transição guardada (MAT-08)', () => {
   })
 
   it('recusa do servidor vira toast com motivo, não silêncio', async () => {
+    // Sem e-mail previsto o gesto grava direto, e a recusa vira toast.
     onSetStatus.mockResolvedValue({ ok: false, reason: 'invalid_transition', emailSent: false })
-    montar()
+    montar(order(), [item()], desligado('material_received'))
     fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
 
     await waitFor(() => expect(toastError).toHaveBeenCalled())
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('recusa do servidor COM o diálogo aberto: o motivo fica no diálogo, e nada de sucesso', async () => {
+    onSetStatus.mockResolvedValue({ ok: false, reason: 'invalid_transition', emailSent: false })
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Registrar recebimento' }))
+
+    await waitFor(() =>
+      expect(within(dialogo()).getByRole('alert')).toHaveTextContent('Não foi possível mudar o estado do material'),
+    )
     expect(toastSuccess).not.toHaveBeenCalled()
   })
 })
@@ -143,6 +219,7 @@ describe('OrderMaterialCard — o toast é honesto sobre o e-mail (MAT-09)', () 
   it('e-mail enviado ⇒ o toast diz que a cliente foi avisada', async () => {
     montar()
     fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Registrar recebimento' }))
 
     await waitFor(() =>
       expect(toastSuccess).toHaveBeenCalledWith(expect.stringContaining('avisada por e-mail')),
@@ -152,12 +229,28 @@ describe('OrderMaterialCard — o toast é honesto sobre o e-mail (MAT-09)', () 
   it('e-mail que NÃO saiu ⇒ o toast NÃO alega aviso, e o estado permanece', async () => {
     // Falha de e-mail não reverte estado (`AD-008`), mas mentir sobre o aviso faria a Adri deixar
     // de avisar por outro canal.
+    //
+    // Feature `88`: sem e-mail previsto, a frase diz que nenhum aviso sai — e continua sem alegar aviso.
+    onSetStatus.mockResolvedValue({ ok: true, reason: null, emailSent: false })
+    montar(order(), [item()], desligado('material_received'))
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith('Material recebido · nenhum aviso sai nesta mudança'),
+    )
+    expect(toastSuccess).not.toHaveBeenCalledWith(expect.stringContaining('avisada'))
+    expect(toastSuccess).not.toHaveBeenCalledWith(expect.stringContaining('e-mail'))
+  })
+
+  it('caixa MARCADA e o e-mail que não saiu ⇒ "o e-mail não saiu", nunca "avisada"', async () => {
     onSetStatus.mockResolvedValue({ ok: true, reason: null, emailSent: false })
     montar()
     fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Registrar recebimento' }))
 
-    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Material recebido'))
-    expect(toastSuccess).not.toHaveBeenCalledWith(expect.stringContaining('e-mail'))
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith('Material recebido — o e-mail não saiu — o pedido foi alterado'),
+    )
   })
 })
 
@@ -208,5 +301,127 @@ describe('OrderMaterialCard — pedido cancelado sai da fila (edge case)', () =>
         'Pedido cancelado, saiu da fila de material. Se o envelope já tiver chegado, devolva à cliente.',
       ),
     ).toBeInTheDocument()
+  })
+})
+
+describe('feature 88 · T15 — o portão de aviso nos três gestos do material', () => {
+  it('com e-mail previsto, o portão abre ANTES de qualquer escrita, nomeando o e-mail e a cliente', () => {
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+
+    expect(onSetStatus).not.toHaveBeenCalled()
+    expect(within(dialogo()).getByText('Material recebido no ateliê')).toBeInTheDocument()
+    expect(within(dialogo()).getByText('Para m@x.com:')).toBeInTheDocument()
+    expect(within(dialogo()).getByRole('checkbox')).toBeChecked()
+  })
+
+  it('desmarcar a caixa e confirmar ⇒ `avisarCliente: false` por valor, e a frase decide-se pela caixa', async () => {
+    // O motor pode responder `sent: true` pelo aviso da DONA: a frase não pode dizer "avisada".
+    onSetStatus.mockResolvedValue({ ok: true, reason: null, emailSent: true })
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+    fireEvent.click(within(dialogo()).getByRole('checkbox'))
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Registrar recebimento' }))
+
+    await waitFor(() => expect(onSetStatus).toHaveBeenCalledWith('ord-1', 'material_recebido', false))
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith('Material recebido · sem e-mail à cliente (anotado no histórico)'),
+    )
+  })
+
+  it('"Voltar" no diálogo ⇒ nenhuma escrita', async () => {
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Voltar' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(onSetStatus).not.toHaveBeenCalled()
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('sem e-mail previsto ("Peça em produção" nasce desligado) grava DIRETO, com dois argumentos, e diz por quê', async () => {
+    onSetStatus.mockResolvedValue({ ok: true, reason: null, emailSent: false })
+    montar(order({ material_status: 'material_recebido' }))
+    fireEvent.click(screen.getByRole('button', { name: /colocar em produção/i }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(onSetStatus).toHaveBeenCalled())
+    expect(onSetStatus.mock.calls[0]).toEqual(['ord-1', 'em_producao'])
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith('Pedido em produção · nenhum aviso sai nesta mudança'),
+    )
+  })
+
+  it('o e-mail já enviado antes ⇒ sem diálogo, e o resultado diz que não sai de novo (A-01)', async () => {
+    onSetStatus.mockResolvedValue({ ok: true, reason: null, emailSent: false })
+    montar(order({ material_status: 'material_enviado' }), [item()], DEFAULT_NOTIFICATIONS, new Set(['material_received']))
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith(
+        'Material recebido · “Material recebido no ateliê” já tinha sido enviado, não sai de novo',
+      ),
+    )
+  })
+
+  it('o envelope: com o e-mail ligado, o portão abre COM a nota da dona; `onSetTracking` recebe a escolha', async () => {
+    montar(order(), [item()], ligado('material_tracking_registered'))
+    fireEvent.change(screen.getByLabelText(/código de rastreio do envio da cliente/i), { target: { value: 'aa1br' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(onSetTracking).not.toHaveBeenCalled()
+    expect(within(dialogo()).getByText('Rastreio do material registrado')).toBeInTheDocument()
+    expect(within(dialogo()).getByText(/O aviso “Material a caminho”, para você, não depende desta caixa/)).toBeInTheDocument()
+
+    fireEvent.click(within(dialogo()).getByRole('checkbox'))
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Salvar código' }))
+    await waitFor(() => expect(onSetTracking).toHaveBeenCalledWith('ord-1', 'AA1BR', false))
+  })
+
+  it('a nota da dona NÃO aparece num gatilho que só avisa a cliente (decidida por público, não por gesto)', () => {
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+    expect(within(dialogo()).queryByText(/para você, não depende desta caixa/)).not.toBeInTheDocument()
+  })
+})
+
+describe('feature 88 · T15 — cada botão mostra o próprio trabalho (CRG-01, CRG-02, CRG-05)', () => {
+  it('gravando o recebimento: o botão diz "Registrando recebimento…" com aria-busy, e os outros ficam desabilitados', async () => {
+    let terminar!: (v: unknown) => void
+    onSetStatus.mockReturnValue(new Promise(r => { terminar = r }))
+    montar(order({ material_tracking_code: 'AA1BR' }), [item()], desligado('material_received'))
+    fireEvent.click(screen.getByRole('button', { name: /marcar material como recebido/i }))
+
+    const botao = await screen.findByRole('button', { name: /Registrando recebimento…/ })
+    expect(botao).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).not.toHaveAttribute('aria-busy')
+
+    terminar({ ok: true, reason: null, emailSent: false })
+    await waitFor(() => expect(screen.getByRole('button', { name: /marcar material como recebido/i })).not.toHaveAttribute('aria-busy'))
+  })
+
+  it('salvando o envelope: "Salvando código…" no botão Salvar', async () => {
+    let terminar!: (v: unknown) => void
+    onSetTracking.mockReturnValue(new Promise(r => { terminar = r }))
+    montar()
+    fireEvent.change(screen.getByLabelText(/código de rastreio do envio da cliente/i), { target: { value: 'aa1br' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByRole('button', { name: /Salvando código…/ })).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: /marcar material como recebido/i })).toBeDisabled()
+    terminar({ ok: true, reason: null })
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalled())
+  })
+
+  it('o código do envelope que falhou CONTINUA no campo, e o erro diz o que não mudou', async () => {
+    onSetTracking.mockResolvedValue({ ok: false, reason: 'rpc_failed' })
+    montar()
+    fireEvent.change(screen.getByLabelText(/código de rastreio do envio da cliente/i), { target: { value: 'aa1br' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('O código do envelope não foi salvo. Tente de novo.'))
+    expect(screen.getByLabelText(/código de rastreio do envio da cliente/i)).toHaveValue('AA1BR')
   })
 })

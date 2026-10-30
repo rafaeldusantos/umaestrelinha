@@ -178,6 +178,9 @@ const RPCS = [
   'set_kit_showcase',
   'set_material_status',
   'set_material_tracking',
+  // Feature 88 — o motor `send-notification` grava a linha `skipped` quando a Adri escolhe não avisar a
+  // cliente. Só toca `order_notifications` (`avisoPuladoSchema.test.ts`).
+  'skip_order_notification',
   'store_clock',
   // Feature 71, task 22 — a leitura do bloco "Movimento da loja" no Dashboard do painel. Só lê, e é
   // admin: o `has_role` está no corpo dela.

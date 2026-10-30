@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Copy, ExternalLink, ImageOff, MessageSquare, Printer, Truck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -12,8 +12,17 @@ import { Input } from '@estrelinha/ui/input'
 
 import { useAdminOrder } from '@/entities/order/api/useAdminOrder'
 import { useAdminOrders, STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
-import { resendNotification } from '@/entities/order/api/notifyOrder'
-import type { NotificationEvent } from '@estrelinha/core/notifications'
+import { resendNotification, resendNotificationOutcome } from '@/entities/order/api/notifyOrder'
+import {
+  customerNoticeFor,
+  EVENT_AUDIENCE,
+  eventsForTrigger,
+  isNotificationEvent,
+  NOTIFICATION_EVENT_NAMES,
+  sentCustomerEvents,
+  type NotificationEvent,
+} from '@estrelinha/core/notifications'
+import { useNotificationSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import {
   PAYMENT_STATUS_LABELS, rowQueueAge, type AdminOrderRow,
 } from '@/entities/order/api/orderQuery'
@@ -26,9 +35,13 @@ import OrderCancelDialog from '@/features/order-management/ui/OrderCancelDialog'
 import OrderNextStep from '@/features/order-detail/ui/OrderNextStep'
 import OrderHistory from '@/features/order-detail/ui/OrderHistory'
 import { buildHistory } from '@/features/order-detail/model/history'
+import { gerundioDoStatus } from '@/features/order-detail/model/gerundio'
+import { abrirPrevia, fraseDoResultado, OUTRA_GRAVACAO, useGestoComAviso } from '@/features/order-notice'
 import { openPickSlips, type PickSlipOrder } from '@/features/pick-slip'
 import { chargeMaterialUrl } from '@/features/order-list/model/chargeMaterial'
-import { RecordPageHeader } from '@/shared/ui'
+import { ActionButton, OrderPageSkeleton, RecordPageHeader } from '@/shared/ui'
+import { SENT_EMAILS_READ_FAILED } from '@/entities/order/api/sentEmails'
+import { devolverFoco, tituloDaPagina } from '@/shared/lib/foco'
 
 /**
  * `/admin/pedidos/:id` — o pedido como **rota** (`PED-24`).
@@ -72,18 +85,40 @@ const AdminOrderPage = () => {
   // (link colado, ficha da cliente), volta para a lista sem filtro, como antes.
   const voltarPara = listaDeVolta(useLocation().state)
   const {
-    order, customer, items, itemsError, productRefs, history, notes, emails, loading, error, reload,
+    order, customer, items, itemsError, productRefs, history, notes, emails, emailsError, loading, error, staleError, reload,
   } = useAdminOrder(id)
   const {
     updateStatus, cancelOrder, addTrackingCode, addNote, setMaterialStatus, setMaterialTracking,
   } = useAdminOrders()
 
-  const [busy, setBusy] = useState(false)
+  // Feature `88`: a previsão do aviso (`A-01`) lê as configurações de notificação (os padrões enquanto
+  // a leitura não chega — os mesmos do motor) e o que a cliente JÁ recebeu deste pedido.
+  const notificacoes = useNotificationSettings()
+  const enviados = useMemo(() => sentCustomerEvents(emails ?? []), [emails])
+  // Um caminho para todo gesto que pode avisar a cliente: portão, uma gravação por vez, a frase do
+  // desfecho e a região viva (`AVS-01`, `CRG-01`, `CRG-02`, `CRG-09`).
+  // Conserto do QA (`A-14`): com a leitura dos envios falhando, o gesto que dependeria da previsão é
+  // recusado — a mesma frase do lote e do cartão.
+  const gesto = useGestoComAviso({ settings: notificacoes, enviados, enviadosIndisponiveis: emailsError === true })
+  const { pendente } = gesto
+  const busy = pendente !== null || gesto.ocupado
+
   const [tracking, setTracking] = useState('')
   const [carrier, setCarrier] = useState('')
   const [cancelOpen, setCancelOpen] = useState(false)
+  // Conserto do QA (foco): o "Tentar de novo" da faixa some quando a releitura volta — o foco vai ao
+  // título do pedido, depois do commit.
+  const [focarTitulo, setFocarTitulo] = useState(false)
+  useEffect(() => {
+    if (!focarTitulo) return
+    // A faixa que ficou (a releitura falhou de novo) mantém o foco no próprio botão.
+    devolverFoco(document.activeElement, tituloDaPagina)
+    setFocarTitulo(false)
+  }, [focarTitulo, staleError])
 
-  if (loading) return <div className="p-12 text-center text-muted-foreground">Carregando...</div>
+  // `CRG-06`: a primeira carga é o esqueleto com a grade do pedido. Uma releitura depois de gravar
+  // (`'revalidar'`) nunca liga `loading` — a página não pisca (`CRG-03`).
+  if (loading) return <OrderPageSkeleton />
 
   if (error) {
     return (
@@ -111,19 +146,148 @@ const AdminOrderPage = () => {
   })
 
   const eventos = buildHistory(history, emails, notes)
+  const numero = formatOrderNumber(order.order_number)
+  const rotulo = (s: string) => STATUS_LABELS[s] ?? s
 
+  /** A releitura depois de gravar: sem "Carregando...", sem perder rolagem nem campo digitado. */
+  const revalidar = () => reload('revalidar')
+
+  // Gestos 1 e 2 — o Próximo passo e o "Outro status".
+  const mudarStatus = (status: string, origem?: HTMLElement | null) =>
+    gesto.acionar({
+      ...(origem ? { origem } : {}),
+      chave: `status:${status}`,
+      trigger: 'order_status_changed',
+      depois: { ...order, status },
+      orderId: order.id,
+      titulo: `Mudar para ${rotulo(status)}`,
+      mudanca: `O pedido ${numero} passa de ${rotulo(order.status)} para ${rotulo(status)}.`,
+      confirmar: `Mudar para ${rotulo(status)}`,
+      gerundio: gerundioDoStatus(status, retirada),
+      sucesso: `Status: ${rotulo(status)}`,
+      gravar: async (avisarCliente) => {
+        const r = avisarCliente === undefined
+          ? await updateStatus(order.id, status)
+          : await updateStatus(order.id, status, undefined, avisarCliente)
+        if (r.error) return { erro: 'Não foi possível mudar o status. Nada foi alterado — tente de novo.' }
+        await revalidar()
+        return { erro: null, emailSent: r.emailSent }
+      },
+    })
+
+  // Gesto 3 — o rastreio de saída. Em falha, o código e a transportadora ficam nos campos (`CRG-05`).
   const salvarRastreioDeSaida = async () => {
-    if (!tracking.trim()) return
-    setBusy(true)
-    const { error: erro, emailSent } = await addTrackingCode(order.id, tracking.trim(), carrier.trim())
-    setBusy(false)
+    const codigo = tracking.trim()
+    if (!codigo) return
+    await gesto.acionar({
+      chave: 'rastreio',
+      trigger: 'order_status_changed',
+      depois: { ...order, tracking_code: codigo },
+      orderId: order.id,
+      titulo: 'Salvar o rastreio da joia',
+      mudanca: `O código ${codigo} fica no pedido ${numero}, que está como ${rotulo(order.status)}.`,
+      confirmar: 'Salvar rastreio',
+      gerundio: 'Salvando rastreio…',
+      sucesso: 'Rastreio salvo',
+      gravar: async (avisarCliente) => {
+        const r = avisarCliente === undefined
+          ? await addTrackingCode(order.id, codigo, carrier.trim())
+          : await addTrackingCode(order.id, codigo, carrier.trim(), avisarCliente)
+        if (r.error) return { erro: 'O rastreio não foi salvo. Nada foi alterado — tente de novo.' }
+        setTracking('')
+        await revalidar()
+        return { erro: null, emailSent: r.emailSent }
+      },
+    })
+  }
+
+  // Gesto 7 — o cancelamento. A previsão é a mesma régua, sobre o pedido cancelado (`AVS-08`).
+  const depoisDoCancelamento = { ...order, status: 'cancelled' }
+  const avisoDoCancelamento = customerNoticeFor('order_status_changed', depoisDoCancelamento, notificacoes, enviados)
+  const eventosDoCancelamento = eventsForTrigger('order_status_changed', depoisDoCancelamento).filter(
+    (e) => EVENT_AUDIENCE[e] === 'customer',
+  )
+
+  const cancelar = async (motivo: string, avisarCliente: boolean | undefined): Promise<string | null> => {
+    // `A-14`: sem saber o que já saiu, a caixa do cancelamento pergunta às cegas — recusa, dentro do
+    // diálogo (o alerta dele é o anúncio).
+    if (emailsError && avisoDoCancelamento.send.length > 0) return SENT_EMAILS_READ_FAILED
+    const r = await gesto.rodar('cancelar', 'Cancelando…', () =>
+      avisarCliente === undefined
+        ? cancelOrder(order.id, motivo)
+        : cancelOrder(order.id, motivo, avisarCliente),
+    )
+    if (r === undefined) return OUTRA_GRAVACAO
+    // A falha fica no alerta do diálogo: ele é o anúncio (um só).
+    if (r.error) return 'O pedido não foi cancelado. O motivo continua aqui — tente de novo.'
+    // `AVS-07` (T23): o desfecho REAL. Com a caixa desmarcada, a frase vem da caixa (o motor responde
+    // `sent: true` também pelo aviso à dona); com ela marcada, do `emailSent` que o motor devolveu.
+    const frase = avisarCliente === undefined
+      ? fraseDoResultado('Pedido cancelado', {
+          perguntou: false,
+          avisar: true,
+          emailSent: r.emailSent === true,
+          jaEnviados: avisoDoCancelamento.alreadySent,
+        })
+      : avisarCliente === true && r.emailSent !== true
+        ? 'O e-mail não saiu — o pedido foi cancelado'
+        : fraseDoResultado('Pedido cancelado', {
+            perguntou: true,
+            avisar: avisarCliente,
+            emailSent: r.emailSent === true,
+            jaEnviados: avisoDoCancelamento.alreadySent,
+          })
+    gesto.informar('success', frase)
+    await revalidar()
+    return null
+  }
+
+  // A nota interna. Em falha o texto fica no campo (`CRG-05`).
+  const anotar = async (nota: string): Promise<boolean> => {
+    const erro = await gesto.rodar('nota', 'Salvando nota…', () => addNote(order.id, nota))
+    if (erro === undefined) return false
     if (erro) {
-      toast.error('Não foi possível salvar o rastreio')
+      gesto.informar('error', 'A nota não foi salva. Tente de novo.')
+      return false
+    }
+    gesto.anunciar('Nota salva')
+    await revalidar()
+    return true
+  }
+
+  // "Reenviar" (linha de falha) e o avião (linha pulada, `AVS-13`): a mesma porta, `action=send`.
+  const enviarEmail = async (type: string, channel: string, linhaId: string) => {
+    const linha = eventos.find((e) => e.id === linhaId)
+    const nomeDoEmail = isNotificationEvent(type) ? NOTIFICATION_EVENT_NAMES[type] : type
+
+    if (linha?.emailSkipped) {
+      const r = await gesto.rodar(`email:${linhaId}`, 'Enviando…', () =>
+        resendNotificationOutcome(order.id, type as NotificationEvent, channel as 'email'),
+      )
+      if (r === undefined) return
+      // `A-13`: o desfecho com a frase — e a linha continua `skipped` em todos menos o primeiro.
+      const frase =
+        r === 'enviado'
+          ? `E-mail “${nomeDoEmail}” enviado`
+          : r === 'desligado'
+            ? 'Este e-mail está desligado em Configurações → Notificações.'
+            : r === 'estado'
+              ? 'O pedido não está mais no estado deste e-mail.'
+              : `O e-mail “${nomeDoEmail}” não saiu. Tente de novo.`
+      gesto.informar(r === 'enviado' ? 'success' : 'error', frase)
+      await revalidar()
       return
     }
-    toast.success(emailSent ? 'Rastreio salvo — a cliente foi avisada por e-mail' : 'Rastreio salvo')
-    setTracking('')
-    await reload()
+
+    // `AD-008`: o envio é contido. `resendNotification` devolve booleano e NUNCA lança — a falha não
+    // reverte estado nenhum, só informa. Aqui o nome da MENSAGEM é o certo: reenviar é repetir uma
+    // mensagem específica, não anunciar um fato novo (`AD-032`).
+    const saiu = await gesto.rodar(`email:${linhaId}`, 'Reenviando…', () =>
+      resendNotification(order.id, type as NotificationEvent, channel as 'email'),
+    )
+    if (saiu === undefined) return
+    gesto.informar(saiu ? 'success' : 'error', saiu ? 'E-mail reenviado' : 'O reenvio não saiu. O estado do pedido não mudou.')
+    await revalidar()
   }
 
   /** `Nota interna` do cabeçalho leva ao campo do histórico, e o foca. */
@@ -189,6 +353,7 @@ const AdminOrderPage = () => {
             <Button
               variant="outline" size="sm"
               className="min-h-[44px] border-destructive/40 text-destructive md:min-h-0"
+              disabled={busy}
               onClick={() => setCancelOpen(true)}
             >
               Cancelar pedido
@@ -197,8 +362,34 @@ const AdminOrderPage = () => {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
-        {/* `minmax(0, 1fr)` e não `1fr`: sem ele o mínimo automático da coluna é o min-content do
+      {/* `CRG-04`: a releitura depois de gravar falhou. O pedido que estava na tela FICA. */}
+      {staleError && (
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          <span className="min-w-0 flex-1">
+            Não consegui atualizar o pedido. O que está na tela pode estar desatualizado.
+          </span>
+          <ActionButton
+            variant="outline"
+            size="sm"
+            alvo44
+            pendingLabel="Atualizando…"
+            onClick={async () => {
+              await reload('revalidar')
+              setFocarTitulo(true)
+            }}
+          >
+            Tentar de novo
+          </ActionButton>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+        {/* `grid-cols-1` (que é `minmax(0, 1fr)`) também no celular — conserto do reteste da `88`: sem
+            trilha explícita a coluna implícita é `auto` e, a 390/200 %, tomava 373 px numa tela de 294.
+            `minmax(0, 1fr)` e não `1fr`: sem ele o mínimo automático da coluna é o min-content do
             conteúdo, e uma tabela de itens larga estoura a grade — foi o defeito que pôs a página de
             produto da loja rolando na horizontal no celular. Vale aqui pela mesma razão. */}
         <div className="min-w-0 space-y-4">
@@ -206,37 +397,30 @@ const AdminOrderPage = () => {
           <OrderMaterialCard
             order={order}
             items={items}
-            onSetStatus={async (oid, status) => {
-              const r = await setMaterialStatus(oid, status)
-              await reload()
+            onSetStatus={async (oid, status, avisarCliente) => {
+              const r = avisarCliente === undefined
+                ? await setMaterialStatus(oid, status)
+                : await setMaterialStatus(oid, status, avisarCliente)
+              await revalidar()
               return r
             }}
-            onSetTracking={async (oid, code) => {
-              const r = await setMaterialTracking(oid, code)
-              await reload()
+            onSetTracking={async (oid, code, avisarCliente) => {
+              const r = avisarCliente === undefined
+                ? await setMaterialTracking(oid, code)
+                : await setMaterialTracking(oid, code, avisarCliente)
+              await revalidar()
               return r
             }}
+            acionar={gesto.acionar}
+            pendente={pendente}
           />
 
           {/* 2 · Próximo passo */}
           <OrderNextStep
             order={order}
             busy={busy}
-            onAdvance={async status => {
-              setBusy(true)
-              const { error: erro, emailSent } = await updateStatus(order.id, status)
-              setBusy(false)
-              if (erro) {
-                toast.error('Não foi possível mudar o status')
-                return
-              }
-              toast.success(
-                emailSent
-                  ? `Status: ${STATUS_LABELS[status]} — a cliente foi avisada`
-                  : `Status: ${STATUS_LABELS[status]}`,
-              )
-              await reload()
-            }}
+            gravando={pendente?.startsWith('status:') ? pendente.slice('status:'.length) : null}
+            onAdvance={mudarStatus}
           />
 
           {/* O recado da cliente (PED-11). Existia no banco desde o primeiro dia e nunca chegou a
@@ -308,7 +492,7 @@ const AdminOrderPage = () => {
                 const adminHref = produto ? `/admin/produtos/${produto.id}/editar` : null
 
                 return (
-                <li key={item.id} className="flex items-center gap-3.5 py-3.5">
+                <li key={item.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-1 py-3.5">
                   {/* Caixa de 46 com `shrink-0`: a moldura existe MESMO sem imagem, senão a linha
                       sem foto desalinha da linha com foto, e as duas ficam num lugar diferente. */}
                   <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-border bg-estrelinha-admin-elevated">
@@ -329,7 +513,10 @@ const AdminOrderPage = () => {
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1">
+                  {/* Conserto do reteste da `88` (fonte a 200 % em 390): o nome tem piso de 6rem (ou o que
+                      sobra ao lado da foto) — quando não cabe com a quantidade e o preço, ESTES descem
+                      para a linha de baixo, alinhados à direita. No computador a linha é uma só. */}
+                  <div className="min-w-[min(6rem,calc(100%_-_46px_-_0.875rem))] flex-1">
                     {adminHref ? (
                       // Nova aba de propósito: a conferência do produto não pode fazer perder o
                       // pedido que está aberto — nem o rascunho de nota, nem o campo de rastreio
@@ -361,11 +548,14 @@ const AdminOrderPage = () => {
 
                   {/* Faixas de largura FIXA: sem elas, `un` e preço mudam de coluna a cada linha,
                       conforme o comprimento do nome — e a leitura vertical de quantidade some. */}
-                  <span className="w-[60px] shrink-0 text-center text-xs text-estrelinha-admin-text-secondary">
-                    {item.quantity} un
-                  </span>
-                  <span className="w-[110px] shrink-0 text-right text-sm font-semibold">
-                    {formatPrice(item.unit_price)}
+                  <span className="ml-auto flex shrink-0 items-center gap-3.5">
+                    <span className="min-w-[60px] shrink-0 whitespace-nowrap text-center text-xs text-estrelinha-admin-text-secondary">
+                      {item.quantity} un
+                    </span>
+                    {/* `min-w` e não `w`: com a fonte grande o valor cresce além de 110 e saía cortado. */}
+                    <span className="min-w-[110px] shrink-0 whitespace-nowrap text-right text-sm font-semibold">
+                      {formatPrice(item.unit_price)}
+                    </span>
                   </span>
                 </li>
                 )
@@ -377,27 +567,12 @@ const AdminOrderPage = () => {
           <OrderHistory
             events={eventos}
             busy={busy}
-            onAddNote={async nota => {
-              setBusy(true)
-              const erro = await addNote(order.id, nota)
-              setBusy(false)
-              if (erro) {
-                toast.error('Não foi possível salvar a nota')
-                return
-              }
-              await reload()
-            }}
-            onResendEmail={async (type, channel) => {
-              setBusy(true)
-              // `AD-008`: o envio é contido. `resendNotification` devolve booleano e NUNCA lança —
-              // a falha não reverte estado nenhum, só informa. Aqui o nome da MENSAGEM é o certo:
-              // reenviar é repetir uma mensagem específica, não anunciar um fato novo (`AD-032`).
-              const saiu = await resendNotification(order.id, type as NotificationEvent, channel as 'email')
-              setBusy(false)
-              if (saiu) toast.success('E-mail reenviado')
-              else toast.error('O reenvio não saiu. O estado do pedido não mudou.')
-              await reload()
-            }}
+            reenviando={pendente?.startsWith('email:') ? pendente.slice('email:'.length) : null}
+            anotando={pendente === 'nota'}
+            onAddNote={anotar}
+            onResendEmail={enviarEmail}
+            emailsError={emailsError === true}
+            onRetryEmails={() => reload('revalidar')}
           />
 
           {/* O Melhor Envio migra de ABA para BLOCO, sem alteração interna (D9). */}
@@ -405,7 +580,7 @@ const AdminOrderPage = () => {
             <h2 className="mb-3 flex items-center gap-2 font-heading text-lg font-semibold">
               <Truck className="h-4 w-4" /> Melhor Envio
             </h2>
-            <MelhorEnvioTab order={order} items={items} onUpdate={reload} />
+            <MelhorEnvioTab order={order} items={items} onUpdate={() => reload('revalidar')} />
           </section>
         </div>
 
@@ -431,7 +606,9 @@ const AdminOrderPage = () => {
             {/* `D3` — o que ela já confiou à loja, ao lado de quem ela é. É o contexto que muda
                 como se escreve para alguém na terceira compra. */}
             {customer && customer.orders_paid > 0 && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              // Conserto do reteste da `88`: `auto-fit` com piso de 8rem e não `grid-cols-2` — a 390/200 %
+              // o valor gasto passava da caixa de 106 px. No aside do computador cabem as duas colunas.
+              <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2">
                 <div className="rounded-lg bg-muted p-2">
                   <p className="text-[10px] uppercase text-muted-foreground">Compras</p>
                   <p className="text-lg font-semibold">{customer.orders_paid}</p>
@@ -515,9 +692,15 @@ const AdminOrderPage = () => {
                   className="h-11"
                   aria-label="Transportadora"
                 />
-                <Button className="min-h-[44px] w-full" disabled={busy || !tracking.trim()} onClick={salvarRastreioDeSaida}>
+                <ActionButton
+                  className="min-h-[44px] w-full"
+                  disabled={busy || !tracking.trim()}
+                  pending={pendente === 'rastreio'}
+                  pendingLabel="Salvando rastreio…"
+                  onClick={salvarRastreioDeSaida}
+                >
                   Salvar rastreio
-                </Button>
+                </ActionButton>
                 <p className="text-xs text-muted-foreground">
                   O e-mail “sua joia foi postada” só sai quando este código for salvo.
                 </p>
@@ -553,16 +736,16 @@ const AdminOrderPage = () => {
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         orderNumber={order.order_number}
-        onConfirm={async motivo => {
-          const erro = await cancelOrder(order.id, motivo)
-          if (erro) {
-            toast.error('Não foi possível cancelar')
-            return
-          }
-          toast.success('Pedido cancelado')
-          await reload()
-        }}
+        aviso={avisoDoCancelamento}
+        eventosDaCliente={eventosDoCancelamento}
+        cliente={order.customer_email}
+        onVerEmail={(e) => void abrirPrevia(e, order.id)}
+        onConfirm={cancelar}
       />
+
+      {/* Uma vez na página: o diálogo de aviso e a região viva que anuncia gerúndio e resultado. */}
+      {gesto.dialogo}
+      {gesto.regiaoViva}
     </div>
   )
 }

@@ -31,4 +31,19 @@ describe('PageHeader', () => {
     render(<PageHeader title="Editar" />)
     expect(screen.queryByRole('button', { name: 'Voltar' })).not.toBeInTheDocument()
   })
+
+  it('no celular os botões das ações quebram linha (fonte grande), sem mudar o computador', () => {
+    render(<PageHeader title="Pedidos" actions={<button>Folha de separação</button>} />)
+    const tokens = (screen.getByRole('button', { name: 'Folha de separação' }).parentElement!.getAttribute('class') ?? '').split(/\s+/)
+    for (const t of TOKENS_QUE_QUEBRAM) expect(tokens).toContain(t)
+    expect(tokens).not.toContain('whitespace-normal')
+  })
 })
+
+// Conserto do reteste da feature `88` (`BUG-20261030-pedido-rola-de-lado-com-fonte-200`): com a fonte a
+// 200 % em 390, os botões do cabeçalho (`whitespace-nowrap` do shadcn) mediam 363–370 px numa coluna de
+// 294 e a página inteira rolava de lado. No celular eles quebram linha; no computador, nada muda.
+const TOKENS_QUE_QUEBRAM = [
+  'min-w-0', 'max-w-full', 'flex-wrap',
+  'max-md:[&_button]:whitespace-normal', 'max-md:[&_button]:h-auto', 'max-md:[&_button]:min-h-11',
+]

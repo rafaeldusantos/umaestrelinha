@@ -502,6 +502,40 @@ describe('NTF-08 — validação de `trigger`', () => {
     expect(body.results.map((r: { event: string }) => r.event)).toEqual(['order_paid', 'owner_order_paid'])
     expect(body.sent).toBe(true)
   })
+
+  // Feature 88 · Verifier r1 (AVS-07): `sent` conta também o aviso à DONA; `customer_sent` responde só
+  // "um e-mail À CLIENTE saiu", que é o que a frase do painel afirma.
+  it('`customer_sent` é verdadeiro quando o e-mail da CLIENTE saiu', async () => {
+    const { deps } = setup({ ligados: ['owner_order_paid'] })
+
+    const body = await (await route(deps, request('trigger', { trigger: 'payment_approved', order_id: ORDER_ID }))).json()
+
+    expect(body.results.find((r: { event: string }) => r.event === 'order_paid').ok).toBe(true)
+    expect(body.customer_sent).toBe(true)
+  })
+
+  it('só o aviso à DONA saiu (a cliente pulada) ⇒ `sent: true`, mas `customer_sent: false`', async () => {
+    const { deps } = setup({ ligados: ['owner_order_paid'], rpcByFn: { skip_order_notification: { data: 'skip-row-1' } } })
+
+    const body = await (
+      await route(deps, request('trigger', { trigger: 'payment_approved', order_id: ORDER_ID, customer: false }))
+    ).json()
+
+    expect(body.results).toEqual([
+      { ok: false, event: 'order_paid', channel: 'email', skipped: 'admin_opt_out' },
+      expect.objectContaining({ ok: true, event: 'owner_order_paid' }),
+    ])
+    expect(body.sent).toBe(true)
+    expect(body.customer_sent).toBe(false)
+  })
+
+  it('nenhum evento ⇒ `customer_sent: false` (sempre presente no corpo)', async () => {
+    const { deps } = setup({ order: orderRow({ status: 'processing' }) })
+
+    const body = await (await route(deps, request('trigger', { trigger: 'order_status_changed', order_id: ORDER_ID }))).json()
+
+    expect(body.customer_sent).toBe(false)
+  })
 })
 
 // =================================================================================================
@@ -973,5 +1007,70 @@ describe('feature 63 — `preview` de um pedido de retirada (RET-18)', () => {
     expect(body.html).toContain('Rua das Flores')
     expect(body.html).not.toContain('>Retirada</strong>')
     expect(body.html).not.toContain('Escritório - Uma Estrelinha')
+  })
+})
+
+// =================================================================================================
+// Feature 88 — `customer: false`: a porta `trigger` (admin) aceita, a porta `notify` (cliente) ignora
+// =================================================================================================
+
+describe('feature 88 — quem pode pular o e-mail da cliente', () => {
+  const POSTADO = orderRow({ status: 'shipped', tracking_code: 'BR123456789BR' })
+  const SKIP = { skip_order_notification: { data: 'skip-row-1' } }
+  const skips = (s: ReturnType<typeof createFakeSupabase>) => s.rpcs.filter((r) => r.fn === 'skip_order_notification')
+
+  it('`trigger` (admin) com `customer: false` repassa a opção: o e-mail da cliente vira `skipped` e o provedor não é chamado', async () => {
+    const { deps, supabase, fetchDouble } = setup({ order: POSTADO, rpcByFn: SKIP })
+
+    const response = await route(deps, request('trigger', { trigger: 'order_status_changed', order_id: ORDER_ID, customer: false }))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(skips(supabase).map((r) => r.args)).toEqual([{ p_order_id: ORDER_ID, p_event: 'order_shipped', p_channel: 'email' }])
+    expect(fetchDouble.calls).toHaveLength(0)
+    expect(body.results).toEqual([{ ok: false, event: 'order_shipped', channel: 'email', skipped: 'admin_opt_out' }])
+    expect(body.sent).toBe(false)
+  })
+
+  it.each([
+    ['ausente', {}],
+    ['`true`', { customer: true }],
+    ['a string `"false"` (só o booleano conta)', { customer: 'false' }],
+  ])('`trigger` (admin) com `customer` %s ⇒ o comportamento de hoje: a cliente recebe', async (_rotulo, extra) => {
+    const { deps, supabase, fetchDouble } = setup({ order: POSTADO, rpcByFn: SKIP })
+
+    const response = await route(deps, request('trigger', { trigger: 'order_status_changed', order_id: ORDER_ID, ...extra }))
+    const body = await response.json()
+
+    expect(skips(supabase)).toEqual([])
+    expect(fetchDouble.calls.map((c) => c.body.to)).toEqual(['mariana@exemplo.invalid'])
+    expect(body.sent).toBe(true)
+  })
+
+  it('`notify` (a DONA do pedido) com `customer: false` ENVIA normalmente — a cliente não suprime o próprio e-mail', async () => {
+    const { deps, supabase, fetchDouble } = setup({
+      user: CLIENTE,
+      isAdmin: false,
+      order: orderRow({ material_status: 'material_enviado', material_tracking_code: 'BB1BR' }),
+      ligados: ['material_tracking_registered'],
+      rpcByFn: SKIP,
+    })
+
+    const response = await route(deps, request('notify', { order_id: ORDER_ID, trigger: 'material_tracking_set', customer: false }))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(skips(supabase)).toEqual([])
+    expect(fetchDouble.calls.map((c) => c.body.to)).toEqual(['mariana@exemplo.invalid'])
+    expect(body.results[0]).toEqual({ ok: true, event: 'material_tracking_registered', channel: 'email', id: 'msg-abc-123' })
+  })
+
+  it('`trigger` com `customer: false` por quem NÃO é admin ⇒ 403, e nenhum `skipped` gravado', async () => {
+    const { deps, supabase } = setup({ user: CLIENTE, isAdmin: false, order: POSTADO, rpcByFn: SKIP })
+
+    const response = await route(deps, request('trigger', { trigger: 'order_status_changed', order_id: ORDER_ID, customer: false }))
+
+    expect(response.status).toBe(403)
+    expect(skips(supabase)).toEqual([])
   })
 })
