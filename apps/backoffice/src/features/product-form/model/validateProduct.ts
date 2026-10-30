@@ -19,7 +19,7 @@ export type TabId = 'geral' | 'perguntas' | 'precos' | 'seo' | 'relacionados'
 export const TAB_IDS: readonly TabId[] = ['geral', 'perguntas', 'precos', 'seo', 'relacionados']
 
 /**
- * `error` bloqueia *Salvar e publicar*. `warning` é informação — a vitrine fica estranha, mas o
+ * `error` bloqueia o salvar de produto ATIVO. `warning` é informação — a vitrine fica estranha, mas o
  * dado não está inválido, e transformar aviso em bloqueio é o caminho mais curto para o admin
  * aprender a ignorar mensagens.
  */
@@ -166,7 +166,7 @@ export const errorsByTab = (issues: readonly FieldIssue[]): Record<TabId, number
   return counts
 }
 
-/** Há erro que bloqueia *Salvar e publicar*? Aviso não bloqueia (PFM-11 / P1.7 AC 13). */
+/** Há erro que bloqueia o salvar de produto ativo? Aviso não bloqueia (PFM-11 / P1.7 AC 13). */
 export const hasBlockingErrors = (issues: readonly FieldIssue[]): boolean =>
   issues.some(issue => issue.severity === 'error')
 

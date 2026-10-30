@@ -156,7 +156,7 @@ describe('Ativar/Desativar na coluna lateral do produto', () => {
 
   it('produto novo não tem o botão: ele ainda não existe no banco', async () => {
     montar('/admin/produtos/novo')
-    await waitFor(() => expect(screen.getByText(/O produto vai à loja quando você usar/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/O produto é criado como rascunho/)).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Ativar' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Desativar' })).toBeNull()
   })

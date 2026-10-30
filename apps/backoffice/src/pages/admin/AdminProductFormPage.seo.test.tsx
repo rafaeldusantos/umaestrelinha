@@ -108,10 +108,10 @@ beforeEach(() => {
   h.fornecedores = []
   h.invocacoes = []
   h.settings = null
-  // Um produto que passa nos CINCO itens bloqueantes (nome, categoria, imagem, peso, grade) e não
-  // tem SEO nenhum. Antes da `84` o "Salvar e publicar" nascia desabilitado com ele.
+  // Um produto ATIVO que passa nos CINCO itens bloqueantes (nome, categoria, imagem, peso, grade) e
+  // não tem SEO nenhum. Antes da `84` o salvar de produto na loja nascia bloqueado com ele.
   h.produto = {
-    id: 'p1', name: 'Anel Coração', slug: 'anel-coracao', base_price: 100, cost_price: 30, is_active: false,
+    id: 'p1', name: 'Anel Coração', slug: 'anel-coracao', base_price: 100, cost_price: 30, is_active: true,
     description: '<p>Anel feito à mão em resina com o coração de quem você ama.</p>',
     product_variants: [], product_categories: [{ category_id: 'c1', position: 0 }], product_faqs: [],
     product_filter_values: [], product_suppliers: null,
@@ -157,13 +157,13 @@ const gravacaoDoProduto = () => {
 const toastsDestrutivos = () =>
   vi.mocked(toast).mock.calls.filter(([arg]) => (arg as { variant?: string }).variant === 'destructive')
 
-describe('SIA-01 — "Salvar e publicar" sem SEO', () => {
+describe('SIA-01 — salvar produto ativo sem SEO', () => {
   it('o botão está habilitado e grava is_active: true com os dois campos de SEO nulos, sem toast de erro', async () => {
     montar()
     await carregado()
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeEnabled()
 
-    await clicar('Salvar e publicar')
+    await clicar('Salvar')
 
     await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     expect(gravacaoDoProduto().seo_title).toBeNull()
@@ -174,7 +174,7 @@ describe('SIA-01 — "Salvar e publicar" sem SEO', () => {
   it('não leva à aba SEO: a aba aberta continua sendo a Geral', async () => {
     montar()
     await carregado()
-    await clicar('Salvar e publicar')
+    await clicar('Salvar')
     await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     expect(screen.getByRole('tab', { name: /^Geral/ })).toHaveAttribute('data-state', 'active')
     expect(screen.getByRole('tab', { name: /^SEO/ })).toHaveAttribute('data-state', 'inactive')
@@ -184,7 +184,7 @@ describe('SIA-01 — "Salvar e publicar" sem SEO', () => {
     h.produto = { ...h.produto, seo_title: '   ', seo_description: '  ' }
     montar()
     await carregado()
-    await clicar('Salvar e publicar')
+    await clicar('Salvar')
     await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     expect(gravacaoDoProduto().seo_title).toBeNull()
     expect(gravacaoDoProduto().seo_description).toBeNull()
@@ -192,11 +192,12 @@ describe('SIA-01 — "Salvar e publicar" sem SEO', () => {
   })
 })
 
-describe('SIA-02 — "Salvar rascunho" sem SEO', () => {
-  it('grava is_active: false com os dois campos de SEO nulos, sem toast de erro', async () => {
+describe('SIA-02 — salvar rascunho sem SEO', () => {
+  it('rascunho continua rascunho: grava is_active: false com os dois campos de SEO nulos, sem toast de erro', async () => {
+    h.produto = { ...h.produto, is_active: false }
     montar()
     await carregado()
-    await clicar('Salvar rascunho')
+    await clicar('Salvar')
     await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: false }))
     expect(gravacaoDoProduto().seo_title).toBeNull()
     expect(gravacaoDoProduto().seo_description).toBeNull()
@@ -209,7 +210,7 @@ describe('SIA-04 — só um campo preenchido', () => {
     h.produto = { ...h.produto, seo_title: 'Anel de resina com coração' }
     montar()
     await carregado()
-    await clicar('Salvar e publicar')
+    await clicar('Salvar')
     await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     expect(gravacaoDoProduto().seo_title).toBe('Anel de resina com coração')
     expect(gravacaoDoProduto().seo_description).toBeNull()
@@ -381,7 +382,7 @@ describe('SIA-10 / SIA-16 — sugerir pela página', () => {
     await responder(0, { data: SUGERIDO })
     expect(h.diario).toEqual([])
 
-    await clicar('Salvar e publicar')
+    await clicar('Salvar')
     await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     expect(gravacaoDoProduto().seo_title).toBe(SUGERIDO.title)
     expect(gravacaoDoProduto().seo_description).toBe(SUGERIDO.description)
@@ -430,8 +431,8 @@ describe('SIA-12 — desfazer pela página', () => {
     await responder(0, { data: SUGERIDO })
     expect(screen.getByRole('button', { name: 'Desfazer' })).toBeInTheDocument()
 
-    await clicar('Salvar rascunho')
-    await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: false }))
+    await clicar('Salvar')
+    await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument())
   })
 })
@@ -487,7 +488,7 @@ describe('SIA-20 / SIA-22 — falhas pela página', () => {
     expect(h.invocacoes).toHaveLength(1)
     expect(screen.getByRole('status')).toHaveTextContent('Sugestão por IA não está configurada.')
     expect(campoTitulo().value).toBe('')
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeEnabled()
   })
 
   it('502 upstream ⇒ a frase, campos intocados e o botão de volta', async () => {
@@ -503,7 +504,7 @@ describe('SIA-20 / SIA-22 — falhas pela página', () => {
     )
     expect(campoTitulo().value).toBe('Título curado antes')
     expect(screen.getByRole('button', { name: 'Sugerir com IA' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeEnabled()
   })
 })
 
@@ -612,8 +613,8 @@ describe('o leitor de tela ouve o sucesso (BUG-…-sugestao-preenchida-sem-aviso
     await clicar('Sugerir com IA')
     await responder(0, { data: SUGERIDO })
     expect(screen.getByRole('status')).toHaveTextContent(APLICADA)
-    await clicar('Salvar rascunho')
-    await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: false }))
+    await clicar('Salvar')
+    await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(''))
   })
 })
@@ -639,8 +640,8 @@ describe('a frase de falha não sobrevive à edição nem ao save (BUG-…-aviso
     await clicar('Sugerir com IA')
     await responder(0, { status: 429, corpo: { reason: 'limited' } })
     expect(screen.getByRole('status')).toHaveTextContent('Muitas sugestões seguidas. Tente de novo em alguns minutos.')
-    await clicar('Salvar rascunho')
-    await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: false }))
+    await clicar('Salvar')
+    await waitFor(() => expect(gravacaoDoProduto()).toMatchObject({ is_active: true }))
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(''))
   })
 })

@@ -246,7 +246,7 @@ describe('OPV-01/02 — o valor acrescentado cria a linha no mesmo gesto, ativa 
     await waitFor(() => expect(linhasDaGrade()).toHaveLength(1))
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
 
     const inseridas = h.diario.find(e => e.table === 'product_variants' && e.op === 'insert')
@@ -375,7 +375,7 @@ describe('OPV-04 — remover valor: a linha sem pedido sai, a vendida fica pausa
     await screen.findByText(/ficaram pausadas/)
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
 
     const apagou = h.diario.filter(e => e.table === 'product_variants' && e.op === 'delete')
@@ -459,12 +459,12 @@ describe('OPV-11..16 — a imagem na linha, com envio pelo modal', () => {
 
     // OPV-15: o mesmo sinal da galeria trava o salvar enquanto o envio está no ar. `hidden`: com o
     // modal aberto o Radix esconde o resto da página da árvore acessível.
-    expect(screen.getByRole('button', { name: 'Salvar rascunho', hidden: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Salvar', hidden: true })).toBeDisabled()
 
     await act(async () => terminar({ uploaded: ['https://cdn/nova.webp'], failed: [] }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Salvar rascunho' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).not.toBeDisabled()
     // A miniatura da linha passa a ser a foto enviada.
     const botao = screen.getByRole('button', { name: 'Imagem de 3,5 cm' })
     expect(botao.querySelector('img')).toHaveAttribute('src', 'https://cdn/nova.webp')
@@ -480,7 +480,7 @@ describe('OPV-11..16 — a imagem na linha, com envio pelo modal', () => {
 
     // E vai ao banco: na coluna `images` do produto e no `image_url` da linha.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
     const produto = h.diario.find(e => e.table === 'products' && e.op === 'update')!.payload as {
       images: { url: string; source: string }[]
@@ -521,7 +521,7 @@ describe('OPV-11..16 — a imagem na linha, com envio pelo modal', () => {
     // da galeria, e as duas camadas se mascaram. O que importa é o que vai ao banco: a loja lê
     // `product_variants.image_url`, e a URL morta lá vira imagem quebrada na página do produto.
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
     const produto = h.diario.find(e => e.table === 'products' && e.op === 'update')!.payload as {
       images: { url: string }[]
@@ -561,7 +561,7 @@ describe('OPV-05 na página — renomear a opção de um produto CARREGADO não 
     expect(h.consultas).toEqual([])
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
     expect(h.diario.filter(e => e.table === 'product_variants' && e.op === 'insert')).toEqual([])
     expect(h.diario.filter(e => e.table === 'product_variants' && e.op === 'delete')).toEqual([])

@@ -228,20 +228,20 @@ describe('AdminProductFormPage — o estoque do Resumo', () => {
 })
 
 describe('AdminProductFormPage — cabeçalho e checklist', () => {
-  it('monta o cabeçalho com as três ações no lugar do Salvar único', async () => {
+  it('monta o cabeçalho com UM Salvar — nenhum botão de publicar', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
 
-    expect(screen.getByRole('button', { name: /Salvar rascunho/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /publicar/i })).not.toBeInTheDocument()
   })
 
-  it('produto novo e vazio não pode ser publicado — o checklist bloqueia (P1.7 AC 13)', async () => {
+  it('produto novo e vazio nasce rascunho e pode ser salvo — o checklist não bloqueia o rascunho (P1.7 AC 13)', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
 
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Salvar rascunho/ })).toBeEnabled()
+    expect(screen.getByText('Rascunho')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeEnabled()
   })
 
   it('o checklist aparece no inspetor com os itens pendentes acionáveis', async () => {

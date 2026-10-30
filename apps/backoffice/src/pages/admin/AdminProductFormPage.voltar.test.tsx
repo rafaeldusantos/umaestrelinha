@@ -124,11 +124,11 @@ describe('o voltar do cadastro reabre a lista no mesmo recorte', () => {
     await waitFor(() => expect(screen.getByDisplayValue(/Anel Coração/)).toBeInTheDocument())
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
     // Continua no cadastro (agora `/admin/produtos/novo/editar`), e NÃO na lista: se o salvar fosse
     // direto para a lista, o voltar abaixo nem seria exercitado e o caso passaria pelo motivo errado.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar rascunho' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar' })).toBeEnabled())
     expect(screen.queryByTestId('lista')).not.toBeInTheDocument()
 
     voltarPelaTrilha()

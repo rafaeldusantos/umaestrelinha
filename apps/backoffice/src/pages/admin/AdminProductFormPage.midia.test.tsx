@@ -136,7 +136,7 @@ const tituloDoCard = (titulo: string) => screen.getByText(titulo, { selector: 'h
 
 const resumo = () => screen.getByTestId('product-media-summary')
 
-const salvarRascunho = () => screen.getByRole('button', { name: 'Salvar rascunho', hidden: true })
+const salvarRascunho = () => screen.getByRole('button', { name: 'Salvar', hidden: true })
 
 describe('RES-01, RES-02, RES-06 — onde o Resumo mora', () => {
   it('a coluna lateral vai do Resumo a Fornecedor, com o Resumo no topo, acima de Publicação (RES-01)', async () => {

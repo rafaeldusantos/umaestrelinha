@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ChevronRight, Loader2, Save, Trash2, Upload } from 'lucide-react'
+import { ChevronRight, Loader2, Save, Trash2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Badge } from '@estrelinha/ui/badge'
 
@@ -12,12 +12,9 @@ interface Props {
   /** `Date.now()` do último rascunho gravado, ou `null`. */
   draftSavedAt: number | null
   saving: boolean
-  /** `false` quando o checklist tem pendência — bloqueia só o publicar (P1.7 AC 13). */
-  canPublish: boolean
   onBack: () => void
   onDiscard: () => void
-  onSaveDraft: () => void
-  onPublish: () => void
+  onSave: () => void
 }
 
 const secondsAgo = (savedAt: number) => Math.max(0, Math.round((Date.now() - savedAt) / 1000))
@@ -28,9 +25,10 @@ const secondsAgo = (savedAt: number) => Math.max(0, Math.round((Date.now() - sav
  * Por que fixo: o formulário tem 5 abas e um inspetor, e as ações de salvar ficavam no topo de uma
  * página que rola. Com a grade aberta, salvar exigia subir a tela inteira.
  *
- * As duas ações não são o mesmo botão com nomes diferentes: *Salvar e publicar* exige o checklist
- * completo e coloca o produto na loja; *Salvar rascunho* grava o que existe e mantém fora da loja —
- * é a saída para quem cadastrou metade e precisa parar.
+ * Uma ação só: *Salvar* grava o que está no formulário e NÃO mexe na visibilidade. Produto em
+ * rascunho continua rascunho, produto na loja continua na loja. Quem decide estar ou não na loja é
+ * o "Ativar/Desativar" da coluna Publicação (`ProductActiveControl`). Havia um *Salvar e publicar*
+ * que gravava `is_active = true`, e salvar um produto desativado o punha na loja sem querer.
  */
 const ProductFormHeader = ({
   productName,
@@ -39,11 +37,9 @@ const ProductFormHeader = ({
   isDirty,
   draftSavedAt,
   saving,
-  canPublish,
   onBack,
   onDiscard,
-  onSaveDraft,
-  onPublish,
+  onSave,
 }: Props) => {
   // P1.7 AC 11: `⌘S`/`Ctrl+S`. O `preventDefault` é o ponto — sem ele o navegador abre o "salvar
   // página como", que é a última coisa que o admin quer ao apertar salvar num formulário.
@@ -52,13 +48,11 @@ const ProductFormHeader = ({
       if (event.key !== 's' || !(event.metaKey || event.ctrlKey)) return
       event.preventDefault()
       if (saving) return
-      // O atalho faz o que o botão primário faria: publica quando pode, grava rascunho quando não.
-      if (canPublish) onPublish()
-      else onSaveDraft()
+      onSave()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [canPublish, onPublish, onSaveDraft, saving])
+  }, [onSave, saving])
 
   // Gruda só a partir de `md` (feature 67, D1). Até a 67 este `sticky` nunca grudou — o `main` do
   // painel era `overflow-auto` —, e no celular o cabeçalho embrulha em três linhas: medido, 165px
@@ -97,19 +91,15 @@ const ProductFormHeader = ({
           <Button type="button" variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
             <Trash2 className="mr-1 h-4 w-4" /> Descartar
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={onSaveDraft} disabled={saving}>
-            {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
-            Salvar rascunho
-          </Button>
           <Button
             type="button"
             size="sm"
             className="gradient-cta text-white"
-            onClick={onPublish}
-            disabled={saving || !canPublish}
-            title={canPublish ? undefined : 'Resolva os itens do checklist para publicar'}
+            onClick={onSave}
+            disabled={saving}
           >
-            <Upload className="mr-1 h-4 w-4" /> Salvar e publicar
+            {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
+            Salvar
           </Button>
         </div>
       </div>

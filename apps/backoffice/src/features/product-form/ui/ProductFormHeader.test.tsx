@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import ProductFormHeader from './ProductFormHeader'
 
 // PFM-16 / P1.7 AC 10-11: cabeçalho com breadcrumb, nome, badge de status, badge "Alterações não
-// salvas", as três ações e `⌘S`/`Ctrl+S`. AC 13: pendência bloqueia só o publicar.
+// salvas", as ações e `⌘S`/`Ctrl+S`. Desde 2026-10-30 há UM botão, "Salvar", que não decide a
+// visibilidade na loja — o "Salvar e publicar" punha na loja o produto que estava desativado.
 
 const props = () => ({
   productName: 'Botton Sailor Moon',
@@ -12,24 +13,23 @@ const props = () => ({
   isDirty: false,
   draftSavedAt: null as number | null,
   saving: false,
-  canPublish: true,
   onBack: vi.fn(),
   onDiscard: vi.fn(),
-  onSaveDraft: vi.fn(),
-  onPublish: vi.fn(),
+  onSave: vi.fn(),
 })
 
 afterEach(() => vi.restoreAllMocks())
 
 describe('ProductFormHeader — identidade e status', () => {
-  it('mostra breadcrumb, nome do produto e as três ações', () => {
+  it('mostra breadcrumb, nome do produto, Descartar e UM Salvar — sem publicar nem rascunho', () => {
     render(<ProductFormHeader {...props()} />)
 
     expect(screen.getByRole('button', { name: 'Produtos' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Botton Sailor Moon' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Descartar/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Salvar rascunho/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /publicar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Salvar rascunho/ })).not.toBeInTheDocument()
   })
 
   it('produto sem nome ainda tem título — a tela não abre em branco', () => {
@@ -71,29 +71,19 @@ describe('ProductFormHeader — ações', () => {
     const p = props()
     render(<ProductFormHeader {...p} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Salvar rascunho/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Salvar e publicar/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     fireEvent.click(screen.getByRole('button', { name: /Descartar/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Produtos' }))
 
-    expect(p.onSaveDraft).toHaveBeenCalledTimes(1)
-    expect(p.onPublish).toHaveBeenCalledTimes(1)
+    expect(p.onSave).toHaveBeenCalledTimes(1)
     expect(p.onDiscard).toHaveBeenCalledTimes(1)
     expect(p.onBack).toHaveBeenCalledTimes(1)
   })
 
-  it('checklist pendente bloqueia publicar e MANTÉM o rascunho disponível (AC 13)', () => {
-    render(<ProductFormHeader {...props()} canPublish={false} />)
-
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Salvar rascunho/ })).toBeEnabled()
-  })
-
-  it('salvando desabilita as três ações — nada de save duplo', () => {
+  it('salvando desabilita as ações — nada de save duplo', () => {
     render(<ProductFormHeader {...props()} saving />)
 
-    expect(screen.getByRole('button', { name: /Salvar rascunho/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Salvar e publicar/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled()
     expect(screen.getByRole('button', { name: /Descartar/ })).toBeDisabled()
   })
 })
@@ -111,7 +101,7 @@ describe('ProductFormHeader — atalho ⌘S / Ctrl+S (AC 11)', () => {
 
     const event = press({ ctrlKey: true })
 
-    expect(p.onPublish).toHaveBeenCalledTimes(1)
+    expect(p.onSave).toHaveBeenCalledTimes(1)
     expect(event.defaultPrevented).toBe(true)
   })
 
@@ -121,17 +111,7 @@ describe('ProductFormHeader — atalho ⌘S / Ctrl+S (AC 11)', () => {
 
     press({ metaKey: true })
 
-    expect(p.onPublish).toHaveBeenCalledTimes(1)
-  })
-
-  it('com pendência, o atalho grava RASCUNHO em vez de tentar publicar', () => {
-    const p = props()
-    render(<ProductFormHeader {...p} canPublish={false} />)
-
-    press({ ctrlKey: true })
-
-    expect(p.onSaveDraft).toHaveBeenCalledTimes(1)
-    expect(p.onPublish).not.toHaveBeenCalled()
+    expect(p.onSave).toHaveBeenCalledTimes(1)
   })
 
   it('"s" sem modificador não salva — é uma letra sendo digitada', () => {
@@ -140,8 +120,7 @@ describe('ProductFormHeader — atalho ⌘S / Ctrl+S (AC 11)', () => {
 
     press({})
 
-    expect(p.onPublish).not.toHaveBeenCalled()
-    expect(p.onSaveDraft).not.toHaveBeenCalled()
+    expect(p.onSave).not.toHaveBeenCalled()
   })
 
   it('durante o save, o atalho não dispara de novo', () => {
@@ -150,7 +129,7 @@ describe('ProductFormHeader — atalho ⌘S / Ctrl+S (AC 11)', () => {
 
     press({ ctrlKey: true })
 
-    expect(p.onPublish).not.toHaveBeenCalled()
+    expect(p.onSave).not.toHaveBeenCalled()
   })
 
   it('o listener sai no unmount — o atalho não sobrevive à tela', () => {
@@ -160,7 +139,7 @@ describe('ProductFormHeader — atalho ⌘S / Ctrl+S (AC 11)', () => {
 
     press({ ctrlKey: true })
 
-    expect(p.onPublish).not.toHaveBeenCalled()
+    expect(p.onSave).not.toHaveBeenCalled()
   })
 })
 

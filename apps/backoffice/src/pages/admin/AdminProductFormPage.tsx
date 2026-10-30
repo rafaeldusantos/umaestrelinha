@@ -101,15 +101,15 @@ const TABS: { id: TabId; label: string }[] = [
 const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
 /** O aviso de sucesso diz o que mudou NA LOJA, que é a pergunta de quem acabou de salvar. */
-const savedToast = (isEdit: boolean, intent: 'draft' | 'publish') =>
-  intent === 'publish'
+const savedToast = (isEdit: boolean, active: boolean) =>
+  active
     ? {
         title: isEdit ? 'Produto atualizado' : 'Produto criado',
-        description: isEdit ? 'As alterações já estão na loja.' : 'O produto já está na loja.',
+        description: 'As alterações já estão na loja.',
       }
     : {
         title: 'Rascunho salvo',
-        description: 'O produto fica fora da loja até você publicar.',
+        description: 'O produto continua fora da loja. Use “Ativar” em Publicação para colocá-lo na loja.',
       }
 
 const AdminProductFormPage = () => {
@@ -334,11 +334,14 @@ const AdminProductFormPage = () => {
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent, intent: 'draft' | 'publish' = 'publish') => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // FOR-09/FOR-10: nos DOIS botões, antes de qualquer gravação — e antes do checklist de
-    // publicação, senão no "publicar" esta recusa nunca seria alcançada. Rascunho também: o `check`
-    // do banco recusaria o link depois de o produto já gravado, e o aviso viraria "salvo, mas…".
+    // Salvar NÃO decide a visibilidade (2026-10-30): o produto fica como está — rascunho continua
+    // rascunho, ativo continua ativo. Havia um "Salvar e publicar" que gravava `is_active = true` e
+    // punha na loja o produto desativado. Quem muda a visibilidade é o `ProductActiveControl`.
+    const active = form.is_active
+    // FOR-09/FOR-10: antes de qualquer gravação, e antes do bloqueio por erro — senão esta recusa
+    // nunca seria alcançada. O `check` do banco recusaria o link depois de o produto já gravado.
     const fornecedorRecusado = supplierRowsRefusal(form.supplier_rows)
     if (fornecedorRecusado) {
       toast({ title: fornecedorRecusado.message, variant: 'destructive' })
@@ -346,8 +349,9 @@ const AdminProductFormPage = () => {
       return
     }
     // PFM-11 AC 1: o bloqueio vem daqui, não do `required` do input — que o Radix desmonta junto com
-    // a aba inativa. Rascunho passa: o objetivo dele é justamente não perder trabalho incompleto.
-    if (intent === 'publish' && hasBlockingErrors(issues)) {
+    // a aba inativa. Só bloqueia o produto que está NA LOJA (gravar o erro o poria no ar assim);
+    // rascunho passa: o objetivo dele é justamente não perder trabalho incompleto.
+    if (active && hasBlockingErrors(issues)) {
       const first = issues.find(i => i.severity === 'error')!
       toast({ title: first.message, variant: 'destructive' })
       focusField(first.tab, first.field)
@@ -369,9 +373,9 @@ const AdminProductFormPage = () => {
       // sobrevivem a um save que não tocou em imagem sem precisar de mapa paralelo.
       images: form.images,
       tags: form.tags,
-      // O `is_active` é decidido pela AÇÃO, não por um switch: publicar coloca na loja, rascunho
-      // mantém fora. Dois donos do mesmo dado é o defeito 01 da spec ("um dado, um controle").
-      is_active: intent === 'publish',
+      // O `is_active` tem UM dono, o `ProductActiveControl` ("um dado, um controle"); o save só
+      // repete o que está no formulário, sem mudar a visibilidade.
+      is_active: active,
       is_featured: form.is_featured,
       is_new: form.is_new,
       video_url: form.video_url || null,
@@ -510,16 +514,16 @@ const AdminProductFormPage = () => {
     // vai para a própria rota de edição — ficar em `/novo` faria o segundo save criar outro produto
     // —, e a troca de `id` já relê pelo efeito do `useProductForm`.
     if (!savedId) {
-      toast(savedToast(isEdit, intent))
+      toast(savedToast(isEdit, active))
       navigate(voltarPara)
     } else if (!isEdit) {
-      toast(savedToast(false, intent))
+      toast(savedToast(false, active))
       navigate(`/admin/produtos/${savedId}/editar`, { replace: true, state: location.state })
     } else if (await reload()) {
-      toast(savedToast(true, intent))
+      toast(savedToast(true, active))
     } else {
       // Gravou, mas não deu para reler: continuar na página arriscaria a grade duplicada.
-      toast(savedToast(true, intent))
+      toast(savedToast(true, active))
       navigate(voltarPara)
     }
     setSaving(false)
@@ -566,11 +570,9 @@ const AdminProductFormPage = () => {
         isDirty={isDirty}
         draftSavedAt={draft.savedAt}
         saving={saving || uploading}
-        canPublish={canPublish}
         onBack={() => { if (draft.confirmLeave()) navigate(voltarPara) }}
         onDiscard={() => setDiscardOpen(true)}
-        onSaveDraft={() => handleSubmit(new Event('submit') as unknown as React.FormEvent, 'draft')}
-        onPublish={() => handleSubmit(new Event('submit') as unknown as React.FormEvent, 'publish')}
+        onSave={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
       />
 
       <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>

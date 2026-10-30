@@ -144,7 +144,7 @@ const chip = (nome: string) => within(bloco()).getByRole('button', { name: nome 
 
 const salvarRascunho = async () => {
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
   })
   // Salvar não sai mais da página: o fim do save é o aviso de sucesso.
   await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' })))
@@ -367,7 +367,7 @@ describe('VFL-01/03/08 — as marcações por opção pela página do produto', 
     await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
     fireEvent.click(await within(linha('Cor = Folheado a Ouro')).findByRole('button', { name: 'Aceitar' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
@@ -509,9 +509,10 @@ describe('Salvar mantém a página do produto aberta', () => {
 
     expect(screen.getByTestId('endereco')).toHaveTextContent('/admin/produtos/p1/editar')
     expect(screen.queryByText('lista')).toBeNull()
+    // O produto da fixtura está desativado: salvar o mantém fora da loja, e o aviso diz isso.
     expect(toast).toHaveBeenCalledWith({
       title: 'Rascunho salvo',
-      description: 'O produto fica fora da loja até você publicar.',
+      description: 'O produto continua fora da loja. Use “Ativar” em Publicação para colocá-lo na loja.',
     })
     expect(h.leituras).toBe(2)
     await waitFor(() => expect(screen.getByDisplayValue('Anel Coração (do banco)')).toBeInTheDocument())

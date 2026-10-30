@@ -2,7 +2,7 @@
 //
 // A diferença entre isto e `validateProduct`: a validação diz "este dado está **inválido**" e
 // bloqueia qualquer save. O checklist diz "falta isto para o produto ficar **bom na loja**" e
-// bloqueia só o *Salvar e publicar* — *Salvar rascunho* continua liberado (P1.7 AC 13). Um produto
+// bloqueia o "Ativar" e o salvar de produto ativo — rascunho continua salvando (P1.7 AC 13). Um produto
 // sem imagem não está errado; só não deveria ir para a vitrine assim.
 
 import type { TabId } from './validateProduct'
@@ -134,7 +134,7 @@ export const buildChecklist = (form: ProductFormState): ChecklistItem[] => {
   ]
 }
 
-/** Itens bloqueantes pendentes barram *Salvar e publicar*; *Salvar rascunho* segue liberado (AC 13). */
+/** Itens bloqueantes pendentes barram o "Ativar"; salvar rascunho segue liberado (AC 13). */
 export const canPublish = (items: readonly ChecklistItem[]): boolean =>
   items.every(i => !i.blocking || i.ok)
 

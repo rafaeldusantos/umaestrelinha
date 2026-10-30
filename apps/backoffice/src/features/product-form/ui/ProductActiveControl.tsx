@@ -2,8 +2,8 @@
 //
 // Não é um campo do formulário — é uma AÇÃO, como a coluna Ações da listagem. O switch "Ativo" saiu
 // na T25 porque dava ao `is_active` dois donos dentro do mesmo save (o switch e o botão do
-// cabeçalho). Aqui não há disputa: este botão grava agora e só `is_active`; os botões do cabeçalho
-// continuam decidindo no save. Vale a última ação.
+// cabeçalho). Desde 2026-10-30 este é o ÚNICO dono: o "Salvar" do cabeçalho grava o `is_active` que
+// já está no formulário, sem mudá-lo.
 
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -16,7 +16,7 @@ interface Props {
   /** `null` para produto novo ou duplicado: ainda não existe no banco. */
   productId: string | null
   active: boolean
-  /** Ativar passa pelo mesmo portão do "Salvar e publicar"; desativar, nunca. */
+  /** Ativar passa pelo checklist "Pronto para publicar"; desativar, nunca. */
   canActivate: boolean
   /** Edições pendentes não vão junto — a frase avisa. */
   isDirty: boolean
@@ -30,7 +30,8 @@ const ProductActiveControl = ({ productId, active, canActivate, isDirty, onChang
   if (!productId) {
     return (
       <p className="text-xs text-muted-foreground">
-        O produto vai à loja quando você usar <strong>Salvar e publicar</strong>.
+        O produto é criado como rascunho, fora da loja. Depois de salvo, use <strong>Ativar</strong> aqui
+        para colocá-lo na loja.
       </p>
     )
   }

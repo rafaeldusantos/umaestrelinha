@@ -135,7 +135,7 @@ const link = () => screen.getByLabelText('Link da peça')
 
 const salvarRascunho = async () => {
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
   })
 }
 
@@ -244,12 +244,13 @@ describe('FOR-09/10 — as recusas antes de gravar', () => {
   })
 })
 
-describe('FOR-09/10 — as recusas valem também no "Salvar e publicar"', () => {
-  // Um produto que PASSA no checklist de publicação (categoria, imagem, peso, SEO): sem isso o botão
-  // nasce desabilitado e o caso provaria só que o clique num botão desabilitado não faz nada.
+describe('FOR-09/10 — as recusas valem também no produto ATIVO na loja', () => {
+  // Um produto ativo que PASSA no checklist de publicação (categoria, imagem, peso, SEO): a recusa do
+  // fornecedor tem de vir antes do bloqueio por erro, senão nunca seria alcançada.
   beforeEach(() => {
     h.produto = {
       ...h.produto,
+      is_active: true,
       product_categories: [{ category_id: 'c1', position: 0 }],
       images: [{ url: 'a.webp', alt: null, source: 'upload' }],
       weight_kg: 0.1,
@@ -259,9 +260,9 @@ describe('FOR-09/10 — as recusas valem também no "Salvar e publicar"', () => 
   })
 
   const publicar = async () => {
-    expect(screen.getByRole('button', { name: 'Salvar e publicar' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeEnabled()
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Salvar e publicar' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     })
   }
 

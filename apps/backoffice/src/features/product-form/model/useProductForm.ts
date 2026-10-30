@@ -176,7 +176,9 @@ export const emptyProductForm = (): ProductFormState => ({
   stock_policy: 'track',
   production_lead_days: null,
   images: [],
-  is_active: true,
+  // Produto novo nasce RASCUNHO: o único botão de salvar não decide visibilidade, e quem põe na loja
+  // é o "Ativar" da coluna Publicação, que passa pelo checklist.
+  is_active: false,
   is_featured: false,
   is_new: false,
   video_url: '',
@@ -245,7 +247,8 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
   production_lead_days:
     typeof row.production_lead_days === 'number' ? row.production_lead_days : null,
   images: normalizeImages(row.images),
-  is_active: row.is_active ?? true,
+  // A cópia nasce rascunho, como na duplicação em massa (`buildDuplicates`).
+  is_active: opts.asCopy ? false : (row.is_active ?? true),
   is_featured: row.is_featured ?? false,
   is_new: row.is_new ?? false,
   video_url: row.video_url ?? '',
