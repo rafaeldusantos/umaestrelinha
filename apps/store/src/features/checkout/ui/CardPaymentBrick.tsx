@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useEffect, useRef } from 'react'
 import { CardPayment } from '@mercadopago/sdk-react'
 import { documentLabel, stripDocument } from '@estrelinha/core/validators'
-import { useCheckoutStore } from '../model/checkoutStore'
+import { useCheckoutStoreApi } from '../model/checkoutStore'
 import { useCardInstallmentOptions } from '../model/useCardInstallmentOptions'
 import InstallmentPicker from './InstallmentPicker'
 import type { CardNotice } from '../lib/cardNotice'
@@ -65,8 +65,10 @@ const CardPaymentBrick = ({
   errorMessage,
   notice = null,
 }: Props) => {
-  const setCardNumberRecognized = useCheckoutStore((s) => s.setCardNumberRecognized)
-  const setCardBin = useCheckoutStore((s) => s.setCardBin)
+  // T21: o rascunho do provider mais próximo (o de `/checkout` sem provider).
+  const useCheckout = useCheckoutStoreApi()
+  const setCardNumberRecognized = useCheckout((s) => s.setCardNumberRecognized)
+  const setCardBin = useCheckout((s) => s.setCardBin)
   const installments = useCardInstallmentOptions(amount)
 
   useEffect(

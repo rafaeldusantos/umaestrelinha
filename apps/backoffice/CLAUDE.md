@@ -1350,6 +1350,26 @@ loja** (`StorefrontPreview` foi apagado, sem consumidor).
 - A prova é a página real: `AdminProductFormPage.midia.test.tsx`. Os três arquivos de UI novos estão
   no escopo de `animacaoRespeitaMovimento.test.ts`.
 
+## Montar pedido para a cliente (feature `89`, `AD-070`)
+
+`/admin/pedidos/montar` (e `/montar/:id` para editar, `?duplicar=<id>`) monta uma **proposta**: cliente
+(busca em `customer_list` ou nova), endereço opcional, peças com variação e gravação, cupom e desconto
+combinado com motivo interno; "Criar link" grava pela function `order-proposals` e leva a
+`/admin/pedidos/montados/:id`, com o link, WhatsApp, renovar, cancelar e o histórico. A lista de Pedidos
+ganhou a aba local **"Montados"** (`?visao=montados`, fora de `ORDER_VIEWS`), e o pedido que nasceu de
+uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {motivo}".
+
+- **O resumo vem de `priceProposalDraft`** (`core/proposals`), a mesma chamada que a function refaz.
+- **Nada escreve nas tabelas da proposta pelo PostgREST**: a porta é a function (`requireAdmin`).
+- **`setQuery` da lista de Pedidos não reescreve a URL quando a consulta não muda.** O debounce da
+  busca o chama sempre que `setSearchParams` troca de identidade, e reescrever a partir da consulta de
+  pedidos apagava `?visao=montados` 300 ms depois (achado em navegador; `AdminOrdersPage.montados.test.tsx`).
+- **`VariantPicker` recolhe acima de 6 variações depois da escolha** ("Trocar variação (N opções)"): a
+  peça real de 108 variações deixava a linha com 6.732px.
+- **`RecordPageHeader` deixa o título e o subtítulo quebrarem no meio da palavra** (um e-mail no
+  subtítulo empurrava a página de lado a 390/200 %).
+- Prova: `.specs/features/89-pedido-montado-pelo-painel/prova-navegador.md`. Sem Verifier nem QA ainda.
+
 ## Dívidas conhecidas deste app
 
 - **A baseline de testes do painel é 3915 em 225 arquivos** na `master` mesclada com `feature/mobile-adm`, todos

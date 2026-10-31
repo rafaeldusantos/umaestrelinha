@@ -10,6 +10,10 @@
 //   create-order  grava o pedido. É a ÚNICA porta, para convidada e para quem tem sessão, porque
 //                 dois caminhos de gravação divergiriam sem build, `tsc` ou teste acusarem.
 //   get-order     devolve o pedido a quem apresenta o token daquele pedido.
+//   get-proposal  a proposta que o painel montou, a quem apresenta o token do link (feature 89).
+//
+// `create-order` com `proposal_token` vai para `proposal.ts` (feature 89): o pedido nasce da
+// proposta, e o caminho de sempre, abaixo, fica intocado.
 //
 // A regra de identidade **não mora aqui**: ela vem de `packages/core/src/checkout/identity.ts`,
 // que é a mesma linha que a tela chama. `IDN-02` (mostrar o desafio) e `IDN-08` (recusar a
@@ -33,7 +37,13 @@ import {
   pickupRefusal,
 } from '../../../packages/core/src/shipping/pickup.ts'
 import { corsHeaders, json, preflight } from '../_shared/http.ts'
-import { clientIp, type RateLimiter } from '../_shared/rateLimit.ts'
+import { clientIp, createRateLimiter, type RateLimiter } from '../_shared/rateLimit.ts'
+import {
+  PROPOSAL_READ_MAX,
+  PROPOSAL_READ_WINDOW_MS,
+  createOrderFromProposal,
+  getProposal,
+} from './proposal.ts'
 
 /** Tudo que os handlers tocam fora do próprio processo. O wiring (`index.ts`) fornece o real. */
 export interface Deps {
@@ -45,6 +55,29 @@ export interface Deps {
   now: () => number
   /** O teto de consultas de e-mail. Injetado para o teste poder exercê-lo em milissegundos. */
   limiter: RateLimiter
+  /**
+   * O teto de leituras de proposta (`SEG-04`, feature 89) — um balde próprio, para a página do link
+   * não disputar o de `identify`. Ausente, `get-proposal` RECUSA (fail-closed): o link é uma
+   * credencial de URL, e sem o balde não haveria limite de tentativas. Quem monta é `buildDeps`.
+   */
+  proposalLimiter?: RateLimiter
+}
+
+/**
+ * As `Deps` reais, montadas num lugar só e testável (`AD-004`): o `index.ts` só lê env e chama isto.
+ * Os dois baldes são por isolate de propósito — ver o comentário de `createRateLimiter`: a fronteira
+ * de segurança é a recusa de `create-order`, não estes números. Fecho da rodada 1 do Verifier (K18):
+ * a injeção do balde da proposta morava no `index.ts`, que nenhum teste lê, e tirá-la deixava a
+ * suíte verde com o link sem teto.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function buildDeps(supabase: any, now: () => number): Deps {
+  return {
+    supabase,
+    now,
+    limiter: createRateLimiter(IDENTIFY_MAX, IDENTIFY_WINDOW_MS, now),
+    proposalLimiter: createRateLimiter(PROPOSAL_READ_MAX, PROPOSAL_READ_WINDOW_MS, now),
+  }
 }
 
 function log(entry: Record<string, unknown>) {
@@ -235,7 +268,7 @@ export function idsDaMedicao(
  * ligada, igual a `DEFAULT_SHIPPING.pickup_enabled` (a migration da `63` a grava, mas um banco que
  * ainda não a recebeu não pode recusar toda retirada por isso).
  */
-async function recusaDeRetirada(
+export async function recusaDeRetirada(
   deps: Deps,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any,
@@ -282,6 +315,15 @@ export async function createOrder(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any,
 ): Promise<Response> {
+  // Feature 89: com o token do link, itens, preços e e-mail vêm da proposta (`PRC-03`, `A-07`).
+  if (typeof body?.proposal_token === 'string' && body.proposal_token !== '') {
+    return await createOrderFromProposal(deps, req, body, {
+      persistirConveniencias,
+      recusaDeRetirada,
+      idsDaMedicao,
+    })
+  }
+
   const email = normalizeEmail(body?.customer_email ?? '')
   const itens = Array.isArray(body?.items) ? body.items : []
   const clientRequestId = typeof body?.client_request_id === 'string' ? body.client_request_id : ''
@@ -489,7 +531,7 @@ async function ensureGuestCustomer(
  *   Duas compras simultâneas de quem não tinha padrão esbarram no índice único parcial
  *   `addresses_one_default`, e a segunda gravação falha — o que `ADR-G2` já aceita.
  */
-async function persistirConveniencias(
+export async function persistirConveniencias(
   deps: Deps,
   customerId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -667,8 +709,10 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
         return await createOrder(deps, req, body)
       case 'get-order':
         return await getOrder(deps, body)
+      case 'get-proposal':
+        return await getProposal(deps, req, body, deps.proposalLimiter ?? null)
       default:
-        return json({ error: 'action inválida. Use: identify, create-order, get-order' }, 400)
+        return json({ error: 'action inválida. Use: identify, create-order, get-order, get-proposal' }, 400)
     }
   } catch (err) {
     log({ action: 'error', message: err instanceof Error ? err.message : String(err) })

@@ -62,3 +62,33 @@ describe('whatsappChatUrl (feature 76, MAC-26)', () => {
     expect(whatsappChatUrl('(51) 99812-4471')).not.toContain('text=')
   })
 })
+
+describe('whatsappChatUrl com mensagem pronta (feature 89, LNK-02)', () => {
+  it('com texto: o texto vai em ?text= codificado por encodeURIComponent, por extenso', () => {
+    const texto = 'Oi, Ana! Montei seu pedido: https://loja.exemplo/pedido-montado#abc&x=1 ✓'
+    expect(whatsappChatUrl('(51) 99812-4471', texto)).toBe(
+      'https://wa.me/5551998124471?text=Oi%2C%20Ana!%20Montei%20seu%20pedido%3A%20https%3A%2F%2Floja.exemplo%2Fpedido-montado%23abc%26x%3D1%20%E2%9C%93',
+    )
+  })
+
+  it('o fragmento e o & do link não escapam do parâmetro (decodifica de volta ao texto inteiro)', () => {
+    const texto = 'veja https://x.y/pedido-montado#tok&a=b\nlinha 2'
+    const url = new URL(whatsappChatUrl('51998124471', texto) as string)
+    expect(url.hash).toBe('')
+    expect([...url.searchParams.keys()]).toEqual(['text'])
+    expect(url.searchParams.get('text')).toBe(texto)
+  })
+
+  it('sem texto, texto vazio ou nulo: a URL de hoje, sem ?text=', () => {
+    const hoje = 'https://wa.me/5551998124471'
+    expect(whatsappChatUrl('(51) 99812-4471')).toBe(hoje)
+    expect(whatsappChatUrl('(51) 99812-4471', undefined)).toBe(hoje)
+    expect(whatsappChatUrl('(51) 99812-4471', '')).toBe(hoje)
+    expect(whatsappChatUrl('(51) 99812-4471', null)).toBe(hoje)
+  })
+
+  it('número que não presta continua null, mesmo com texto', () => {
+    expect(whatsappChatUrl('123', 'Oi')).toBeNull()
+    expect(whatsappChatUrl(null, 'Oi')).toBeNull()
+  })
+})

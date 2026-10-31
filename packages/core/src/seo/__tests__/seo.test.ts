@@ -195,8 +195,9 @@ describe('a tabela das rotas fixas (MTA-01, MTA-10 b)', () => {
   const classificadas = [...SITEMAP_STATIC_PATHS, ...NON_INDEXABLE_PATHS.map(r => r.path)]
 
   it('âncora: a tabela e as duas listas não estão vazias', () => {
-    expect(STATIC_PAGE_META_PATHS.length).toBe(16)
-    expect(classificadas.length).toBe(16)
+    // 17 desde a feature 89 (`/pedido-montado`, não indexável).
+    expect(STATIC_PAGE_META_PATHS.length).toBe(17)
+    expect(classificadas.length).toBe(17)
   })
 
   it('toda rota de SITEMAP_STATIC_PATHS ∪ NON_INDEXABLE_PATHS tem metadado', () => {
@@ -368,5 +369,20 @@ describe('productHead — SVR-08..11 (o <head> da página de opção)', () => {
     expect(h.meta).toEqual(productPageMeta(p, 'Descrição da loja'))
     expect(h.canonicalPath).toBe('/produtos/pingente-pata')
     expect(h.page.kind).toBe('product')
+  })
+})
+
+// Feature 89 (SEG-03): o `<title>` da página do pedido montado é "Pedido montado" — distinto de
+// "Seu pedido", que já é o de `/pedido/:id` — e a página é noindex.
+describe('/pedido-montado — metadado (feature 89)', () => {
+  it('título "Pedido montado" com a marca, e não indexável', () => {
+    const meta = staticPageMeta('/pedido-montado')
+    expect(meta.title).toBe(brandedTitle('Pedido montado'))
+    expect(meta.indexable).toBe(false)
+    expect(meta.description.length).toBeGreaterThan(0)
+  })
+
+  it('não repete o título de `/pedido/:id`', () => {
+    expect(staticPageMeta('/pedido-montado').title).not.toBe(staticPageMeta('/pedido/:id').title)
   })
 })

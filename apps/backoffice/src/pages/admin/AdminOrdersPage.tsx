@@ -70,8 +70,10 @@ import {
 import { exportLabel, exportOrdersCsv } from '@/features/export-orders/lib/exportCsv'
 import { chargeMaterialUrl } from '@/features/order-list/model/chargeMaterial'
 import {
-  ORDER_PAGE_SIZES, orderListHref, orderQueryFromParams, orderQueryToParams,
+  ORDER_PAGE_SIZES, isProposalsView, orderListHref, orderQueryFromParams, orderQueryToParams,
+  proposalsViewParams,
 } from '@/features/order-list/model/queryUrl'
+import { PROPOSAL_BUILDER_PATH, ProposalsList } from '@/features/order-proposal'
 import { openPickSlips } from '@/features/pick-slip'
 import {
   ActionButton, AdminTable, CardSkeleton, PageHeader, Pagination, TableSkeleton, type AdminColumn,
@@ -109,9 +111,19 @@ const AdminOrdersPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const query = useMemo(() => orderQueryFromParams(searchParams), [searchParams])
+  // Feature 89 (`LNK-04`, `A-14`): a aba "Montados" é LOCAL do painel, fora de `ORDER_VIEWS`.
+  const montados = isProposalsView(searchParams)
   const setQuery = useCallback(
     (next: (q: OrderQuery) => OrderQuery) =>
-      setSearchParams(prev => orderQueryToParams(next(orderQueryFromParams(prev))), { replace: true }),
+      setSearchParams(prev => {
+        // Consulta que não mudou não reescreve a URL. O debounce da busca chama isto com a mesma
+        // consulta sempre que a URL muda (o `setSearchParams` troca de identidade), e reescrever a
+        // partir da consulta de pedidos apagava o que ela não representa — a aba "Montados" sumia
+        // 300 ms depois de aberta (achado na prova em navegador da 89).
+        const atual = orderQueryFromParams(prev)
+        const nova = next(atual)
+        return nova === atual ? prev : orderQueryToParams(nova)
+      }, { replace: true }),
     [setSearchParams],
   )
   // O endereço de volta que o pedido recebe: o "voltar" dele reabre a lista neste recorte.
@@ -637,6 +649,10 @@ const AdminOrdersPage = () => {
         }
         actions={
           <span className="flex flex-wrap gap-2">
+            {/* Feature 89 (`MON-01`): montar a venda para uma cliente e mandar o link. */}
+            <Button asChild size="sm" className="min-h-[44px] md:min-h-0">
+              <Link to={PROPOSAL_BUILDER_PATH}>Montar pedido</Link>
+            </Button>
             <Button variant="outline" size="sm" className="min-h-[44px] md:min-h-0" onClick={exportar} disabled={ocupado || total === 0}>
               <Download className="mr-1 h-4 w-4" /> {exportLabel(total)}
             </Button>
@@ -668,11 +684,11 @@ const AdminOrdersPage = () => {
             key={view.id}
             type="button"
             role="tab"
-            aria-selected={query.filters.view === view.id}
+            aria-selected={!montados && query.filters.view === view.id}
             onClick={() => setFilters({ ...query.filters, view: view.id })}
             className={cn(
               'flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors',
-              query.filters.view === view.id
+              !montados && query.filters.view === view.id
                 ? 'bg-estrelinha-admin-card font-medium shadow-sm ring-1 ring-border'
                 : 'text-muted-foreground hover:text-foreground',
             )}
@@ -681,7 +697,26 @@ const AdminOrdersPage = () => {
             {!contando && <span className="text-xs tabular-nums opacity-70">{viewCounts[view.id] ?? 0}</span>}
           </button>
         ))}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={montados}
+          onClick={() => {
+            setSearchParams(proposalsViewParams(), { replace: true })
+            setSelection(new Map())
+          }}
+          className={cn(
+            'flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors motion-reduce:transition-none',
+            montados
+              ? 'bg-estrelinha-admin-card font-medium shadow-sm ring-1 ring-border'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Montados
+        </button>
       </div>
+
+      {montados ? <ProposalsList /> : (<>
 
       {/* Busca e filtros */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1011,6 +1046,8 @@ const AdminOrdersPage = () => {
           />
         </>
       )}
+
+      </>)}
 
       {gesto.dialogo}
       {gesto.regiaoViva}

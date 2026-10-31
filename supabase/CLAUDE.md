@@ -172,6 +172,7 @@ assere.
 | `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 | `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
 | `atelie-avisos` | `false` | as inscrições do **aviso no celular** da dona (feature `79`, `AD-062`) — `config · status · subscribe · events · unsubscribe · test`, `requireAdmin` em toda ação; a única escrita em `push_subscriptions`, que não tem policy de cliente |
+| `order-proposals` | `false` | o **pedido montado pelo painel** (feature `89`, `AD-070`) — `list · get · save · renew · cancel · log-sent`, `requireAdmin` em toda ação; a única escrita em `order_proposals*` (RLS sem policy), por RPC. O token do link só sai na resposta de `save`/`renew`; o banco guarda o hash |
 | `visit` | `false` | grava uma **visita única** por navegador por dia (feature `71`, `AD-055`). A loja chama com **só** a chave publicável, e o handler **não lê** `Authorization` |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
@@ -421,6 +422,31 @@ convidada e para quem tem sessão.
   retirada já gravada continua devolvendo o pedido) e antes da identidade. `pickup_enabled` ausente
   no jsonb vale como ligado — o default do TypeScript é resolvido aqui, porque `pickupRefusal` exige
   `true` estrito. Pedido dos Correios **não** lê configuração nenhuma.
+
+### `order-proposals` e o pedido que nasce de uma proposta (feature `89`, `AD-070`)
+
+- **Migration `20261103120000_89-pedido-montado.sql`**: `order_proposals`, `order_proposal_items`,
+  `order_proposal_events` (RLS ligada, `revoke all`, nenhuma policy), `orders.proposal_id` (único) e
+  `orders.manual_discount`; RPCs `save_order_proposal`, `create_order_from_proposal` (a conclusão,
+  numa transação, a partir das linhas travadas) e `mark_order_proposal_viewed`, todas `security
+  definer`, `search_path = ''`, `execute` só da `service_role`; `handle_new_customer` recriada para
+  adotar a ficha `user_id is null` do mesmo `lower(email)`. Guarda: `pedidoMontadoSchema.test.ts`
+  (loja); semântica: `.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql`.
+- **`checkout`** ganhou `get-proposal` (teto próprio de 30 por IP em 5 min; inválido, expirado ou
+  cancelado ⇒ `404 unavailable` sem dado) e o desvio de `create-order` com `proposal_token`: itens,
+  preços e e-mail vêm da proposta, nunca do corpo.
+- **`mercado-pago`**: `create-payment` de pedido com `proposal_id` cobra por `proposalPricing`
+  (`core/proposals`) sobre `order_items` + `discount` + `manual_discount`, sem reler catálogo,
+  promoção nem cupom. Provado contra a function local: 901,86 na página e no banco.
+- **`get` resolve o e-mail de cada autor do histórico** (`auth.admin.getUserById`, um por autor
+  distinto) e devolve `actor_email`; o painel nunca mostra o uuid de `actor` (`HIS-01`).
+- ⚠️ **`order-proposals` e `mercado-pago` não sobem no edge runtime LOCAL** (`Failed resolving types`
+  no `import type` de pacote de `packages/core/src/pricing/index.ts` e `grid.ts`), e `--import-map`
+  não resolve. Anterior à `89` na `mercado-pago`. A prova da `89` trocou os dois imports por aliases
+  locais e restaurou com SHA-256. Conferir o boot da `order-proposals` no hospedado no primeiro deploy.
+- ⚠️ **`functions serve --env-file` não isola os secrets**: o `[edge_runtime.secrets]` do `config.toml`
+  completa com o `.env` da raiz o que o arquivo não traz (na prova da `89`, o Melhor Envio de produção
+  e o Mercado Pago de teste). Para conter, ponha no arquivo um valor inválido para cada chave externa.
 
 ### `visit` — a visita única (feature `71`, `AD-055`)
 

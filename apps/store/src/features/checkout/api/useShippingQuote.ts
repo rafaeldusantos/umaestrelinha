@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import type { ShippingQuote } from '@estrelinha/supabase/types'
 import { stripCep } from '@estrelinha/core/validators'
+import type { QuoteProductPayload } from '@estrelinha/core/shipping'
 import { toQuotePayload, useCartStore } from '@/entities/cart'
 
 export const SHIPPING_QUOTE_KEY = 'shipping-quote'
@@ -16,10 +17,14 @@ export const SHIPPING_QUOTE_KEY = 'shipping-quote'
 const isQuotable = (quote: ShippingQuote) =>
   quote?.price != null && Number.parseFloat(quote.price) > 0
 
-export function useShippingQuote(cep: string | null) {
+/**
+ * `override` (feature 89): as peças do pedido montado pelo painel, já no formato da API. Ausente,
+ * cota a sacola — o `/checkout` de sempre.
+ */
+export function useShippingQuote(cep: string | null, override?: QuoteProductPayload[]) {
   const items = useCartStore((s) => s.items)
   const cleanCep = stripCep(cep ?? '')
-  const products = useMemo(() => toQuotePayload(items), [items])
+  const products = useMemo(() => override ?? toQuotePayload(items), [override, items])
   // Recota quando o carrinho muda: outro peso/dimensão é outro frete.
   const cartFingerprint = JSON.stringify(products)
 

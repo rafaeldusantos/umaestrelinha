@@ -28,6 +28,9 @@ import {
 // Preço por variação (07/T12). Mesmo precedente dos imports acima: caminho relativo `.ts`, sem
 // import map — a função pura testada em vitest É a que roda no caixa, não uma cópia.
 import { isPriceError, resolveItemPrice } from "../../../packages/core/src/pricing/index.ts"
+// Feature 89: o pedido montado pelo painel é cobrado pelo cálculo travado — a mesma função que a
+// página do link usa para mostrar o total (`PRC-06`).
+import { proposalPricing } from "../../../packages/core/src/proposals/pricing.ts"
 // Notificações (AD-005): import DIRETO do motor, no mesmo processo — sem hop HTTP para a function
 // `send-notification`. Um `fetch` entre duas functions do mesmo deploy exigiria inventar auth
 // interna e pagaria um segundo cold start justamente no caminho do PIX. A `send-notification`
@@ -404,6 +407,24 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     )
   }
 
+  // Feature 89 (`PRC-03`, `PRC-06`): o pedido montado pelo painel é cobrado pelo que a proposta
+  // TRAVOU — preço por linha, cupom como valor, desconto combinado — e nunca relê catálogo,
+  // promoção nem regra de cupom. O ramo de baixo (o de sempre) não é alcançado.
+  if (order.proposal_id) {
+    const travado = await lockedProposalCharge(deps, order, method)
+    if (travado instanceof Response) return travado
+    return await chargeOrder(deps, {
+      order_id,
+      method,
+      idempotency_key,
+      body,
+      order,
+      orderPayer,
+      total: travado.total,
+      logExtra: travado.logExtra,
+    })
+  }
+
   // --- Recálculo server-side (PAY-03): nunca confiar no valor vindo do client ---
   const { data: items, error: itemsError } = await supabase
     .from("order_items")
@@ -722,6 +743,49 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     }
   }
 
+  return await chargeOrder(deps, {
+    order_id,
+    method,
+    idempotency_key,
+    body,
+    order,
+    orderPayer,
+    total: totals.total,
+    logExtra: {
+      bump_applied: bumpApplied,
+      // PRM-13: no mesmo molde do `bump_applied`, e pelo mesmo motivo — é por este campo que o
+      // roteiro de sandbox confere que a faixa que a tela mostrou é a faixa que o servidor aplicou.
+      promotion_id: appliedPromotionId,
+      tier_min_qty: pricing.applied.length === 1 ? pricing.applied[0].tier_min_qty : null,
+      promotions_applied: pricing.applied.length,
+    },
+  })
+}
+
+/**
+ * O que a cobrança no Mercado Pago precisa, venha o total do recálculo do catálogo (o caminho de
+ * sempre) ou da proposta travada (feature 89). Antes da 89 isto era o fim de `createPayment`; foi
+ * extraído sem mudar uma linha de comportamento, para os dois ramos chegarem à MESMA chamada ao MP.
+ */
+interface ChargeContext {
+  order_id: string
+  method: "pix" | "card"
+  idempotency_key: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any
+  orderPayer: ReturnType<typeof buildPayer>
+  /** O total já persistido em `orders.total` — é ele que vira `total_amount`. */
+  total: number
+  /** Campos do log estruturado próprios do ramo (`bump_applied`, `promotion_id`, …). */
+  logExtra: Record<string, unknown>
+}
+
+async function chargeOrder(deps: Deps, ctx: ChargeContext) {
+  const { order_id, method, idempotency_key, body, order, orderPayer } = ctx
+  const supabase = deps.supabase
+
   // --- POST /v1/orders (ORD-01…ORD-05) ---
   // O corpo é montado por `buildOrderPayload` (domínio puro): envelope da order, valores como
   // string e `payer` na RAIZ. A expiração agora é a duração `PT30M` da própria order — o antigo
@@ -734,7 +798,7 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     }
     orderPayload = buildOrderPayload({
       orderId: order_id,
-      total: totals.total,
+      total: ctx.total,
       // PGD-04: um único CPF canônico por pedido — o do pedido sobrescreve o do Brick.
       payer: mergePayer(card.payer, orderPayer),
       method: "card",
@@ -747,7 +811,7 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   } else {
     orderPayload = buildOrderPayload({
       orderId: order_id,
-      total: totals.total,
+      total: ctx.total,
       // PGD-04: email + first_name + last_name + identification (a API do MP recusa PIX no
       // Brasil sem o pagador identificado).
       payer: orderPayer,
@@ -872,12 +936,8 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     mp_payment_id: mpPaymentId,
     status: mp.status,
     ...(mpRes.ok ? {} : { mp_http: mpRes.status }),
-    bump_applied: bumpApplied,
-    // PRM-13: no mesmo molde do `bump_applied`, e pelo mesmo motivo — é por este campo que o
-    // roteiro de sandbox confere que a faixa que a tela mostrou é a faixa que o servidor aplicou.
-    promotion_id: appliedPromotionId,
-    tier_min_qty: pricing.applied.length === 1 ? pricing.applied[0].tier_min_qty : null,
-    promotions_applied: pricing.applied.length,
+    // O que cada ramo informa sobre o cálculo (bump, promoção, proposta) — ver `ChargeContext`.
+    ...ctx.logExtra,
     payer_cpf_present: Boolean(orderPayer.identification),
   })
 
@@ -911,6 +971,121 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   // Contrato preservado: a loja compara `status === 'approved'` e passa `status_detail` para
   // `friendlyMessage` — por isso o vocabulário interno, não o do MP.
   return json({ status: syncStatus, status_detail: statusDetail ?? "" })
+}
+
+/** Chave comparável de uma linha: o que foi travado tem de ser o que está no pedido. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const lineKey = (l: any) =>
+  [String(l.product_id), l.variant_id ? String(l.variant_id) : "", Number(l.quantity), Number(l.unit_price).toFixed(2)].join("|")
+
+/**
+ * Feature 89 (`PRC-03`, `PRC-05`, `PRC-06`): quanto cobrar de um pedido montado pelo painel.
+ *
+ * O total sai de `proposalPricing` (`core/proposals/pricing.ts`) — a MESMA função que a página do
+ * link e o `create-order` chamam para mostrar e gravar o total. É isso que torna "o cobrado é o que o
+ * link mostrou" verdade por construção (`proposalParity.test.ts`, em `core`, mede pelas
+ * serializações reais).
+ *
+ * O que NÃO acontece aqui, de propósito: reler `products`/`product_variants` (o preço é o travado),
+ * reler `promotions` (a promoção já está dentro do `unit_price` da linha, `A-05`), revalidar o
+ * cupom (ele vale como VALOR travado, `A-06` — um cupom vencido no catálogo não desfaz a proposta) e a
+ * guarda de teto de promoção do caminho de sempre (não há promoção a "piorar").
+ *
+ * // SPEC_DEVIATION (design §Function mercado-pago): o design manda montar o travado de
+ * // `order_items` + `orders.discount` + `orders.manual_discount`. Aqui os valores vêm da PROPOSTA
+ * // (`order_proposals` + `order_proposal_items`), que só a service role alcança (`SEG-05`), e
+ * // `order_items` é só CONFERIDO contra ela. Motivo: as policies de INSERT em `orders` e
+ * // `order_items` seguem abertas a `authenticated` (`BL-030`); com a cobrança lida do pedido, uma
+ * // cliente logada poderia gravar um pedido próprio apontando `proposal_id` para a proposta dela, ou
+ * // acrescentar uma linha ao pedido montado, e pagar o total travado levando outra coisa. A
+ * // proposta só aceita o pedido que a RPC `create_order_from_proposal` ligou a ela (`order_id`).
+ */
+async function lockedProposalCharge(
+  deps: Deps,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any,
+  method: "pix" | "card",
+): Promise<Response | { total: number; logExtra: Record<string, unknown> }> {
+  const supabase = deps.supabase
+  const order_id = String(order.id)
+
+  const { data: proposal } = await supabase
+    .from("order_proposals")
+    .select("id, status, order_id, coupon_discount, coupon_free_shipping, manual_discount")
+    .eq("id", order.proposal_id)
+    .maybeSingle()
+  if (!proposal || proposal.status !== "completed" || String(proposal.order_id ?? "") !== order_id) {
+    log({ action: "create-payment", order_id, status: "proposal_not_linked" })
+    return json({ error: "Não foi possível conferir este pedido. Fale com a loja." }, 422)
+  }
+
+  const { data: lines, error: linesError } = await supabase
+    .from("order_proposal_items")
+    .select("product_id, variant_id, quantity, unit_price")
+    .eq("proposal_id", proposal.id)
+  if (linesError || !lines?.length) return json({ error: "Pedido sem itens" }, 422)
+
+  const { data: items, error: itemsError } = await supabase
+    .from("order_items")
+    .select("product_id, variant_id, quantity, unit_price")
+    .eq("order_id", order_id)
+  if (itemsError || !items?.length) return json({ error: "Pedido sem itens" }, 422)
+
+  const travadas = (lines as unknown[]).map(lineKey).sort()
+  const doPedido = (items as unknown[]).map(lineKey).sort()
+  if (travadas.length !== doPedido.length || travadas.some((k, i) => k !== doPedido[i])) {
+    log({ action: "create-payment", order_id, status: "proposal_items_mismatch" })
+    return json({ error: "Não foi possível conferir este pedido. Fale com a loja." }, 422)
+  }
+
+  const setting = async (key: string) => {
+    const { data } = await supabase.from("store_settings").select("value").eq("key", key).maybeSingle()
+    return data?.value ?? null
+  }
+  const payment = await setting("payment")
+  const shipping = await setting("shipping")
+  const pixDiscountPercent = Number(payment?.pix_discount_percent ?? 0)
+
+  let totals
+  try {
+    totals = proposalPricing(
+      {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        lines: (lines as any[]).map((l) => ({ unit_price: Number(l.unit_price), quantity: Number(l.quantity) })),
+        couponDiscount: Number(proposal.coupon_discount ?? 0),
+        couponFreeShipping: proposal.coupon_free_shipping === true,
+        manualDiscount: Number(proposal.manual_discount ?? 0),
+      },
+      {
+        // O frete da entrega escolhida, como o `create-order` gravou; quem zera (cupom de frete
+        // grátis ou faixa) é `proposalPricing`, com o mesmo dono do frete grátis da loja.
+        shipping: Number(order.shipping_cost || 0),
+        method,
+        pixDiscountPercent,
+        freeShipping: shipping
+          ? {
+              free_shipping_enabled: shipping.free_shipping_enabled === true,
+              free_shipping_threshold: Number(shipping.free_shipping_threshold ?? 0),
+            }
+          : null,
+      },
+    )
+  } catch (_err) {
+    return json({ error: "Total do pedido inválido: menor que R$ 0,01" }, 422)
+  }
+
+  // Só os números que a cobrança muda. `promotion_*`, `discount` e `manual_discount` foram gravados
+  // pela RPC a partir da proposta e não são recalculados — reescrevê-los seria um segundo autor.
+  const { error: persistError } = await supabase
+    .from("orders")
+    .update({ subtotal: totals.subtotal, pix_discount: totals.pixDiscount, total: totals.total })
+    .eq("id", order_id)
+  if (persistError) return json({ error: "Falha ao atualizar o pedido" }, 500)
+
+  return {
+    total: totals.total,
+    logExtra: { proposal_id: String(proposal.id), bump_applied: false, promotions_applied: 0 },
+  }
 }
 
 // ACTION: webhook — assinatura HMAC (PAY-05), transições guardadas (PAY-04),

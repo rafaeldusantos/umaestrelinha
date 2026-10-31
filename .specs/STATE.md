@@ -1678,6 +1678,32 @@
   `supabase/functions/send-notification/**`, migration da `88`
 - **Date**: 2026-10-29
 
+### AD-070
+
+- **Status**: accepted (feature `89`, Design aprovado pelo usuário em 2026-10-31)
+- **Decision**: **o pedido montado pelo painel é uma PROPOSTA do servidor, não um pedido.** Mora em
+  tabelas próprias (`order_proposals`, `order_proposal_items`, `order_proposal_events`, RLS ligada e
+  nenhuma policy), escritas só pela function de admin `order-proposals` (`requireAdmin`, porta única
+  como na `AD-034`) por RPC `security definer`. A cliente abre `/pedido-montado#<token>` (token no
+  fragmento, hash no banco, 7 dias) e a function `checkout` responde `get-proposal` e conclui com
+  `create-order` + `proposal_token`: o pedido nasce pela RPC atômica `create_order_from_proposal` a
+  partir das **linhas travadas** (preço, promoção, cupom em valor e desconto combinado), e o
+  `create-payment` reconhece `orders.proposal_id` e cobra pelo mesmo `proposalPricing` (`core/proposals`)
+  que a página desenhou, sem reler catálogo, promoção nem cupom.
+- **Reason**: um autor de pedido só (`pedidoComDonoUnico`, `AD-035`) e a mesma transação para pedido,
+  itens e conclusão (`CON-06`). Gravar o pedido no painel como rascunho poria na fila, no Dashboard e
+  no estoque o que a cliente ainda não aceitou; um link de carrinho repovoaria a sacola sem travar o
+  preço nem o desconto avulso, e o `create-payment` desfaria o combinado.
+- **Trade-off**: o token só existe na resposta de criar/renovar — reabrir a proposta no painel não
+  remonta o link (fica em `sessionStorage`; sem ele, "Gerar link novo" renova). O `create-order` de
+  sempre continua sem transação (fora de escopo). A aba "Montados" é local do painel, fora de
+  `ORDER_VIEWS`. Expirada é derivada de `expires_at`, sem job.
+- **Scope**: migration `20261103120000_89-pedido-montado.sql`, `packages/core/src/{proposals,coupons}`,
+  `core/payment/pricing.ts` (`manualDiscount`), `supabase/functions/{order-proposals,checkout,mercado-pago}`,
+  `apps/backoffice` (montar, proposta, aba "Montados", origem no pedido), `apps/store`
+  (`/pedido-montado`, `checkoutStore` por instância)
+- **Date**: 2026-10-31
+
 ## Handoff
 
 ### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), verificada, QA e reteste feitos, commitada na branch, sem push — falta o Android real**

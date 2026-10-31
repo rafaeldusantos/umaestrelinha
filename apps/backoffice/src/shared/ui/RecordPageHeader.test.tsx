@@ -48,3 +48,21 @@ const TOKENS_QUE_QUEBRAM = [
   'max-md:[&_button]:whitespace-normal', 'max-md:[&_button]:h-auto', 'max-md:[&_button]:min-h-11',
 ]
 
+
+// Feature 89, prova em navegador da T27: em 390 com a fonte do sistema a 200 %, a página da proposta
+// rolava de lado (`scrollWidth` 527). O subtítulo traz o e-mail da cliente, uma palavra só sem onde
+// quebrar (363px de conteúdo numa coluna de 178), e o título "Pedido montado P-0001" passava da
+// coluna. jsdom não mede: a régua é o token que deixa quebrar no meio da palavra.
+describe('RecordPageHeader — título e subtítulo quebram em vez de estourar', () => {
+  it('o h1 e o subtítulo levam `[overflow-wrap:anywhere]` (token exato)', () => {
+    render(
+      <RecordPageHeader
+        group="Vendas" parentLabel="Pedidos" crumb="P-0001" title="Pedido montado P-0001" onBack={vi.fn()}
+        subtitle="Helena · helena.prova89@exemplo.invalid"
+      />,
+    )
+    const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/)
+    expect(tokens(screen.getByRole('heading', { level: 1 }))).toContain('[overflow-wrap:anywhere]')
+    expect(tokens(screen.getByText('Helena · helena.prova89@exemplo.invalid'))).toContain('[overflow-wrap:anywhere]')
+  })
+})

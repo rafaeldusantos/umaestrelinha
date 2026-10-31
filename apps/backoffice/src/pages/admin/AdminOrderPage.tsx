@@ -40,6 +40,7 @@ import { abrirPrevia, fraseDoResultado, OUTRA_GRAVACAO, useGestoComAviso } from 
 import { openPickSlips, type PickSlipOrder } from '@/features/pick-slip'
 import { chargeMaterialUrl } from '@/features/order-list/model/chargeMaterial'
 import { ActionButton, OrderPageSkeleton, RecordPageHeader } from '@/shared/ui'
+import { ManualDiscountRow, ProposalOriginLine, type PedidoComOrigem } from '@/features/order-proposal'
 import { SENT_EMAILS_READ_FAILED } from '@/entities/order/api/sentEmails'
 import { devolverFoco, tituloDaPagina } from '@/shared/lib/foco'
 
@@ -312,6 +313,9 @@ const AdminOrderPage = () => {
     order.address_zip ? `CEP ${order.address_zip}` : null,
   ].filter(Boolean) as string[]
 
+  const daProposta = order as unknown as PedidoComOrigem
+  const descontoCombinado = Number(daProposta.manual_discount ?? 0)
+
   return (
     <div>
       <RecordPageHeader
@@ -331,6 +335,8 @@ const AdminOrderPage = () => {
           <>
             {order.customer_name} · feito em {new Date(order.created_at).toLocaleString('pt-BR')}
             {idade && ` · ${queueAgeLabel(idade)}`}
+            {/* Feature 89 (`HIS-02`): só o pedido montado pelo painel ganha a origem. */}
+            {daProposta.proposal_id && <ProposalOriginLine proposalId={daProposta.proposal_id} />}
           </>
         }
         onBack={() => navigate(voltarPara)}
@@ -716,6 +722,9 @@ const AdminOrderPage = () => {
               <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd>{formatPrice(order.subtotal)}</dd></div>
               {order.discount > 0 && (
                 <div className="flex justify-between"><dt className="text-muted-foreground">Desconto</dt><dd>− {formatPrice(order.discount)}</dd></div>
+              )}
+              {daProposta.proposal_id && descontoCombinado > 0 && (
+                <ManualDiscountRow proposalId={daProposta.proposal_id} amount={descontoCombinado} />
               )}
               {order.pix_discount > 0 && (
                 <div className="flex justify-between"><dt className="text-muted-foreground">Desconto Pix</dt><dd>− {formatPrice(order.pix_discount)}</dd></div>

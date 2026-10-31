@@ -13,7 +13,7 @@ import {
   type CardInstallmentOption,
 } from '@estrelinha/core/payment/installments'
 import { useCardInstallments } from '../api/useCardInstallments'
-import { useCheckoutStore } from './checkoutStore'
+import { useCheckoutStoreApi } from './checkoutStore'
 
 export interface CardInstallmentsState {
   /** `idle`: o número do cartão ainda não foi reconhecido. */
@@ -24,8 +24,10 @@ export interface CardInstallmentsState {
 }
 
 export function useCardInstallmentOptions(amount: number): CardInstallmentsState {
-  const bin = useCheckoutStore((s) => s.cardBin)
-  const chosen = useCheckoutStore((s) => s.cardInstallments)
+  // T21: o rascunho do provider mais próximo (o de `/checkout` sem provider).
+  const useCheckout = useCheckoutStoreApi()
+  const bin = useCheckout((s) => s.cardBin)
+  const chosen = useCheckout((s) => s.cardInstallments)
   const { min_installment_value } = usePaymentSettings()
   const query = useCardInstallments(amount, bin)
 

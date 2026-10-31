@@ -66,8 +66,9 @@ describe('sitemapRoutes — âncora da varredura (SMP-25)', () => {
     // Segunda metade: contou o que leu. Se uma rota sumir do arquivo, este número cai e alguém
     // precisa olhar — em vez de a classificação passar a cobrir um roteador menor sem aviso.
     // 24 desde a feature 59: `/conta/dados`, a aba "Meus dados", irmã de `/conta`.
-    // 25 com `/perguntas-frequentes/:pergunta`, o endereço próprio de cada pergunta.
-    expect(declaredRoutes()).toHaveLength(25)
+    // 25 com `/perguntas-frequentes/:pergunta`, o endereço próprio de cada pergunta; 26 com
+    // `/pedido-montado` (feature 89).
+    expect(declaredRoutes()).toHaveLength(26)
   })
 })
 

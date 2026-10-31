@@ -112,3 +112,24 @@ export const orderListHref = (query: OrderQuery): string => {
   const qs = orderQueryToParams(query).toString()
   return qs ? `/admin/pedidos?${qs}` : '/admin/pedidos'
 }
+
+// ---------------------------------------------------------------------------------------------
+// A aba "Montados" (feature 89, `LNK-04`, `A-14`)
+// ---------------------------------------------------------------------------------------------
+//
+// É uma aba LOCAL do painel: as propostas não são pedidos, e `ORDER_VIEWS` (de `core`) conta `orders`
+// e é lido também pelo app do ateliê. Por isso ela não entra em `OrderViewId` — mora no mesmo
+// parâmetro `visao`, nos dois sentidos: a leitura reconhece `montados` (e a consulta de pedidos, que
+// não o conhece, cai no padrão), e a escrita da consulta de pedidos nunca o produz, então trocar para
+// uma visão de pedidos sai da aba sozinha.
+
+export const PROPOSALS_VIEW = 'montados'
+
+/** A URL está na aba "Montados"? */
+export const isProposalsView = (params: URLSearchParams): boolean => params.get(P.visao) === PROPOSALS_VIEW
+
+/** Os parâmetros da aba "Montados". */
+export const proposalsViewParams = (): URLSearchParams => new URLSearchParams({ [P.visao]: PROPOSALS_VIEW })
+
+/** O endereço da aba "Montados". */
+export const proposalsViewHref = (): string => `/admin/pedidos?${proposalsViewParams().toString()}`

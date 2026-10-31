@@ -19,12 +19,22 @@ export const normalizeBrPhone = (input: string | null | undefined): string | nul
 }
 
 /**
- * O endereço de uma conversa de WhatsApp com o número, SEM mensagem pronta (`?text=`): quem escreve a
- * mensagem é quem toca. `null` quando o número não presta (`normalizeBrPhone`). Feature `76`, `MAC-26`:
- * o app do ateliê tinha uma escrita de `wa.me` e a lista de clientes seria a segunda — o endereço mora
- * aqui, ao lado do número que ele usa. (`whatsappHref` da loja exige mensagem e é outro desenho.)
+ * O endereço de uma conversa de WhatsApp com o número. `null` quando o número não presta
+ * (`normalizeBrPhone`). Feature `76`, `MAC-26`: o app do ateliê tinha uma escrita de `wa.me` e a lista
+ * de clientes seria a segunda — o endereço mora aqui, ao lado do número que ele usa. (`whatsappHref`
+ * da loja exige mensagem e é outro desenho.)
+ *
+ * Feature `89` (`LNK-02`): `text` opcional — a mensagem pronta do link do pedido montado. Sem `text`
+ * (ou com `text` vazio) a URL é byte a byte a de antes, SEM `?text=`: quem escreve a mensagem é quem
+ * toca. Com `text`, ele vai por `encodeURIComponent` inteiro (o link do pedido carrega `#` e `:`, que
+ * sem codificar cortariam a mensagem no `wa.me`).
  */
-export const whatsappChatUrl = (input: string | null | undefined): string | null => {
+export const whatsappChatUrl = (
+  input: string | null | undefined,
+  text?: string | null,
+): string | null => {
   const numero = normalizeBrPhone(input)
-  return numero === null ? null : `https://wa.me/${numero}`
+  if (numero === null) return null
+  const base = `https://wa.me/${numero}`
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base
 }

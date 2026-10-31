@@ -35,13 +35,14 @@ import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { useAuthContext } from '@estrelinha/auth'
 import type { ShippingDraft } from '@estrelinha/core/checkout'
+import type { QuoteProductPayload } from '@estrelinha/core/shipping'
 import { useCartStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useDefaultAddress } from '@/entities/address'
 import { usePickupOptionState, type PickupOption } from '@/entities/pickup'
 import { useCepLookup } from '../api/useCepLookup'
 import { useShippingQuote } from '../api/useShippingQuote'
-import { useCheckoutStore } from '../model/checkoutStore'
+import { useCheckoutStoreApi } from '../model/checkoutStore'
 import CollapsedBlock from './CollapsedBlock'
 
 interface Props {
@@ -52,6 +53,21 @@ interface Props {
   onContinue: () => void
   /** FLW-02: `Continuar` só habilita com o bloco válido. */
   canContinue: boolean
+  /**
+   * Feature 89 (`CON-04`): o que se cota quando o pedido NÃO é a sacola — as peças do pedido montado
+   * pelo painel. Ausente, cota a sacola (o `/checkout` de sempre).
+   */
+  quoteItems?: QuoteProductPayload[]
+  /**
+   * Feature 89 (A-11): a base do frete grátis por faixa quando o pedido não é a sacola — o que os
+   * itens travados somam depois dos descontos. Ausente, a sacola.
+   */
+  subtotal?: number
+  /**
+   * Feature 89 (`PRC-05`): o cupom travado na proposta dá frete grátis. Ausente, o cupom aplicado na
+   * sacola decide (o de sempre).
+   */
+  couponFreeShipping?: boolean
 }
 
 export const DEFAULT_SHIPPING_SERVICE_ID = 'default'
@@ -126,8 +142,10 @@ const PickupSource = ({
   cep: string
   onChange: (option: PickupOption | null) => void
 }) => {
+  // T21: o rascunho do provider mais próximo (o de `/checkout` sem provider).
+  const useCheckout = useCheckoutStoreApi()
   const { option, settled } = usePickupOptionState(cep)
-  const setShipping = useCheckoutStore((s) => s.setShipping)
+  const setShipping = useCheckout((s) => s.setShipping)
 
   useEffect(() => {
     onChange(option)
@@ -137,19 +155,30 @@ const PickupSource = ({
 
   useEffect(() => {
     if (!settled || option) return
-    if (useCheckoutStore.getState().shipping?.serviceId === PICKUP_SERVICE_ID) setShipping(null)
-  }, [settled, option, setShipping])
+    if (useCheckout.getState().shipping?.serviceId === PICKUP_SERVICE_ID) setShipping(null)
+  }, [useCheckout, settled, option, setShipping])
 
   return null
 }
 
-const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props) => {
+const DeliveryBlock = ({
+  open,
+  complete,
+  onEdit,
+  onContinue,
+  canContinue,
+  quoteItems,
+  subtotal: subtotalOverride,
+  couponFreeShipping,
+}: Props) => {
   const { customer } = useAuthContext()
-  const address = useCheckoutStore((s) => s.address)
-  const setAddress = useCheckoutStore((s) => s.setAddress)
-  const shipping = useCheckoutStore((s) => s.shipping)
-  const setShipping = useCheckoutStore((s) => s.setShipping)
-  const markDirty = useCheckoutStore((s) => s.markDirty)
+  // T21: o rascunho do provider mais próximo (o de `/checkout` sem provider).
+  const useCheckout = useCheckoutStoreApi()
+  const address = useCheckout((s) => s.address)
+  const setAddress = useCheckout((s) => s.setAddress)
+  const shipping = useCheckout((s) => s.shipping)
+  const setShipping = useCheckout((s) => s.setShipping)
+  const markDirty = useCheckout((s) => s.markDirty)
 
   /**
    * FLW-01/FLW-04: sujar é o que impede o bloco de colapsar sozinho — por isso só passa por aqui
@@ -162,8 +191,12 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     setAddress(patch)
   }
 
-  const subtotal = useCartStore((s) => s.subtotal())
-  const coupon = useCouponStore((s) => s.applied)
+  const cartSubtotal = useCartStore((s) => s.subtotal())
+  const cartCoupon = useCouponStore((s) => s.applied)
+  // Feature 89: o pedido montado traz o próprio subtotal e o próprio cupom; sem as props, a sacola.
+  const subtotal = subtotalOverride ?? cartSubtotal
+  const coupon =
+    couponFreeShipping === undefined ? cartCoupon : { freeShipping: couponFreeShipping }
   const { default_shipping_cost, handling_days } = useShippingSettings()
   /**
    * `FRG-07` — SHP-06 passa a depender do interruptor.
@@ -176,7 +209,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
 
   const { data: defaultAddress } = useDefaultAddress(customer?.id)
   const cepLookup = useCepLookup(address.cep)
-  const quote = useShippingQuote(address.cep)
+  const quote = useShippingQuote(address.cep, quoteItems)
 
   // `today` fixo por montagem: a data exibida não pode pular enquanto a cliente preenche.
   const today = useMemo(() => new Date(), [])
@@ -192,8 +225,8 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
   // de CEP já desfaz qualquer escolha pelo efeito abaixo; este cobre o rascunho que nasceu assim.
   useEffect(() => {
     if (rsCep) return
-    if (useCheckoutStore.getState().shipping?.serviceId === PICKUP_SERVICE_ID) setShipping(null)
-  }, [rsCep, setShipping])
+    if (useCheckout.getState().shipping?.serviceId === PICKUP_SERVICE_ID) setShipping(null)
+  }, [useCheckout, rsCep, setShipping])
 
   // ADR-02: semeia o endereço salvo uma única vez, sem sobrescrever o que já foi digitado.
   //
@@ -206,11 +239,11 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
   useEffect(() => {
     if (seeded.current || !defaultAddress) return
     seeded.current = true
-    if (useCheckoutStore.getState().address.cep) return
+    if (useCheckout.getState().address.cep) return
     setAddress({ ...defaultAddress, manual: false })
     const clean = stripCep(defaultAddress.cep)
     if (clean.length === 8) defaultCep.current = clean
-  }, [defaultAddress, setAddress])
+  }, [useCheckout, defaultAddress, setAddress])
 
   // ADR-01/SHP-03: resolveu → preenche e trava; não resolveu → `manual` destrava os campos.
   useEffect(() => {
@@ -241,8 +274,8 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     // Mexer no CEP encerra ADR-02: daqui pra frente a cliente está escolhendo, não reaproveitando
     // o endereço salvo — e não voltamos a pré-selecionar nem se ela digitar o CEP do default.
     if (clean !== defaultCep.current) defaultCep.current = null
-    if (useCheckoutStore.getState().shipping) setShipping(null)
-  }, [address.cep, setShipping])
+    if (useCheckout.getState().shipping) setShipping(null)
+  }, [useCheckout, address.cep, setShipping])
 
   const cepComplete = stripCep(address.cep).length === 8
   // Referência estável: sem o memo, o `?? []` refaria o `options` (e o efeito) a cada render.
@@ -315,12 +348,12 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     const fromDefaultAddress =
       defaultCep.current !== null && stripCep(address.cep) === defaultCep.current
     if (options.length > 1 && !fromDefaultAddress) return
-    if (useCheckoutStore.getState().shipping) return
+    if (useCheckout.getState().shipping) return
 
     const cheapestId = cheapestQuoteId(quotes)
     const target = options.find((o) => o.serviceId === String(cheapestId)) ?? options[0]
     setShipping(toDraft(target))
-  }, [options, quotes, address.cep, setShipping])
+  }, [useCheckout, options, quotes, address.cep, setShipping])
 
   /*
    * Feature 61 · EVT-11 — um `add_shipping_info` por TOQUE da cliente numa opção de frete, a mesma

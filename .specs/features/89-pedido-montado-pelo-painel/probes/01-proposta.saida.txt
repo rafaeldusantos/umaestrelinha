@@ -1,0 +1,49 @@
+ok — RLS ligada nas três tabelas
+ok — nenhuma policy nas três tabelas
+ok — anon e authenticated sem privilégio nas tabelas
+ok — service_role grava em order_proposals
+ok — as três RPCs e handle_new_customer são security definer com search_path vazio
+ok — anon e authenticated NÃO executam nenhuma das três RPCs
+ok — service_role executa as três RPCs
+ok — save cria a proposta na versão 1
+ok — o número tem a forma P-0000
+ok — as duas linhas gravadas na ordem do array
+ok — o e-mail é gravado normalizado (minúsculo e aparado)
+ok — cliente nova: a ficha nasce SEM conta e a proposta aponta para ela (A-09)
+ok — o histórico registra created
+ok — mesma idempotency_key devolve a MESMA proposta (reused)
+ok — mesmo e-mail em outra grafia reusa a ficha — nunca duas (MON-03)
+ok — ficha antiga em outra grafia é reusada pela comparação lower(btrim) — nunca duas
+ok — customer_id cujo e-mail não é o da proposta é recusado
+ok — sem itens recusa no_items
+ok — 31 linhas recusa too_many_lines
+ok — itens abaixo de R$ 1,00 são recusados pelo check (A-12)
+ok — quantidade 100 é recusada pelo check
+ok — motivo de 121 caracteres é recusado pelo check
+ok — editar sem mudar nada não sobe a versão nem grava evento
+ok — 200 e 200.00 são o mesmo conteúdo
+ok — editar com mudança sobe para a versão 2 e grava edited
+ok — as linhas foram regravadas, não duplicadas
+ok — versão velha recusa version_conflict e não grava (duas abas)
+ok — editar proposta inexistente recusa not_found
+ok — a primeira visita marca vista
+ok — a segunda visita não marca de novo — um evento só
+ok — versão velha recusa proposal_changed sem criar pedido
+ok — create_order_from_proposal cria o pedido
+ok — o pedido leva proposal_id, o e-mail e os valores DA PROPOSTA (o corpo é ignorado) e o contato editado
+ok — os itens do pedido vêm das linhas travadas da proposta
+ok — a proposta vira concluída com o order_id, na mesma transação
+ok — a segunda chamada devolve O MESMO pedido
+ok — concluída devolve o pedido mesmo com versão velha (segundo aparelho)
+ok — editar proposta concluída recusa not_open
+ok — expirada recusa a conclusão (unavailable) e a edição (expired)
+ok — cancelada recusa a conclusão sem criar pedido
+ok — cancelada não é marcada como vista
+ok — a conta nova ADOTA a ficha sem conta do mesmo e-mail — nenhuma segunda ficha
+ok — a adoção mantém o nome que a ficha já tinha
+ok — o pedido da proposta continua ligado à ficha, agora com conta
+ok — sem ficha: a conta cria a dela e adota o pedido órfão (ESP-22 intacto)
+ok — a ficha que já tem conta não é adotada por outra conta do mesmo e-mail (A-09)
+ok — a cliente logada continua sem poder trocar o user_id (guard_customer_identity)
+ok — fixtura: o mesmo e-mail com uma ficha com conta e uma sem conta, a sem conta mais antiga
+ok — sem customer_id no corpo, a ficha COM conta vence a sem conta do mesmo e-mail (CON-12, A-08)

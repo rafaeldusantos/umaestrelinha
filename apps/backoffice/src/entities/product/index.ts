@@ -17,3 +17,8 @@ export * from './lib/optionLibrary'
 export * from './api/useOptionLibrary'
 export { default as ProductSearchField } from './ui/ProductSearchField'
 export type { ProductSearchFieldProps } from './ui/ProductSearchField'
+// Feature 89: a peça por id com as variações ativas, para a montagem da proposta (`MON-05`).
+export * from './api/useProductVariants'
+export { default as VariantPicker } from './ui/VariantPicker'
+export { textoDoEstoque } from './lib/estoque'
+export type { VariantPickerProps } from './ui/VariantPicker'

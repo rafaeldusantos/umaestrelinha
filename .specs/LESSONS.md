@@ -482,6 +482,50 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: F17 e F16 (verificação r3) — `useStoreMenu.ts` sem o `else if (vista && relida.updatedAt !== vista.updatedAt) setConflict(true)` da reconciliação, e sem `window.addEventListener('focus', agora)`, passavam a suíte inteira: o S03 provava só o inverso (N06) e o G01 só o `online`. Fechados (H01, H02) com o caso "a releitura acha OUTRA versão ⇒ conflito, sem Salvo, sem ação" e o "focus relê na hora" (mais o inverso "sem incerteza, focus não lê"); os dois mutantes reinjetados morrem por asserção
 - last seen: 2026-10-29T00:00:00Z
 
+### L-085 — Dependência opcional injetada só no `index.ts` (`limiter && …`, `notifier?.()`) é fail-open: tirar a linha da fiação desliga a proteção com a suíte verde, porque os testes do handler montam o `deps` à mão e o `wiringResolve` só confere nomes chamados. Prove a fiação pelo mesmo construtor de `deps` que o `index.ts` usa, ou faça o handler recusar quando a dependência de segurança não veio.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/functions/**` · harmful: 0
+- features: 89-pedido-montado-pelo-painel
+- evidence: K18 (verificação r1) — `checkout/index.ts:36` sem `proposalLimiter:` passa 341/341 em `checkout`+`_shared`; `getProposal` faz `if (limiter && ip && !limiter.hit(ip))`, então o link (credencial de URL, `SEG-04`) fica sem teto. K19 (o teto 30 → 30000) também sobrevive
+- last seen: 2026-10-31T00:00:00Z
+
+### L-086 — Comparação contra uma quantidade (`saldo >= quantidade`) ou recuo (`a ?? b`) precisa de fixtura em que o lado alternativo DECIDA: com toda linha em quantidade 1, `>= quantidade` e `> 0` são iguais; com o corpo sempre trazendo o campo, o recuo para o valor gravado nunca é lido. Ao ler um `>=`/`??` no handler, procure o caso que distingue cada lado.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/functions/**/__tests__/**` · harmful: 0
+- features: 89-pedido-montado-pelo-painel
+- evidence: K05 — `checkout/proposal.ts` `Number(p.stock_total ?? 0) >= quantidade` → `> 0` passa (fixturas com `quantity` 1, `CON-09`); K07 — `nuloSeVazio(body?.customer_phone) ?? row.customer_phone` sem o recuo passa (o corpo sempre traz telefone)
+- evidence (r2): R22 — o recuo irmão do CPF, `texto(body?.customer_document)… || row.customer_document`, sobrevive pelo mesmo motivo: o fecho da r1 provou o recuo do telefone e não o do vizinho na linha de baixo. Ao fechar um `??`/`||` de recuo, procure os outros recuos do mesmo objeto
+- evidence (r3): K23 — o inverso do recuo: `create-order` com `row.address_number` no lugar de `body?.address_number` passa, porque o corpo das fixturas repete o endereço gravado. Campo editável pela cliente precisa de corpo DIFERENTE do gravado (o "Independent Test" da `89` é exatamente "trocar o número da casa")
+- last seen: 2026-10-31T00:00:00Z
+
+### L-088 — Conferência de duas listas por "ordenar e comparar índice a índice" (`a.some((k, i) => k !== b[i])`) só vê o intruso que desloca os índices; o que ordena POR ÚLTIMO só é recusado pela checagem de tamanho. O caso "linha a mais" tem de pôr o intruso no fim da ordenação, senão a checagem de tamanho — a que segura um pedido adulterado — sai com a suíte verde.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/functions/**/__tests__/**` · harmful: 0
+- features: 89-pedido-montado-pelo-painel
+- evidence: R32 (verificação r2) — `mercado-pago/handlers.ts` `lockedProposalCharge` sem `travadas.length !== doPedido.length ||` passa 465/465; o caso "uma linha a mais no pedido" usa `PRODUCT_A` com quantidade 1, cuja chave ordena ANTES das travadas e é pega pelo índice. O comentário `SPEC_DEVIATION` da mesma função diz que ela existe para recusar "acrescentar uma linha ao pedido montado" (`BL-030`)
+- last seen: 2026-10-31T00:00:00Z
+
+### L-089 — Desempate de SQL que decide o DONO (`order by (c.user_id is null), …` — "a ficha com conta vence") é regra, não detalhe de consulta: precisa de fixtura com os dois candidatos ao mesmo tempo. Sem ela o probe passa com a ordem invertida, e o comentário do chamador ("a ficha com conta vence em `save_order_proposal`") afirma o que nada mede.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**`, `.specs/features/**/probes/**` · harmful: 0
+- features: 89-pedido-montado-pelo-painel
+- evidence: R39 (verificação r2) — `save_order_proposal` com `order by (c.user_id is not null)` passa o probe `01-proposta.sql` (47 `ok —`); `checkout/proposal.ts:463` comenta que "a ficha com conta vence", e é o que manda o pedido para a conta da cliente (`A-08`, `CON-12`)
+- last seen: 2026-10-31T00:00:00Z
+
+### L-087 — Comentário que justifica uma régua citando o banco ("contado sem aparar, como o `char_length` do banco") tem de ser conferido contra o `check` citado: a migration da mesma feature apara (`char_length(btrim(…))`), as duas réguas divergem, e o mutante que apara no TypeScript — que é a régua do banco — sobrevive. Repete a lição da `64` (`categoryListRefusal`): ao escrever o motivo de uma régua de texto, leia o `check` e teste com espaço no fim.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/core/src/**` · harmful: 0
+- features: 89-pedido-montado-pelo-painel
+- evidence: C06 (verificação r1) — `core/proposals/pricing.ts` `manualDiscountRefusal` com `reason.trim().length` passa em core, functions e painel; `supabase/migrations/20261103120000_89-pedido-montado.sql:88-90` usa `char_length(btrim(manual_discount_reason)) between 1 and 120`
+- last seen: 2026-10-31T00:00:00Z
+
+### L-090 — Cópia de coluna em SQL (`insert … select i.unit_price`) com uma vizinha de mesmo valor na fixtura (`list_price = unit_price`) não é medida: trocar uma pela outra passa o probe. Toda fixtura de probe que copia preço, desconto ou nome tem de ter as colunas candidatas com valores DIFERENTES — senão a coluna que decide o que a cliente paga sai sem prova.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**`, `.specs/features/**/probes/**` · harmful: 0
+- features: 89-pedido-montado-pelo-painel
+- evidence: P07 (verificação r3) — `create_order_from_proposal` com `i.list_price` no lugar de `i.unit_price` no `insert into order_items` passa o probe `01-proposta.sql` (49 `ok —`); com promoção travada o pedido nasceria a preço cheio e o `create-payment` recusaria pela `lineKey` (R31)
+- last seen: 2026-10-31T00:00:00Z
+
+### L-091 — Interruptor ou filtro de elegibilidade (`active`, `free_shipping_enabled`, a config passada à página) provado só no estado "ligado" é inauditável: forçá-lo a `true`, ou trocá-lo por `null`, passa. Para cada interruptor lido, procure o caso no estado que ele RECUSA — e, quando duas pontas decidem a mesma coisa (página × function), o caso em cada ponta.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/functions/**/__tests__/**`, `apps/**/pages/__tests__/**` · harmful: 0
+- features: 89-pedido-montado-pelo-painel
+- evidence: K25 (r3) — `checkout/proposal.ts` com `free_shipping_enabled: true` forçado passa; S13 (r3) — `ProposalCheckoutPage.tsx` com `freeShipping: null` passa; F15 (r3) — `promocoesVigentes` sem `p.active !== true` passa (só a vencida tinha caso, F14). Os três decidem dinheiro (A-11, A-05, `AD-027`)
+- last seen: 2026-10-31T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

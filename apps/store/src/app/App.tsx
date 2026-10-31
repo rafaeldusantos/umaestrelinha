@@ -52,6 +52,7 @@ const JewelryCarePage = lazy(() => import("@/pages/JewelryCarePage"));
 const FaqPage = lazy(() => import("@/pages/FaqPage"));
 const HowToSendMaterialPage = lazy(() => import("@/pages/HowToSendMaterialPage"));
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
+const ProposalCheckoutPage = lazy(() => import("@/pages/ProposalCheckoutPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 /**
@@ -228,6 +229,13 @@ const App = () => (
                 `sitemapRoutes.test.ts` exige a classificação de toda rota declarada.
               */}
               <Route path="/pedido/:id/pagamento" element={<OrderPaymentPage />} />
+
+              {/*
+                Feature 89 — o pedido montado pelo painel. Fora do `StoreLayout` pela mesma razão do
+                checkout (header próprio, sem navegação). O token vem no FRAGMENTO, nunca no caminho:
+                a rota não tem segmento dinâmico (`SEG-02`), e está em `NON_INDEXABLE_PATHS`.
+              */}
+              <Route path="/pedido-montado" element={<ProposalCheckoutPage />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

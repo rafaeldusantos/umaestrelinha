@@ -16,7 +16,7 @@
 // loja: é a tabela dele que a cobrança segue.
 import { formatPrice } from '@estrelinha/core/formatters'
 import type { CardInstallmentOption } from '@estrelinha/core/payment/installments'
-import { useCheckoutStore } from '../model/checkoutStore'
+import { useCheckoutStoreApi } from '../model/checkoutStore'
 import type { CardInstallmentsState } from '../model/useCardInstallmentOptions'
 
 export const INSTALLMENTS_TITLE = 'Em quantas vezes?'
@@ -81,7 +81,9 @@ const Row = ({
 }
 
 const InstallmentPicker = ({ state }: { state: CardInstallmentsState }) => {
-  const setCardInstallments = useCheckoutStore((s) => s.setCardInstallments)
+  // T21: o rascunho do provider mais próximo (o de `/checkout` sem provider).
+  const useCheckout = useCheckoutStoreApi()
+  const setCardInstallments = useCheckout((s) => s.setCardInstallments)
   const { status, options, selected } = state
 
   const free = options.filter((o) => o.interestFree)

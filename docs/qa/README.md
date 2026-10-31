@@ -314,3 +314,26 @@ Planejado e executado em 2026-10-30 (relatório `reports/2026-10-30-backoffice-a
 Ambiente só local; o e-mail real não pode sair (o `general.email` local é real): o motor servido usa o
 desvio do probe `.specs/features/88-…/probes/02-motor.sh`, ou a function é interceptada no navegador.
 Canário: o app do ateliê lendo a linha `skipped` (`J-ver-um-pedido`, opcional).
+
+## Ciclo planejado — feature `89` (pedido montado pelo painel), nível *targeted*
+
+Planejado em 2026-10-31 (`qa-report`). Personas novas: `Adri montando uma venda`, `Cliente de luto pelo
+link`, `Cliente com conta pelo link`. Jornadas novas `J-montar-pedido-para-a-cliente` (7 cenários
+`PNL-montado-*`), `J-acompanhar-pedidos-montados` (3) e `J-concluir-pedido-montado` (6 `LOJA-montado-*`),
+todos `untested`. **Executado no mesmo dia** (`reports/2026-10-31-pedido-montado.md`: 10 pass, 6 fail, 7 bugs abertos). Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-montado-da-conversa-ao-pix` | Money | 90 |
+| 2 | `CH-montado-link-que-mudou-ou-morreu` | Multi-Tab | 60 |
+| 3 | `CH-montado-cliente-que-ja-tem-conta` | Back-Button | 45 |
+| 4 | `CH-montado-recusas-e-bordas-da-montagem` | Garbage | 45 |
+| 5 | `CH-montado-fonte-grande-teclado-e-privacidade` | Feature | 60 |
+
+Ambiente só local. As functions `order-proposals` e `mercado-pago` **não sobem** no edge runtime local
+pelo `import type` de pacote em `core/pricing` (registrado na prova da `89`): a sessão as serve com a troca
+temporária do `prova-navegador.md`, restaurada com SHA-256 conferido. O env das functions leva uma
+`RESEND_API_KEY` inválida (nenhum e-mail sai); a cotação vai à API do Melhor Envio de produção (só leitura)
+e o PIX ao Mercado Pago de teste. Bugs anteriores à `89` conhecidos e não refeitos: o cartão Material do
+pedido a 390/200 % (`BUG-20261030-pedido-rola-de-lado-com-fonte-200`).
+Dimensões puladas: nenhuma; Autorização (SEG-05) é provada por teste/probe e não remedida em navegador.

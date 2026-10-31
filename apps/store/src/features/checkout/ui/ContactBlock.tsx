@@ -18,7 +18,7 @@ import { MARKETING_CONSENT_LABEL } from '@/shared/lib/consent'
 import { useAccountLookup } from '../api/useAccountLookup'
 import CheckoutSignInChallenge from './CheckoutSignInChallenge'
 import CollapsedBlock from './CollapsedBlock'
-import { useCheckoutStore } from '../model/checkoutStore'
+import { useCheckoutStoreApi } from '../model/checkoutStore'
 
 /** O que o Contato fechado diz quando ainda não há nome nem e-mail. */
 export const CONTACT_EMPTY_SUMMARY = 'Informe seu nome e e-mail'
@@ -38,7 +38,16 @@ interface Props {
    * endereço. Quem guarda é a página, porque a identidade dela alimenta `resolveFlow`.
    */
   onChallenge: (email: string | null) => void
+  /**
+   * Feature 89 (`CON-04`, A-07): o e-mail vem fixo do pedido montado pelo painel. Só leitura, sem a
+   * consulta de conta, sem o desafio de código e sem alimentar o carrinho abandonado — o link já é a
+   * prova de posse (A-08), e quem troca o e-mail é a Adri.
+   */
+  emailReadOnly?: boolean
 }
+
+/** A-07: o que o campo de e-mail só leitura explica abaixo dele. */
+export const EMAIL_READONLY_HINT = 'Para trocar o e-mail, fale comigo pelo WhatsApp.'
 
 const ContactBlock = ({
   open,
@@ -48,12 +57,15 @@ const ContactBlock = ({
   canContinue,
   challenging,
   onChallenge,
+  emailReadOnly = false,
 }: Props) => {
   const { customer } = useAuthContext()
   const { check } = useAccountLookup()
-  const contact = useCheckoutStore((s) => s.contact)
-  const setContact = useCheckoutStore((s) => s.setContact)
-  const markDirty = useCheckoutStore((s) => s.markDirty)
+  // T21: o rascunho do provider mais próximo (o de `/checkout` sem provider).
+  const useCheckout = useCheckoutStoreApi()
+  const contact = useCheckout((s) => s.contact)
+  const setContact = useCheckout((s) => s.setContact)
+  const markDirty = useCheckout((s) => s.markDirty)
   const emailRef = useRef<HTMLInputElement>(null)
 
   /** "Usar outro e-mail" do desafio: derruba o desafio e devolve o foco ao campo, já selecionado. */
@@ -79,20 +91,21 @@ const ContactBlock = ({
   useEffect(() => {
     if (seeded.current || !customer) return
     seeded.current = true
-    const current = useCheckoutStore.getState().contact
+    const current = useCheckout.getState().contact
     const patch: Partial<typeof current> = {}
     if (!current.name && customer.name) patch.name = customer.name
-    if (!current.email && customer.email) patch.email = customer.email
+    if (!emailReadOnly && !current.email && customer.email) patch.email = customer.email
     // `customers.phone` foi gravado só com dígitos até aqui, então semear cru abriria o campo sem
     // máscara. `maskPhone` é idempotente, então valor já formatado atravessa inalterado.
     if (!current.whatsapp && customer.phone) patch.whatsapp = maskPhone(customer.phone)
     if (Object.keys(patch).length > 0) setContact(patch)
-  }, [customer, setContact])
+  }, [useCheckout, customer, setContact, emailReadOnly])
 
   // CHK-11: preencher ou alterar o contato realimenta o tracker de carrinho abandonado.
   useEffect(() => {
+    if (emailReadOnly) return
     if (contact.email.includes('@')) setGuestEmail(contact.email, contact.consent)
-  }, [contact.email, contact.consent])
+  }, [contact.email, contact.consent, emailReadOnly])
 
   if (!open) {
     // A prévia do que foi digitado, uma informação por linha (2026-10-04): o nome em destaque, o
@@ -156,34 +169,50 @@ const ContactBlock = ({
           <Label htmlFor="contact-email" className="text-[13px] font-semibold text-estrelinha-ink">
             E-mail
           </Label>
-          <Input
-            id="contact-email"
-            ref={emailRef}
-            type="email"
-            value={contact.email}
-            onChange={(e) => {
-              // `IDN-06`: trocar de e-mail derruba o desafio na hora. Guardar um booleano em vez do
-              // endereço prenderia a pessoa pedindo o código de um e-mail que já não está no campo.
-              onChallenge(null)
-              edit({ email: e.target.value })
-            }}
-            // `IDN-01`: a consulta é no **blur**, nunca a cada tecla — teclar dispararia uma
-            // requisição por caractere e o teto por IP da function fecharia na cara de quem só
-            // estava digitando.
-            onBlur={(e) => {
-              const digitado = e.target.value
-              void check(digitado).then((temConta) => {
-                if (temConta) onChallenge(digitado)
-              })
-            }}
-            placeholder="seu@email.com"
-            className="border-estrelinha-field"
-          />
+          {emailReadOnly ? (
+            <>
+              <Input
+                id="contact-email"
+                type="email"
+                value={contact.email}
+                readOnly
+                aria-describedby="contact-email-hint"
+                className="border-estrelinha-field bg-estrelinha-ground-deep"
+              />
+              <p id="contact-email-hint" className="text-[13px] text-estrelinha-ink-soft">
+                {EMAIL_READONLY_HINT}
+              </p>
+            </>
+          ) : (
+            <Input
+              id="contact-email"
+              ref={emailRef}
+              type="email"
+              value={contact.email}
+              onChange={(e) => {
+                // `IDN-06`: trocar de e-mail derruba o desafio na hora. Guardar um booleano em vez do
+                // endereço prenderia a pessoa pedindo o código de um e-mail que já não está no campo.
+                onChallenge(null)
+                edit({ email: e.target.value })
+              }}
+              // `IDN-01`: a consulta é no **blur**, nunca a cada tecla — teclar dispararia uma
+              // requisição por caractere e o teto por IP da function fecharia na cara de quem só
+              // estava digitando.
+              onBlur={(e) => {
+                const digitado = e.target.value
+                void check(digitado).then((temConta) => {
+                  if (temConta) onChallenge(digitado)
+                })
+              }}
+              placeholder="seu@email.com"
+              className="border-estrelinha-field"
+            />
+          )}
         </div>
       </div>
 
       {/* IDN-02/IDN-03: o desafio aparece DENTRO do bloco, entre o e-mail e o resto. */}
-      {challenging && (
+      {challenging && !emailReadOnly && (
         <CheckoutSignInChallenge email={contact.email} onUseOtherEmail={trocarEmail} />
       )}
 

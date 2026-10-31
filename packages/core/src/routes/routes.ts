@@ -68,6 +68,10 @@ export const ROUTE_SLUGS: readonly string[] = [
   'favoritos',
   'entrar',
   'checkout',
+  // Feature 89 — a página do link do pedido montado pelo painel (`A-15`, `SEG-03`). O token vai no
+  // FRAGMENTO (`/pedido-montado#<token>`), nunca num segundo segmento: por isso a rota é de um
+  // segmento só, e é reservada como as outras — uma categoria "pedido-montado" encobriria o link.
+  'pedido-montado',
 ]
 
 /**
@@ -172,6 +176,17 @@ export const JEWELRY_CARE_PATH = '/cuidados-com-sua-joia-afetiva'
 export const FAQ_PATH = '/perguntas-frequentes'
 
 /**
+ * Feature 89 (`A-15`): o endereço do link do pedido montado. O token vai no fragmento — o fragmento
+ * não chega ao servidor (Vercel, `api/page`), não entra no `page_view` do GA4 nem no `Referer`.
+ *
+ * Mora aqui, ao lado das outras constantes de rota, porque é daqui que `NON_INDEXABLE_PATHS` e a
+ * tabela de metadado (`core/seo/pages.ts`) a leem; `core/proposals/link.ts` (quem monta o link) deve
+ * IMPORTAR esta constante, e não declarar uma segunda — o arquivo não tem import nenhum, então segue
+ * alcançável pelo Deno por caminho relativo com `.ts`.
+ */
+export const PROPOSAL_PATH = '/pedido-montado'
+
+/**
  * `/como-enviar-seu-material-de-dna#cinzas` — o guia, opcionalmente já no material da cliente.
  *
  * A âncora vem de `materialAnchor` (`@estrelinha/core/material`), que não é importado aqui de
@@ -243,6 +258,12 @@ export const NON_INDEXABLE_PATHS: readonly { path: string; reason: string }[] = 
   { path: '/favoritos', reason: 'privado, por navegador' },
   { path: '/entrar', reason: 'autenticação' },
   { path: '/busca', reason: 'espaço de rastreio infinito: uma URL por combinação de parâmetro' },
+  {
+    path: PROPOSAL_PATH,
+    reason:
+      'privado e transacional — é o pedido que a Adri montou para UMA cliente (feature 89, SEG-03); ' +
+      'o conteúdo depende do token no fragmento, e sem ele a página não mostra nada',
+  },
 ]
 
 /**

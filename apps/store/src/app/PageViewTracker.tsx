@@ -53,7 +53,10 @@ const PageViewTracker = () => {
     if (navegacao === 'REPLACE') pendente.current?.descartar()
     else pendente.current?.enviar()
 
-    const location = window.location.href
+    // Feature 89 (`SEG-02`): SEM o fragmento. O link do pedido montado leva o token no `#`, e este
+    // efeito roda ANTES do da página (que o apaga da barra) — mandar o `href` cru entregaria a
+    // credencial ao Google. Nenhuma página da loja usa o fragmento como dado de medição.
+    const location = window.location.href.split('#')[0]
     let encerrado = false
 
     const encerrar = () => {

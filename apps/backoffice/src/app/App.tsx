@@ -13,6 +13,8 @@ import AdminProductFormPage from "@/pages/admin/AdminProductFormPage"
 import AdminQuickGridPage from '@/pages/admin/AdminQuickGridPage';
 import AdminOrdersPage from "@/pages/admin/AdminOrdersPage";
 import AdminOrderPage from "@/pages/admin/AdminOrderPage";
+import AdminProposalBuilderPage from "@/pages/admin/AdminProposalBuilderPage";
+import AdminProposalPage from "@/pages/admin/AdminProposalPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminFiltersPage from "@/pages/admin/AdminFiltersPage";
 import AdminFilterValuePage from "@/pages/admin/AdminFilterValuePage";
@@ -57,6 +59,12 @@ const App = () => (
             {/* O pedido é TELA desde a feature 34 (PED-24), pela mesma regra dos Descontos: o modal
                 de cinco abas não sobrevivia ao F5 e não virava link. Não entra em `navGroups` — é
                 alcançada de dentro de Pedidos, mesma régua da grade rápida e do editor de seção. */}
+            {/* Feature 89: o pedido montado pelo painel. A montagem (criar, `/:id` para editar,
+                `?duplicar=` para duplicar) e a página da proposta. As três são estáticas e vencem
+                `/admin/pedidos/:id` pela regra de ranqueamento do react-router. */}
+            <Route path="/admin/pedidos/montar" element={<AdminProposalBuilderPage />} />
+            <Route path="/admin/pedidos/montar/:id" element={<AdminProposalBuilderPage />} />
+            <Route path="/admin/pedidos/montados/:id" element={<AdminProposalPage />} />
             <Route path="/admin/pedidos/:id" element={<AdminOrderPage />} />
             <Route path="/admin/carrinhos-abandonados" element={<AdminAbandonedCartsPage />} />
             <Route path="/admin/clientes" element={<AdminClientsPage />} />

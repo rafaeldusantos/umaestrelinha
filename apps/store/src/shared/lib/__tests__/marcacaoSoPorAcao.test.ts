@@ -166,15 +166,23 @@ const RPCS = [
   // `atelie-avisos`. Só toca `push_subscriptions` (`pushSubscriptionsSchema.test.ts`).
   'claim_push_test',
   'claim_order_notification',
+  // Feature 89 — a function `checkout` cria o pedido a partir da proposta (`orders` + `order_items`
+  // numa transação) e marca a proposta como vista. Nenhuma das duas toca as tabelas de marcação
+  // (`pedidoMontadoSchema.test.ts`).
+  'create_order_from_proposal',
   'customer_order_events',
   'finish_order_notification',
   'get_abandoned_cart',
   'has_role',
   'increment_coupon_usage',
   'mark_cart_recovered',
+  'mark_order_proposal_viewed',
   // Feature 71 — a function `visit` (gravação de visita única e o relógio do banco). Nenhuma das
   // duas toca as tabelas de marcação; a varredura das migrations abaixo é quem prova.
   'record_store_visit',
+  // Feature 89 — a function `order-proposals` grava a proposta (criar e editar) numa transação. Só
+  // toca as tabelas da proposta e `customers` (`pedidoMontadoSchema.test.ts`).
+  'save_order_proposal',
   'set_kit_showcase',
   'set_material_status',
   'set_material_tracking',

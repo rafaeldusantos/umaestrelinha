@@ -51,7 +51,9 @@ const CollapsedBlock = ({
     aria-label={label}
     className="flex flex-col gap-[6px] rounded-lg border border-estrelinha-line bg-white px-4 pb-4 pt-[10px]"
   >
-    <div className="flex items-center gap-3">
+    {/* `flex-wrap`: com a fonte do sistema a 200 % disco + rótulo + "Alterar" não cabem em 390, e a
+        página rolava de lado (achado na prova em navegador da 89). Quem desce é o "Alterar". */}
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink">
         {complete ? (
           <Check className="h-4 w-4 text-white" aria-label={completeLabel} />

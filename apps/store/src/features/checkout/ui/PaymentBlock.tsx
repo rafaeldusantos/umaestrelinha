@@ -26,7 +26,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useAuthContext } from '@estrelinha/auth'
 import { PixIcon } from '@estrelinha/ui/icons'
-import { useCheckoutStore } from '../model/checkoutStore'
+import { useCheckoutStoreApi } from '../model/checkoutStore'
 import { useCardInstallmentHeadline } from '../model/useCardInstallmentOptions'
 import CardPaymentBrick from './CardPaymentBrick'
 import type { CardNotice } from '../lib/cardNotice'
@@ -86,10 +86,12 @@ const PaymentBlock = ({
 }: Props) => {
   const { customer } = useAuthContext()
   const { pix_enabled, pix_discount_percent, card_enabled } = usePaymentSettings()
-  const payment = useCheckoutStore((s) => s.payment)
-  const setPayment = useCheckoutStore((s) => s.setPayment)
+  // T21: o rascunho do provider mais próximo (o de `/checkout` sem provider).
+  const useCheckout = useCheckoutStoreApi()
+  const payment = useCheckout((s) => s.payment)
+  const setPayment = useCheckout((s) => s.setPayment)
   /** PGM-05: é este e-mail que apaga o campo de e-mail do Brick — ele já foi pedido no bloco 1. */
-  const contactEmail = useCheckoutStore((s) => s.contact.email)
+  const contactEmail = useCheckout((s) => s.contact.email)
 
   // `max_installments` é, desde 2026-10-04, o número de parcelas SEM JUROS que a loja anuncia. O
   // anúncio do card tem dono (`useCardInstallmentHeadline`): com o cartão digitado ele diz o que a
@@ -109,13 +111,13 @@ const PaymentBlock = ({
   useEffect(() => {
     if (seeded.current || !customer?.cpf) return
     seeded.current = true
-    if (useCheckoutStore.getState().payment.cpf) return
+    if (useCheckout.getState().payment.cpf) return
     setPayment({ cpf: maskDocument(customer.cpf) })
-  }, [customer?.cpf, setPayment])
+  }, [useCheckout, customer?.cpf, setPayment])
 
   // CHK-03: o método guardado é sempre um habilitado (ou `null` quando não há nenhum).
   useEffect(() => {
-    const method = useCheckoutStore.getState().payment.method
+    const method = useCheckout.getState().payment.method
     if (!pix_enabled && !card_enabled) {
       if (method !== null) setPayment({ method: null })
       return
@@ -126,7 +128,7 @@ const PaymentBlock = ({
     }
     if (method === 'pix' && !pix_enabled) setPayment({ method: 'card' })
     else if (method === 'card' && !card_enabled) setPayment({ method: 'pix' })
-  }, [payment.method, pix_enabled, card_enabled, setPayment])
+  }, [useCheckout, payment.method, pix_enabled, card_enabled, setPayment])
 
   const documentInvalid = payment.cpf.length > 0 && !isValidDocument(payment.cpf)
   /**

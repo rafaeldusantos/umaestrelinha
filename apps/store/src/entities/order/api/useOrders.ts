@@ -267,8 +267,11 @@ export const useCreateOrder = () => {
  * O SDK embrulha a resposta num `FunctionsHttpError` cujo `context` é a `Response` original — é o
  * único lugar onde o `reason: 'needs_otp'` sobrevive. Sem isto, um 409 chegaria à tela como
  * "Edge Function returned a non-2xx status code" e o desafio nunca abriria.
+ *
+ * Exportado na feature 89: o pedido montado lê os códigos dele (`unavailable`, `proposal_changed`,
+ * `item_unavailable`) pelo mesmo caminho.
  */
-async function lerCorpoDoErro(error: unknown): Promise<unknown> {
+export async function lerCorpoDoErro(error: unknown): Promise<unknown> {
   const contexto = (error as { context?: { json?: () => Promise<unknown> } } | null)?.context
   if (!contexto?.json) return null
   try {

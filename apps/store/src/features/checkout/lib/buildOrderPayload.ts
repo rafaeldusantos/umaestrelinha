@@ -173,7 +173,8 @@ export function buildOrderPayload(input: OrderPayloadInput): CreateOrderInput {
 }
 
 /** Os três campos do GA, só os que existem — `undefined` não viaja e o servidor não grava lixo. */
-function analyticsFields(
+/** Exportado na feature 89: o pedido montado manda os mesmos campos de medição, pela mesma regra. */
+export function analyticsFields(
   a: OrderPayloadInput['analytics'],
 ): Pick<CreateOrderInput, 'ga_client_id' | 'ga_session_id' | 'analytics_declined'> {
   if (!a) return {}

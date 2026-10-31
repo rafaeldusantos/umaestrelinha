@@ -482,6 +482,19 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
 - A prova contra o banco é o probe `.specs/features/75-mobile-adm-acoes-do-pedido/probes/01-paridade.*`
   (app × painel no mesmo pedido semeado duas vezes; dois mutantes no dono mortos por ele).
 
+## `proposals` — o pedido montado tem o preço travado em UM lugar (feature `89`, `AD-070`)
+
+- `priceProposalDraft` é chamado igual pelo painel e pela function `order-proposals` (a recusa "O
+  desconto não pode zerar o pedido." quando os itens ficariam abaixo de R$ 1,00).
+- `proposalPricing(locked, { shipping, method, pixDiscountPercent, freeShipping })` é chamado igual pela
+  página do link, pelo `create-order` e pelo `create-payment`: o total que a cliente vê é o cobrado.
+- `payment/pricing.ts` ganhou `manualDiscount` (opcional, depois do cupom e antes do PIX); sem ele, a
+  saída é a de antes, e a suíte de `payment` passou intocada. `coupons/rules.ts` é a regra pura do
+  cupom, e `validateCoupon` delega a ela.
+- Tudo com `.ts` explícito (alcançável pelo Deno). ⚠️ `pricing/index.ts` e `pricing/grid.ts` ainda
+  importam tipos de `@estrelinha/supabase/types` por pacote, e isso impede o boot LOCAL de toda
+  function que os alcança (`mercado-pago`, `order-proposals`).
+
 ## Convenções de tipo
 
 - **`strictNullChecks` está `false`.** União discriminada por literal **booleano** não estreita: com

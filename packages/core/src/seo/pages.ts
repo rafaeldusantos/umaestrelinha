@@ -14,6 +14,7 @@ import {
   MATERIAL_GUIDE_PATH,
   NON_INDEXABLE_PATHS,
   PRIVACY_POLICY_PATH,
+  PROPOSAL_PATH,
   RETURNS_POLICY_PATH,
 } from '../routes/routes.ts'
 import { STORE_BRAND, brandedTitle } from './brand.ts'
@@ -104,6 +105,12 @@ const FIXAS: Readonly<Record<string, Fixa>> = {
   '/favoritos': { titulo: 'Meus favoritos', descricao: 'As joias que você guardou para ver depois.' },
   '/entrar': { titulo: 'Entrar', descricao: 'Acesse sua conta na Uma Estrelinha.' },
   '/busca': { titulo: 'Busca', descricao: 'Busque joias afetivas na Uma Estrelinha.' },
+  // Feature 89 (`SEG-03`). O `<h1>` da página é "Seu pedido" (spec), mas o `<title>` não pode ser:
+  // "Seu pedido" já é o título de `/pedido/:id`, e dois títulos fixos iguais reprovam `seo.test.ts`.
+  [PROPOSAL_PATH]: {
+    titulo: 'Pedido montado',
+    descricao: 'O pedido que a Uma Estrelinha montou para você.',
+  },
 }
 
 /** As chaves da tabela — lidas pelo guarda bidirecional, nunca para decidir nada em runtime. */

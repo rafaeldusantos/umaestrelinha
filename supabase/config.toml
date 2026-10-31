@@ -598,3 +598,10 @@ verify_jwt = false
 # chamada ao modelo. Com `verify_jwt = true` o gateway também recusaria o preflight OPTIONS do painel.
 [functions.seo-suggest]
 verify_jwt = false
+
+# Feature 89 — a proposta que o painel monta. MESMA razão da admin-users: a anon key publicada é um
+# JWT válido e passaria pelo gateway; quem fecha a porta é `requireAdmin` (`_shared/auth.ts`) dentro
+# do handler, em TODA ação. As tabelas da proposta não têm policy de cliente: esta function é a porta
+# do painel, e a `checkout` é a da loja.
+[functions.order-proposals]
+verify_jwt = false

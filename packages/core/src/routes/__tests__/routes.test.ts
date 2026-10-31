@@ -25,7 +25,7 @@ import {
  * medido — comparar `ROUTE_SLUGS` com um `map` derivado dele mesmo passaria com a lista vazia.
  */
 describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx', () => {
-  it('tem exatamente os 18 segmentos estáticos das rotas da loja', () => {
+  it('tem exatamente os 19 segmentos estáticos das rotas da loja', () => {
     // 13 até a feature 23; o 14º é `como-enviar-o-material`, da 22. O 15º é
     // `como-enviar-seu-material-de-dna`, da 31 — e o 14º **continua aqui**, agora como rota de
     // redirect: apagá-lo liberaria o slug para uma categoria, que engoliria o 301 das URLs já
@@ -33,8 +33,10 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     // apontava foi removido em 2026-09-12 (decisão do usuário) e `cuidados-com-sua-joia-afetiva`
     // entrou no lugar dele, mantendo a contagem. **Esta contagem falhar quando uma rota entra é o
     // comportamento correto**: com categoria na raiz do domínio (`AD-018`), rota nova que não passe
-    // por aqui encobre em silêncio uma categoria homônima.
-    expect(ROUTE_SLUGS).toHaveLength(18)
+    // por aqui encobre em silêncio uma categoria homônima. O 19º é `pedido-montado`, da feature 89
+    // (o link do pedido montado pelo painel, `A-15`).
+    expect(ROUTE_SLUGS).toHaveLength(19)
+    expect(ROUTE_SLUGS).toContain('pedido-montado')
   })
 
   it.each([
@@ -102,12 +104,12 @@ describe('INFRA_SLUGS — o que é do host/build e não aparece no App.tsx', () 
 })
 
 describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
-  it('tem 21 entradas: 18 rotas + 3 de infraestrutura', () => {
-    expect(RESERVED_SLUGS).toHaveLength(21)
+  it('tem 22 entradas: 19 rotas + 3 de infraestrutura', () => {
+    expect(RESERVED_SLUGS).toHaveLength(22)
   })
 
   it('não repete nenhuma entrada', () => {
-    expect(new Set(RESERVED_SLUGS).size).toBe(21)
+    expect(new Set(RESERVED_SLUGS).size).toBe(22)
   })
 
   it.each([
@@ -379,7 +381,7 @@ describe('a classificação de rota do sitemap (SMP-04, SMP-24)', () => {
     expect(LEGACY_REDIRECTS.some(r => r.to === FAQ_PATH)).toBe(false)
   })
 
-  it('âncora de tamanho: 7 institucionais e 9 excluídas', () => {
+  it('âncora de tamanho: 7 institucionais e 10 excluídas', () => {
     // Sem a âncora, esvaziar uma das listas tornaria as asserções acima verdadeiras por vacuidade.
     // As 7: raiz, Sobre, as duas políticas da feature 45, os cuidados com a joia, o guia de
     // material e as perguntas frequentes (feature 46). O índice `/politicas` que ocupava uma dessas
@@ -387,7 +389,34 @@ describe('a classificação de rota do sitemap (SMP-04, SMP-24)', () => {
     expect(SITEMAP_STATIC_PATHS).toHaveLength(7)
     // A 8ª exclusão é `/pedido/:id/pagamento`, da feature 58: privada e transacional ao mesmo
     // tempo — é o PIX de uma pessoa, e a página existe para cobrar. A 9ª é `/conta/dados`, da
-    // feature 59: a aba "Meus dados" da conta, privada como a própria conta.
-    expect(NON_INDEXABLE_PATHS).toHaveLength(9)
+    // feature 59: a aba "Meus dados" da conta, privada como a própria conta. A 10ª é
+    // `/pedido-montado`, da feature 89 (SEG-03): o pedido que a Adri montou para uma cliente.
+    expect(NON_INDEXABLE_PATHS).toHaveLength(10)
+  })
+})
+
+// Feature 89 (`A-15`, `SEG-03`): o link do pedido montado é `/pedido-montado#<token>` — rota de UM
+// segmento, reservada (uma categoria homônima a encobriria), fora do sitemap e com motivo escrito.
+describe('/pedido-montado — a rota do link do pedido montado (feature 89)', () => {
+  it('a constante é o endereço literal da spec', async () => {
+    const { PROPOSAL_PATH } = await import('../routes.ts')
+    expect(PROPOSAL_PATH).toBe('/pedido-montado')
+  })
+
+  it('o slug é reservado: categoria "pedido-montado" é recusada', () => {
+    expect(isReservedSlug('pedido-montado')).toBe(true)
+    expect(isReservedSlug(' Pedido-Montado ')).toBe(true)
+  })
+
+  it('não indexável, com motivo escrito, e fora do sitemap', () => {
+    const entrada = NON_INDEXABLE_PATHS.find(r => r.path === '/pedido-montado')
+    expect(entrada).toBeDefined()
+    expect(entrada!.reason.trim().length).toBeGreaterThan(20)
+    expect(SITEMAP_STATIC_PATHS).not.toContain('/pedido-montado')
+  })
+
+  it('o token nunca é segmento: não há rota `/pedido-montado/:algo` em lugar nenhum', () => {
+    const todas = [...NON_INDEXABLE_PATHS.map(r => r.path), ...SITEMAP_STATIC_PATHS]
+    expect(todas.filter(p => p.startsWith('/pedido-montado/'))).toEqual([])
   })
 })

@@ -47,9 +47,11 @@ describe('APP_ROUTE_PATTERNS — composto dos donos, não escrito à mão', () =
         ...LEGACY_REDIRECTS.map(r => r.from).filter(f => f.split('/')[1] === COLECAO),
         '/categoria/:slug',
         '/como-enviar-o-material',
+        // Feature 89 (SEG-03): o link do pedido montado — rota de app, shell intacto, noindex.
+        '/pedido-montado',
       ]),
     )
-    expect(APP_ROUTE_PATTERNS).toHaveLength(14)
+    expect(APP_ROUTE_PATTERNS).toHaveLength(15)
   })
 
   it('nenhuma rota de app é página fixa indexável nem a forma de produto/categoria', () => {
@@ -170,5 +172,19 @@ describe('classifyPath — entrada que não pode ser endereço (validação)', (
     ['vazio', ''],
   ])('%s (%s) ⇒ notfound', (_n, path) => {
     expect(classifyPath(path)).toEqual({ kind: 'notfound' })
+  })
+})
+
+// Feature 89 (SEG-03): `/pedido-montado` é rota de app — a função da Vercel serve o shell (200, sem
+// `<head>` próprio), nunca 404 e nunca uma página fixa indexável. O token vai no fragmento e nem chega
+// ao servidor; a classificação é a do caminho nu.
+describe('/pedido-montado (feature 89)', () => {
+  it('é classificada como app', () => {
+    expect(APP_ROUTE_PATTERNS).toContain('/pedido-montado')
+    expect(classifyPath('/pedido-montado').kind).toBe('app')
+  })
+
+  it('um segundo segmento não é a rota (o token não vai no caminho)', () => {
+    expect(classifyPath('/pedido-montado/abc').kind).not.toBe('app')
   })
 })

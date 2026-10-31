@@ -144,3 +144,57 @@ persona:
 Muitas vezes já avisou a cliente pelo WhatsApp e só quer acertar o registro. O que mais a machuca: um
 e-mail repetido para quem acabou de perder alguém, e a tela dizer "avisada" quando não avisou. Entrou no
 ciclo da `88`.
+
+## Adri montando uma venda do WhatsApp (painel, notebook)
+
+```yaml
+persona:
+  name: Adri montando uma venda
+  base: Power User
+  goal: transformar a conversa do WhatsApp num pedido montado — cliente, peças com variação e gravação, cupom e o desconto combinado — e mandar o link sem errar o valor
+  device: desktop (1440); às vezes confere pelo celular (390) com a fonte do sistema em 130 % ou 200 %
+  network: wifi-fast
+  modality: mouse + teclado; às vezes só teclado
+  locale: pt-BR
+  patience_seconds: 20
+```
+
+Acabou de combinar com a cliente pelo WhatsApp. O que mais a machuca: o link cobrar um valor diferente do
+que ela prometeu, criar a cliente duas vezes, ou mandar um link que não funciona para alguém que está de
+luto. Entrou no ciclo da `89`.
+
+## Cliente de luto abrindo o link (celular, contexto memorial)
+
+```yaml
+persona:
+  name: Cliente de luto pelo link
+  base: First-Time User
+  goal: abrir o link que a Adri mandou no WhatsApp, conferir o pedido, escolher a entrega e pagar, sem refazer nada
+  device: phone-large (390×844), às vezes com a fonte do sistema em 130 % ou 200 %
+  network: 4g
+  modality: touch; às vezes leitor de tela
+  locale: pt-BR
+  patience_seconds: 10
+```
+
+Não tem conta na loja. Abre o link dentro do WhatsApp, muitas vezes dias depois. Qualquer frase errada
+(valor diferente do combinado, "link inválido" sem saída, um pedido que precisa ser refeito) pesa mais do
+que numa loja comum. Entrou no ciclo da `89`.
+
+## Cliente com conta abrindo o link (celular)
+
+```yaml
+persona:
+  name: Cliente com conta pelo link
+  base: Returning User
+  goal: concluir o pedido que a Adri montou e vê-lo depois na própria conta, sem pedir código
+  device: phone-large (390×844)
+  network: 4g
+  modality: touch
+  locale: pt-BR
+  patience_seconds: 15
+```
+
+Já comprou antes e tem conta (`auth.users` + `customers.user_id`). Pode estar logada ou não. O que prova:
+o pedido vai para a conta dela (A-08) sem desafio de código, e o e-mail do link não pode ser trocado
+(A-07). Entrou no ciclo da `89`.

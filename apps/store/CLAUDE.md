@@ -1622,6 +1622,22 @@ resposta do GA4 sobre "posso medir?" — `contadorSemGa.test.ts` guarda a fonte.
 - **Até o dia do DNS a loja não conta nada**: o host de produção gravado é o domínio próprio, e o
   `.vercel.app` é `interno` — na loja e, de novo, no servidor. O painel diz isso.
 
+## O pedido montado — `/pedido-montado` (feature `89`, `AD-070`)
+
+A cliente abre `/pedido-montado#<token>`: a página (`lazy`, fora do `StoreLayout`, `<title>` "Pedido
+montado") lê o token do fragmento, guarda em `sessionStorage` (`estrelinha-proposal-token`, dono único
+`features/proposal-checkout/model/proposalToken.ts`) e apaga da barra com `replaceState`. Desenha as
+peças travadas e o resumo (`proposalPricing`), reaproveita `ContactBlock` (e-mail só leitura),
+`DeliveryBlock` (cota as peças da proposta) e `PaymentBlock`, e conclui pela `checkout` com o token.
+
+- **`checkoutStore` é por instância** (`createCheckoutStore` + provider): a proposta usa outra, e pagar
+  o pedido montado nunca limpa a sacola.
+- **O `page_view` vai sem o fragmento** (`PageViewTracker`), senão o token iria ao GA4.
+- **`CollapsedBlock` embrulha a linha do rótulo** (`flex-wrap`): a 390/200 % o disco, o rótulo e o
+  "Alterar" não cabiam — no `/checkout` também.
+- ⚠️ **Com um CEP que resolve, a consulta do CEP (ADR-01) troca a rua que o painel montou** pela do
+  CEP. Comportamento de sempre do checkout; decisão de produto em aberto.
+
 ## Auth (loja)
 
 Overlay único (`features/auth`) com steps entry → code → name, mais password, reset → reset-code →

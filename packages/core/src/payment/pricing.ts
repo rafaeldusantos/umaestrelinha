@@ -33,11 +33,29 @@ export interface CalculateOrderTotalsInput {
    * `AD-015`: bump e faixa saem os DOIS do preço cheio e por item vence o menor; nunca compõem.
    */
   promotions?: readonly ProgressivePromotion[]
+  /**
+   * Opcional (feature 89, `PRC-04`): o desconto combinado de uma venda montada pelo painel.
+   * Incide **depois** da promoção e do cupom, sobre `subtotal − cupom`, com piso em zero, e
+   * **antes** do PIX — a base do PIX passa a ser `subtotal − cupom − avulso`.
+   *
+   * **Ausente ou nulo deixa o resultado idêntico ao de antes da feature 89** — inclusive a forma do
+   * objeto: `totals.manualDiscount` só existe quando a entrada o trouxe. É o que mantém intocados os
+   * chamadores e os testes que comparam o objeto inteiro.
+   */
+  manualDiscount?: ManualDiscount | null
+}
+
+/** O desconto avulso como a Adri o escreve: em reais ou em percentual. */
+export interface ManualDiscount {
+  kind: 'amount' | 'percent'
+  value: number
 }
 
 export interface OrderTotals {
   subtotal: number
   couponDiscount: number
+  /** Só presente quando a entrada trouxe `manualDiscount` (ver acima). */
+  manualDiscount?: number
   pixDiscount: number
   shipping: number
   total: number
@@ -77,6 +95,22 @@ export function resolveCouponDiscount(
   if (coupon.type === 'percent') return round2((base * coupon.value) / 100)
   if (coupon.type === 'fixed') return Math.min(coupon.value, base)
   return 0
+}
+
+/**
+ * `PRC-04`: o valor do desconto avulso sobre `base` (= subtotal − cupom). Nunca maior que a base
+ * (piso do restante em zero), nunca negativo, arredondado a centavo. Mesma disciplina do cupom:
+ * a base é arredondada ANTES do percentual.
+ */
+export function resolveManualDiscount(
+  base: number,
+  manual: ManualDiscount | null | undefined,
+): number {
+  if (!manual) return 0
+  const clean = Math.max(0, round2(base))
+  const value = Number.isFinite(manual.value) ? Math.max(0, manual.value) : 0
+  const raw = manual.kind === 'percent' ? round2((clean * value) / 100) : round2(value)
+  return Math.min(raw, clean)
 }
 
 /**
@@ -338,18 +372,23 @@ export function calculateOrderTotals(input: CalculateOrderTotalsInput): OrderTot
   const items = resolveChargedItems(input)
   const subtotal = sumItems(items)
   const couponDiscount = round2(input.couponDiscount)
+  const hasManual = input.manualDiscount != null
+  const manualDiscount = hasManual
+    ? resolveManualDiscount(subtotal - couponDiscount, input.manualDiscount)
+    : 0
   const pixDiscount =
     input.method === 'pix' && input.pixDiscountPercent > 0
-      ? round2((subtotal - couponDiscount) * (input.pixDiscountPercent / 100))
+      ? round2((subtotal - couponDiscount - manualDiscount) * (input.pixDiscountPercent / 100))
       : 0
   const shipping = round2(input.shipping)
-  const total = round2(subtotal - couponDiscount - pixDiscount + shipping)
+  const total = round2(subtotal - couponDiscount - manualDiscount - pixDiscount + shipping)
 
   if (total < MIN_ORDER_TOTAL) {
     throw new Error('Total do pedido inválido: menor que R$ 0,01')
   }
 
-  return { subtotal, couponDiscount, pixDiscount, shipping, total }
+  if (!hasManual) return { subtotal, couponDiscount, pixDiscount, shipping, total }
+  return { subtotal, couponDiscount, manualDiscount, pixDiscount, shipping, total }
 }
 
 // =====================================================================

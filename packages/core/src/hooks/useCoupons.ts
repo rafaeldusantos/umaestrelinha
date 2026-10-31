@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
+import { couponRefusal, couponRuleOf } from '../coupons/rules.ts'
+import { resolveCouponDiscount } from '../payment/pricing.ts'
 import type { Coupon, ValidateCouponInput, ValidateCouponResult } from '@estrelinha/supabase/types/coupon'
 
 const TABLE = 'coupons'
@@ -77,36 +79,26 @@ export const validateCoupon = async (
   const c = data as Coupon
   const now = new Date()
 
-  if (!c.active) return { ok: false, error: 'Cupom desativado.' }
-  if (c.valid_from && new Date(c.valid_from) > now)
-    return { ok: false, error: 'Cupom ainda não está válido.' }
-  if (c.valid_until && new Date(c.valid_until) < now)
-    return { ok: false, error: 'Cupom expirado.' }
-  if (c.max_uses != null && c.used_count >= c.max_uses)
-    return { ok: false, error: 'Cupom esgotado.' }
-  if (input.subtotal < (c.min_order || 0))
-    return {
-      ok: false,
-      error: `Pedido mínimo de R$ ${c.min_order.toFixed(2).replace('.', ',')}.`,
-    }
+  // A regra mora em `core/coupons/rules.ts` (feature 89): a mesma que o painel e a function
+  // `order-proposals` chamam. A primeira passada não sabe se o e-mail já comprou; só pergunta ao
+  // banco quando o cupom passou em tudo o mais e é de primeira compra — a ordem de antes.
+  let refusal = couponRefusal(c, { subtotal: input.subtotal, now })
+  if (refusal) return { ok: false, error: refusal }
 
   if (c.first_order_only && input.customerEmail) {
     const { count } = await supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('customer_email', input.customerEmail)
-    if ((count || 0) > 0)
-      return { ok: false, error: 'Cupom válido apenas no primeiro pedido.' }
+    refusal = couponRefusal(c, { subtotal: input.subtotal, now, hasPriorOrder: (count || 0) > 0 })
+    if (refusal) return { ok: false, error: refusal }
   }
 
-  let discount = 0
-  let freeShipping = false
-  if (c.type === 'percent') discount = (input.subtotal * c.value) / 100
-  else if (c.type === 'fixed') discount = Math.min(c.value, input.subtotal)
-  else if (c.type === 'free_shipping') {
-    freeShipping = true
-    discount = input.shippingCost
-  }
+  const freeShipping = c.type === 'free_shipping'
+  // O desconto tem UM dono (BMP-04): o mesmo `resolveCouponDiscount` que o servidor cobra.
+  const discount = freeShipping
+    ? input.shippingCost
+    : resolveCouponDiscount(input.subtotal, couponRuleOf(c))
 
   return {
     ok: true,

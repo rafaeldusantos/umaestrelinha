@@ -72,17 +72,17 @@ caminho de sempre.
 | A-02 | Desconto | Cupom e promoção pelas regras de `core`, **mais** um desconto avulso (R$ ou %) com motivo obrigatório, interno | Venda fechada no WhatsApp tem preço combinado | **s** (2026-10-29) |
 | A-03 | Preço e prazo | Preço **travado** na versão gravada da proposta; link vale **7 dias** (`GUEST_ACCESS_DAYS`); renovar gera link novo | A cliente paga o combinado | **s** (2026-10-29) |
 | A-04 | Envio do link | **WhatsApp** (wa.me com o telefone e mensagem pronta) e **Copiar link** | Decisão do usuário | **s** (2026-10-29) |
-| A-05 | Promoção viva | A promoção é calculada e **travada** ao gravar a proposta, como o preço. Promoção que acaba depois não muda o total; promoção que começa depois não entra | Uma regra só: o que a Adri viu é o que vale | n — confirmar |
-| A-06 | Cupom vencido ou esgotado entre a montagem e a conclusão | Vale o desconto travado. O uso conta no `used_count` na conclusão, como hoje | Mesmo princípio de A-03. Cupom de primeira compra é conferido **ao gravar** | n — confirmar |
-| A-07 | O e-mail da proposta | É **fixo** no link (só leitura, "para trocar, fale comigo"). Nome, telefone, CPF e endereço são editáveis | O token prova que a Adri atestou aquele e-mail; trocá-lo no link levaria o pedido de uma pessoa para outra conta | n — confirmar |
-| A-08 | Cliente com conta na loja | O link conclui **sem** o desafio de código. O pedido vai para a conta daquele e-mail | O link é a prova de posse dada pela Adri; pedir código a quem ela mesma mandou o link é atrito sem ganho. Quem tem o link pode pagar, não ler a conta | n — confirmar |
-| A-09 | Cliente nova | O painel cria a ficha em `customers` **sem conta** (`user_id` nulo). A conta nasce na conclusão, como a da convidada, e **adota** essa ficha por e-mail | Sem adoção, `handle_new_customer` duplicaria a ficha | n — confirmar |
+| A-05 | Promoção viva | A promoção é calculada e **travada** ao gravar a proposta, como o preço. Promoção que acaba depois não muda o total; promoção que começa depois não entra | Uma regra só: o que a Adri viu é o que vale | **s** (2026-10-31) |
+| A-06 | Cupom vencido ou esgotado entre a montagem e a conclusão | Vale o desconto travado. O uso conta no `used_count` na conclusão, como hoje | Mesmo princípio de A-03. Cupom de primeira compra é conferido **ao gravar** | **s** (2026-10-31) |
+| A-07 | O e-mail da proposta | É **fixo** no link (só leitura, "para trocar, fale comigo"). Nome, telefone, CPF e endereço são editáveis | O token prova que a Adri atestou aquele e-mail; trocá-lo no link levaria o pedido de uma pessoa para outra conta | **s** (2026-10-31) |
+| A-08 | Cliente com conta na loja | O link conclui **sem** o desafio de código. O pedido vai para a conta daquele e-mail | O link é a prova de posse dada pela Adri; pedir código a quem ela mesma mandou o link é atrito sem ganho. Quem tem o link pode pagar, não ler a conta | **s** (2026-10-31) |
+| A-09 | Cliente nova | O painel cria a ficha em `customers` **sem conta** (`user_id` nulo). A conta nasce na conclusão, como a da convidada, e **adota** essa ficha por e-mail | Sem adoção, `handle_new_customer` duplicaria a ficha | **s** (2026-10-31) |
 | A-10 | Frete no painel | A Adri vê a cotação do CEP como **prévia** (e o total "a partir de"). A cliente escolhe no link | Pedido do usuário | **s** (2026-10-29) |
-| A-11 | Frete grátis | Decidido por `freeShippingState` sobre o subtotal **travado** menos descontos, no momento da conclusão — a mesma regra da loja | Um dono do frete grátis (`37`) | n — confirmar |
-| A-12 | Teto do desconto avulso | Os itens, depois de todos os descontos, têm de somar **pelo menos R$ 1,00**; a % vai de 0,01 a 99,99 | Pedido de valor zero não passa pelo Mercado Pago, e presente é outra feature | n — confirmar |
-| A-13 | Numeração | A proposta tem número próprio visível (`P-0001`), separado do número do pedido | O número do pedido é da sequência de `orders` (`AD-043`) e só existe na conclusão | n — confirmar |
-| A-14 | Onde a proposta aparece | Aba **"Montados"** na lista de Pedidos, com o estado de cada proposta | A Adri procura "a venda da Fulana" em Pedidos | n — confirmar |
-| A-15 | Rota do link | `/pedido-montado#<token>` — o token vai no **fragmento**, nunca no caminho | O fragmento não chega ao servidor (Vercel, `api/page`), não entra no `page_view` do GA4 nem no `Referer` | n — confirmar |
+| A-11 | Frete grátis | Decidido por `freeShippingState` sobre o subtotal **travado** menos descontos, no momento da conclusão — a mesma regra da loja | Um dono do frete grátis (`37`) | **s** (2026-10-31) |
+| A-12 | Teto do desconto avulso | Os itens, depois de todos os descontos, têm de somar **pelo menos R$ 1,00**; a % vai de 0,01 a 99,99 | Pedido de valor zero não passa pelo Mercado Pago, e presente é outra feature | **s** (2026-10-31) |
+| A-13 | Numeração | A proposta tem número próprio visível (`P-0001`), separado do número do pedido | O número do pedido é da sequência de `orders` (`AD-043`) e só existe na conclusão | **s** (2026-10-31) |
+| A-14 | Onde a proposta aparece | Aba **"Montados"** na lista de Pedidos, com o estado de cada proposta | A Adri procura "a venda da Fulana" em Pedidos | **s** (2026-10-31) |
+| A-15 | Rota do link | `/pedido-montado#<token>` — o token vai no **fragmento**, nunca no caminho | O fragmento não chega ao servidor (Vercel, `api/page`), não entra no `page_view` do GA4 nem no `Referer` | **s** (2026-10-31) |
 
 **Open questions:** nenhuma — todas resolvidas ou registradas acima com o padrão escolhido.
 

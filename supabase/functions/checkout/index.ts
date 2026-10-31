@@ -12,25 +12,13 @@
 // `auth.uid()` para escopar. É a mesma razão pela qual esta function existe.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import {
-  IDENTIFY_MAX,
-  IDENTIFY_WINDOW_MS,
-  createRateLimiter,
-  route,
-  type Deps,
-} from './handlers.ts'
+import { buildDeps, route } from './handlers.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const now = () => Date.now()
-
-const deps: Deps = {
-  supabase: createClient(supabaseUrl, serviceRoleKey),
-  now,
-  // Uma instância por isolate. O teto é por isolate de propósito — ver o comentário de
-  // `createRateLimiter`: a fronteira de segurança é a recusa de `create-order`, não este número.
-  limiter: createRateLimiter(IDENTIFY_MAX, IDENTIFY_WINDOW_MS, now),
-}
+// Os dois tetos por IP (o de `identify` e o da página do link, `SEG-04`) são montados por
+// `buildDeps`, que tem teste; aqui só entra o client real e o relógio.
+const deps = buildDeps(createClient(supabaseUrl, serviceRoleKey), () => Date.now())
 
 Deno.serve((req) => route(deps, req))

@@ -7,6 +7,7 @@
 // Diferença deliberada em relação a `entities/cart/model/cartStore.ts` (que persiste em
 // localStorage): aqui a persistência é em **sessionStorage**. O rascunho e o `order_id` em
 // curso são da sessão — localStorage traria de volta um pedido `pending` de dias atrás.
+import { createContext, createElement, useContext, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import {
@@ -96,7 +97,17 @@ interface CheckoutState extends CheckoutDraft {
    * sempre que o cartão muda, porque a tabela de outro cartão pode não ter a opção escolhida.
    */
   cardInstallments: number
+  /**
+   * De QUEM é este rascunho, quando a página que o usa tem um dono além da aba. `/checkout` nunca o
+   * preenche (o rascunho é da sacola); `/pedido-montado` grava o id da proposta (QA da 89,
+   * `BUG-20261031-segundo-link-da-mesma-cliente-paga-o-pedido-anterior`). Sem ele, a página só sabia
+   * comparar o e-mail, e o pedido em curso de uma proposta concluída sobrevivia à proposta seguinte
+   * do MESMO e-mail — o "Pagar" levava ao PIX do pedido anterior. Persistido junto com o rascunho, e
+   * zerado por `reset()`.
+   */
+  scope: string | null
 
+  setScope: (scope: string | null) => void
   setContact: (patch: Partial<ContactDraft>) => void
   setAddress: (patch: Partial<AddressDraft>) => void
   setShipping: (shipping: ShippingDraft | null) => void
@@ -124,7 +135,18 @@ interface CheckoutState extends CheckoutDraft {
   isStale: () => boolean
 }
 
-export const useCheckoutStore = create<CheckoutState>()(
+/**
+ * Feature 89 (T21) — o rascunho do checkout por INSTÂNCIA.
+ *
+ * Até aqui havia um store só, global, e ele é também quem diz "este pedido é o da sacola": quando o
+ * pagamento é aprovado, `OrderPaymentPage` confere `orderId` contra o dele e esvazia a sacola. O
+ * pedido montado pelo painel (`/pedido-montado`) usa os mesmos blocos do checkout, e com o store
+ * global concluir aquele pedido esvaziaria a sacola da cliente, que é outra compra. Por isso a
+ * página da proposta monta os blocos sob `CheckoutStoreProvider` com uma instância própria (outra
+ * chave de `sessionStorage`); sem provider, todo bloco lê o store de sempre — `/checkout` não muda.
+ */
+export function createCheckoutStore(storageKey: string) {
+  const store = create<CheckoutState>()(
   persist(
     (set, get) => ({
       ...emptyDraft(),
@@ -136,7 +158,9 @@ export const useCheckoutStore = create<CheckoutState>()(
       cardNumberRecognized: false,
       cardBin: null,
       cardInstallments: 1,
+      scope: null,
 
+      setScope: (scope) => set((s) => (s.scope === scope ? {} : { scope })),
       setContact: (patch) => set((s) => ({ contact: { ...s.contact, ...patch } })),
       setAddress: (patch) => set((s) => ({ address: { ...s.address, ...patch } })),
       setShipping: (shipping) => set({ shipping }),
@@ -191,8 +215,9 @@ export const useCheckoutStore = create<CheckoutState>()(
           cardNumberRecognized: false,
           cardBin: null,
           cardInstallments: 1,
+          scope: null,
         })
-        useCheckoutStore.persist.clearStorage()
+        store.persist.clearStorage()
       },
 
       draft: () => {
@@ -206,7 +231,7 @@ export const useCheckoutStore = create<CheckoutState>()(
       isStale: () => isOrderStale(get().draft(), get().orderSnapshot),
     }),
     {
-      name: CHECKOUT_STORAGE_KEY,
+      name: storageKey,
       storage: createJSONStorage(() => sessionStorage),
       // `dirty` fica DE FORA de propósito: recarregar a página volta ao estado "nada editado
       // nesta sessão de tela", e o bloco já preenchido reabre colapsado (FLW-04).
@@ -225,7 +250,47 @@ export const useCheckoutStore = create<CheckoutState>()(
         // `IDN-07`: sem persistir, voltar ao checkout depois de entrar na conta compararia a
         // identidade nova com "não sei" e o pedido de convidada seria reusado — 403 no caixa.
         orderIdentity: s.orderIdentity,
+        scope: s.scope,
       }),
     },
   ),
+  )
+  return store
+}
+
+export type CheckoutStore = ReturnType<typeof createCheckoutStore>
+
+/** O rascunho de `/checkout` — o de sempre, na chave de sempre. */
+export const useCheckoutStore: CheckoutStore = createCheckoutStore(CHECKOUT_STORAGE_KEY)
+
+/**
+ * Feature 89 — o rascunho do pedido montado pelo painel (`/pedido-montado`). Outra chave, outra
+ * instância: concluir ou pagar aquele pedido nunca toca o rascunho de `/checkout`, e por isso nunca
+ * esvazia a sacola da cliente (edge case "sacola intocada" da spec).
+ */
+export const PROPOSAL_CHECKOUT_STORAGE_KEY = 'estrelinha-proposal-checkout'
+export const useProposalCheckoutStore: CheckoutStore = createCheckoutStore(
+  PROPOSAL_CHECKOUT_STORAGE_KEY,
 )
+
+const CheckoutStoreContext = createContext<CheckoutStore>(useCheckoutStore)
+
+/** Os blocos abaixo deste provider leem e escrevem `store`, e não o rascunho de `/checkout`. */
+export function CheckoutStoreProvider({
+  store,
+  children,
+}: {
+  store: CheckoutStore
+  children?: ReactNode
+}) {
+  return createElement(CheckoutStoreContext.Provider, { value: store }, children)
+}
+
+/**
+ * O store que um bloco do checkout lê: o do provider mais próximo, ou o de `/checkout`. Devolve o
+ * hook do zustand — `const store = useCheckoutStoreApi(); store((s) => s.contact)`, e
+ * `store.getState()` dentro de efeitos.
+ */
+export function useCheckoutStoreApi(): CheckoutStore {
+  return useContext(CheckoutStoreContext)
+}
