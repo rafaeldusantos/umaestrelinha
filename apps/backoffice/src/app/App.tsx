@@ -15,6 +15,7 @@ import AdminOrdersPage from "@/pages/admin/AdminOrdersPage";
 import AdminOrderPage from "@/pages/admin/AdminOrderPage";
 import AdminProposalBuilderPage from "@/pages/admin/AdminProposalBuilderPage";
 import AdminProposalPage from "@/pages/admin/AdminProposalPage";
+import AdminProposalsPage from "@/pages/admin/AdminProposalsPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminFiltersPage from "@/pages/admin/AdminFiltersPage";
 import AdminFilterValuePage from "@/pages/admin/AdminFilterValuePage";
@@ -56,6 +57,9 @@ const App = () => (
 
             {/* Vendas — mesma ordem da sidebar (widgets/admin-layout/model/navItems.ts) */}
             <Route path="/admin/pedidos" element={<AdminOrdersPage />} />
+            {/* Feature 89 (2026-11-01): os pedidos montados têm item próprio na sidebar, logo abaixo
+                de Pedidos. Estática: vence `/admin/pedidos/:id`. */}
+            <Route path="/admin/pedidos/montados" element={<AdminProposalsPage />} />
             {/* O pedido é TELA desde a feature 34 (PED-24), pela mesma regra dos Descontos: o modal
                 de cinco abas não sobrevivia ao F5 e não virava link. Não entra em `navGroups` — é
                 alcançada de dentro de Pedidos, mesma régua da grade rápida e do editor de seção. */}

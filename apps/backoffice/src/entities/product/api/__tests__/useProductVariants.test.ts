@@ -106,3 +106,35 @@ describe('lerPecaParaProposta — a leitura (MON-05)', () => {
     await expect(lerPecaParaProposta(PECA, encenar({ erroProduto: { message: 'fora' } }))).rejects.toThrow('fora')
   })
 })
+
+describe('lerPecaParaProposta — a foto da peça e da variação (ajuste de 2026-11-01)', () => {
+  it('pede a capa da galeria pela coluna, e não o jsonb inteiro', () => {
+    expect(PROPOSAL_PRODUCT_COLUMNS).toContain('capa:images->0->>url')
+    expect(PROPOSAL_PRODUCT_COLUMNS).not.toMatch(/(^|[ ,])images([ ,]|$)/)
+  })
+
+  it('a capa da galeria vence a coluna antiga, e a variação sem foto própria mostra a capa', async () => {
+    const duble = criarDuble((r: Registro) =>
+      r.table === 'products'
+        ? { data: { ...produto, image_url: 'https://x.invalid/antiga.jpg', capa: 'https://x.invalid/galeria.webp' }, error: null }
+        : {
+            data: [
+              { ...variacoes[0], image_url: 'https://x.invalid/v1.webp' },
+              { ...variacoes[1], image_url: '  ' },
+            ],
+            error: null,
+          },
+    )
+    const peca = await lerPecaParaProposta(PECA, duble)
+    expect(peca?.imagem).toBe('https://x.invalid/galeria.webp')
+    expect(peca?.variacoes.map((v) => v.imagem)).toEqual(['https://x.invalid/v1.webp', 'https://x.invalid/galeria.webp'])
+  })
+
+  it('sem galeria, a capa é a coluna antiga; sem as duas, nada', async () => {
+    const semGaleria = await lerPecaParaProposta(PECA, encenar())
+    expect(semGaleria?.imagem).toBe(produto.image_url)
+    const sem = await lerPecaParaProposta(PECA, encenar({ produto: { ...produto, image_url: null, capa: null } }))
+    expect(sem?.imagem).toBeNull()
+    expect(sem?.variacoes[0].imagem).toBeNull()
+  })
+})

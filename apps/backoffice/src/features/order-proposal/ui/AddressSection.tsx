@@ -16,6 +16,7 @@ import { maskCep, stripCep } from '@estrelinha/core/validators'
 import { useCepLookup } from '@estrelinha/core/hooks/useCepLookup'
 import { useCustomerAddresses, type EnderecoSalvo } from '@/entities/customer'
 import { FieldGroup, FormCard } from '@/shared/ui'
+import { SELO } from './estilos'
 import type { DraftAddress, DraftCustomer } from '../model/draft'
 
 export interface AddressSectionProps {
@@ -37,7 +38,18 @@ const paraRascunho = (e: EnderecoSalvo): Partial<DraftAddress> => ({
 })
 
 const linhaDoEndereco = (e: EnderecoSalvo): string =>
-  [`${e.street}, ${e.number}`, e.complement, e.neighborhood, `${e.city}/${e.state}`].filter(Boolean).join(' · ')
+  [e.neighborhood, `${e.city}/${e.state}`, maskCep(e.cep ?? '')].filter(Boolean).join(' · ')
+
+const VAZIO: Partial<DraftAddress> = {
+  zip: '',
+  street: '',
+  number: '',
+  complement: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  saveToCustomer: false,
+}
 
 const AddressSection = ({ address, customer, onChange }: AddressSectionProps) => {
   const base = useId()
@@ -74,6 +86,12 @@ const AddressSection = ({ address, customer, onChange }: AddressSectionProps) =>
 
   const cepNaoAchado = cep.length === 8 && consulta?.manual === true
   const podeSalvar = customer.mode !== 'nenhuma' && address.savedId === null
+  const salvoEscolhido = enderecos.some((e) => e.id === address.savedId)
+  const mostrarCampos = enderecos.length === 0 || !salvoEscolhido
+  // Cidade e UF vêm do CEP e ficam só leitura (o protótipo junta as duas num campo). Se o serviço
+  // não achar o CEP, ou se a leitura deixar alguma em branco com o CEP completo, elas abrem para
+  // digitar — senão a Adri ficaria sem como preencher.
+  const cidadeLivre = cepNaoAchado || (cep.length === 8 && consulta !== undefined && (!address.city || !address.state))
 
   const campo = (chave: keyof DraftAddress, rotulo: string, extra: Partial<React.ComponentProps<typeof Input>> = {}) => (
     <FieldGroup label={rotulo} htmlFor={`${base}-${chave}`}>
@@ -88,7 +106,10 @@ const AddressSection = ({ address, customer, onChange }: AddressSectionProps) =>
   )
 
   return (
-    <FormCard title="Endereço" description="Opcional — a cliente pode preencher no link.">
+    <FormCard
+      title="Endereço de entrega"
+      action={<span className="text-xs text-muted-foreground">Opcional — ela pode preencher no link</span>}
+    >
       {erro !== null && (
         <p role="alert" className="text-sm text-destructive">
           Não consegui ler os endereços salvos. {erro}
@@ -96,65 +117,105 @@ const AddressSection = ({ address, customer, onChange }: AddressSectionProps) =>
       )}
 
       {enderecos.length > 0 && (
-        <div role="radiogroup" aria-label="Endereços salvos" className="space-y-1.5">
+        <div role="radiogroup" aria-label="Endereços salvos" className="space-y-2">
           {enderecos.map((e) => {
             const marcado = address.savedId === e.id
             return (
-              <button
+              <label
                 key={e.id}
-                type="button"
-                role="radio"
-                aria-checked={marcado}
-                onClick={() => onChange(paraRascunho(e))}
                 className={cn(
-                  'flex min-h-11 w-full flex-col items-start rounded-lg border px-3 py-2 text-left text-sm transition-colors motion-reduce:transition-none',
-                  marcado ? 'border-primary bg-primary/10' : 'border-input hover:bg-muted/50',
+                  'flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors motion-reduce:transition-none',
+                  marcado ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/40',
                 )}
               >
-                <span className="font-medium text-foreground">
-                  {e.label || 'Endereço'}
-                  {e.is_default && <span className="ml-2 text-xs font-normal text-muted-foreground">Padrão</span>}
+                <input
+                  type="radio"
+                  name={`${base}-endereco`}
+                  className="h-[18px] w-[18px] shrink-0 accent-primary"
+                  checked={marcado}
+                  onChange={() => onChange(paraRascunho(e))}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words font-semibold text-foreground">
+                    {`${e.street}, ${e.number}`}
+                    {e.complement ? ` · ${e.complement}` : ''}
+                  </span>
+                  <span className="block break-words text-xs text-muted-foreground">{linhaDoEndereco(e)}</span>
                 </span>
-                <span className="break-words text-xs text-muted-foreground">{linhaDoEndereco(e)}</span>
-              </button>
+                {e.is_default && <span className={cn(SELO, 'shrink-0')}>Padrão</span>}
+              </label>
             )
           })}
+          <label
+            className={cn(
+              'flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors motion-reduce:transition-none',
+              !salvoEscolhido ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/40',
+            )}
+          >
+            <input
+              type="radio"
+              name={`${base}-endereco`}
+              className="h-[18px] w-[18px] shrink-0 accent-primary"
+              checked={!salvoEscolhido}
+              onChange={() => onChange({ ...VAZIO, savedId: null })}
+            />
+            <span className="font-semibold text-foreground">Outro endereço</span>
+          </label>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <FieldGroup label="CEP" htmlFor={`${base}-zip`} hint={cepNaoAchado ? 'Não achei este CEP. Preencha o endereço.' : undefined}>
-          <Input
-            id={`${base}-zip`}
-            inputMode="numeric"
-            className="h-11"
-            value={address.zip}
-            onChange={(e) => {
-              const mascarado = maskCep(e.target.value)
-              cepDigitado.current = stripCep(mascarado)
-              onChange({ zip: mascarado, savedId: null })
-            }}
-            placeholder="00000-000"
-          />
-        </FieldGroup>
-        {campo('street', 'Rua')}
-        {campo('number', 'Número')}
-        {campo('complement', 'Complemento')}
-        {campo('neighborhood', 'Bairro')}
-        {campo('city', 'Cidade')}
-        {campo('state', 'UF', { maxLength: 2 })}
-      </div>
-
-      {podeSalvar && (
-        <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">
-          <input
-            type="checkbox"
-            className="h-5 w-5 shrink-0 accent-primary"
-            checked={address.saveToCustomer}
-            onChange={(e) => onChange({ saveToCustomer: e.target.checked })}
-          />
-          Salvar no cadastro da cliente
-        </label>
+      {mostrarCampos && (
+        <div className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,150px)_minmax(0,1fr)_minmax(0,10rem)]">
+          <div className="col-span-2 lg:col-span-1">
+            <FieldGroup label="CEP" htmlFor={`${base}-zip`} hint={cepNaoAchado ? 'Não achei este CEP. Preencha o endereço.' : undefined}>
+              <Input
+                id={`${base}-zip`}
+                inputMode="numeric"
+                className="h-11"
+                value={address.zip}
+                onChange={(e) => {
+                  const mascarado = maskCep(e.target.value)
+                  cepDigitado.current = stripCep(mascarado)
+                  onChange({ zip: mascarado, savedId: null })
+                }}
+                placeholder="00000-000"
+              />
+            </FieldGroup>
+          </div>
+          <div className="col-span-2 lg:col-span-1">{campo('street', 'Rua')}</div>
+          {campo('number', 'Número')}
+          <div className="lg:col-span-1">{campo('complement', 'Complemento')}</div>
+          <div className="col-span-2 lg:col-span-1">{campo('neighborhood', 'Bairro')}</div>
+          {cidadeLivre ? (
+            <>
+              {campo('city', 'Cidade')}
+              {campo('state', 'UF', { maxLength: 2 })}
+            </>
+          ) : (
+            <div className="col-span-2 lg:col-span-1">
+            <FieldGroup label="Cidade / UF" htmlFor={`${base}-cidade`}>
+              <Input
+                id={`${base}-cidade`}
+                className="h-11 bg-muted/40"
+                readOnly
+                value={address.city ? `${address.city} / ${address.state}` : ''}
+                placeholder="Vem do CEP"
+              />
+            </FieldGroup>
+            </div>
+          )}
+          {podeSalvar && (
+            <label className="col-span-full flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="h-[18px] w-[18px] shrink-0 accent-primary"
+                checked={address.saveToCustomer}
+                onChange={(e) => onChange({ saveToCustomer: e.target.checked })}
+              />
+              Salvar no cadastro da cliente
+            </label>
+          )}
+        </div>
       )}
     </FormCard>
   )

@@ -17,7 +17,7 @@ Não pelo ciclo de vida do produto:
 | Grupo | Itens |
 | --- | --- |
 | *(sem cabeçalho)* | Dashboard |
-| **Vendas** | Pedidos · Carrinhos abandonados · Clientes |
+| **Vendas** | Pedidos · Pedidos montados · Carrinhos abandonados · Clientes |
 | **Descontos** | Cupons · Promoções |
 | **Catálogo** | Produtos · Categorias · Filtros da loja · Perguntas frequentes |
 | **Loja** | Home · Menu da loja · Página de perguntas · Google |
@@ -453,7 +453,9 @@ existia nenhuma (o termo ia cru para o Postgres).
   bloco precisa ser **visto** para a dona entender por que não pode escolhê-lo outra vez; o produto
   que está sendo editado nunca poderia relacionar-se a si mesmo, e mostrá-lo desabilitado seria ruído
   sobre algo que nunca foi opção.
-- **Ele nunca tem `<img>`, grade, nem slot de renderização livre** (`AD-019`). O slot resolveria o
+- **Ele não tem `<img>`, grade, nem slot de renderização livre** (`AD-019`) — **a exceção é
+  `mostrarFoto`** (booleano, desligado por padrão, `AD-071`), ligado só na montagem do pedido: a capa
+  das linhas na tela vem de `useProductCovers`, por id. As outras quatro superfícies seguem sem foto. O slot resolveria o
   preço do order bump com elegância e **abriria a porta para a miniatura** — que é o segundo desenho
   da Home voltando ao painel pela terceira vez (features `25` e `39`). Por isso o preço é um
   parâmetro **booleano**, ligado só no order bump: número, não composição.
@@ -1365,7 +1367,18 @@ uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {m
   busca o chama sempre que `setSearchParams` troca de identidade, e reescrever a partir da consulta de
   pedidos apagava `?visao=montados` 300 ms depois (achado em navegador; `AdminOrdersPage.montados.test.tsx`).
 - **`VariantPicker` recolhe acima de 6 variações depois da escolha** ("Trocar variação (N opções)"): a
-  peça real de 108 variações deixava a linha com 6.732px.
+  peça real de 108 variações deixava a linha com 6.732px. Desde 2026-11-01 (`AD-071`) as variações
+  são **chips com foto** (a da variação, senão a capa da peça), e a lista longa rola dentro de si.
+- **A tela segue o protótipo `Pedido - Montar.html`** (Claude Design, 2026-11-01): cliente nova só
+  entra no rascunho em "Usar estes dados"; a cliente escolhida vira cartão com selos (conta, convidada,
+  N pedidos — `user_id` e `orders_total` de `customer_list`) e o aviso de sem telefone com "Informar o
+  telefone"; endereços salvos em radio + "Outro endereço", com Cidade / UF só leitura (abre se o CEP
+  não for achado); a peça entra pela caixa "Acrescentar peça" já PRONTA (variação, quantidade até o
+  estoque, gravação); cupom e desconto combinado num cartão "Descontos"; o resumo é um cartão fixo com
+  a prévia da entrega e o botão "Criar link do pedido". `DraftLine.image_url`/`stock_cap` e
+  `DraftCustomer.perfil` são campos de TELA — nunca vão à function.
+- **"Pedidos montados" na sidebar** (`/admin/pedidos/montados`, `AdminProposalsPage`, a mesma
+  `ProposalsList` da aba). `isNavActive` marca o destino mais específico: lá, "Pedidos" não acende.
 - **`RecordPageHeader` deixa o título e o subtítulo quebrarem no meio da palavra** (um e-mail no
   subtítulo empurrava a página de lado a 390/200 %).
 - Prova: `.specs/features/89-pedido-montado-pelo-painel/prova-navegador.md`. Sem Verifier nem QA ainda.

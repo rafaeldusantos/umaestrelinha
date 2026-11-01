@@ -11,7 +11,8 @@
 // relê as peças e as promoções, para o resumo passar a mostrar o que vale hoje. Nada é gravado com um
 // valor que a Adri não viu.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { PROPOSAL_LINK_DAYS } from '@estrelinha/core/proposals'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { ACTIVE_PROMOTIONS_KEY } from '@estrelinha/core/hooks/usePromotions'
@@ -25,9 +26,11 @@ import {
   AddressSection,
   NOT_EDITABLE,
   PROPOSAL_PAGE_PATH,
+  PROPOSALS_LIST_PATH,
   VERSION_CONFLICT_TEXT,
   CouponField,
   CustomerSection,
+  DiscountsSection,
   ItemsSection,
   ManualDiscountField,
   ProposalError,
@@ -69,6 +72,15 @@ const AdminProposalBuilderPage = () => {
     // O cupom volta só como CÓDIGO: a regra pode ter mudado, e é o servidor quem reconfere.
     setCupomAntigo(lida.proposal.coupon_code ?? null)
   }, [lida, modo, reset])
+
+  // O preço travado de cada linha pronta, pela `key` — a linha mostra o total e o selo da promoção
+  // sem fazer conta própria (o número é o de `priceProposalDraft`).
+  const precos = useMemo(() => {
+    const mapa: Record<string, { unitario: number; cheio: number }> = {}
+    for (const l of pricing.price.lockedLines) mapa[l.line.key] = { unitario: l.unit_price, cheio: l.line.list_price }
+    return mapa
+  }, [pricing])
+  const pecas = draft.lines.reduce((n, l) => n + l.quantity, 0)
 
   const editavel = modo !== 'editar' || !lida || proposalActions(lida.state).edit
   const versao = lida?.proposal?.version
@@ -128,8 +140,8 @@ const AdminProposalBuilderPage = () => {
   }
 
   const titulo = modo === 'editar' ? `Editar ${lida?.proposal?.number ?? 'proposta'}` : 'Montar pedido'
-  const botao = modo === 'editar' ? 'Salvar alterações' : 'Criar link'
-  const voltar = () => navigate(modo === 'editar' && id ? PROPOSAL_PAGE_PATH(id) : '/admin/pedidos?visao=montados')
+  const botao = modo === 'editar' ? 'Salvar alterações' : 'Criar link do pedido'
+  const voltar = () => navigate(modo === 'editar' && id ? PROPOSAL_PAGE_PATH(id) : PROPOSALS_LIST_PATH)
 
   if (origem && lendo) {
     return (
@@ -169,21 +181,30 @@ const AdminProposalBuilderPage = () => {
         group="Vendas"
         parentLabel="Pedidos"
         crumb={titulo}
-        title={titulo}
+        title={modo === 'editar' ? `Editar pedido montado ${lida?.proposal?.number ?? ''}`.trim() : titulo}
         subtitle={
-          modo === 'duplicar' && lida?.proposal
-            ? `A partir de ${lida.proposal.number} · os preços são os de hoje`
-            : 'A cliente recebe um link, confere os dados, escolhe a entrega e paga.'
+          modo === 'editar'
+            ? 'O link continua o mesmo. Se a cliente estiver com a página aberta, ela vê a versão nova antes de concluir.'
+            : modo === 'duplicar' && lida?.proposal
+              ? `A partir de ${lida.proposal.number} · os preços são os de hoje`
+              : 'Monte a sacola para a cliente. Ela recebe um link para conferir, escolher a entrega e pagar.'
         }
         onBack={voltar}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-6">
+      {falha && (
+        <p role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {falha}
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-4">
           <CustomerSection customer={draft.customer} onChange={montagem.setCustomer} />
           <AddressSection address={draft.address} customer={draft.customer} onChange={montagem.setAddress} />
           <ItemsSection
             lines={draft.lines}
+            precos={precos}
             onAdd={montagem.addLine}
             onUpdate={montagem.updateLine}
             onRemove={montagem.removeLine}
@@ -191,26 +212,34 @@ const AdminProposalBuilderPage = () => {
           {cupomAntigo && !draft.coupon && (
             <InfoBanner>{`O cupom ${cupomAntigo} estava aplicado. Aplique de novo para conferir se ele ainda vale.`}</InfoBanner>
           )}
-          <CouponField
-            coupon={draft.coupon}
-            subtotal={pricing.price.subtotal + pricing.price.promotionDiscount}
-            email={draft.customer.email}
-            descartado={!!draft.coupon && !pricing.price.couponApplied}
-            onApply={(c) => {
-              montagem.setCoupon(c)
-              setCupomAntigo(null)
-            }}
-            onRemove={() => montagem.setCoupon(null)}
+          <DiscountsSection
+            cupom={
+              <CouponField
+                coupon={draft.coupon}
+                subtotal={pricing.price.subtotal + pricing.price.promotionDiscount}
+                email={draft.customer.email}
+                descartado={!!draft.coupon && !pricing.price.couponApplied}
+                onApply={(c) => {
+                  montagem.setCoupon(c)
+                  setCupomAntigo(null)
+                }}
+                onRemove={() => montagem.setCoupon(null)}
+              />
+            }
+            combinado={<ManualDiscountField manual={draft.manual} onChange={montagem.setManual} />}
           />
-          <ManualDiscountField manual={draft.manual} onChange={montagem.setManual} />
         </div>
 
-        <aside className="min-w-0 space-y-6">
-          <ProposalSummary pricing={pricing} />
-          <ShippingPreview zip={draft.address.zip} lines={draft.lines} />
-          <div className="space-y-2">
+        <ProposalSummary
+          pricing={pricing}
+          pieces={pecas}
+          couponCode={draft.coupon?.code ?? null}
+          manualReason={draft.manual?.reason ?? null}
+        >
+          <ShippingPreview zip={draft.address.zip} lines={draft.lines} freeShipping={pricing.price.couponFreeShipping} />
+          <div className="space-y-2 pt-1">
             <ActionButton
-              className="w-full"
+              className="h-12 w-full text-[15px]"
               alvo44
               pending={save.isPending}
               pendingLabel={modo === 'editar' ? 'Salvando…' : 'Criando o link…'}
@@ -220,18 +249,15 @@ const AdminProposalBuilderPage = () => {
             >
               {botao}
             </ActionButton>
-            {refusal && (
-              <p id={idDoMotivo} data-testid="motivo-criar-link" className="text-sm text-muted-foreground">
+            {refusal ? (
+              <p id={idDoMotivo} data-testid="motivo-criar-link" className="text-center text-xs text-muted-foreground">
                 {refusal}
               </p>
-            )}
-            {falha && (
-              <p role="alert" className="text-sm text-destructive">
-                {falha}
-              </p>
+            ) : (
+              <p className="text-center text-xs text-muted-foreground">Os preços ficam travados por {PROPOSAL_LINK_DAYS} dias.</p>
             )}
           </div>
-        </aside>
+        </ProposalSummary>
       </div>
     </div>
   )

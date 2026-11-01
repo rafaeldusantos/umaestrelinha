@@ -1,8 +1,14 @@
 // A escolha da variação de uma peça na montagem da proposta (feature 89, `MON-05`).
 //
-// É uma LISTA de linhas, não uma vitrine (`AD-019`): rótulo, preço e estoque — sem foto. Quem mostra
-// como a peça fica é a loja. Cada linha é um botão de 44px com `role="radio"` dentro de um
-// `radiogroup`: a escolha é uma só, e um leitor de tela precisa ouvir qual está marcada.
+// São CHIPS com a foto da variação (ajuste de 2026-11-01, pelo protótipo `Pedido - Montar.html` e
+// a pedido do usuário): foto, rótulo, preço e estoque. A Adri escolhe a variação que vai para a
+// cliente olhando a peça — "Prata 925" e "Banho de ouro" se distinguem de longe pela foto. A
+// variação sem foto própria mostra a capa da peça (`useProductVariants`). Cada chip é um botão de
+// 48px com `role="radio"` dentro de um `radiogroup`: a escolha é uma só, e um leitor de tela precisa
+// ouvir qual está marcada.
+//
+// **Lista longa rola dentro de si**: acima de `VARIACOES_SEMPRE_ABERTAS` os chips ficam numa caixa
+// com altura máxima, para a caixa de acrescentar peça não virar dezenas de telas.
 //
 // **O estoque aparece sempre** (`MON-05`). A linha que não pode ser vendida agora
 // (`disponivel === false`: política `track` e estoque zero) fica desabilitada, dizendo por quê — a
@@ -21,13 +27,21 @@
 // dando a volta nas pontas. // SPEC_DEVIATION (padrão de grupo de rádio): a seta MOVE o foco e não
 // escolhe; escolhe-se com Enter ou Espaço. Escolher recolhe a lista longa, e recolher a cada seta
 // tiraria as outras opções de baixo do teclado.
+//
+// **"Trocar variação" leva o foco à escolhida** (QA da 89, `BUG-20261031-trocar-variacao-solta-o-foco`):
+// o botão some ao abrir a lista, e o navegador soltava o foco no `<body>`. Depois do render que abre a
+// lista, o foco vai para a parada de Tab do grupo (a escolhida), pelo dono único do painel
+// (`shared/lib/foco.ts`). `aberta` só vira `true` por esse botão, então o efeito não precisa de outra
+// marca de "foi o gesto".
 
 import { formatPrice } from "@estrelinha/core/formatters";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { devolverFoco } from "@/shared/lib/foco";
 import { cn } from "@estrelinha/ui/lib/utils";
 import type { StockPolicy } from "@estrelinha/supabase/types";
 import type { VariacaoDaPeca } from "../api/useProductVariants";
 import { textoDoEstoque } from "../lib/estoque";
+import PecaFoto from "./PecaFoto";
 
 export interface VariantPickerProps {
   /** O nome acessível do grupo — "Variação de <peça>". */
@@ -54,6 +68,12 @@ const VariantPicker = ({
   /** A linha que o teclado está apontando (a única com `tabIndex 0`); `null` = a de partida. */
   const [apontada, setApontada] = useState<string | null>(null);
   const botoes = useRef(new Map<string, HTMLButtonElement>());
+  const grupo = useRef<HTMLDivElement>(null);
+  // O "Trocar variação" abriu a lista: depois do commit, o foco vai para a parada do grupo.
+  useEffect(() => {
+    if (!aberta) return;
+    devolverFoco(grupo.current?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]'));
+  }, [aberta]);
 
   if (variacoes.length === 0) {
     return (
@@ -95,7 +115,17 @@ const VariantPicker = ({
 
   return (
     <div className="space-y-1.5">
-      <div role="radiogroup" aria-label={rotulo} className="space-y-1.5">
+      <div
+        ref={grupo}
+        role="radiogroup"
+        aria-label={rotulo}
+        data-testid="grupo-de-variacoes"
+        className={cn(
+          "flex flex-wrap gap-2",
+          visiveis.length > VARIACOES_SEMPRE_ABERTAS &&
+            "max-h-80 overflow-y-auto rounded-lg p-0.5",
+        )}
+      >
         {visiveis.map((v) => {
           const semPreco = v.preco === null;
           const desabilitada = !v.disponivel || semPreco;
@@ -116,18 +146,28 @@ const VariantPicker = ({
               onClick={() => onEscolher(v)}
               data-testid="opcao-de-variacao"
               className={cn(
-                "flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm",
+                "flex min-h-12 min-w-0 max-w-full items-center gap-2.5 rounded-xl border-2 py-1.5 pl-1.5 pr-3 text-left text-sm",
                 "transition-colors motion-reduce:transition-none",
                 marcada
                   ? "border-primary bg-primary/10"
-                  : "border-input hover:bg-muted/50",
+                  : "border-border bg-card hover:bg-muted/50",
                 desabilitada &&
-                  "cursor-not-allowed opacity-60 hover:bg-transparent",
+                  "cursor-not-allowed opacity-45 hover:bg-card",
               )}
             >
-              <span className="min-w-0 flex-1">
-                <span className="block break-words font-medium text-foreground">
+              <PecaFoto url={v.imagem} tamanho={40} />
+              <span className="min-w-0">
+                <span
+                  className={cn(
+                    "block break-words font-semibold",
+                    marcada ? "text-primary" : "text-foreground",
+                    desabilitada && "line-through",
+                  )}
+                >
                   {v.rotulo}
+                  {!semPreco && (
+                    <span className="tabular-nums"> · {formatPrice(v.preco as number)}</span>
+                  )}
                 </span>
                 <span className="block text-xs text-muted-foreground">
                   {semPreco
@@ -135,11 +175,6 @@ const VariantPicker = ({
                     : textoDoEstoque(v, politica)}
                 </span>
               </span>
-              {!semPreco && (
-                <span className="shrink-0 tabular-nums text-sm text-foreground">
-                  {formatPrice(v.preco as number)}
-                </span>
-              )}
             </button>
           );
         })}

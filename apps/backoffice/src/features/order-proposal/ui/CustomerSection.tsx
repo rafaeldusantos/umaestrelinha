@@ -1,35 +1,56 @@
-// A seção Cliente da montagem (feature 89, `MON-02`, `MON-03`).
+// A seção Cliente da montagem (feature 89, `MON-02`, `MON-03`; desenho do protótipo
+// `Pedido - Montar.html`, ajuste de 2026-11-01).
 //
-// Dois caminhos, com o mesmo peso na tela: **buscar** quem já comprou ou se cadastrou (inclusive a
-// convidada, que só existe em `customer_list`) e **cadastrar** uma cliente nova. A busca é a da
-// listagem de Clientes (`useCustomerSearch` → `buildCustomerSearchCondition`), com o mesmo atraso de
-// digitação (`CUSTOMER_SEARCH_DEBOUNCE_MS`).
+// Dois caminhos no segmentado "Já é cliente" | "Cliente nova":
+//   - **buscar** quem já comprou ou se cadastrou (inclusive a convidada, que só existe em
+//     `customer_list`), pela busca da listagem de Clientes (`useCustomerSearch` →
+//     `buildCustomerSearchCondition`) e com o mesmo atraso de digitação;
+//   - **cadastrar** uma cliente nova: os campos ficam NESTA seção até "Usar estes dados". Só então a
+//     cliente entra no rascunho — antes disso "Criar link" diz "Escolha a cliente ou cadastre uma
+//     nova", como no protótipo.
+//
+// Escolhida, a cliente vira um cartão: inicial, nome, contato, selos (tem conta, convidada, ficha
+// nova, quantos pedidos) e "Trocar". Sem telefone, o aviso diz o que isso custa (o link não sai pelo
+// WhatsApp daqui) e oferece informar o número — a Adri quase sempre o tem, a venda começou no
+// WhatsApp.
 //
 // **`MON-03`: nunca duas fichas para o mesmo e-mail.** Ao digitar o e-mail da cliente nova, a seção
-// confere o diretório (`useCustomerByEmail`, comparação exata sem caixa) e, havendo ficha, oferece-a
-// NO LUGAR de criar outra. O servidor tem a mesma trava (a RPC não cria segunda ficha), mas é aqui que
-// a Adri descobre que a "cliente nova" já comprou — e passa a ver os endereços dela.
+// confere o diretório (`useCustomerByEmail`) e, havendo ficha, oferece-a NO LUGAR de criar outra — e
+// "Usar estes dados" fica indisponível. O servidor tem a mesma trava.
 
 import { useEffect, useId, useState } from 'react'
-import { Search, UserPlus, Users } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
+import { Button } from '@estrelinha/ui/button'
 import { cn } from '@estrelinha/ui/lib/utils'
-import { maskCpf, maskPhone } from '@estrelinha/core/validators'
+import { isValidEmail, maskCpf, maskPhone, normalizeEmail, stripPhone } from '@estrelinha/core/validators'
 import { CUSTOMER_SEARCH_DEBOUNCE_MS } from '@estrelinha/core/customers'
 import { useCustomerByEmail, useCustomerSearch, type ClienteEncontrada } from '@/entities/customer'
-import { FieldGroup, FormCard, InfoBanner } from '@/shared/ui'
+import { FieldGroup, FormCard } from '@/shared/ui'
 import type { DraftCustomer } from '../model/draft'
 import { clienteParaRascunho } from '../model/customer'
+import {
+  AVATAR,
+  AVISO_AMBAR,
+  LINK_ACAO,
+  SEGMENTADO,
+  SEGMENTO,
+  SEGMENTO_DESLIGADO,
+  SEGMENTO_LIGADO,
+  SELO,
+  SELO_VERDE,
+  inicial,
+} from './estilos'
 
 export interface CustomerSectionProps {
   customer: DraftCustomer
   onChange: (patch: Partial<DraftCustomer>) => void
 }
 
-// `min-w-0` + `[overflow-wrap:anywhere]` e o `flex-wrap` do grupo: com a fonte do sistema a 200 % os
-// dois não cabiam lado a lado em 390 e o segundo saía da tela (prova em navegador da T27).
-const BOTAO_SEGMENTO =
-  'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-center text-sm font-medium [overflow-wrap:anywhere] transition-colors motion-reduce:transition-none'
+export const NO_PHONE_WARNING = 'Sem telefone: o link vai poder ser copiado, mas não enviado pelo WhatsApp daqui.'
+export const NEW_CUSTOMER_BADGE = 'Ficha nova — a conta nasce quando ela concluir'
+
+const VAZIA: Partial<DraftCustomer> = { mode: 'nenhuma', fichaId: null, name: '', email: '', phone: '', document: '', perfil: null }
 
 /** O termo com o atraso de digitação: a busca não sai a cada tecla. */
 const useTermoComAtraso = (termo: string): string => {
@@ -41,7 +62,9 @@ const useTermoComAtraso = (termo: string): string => {
   return atrasado
 }
 
-const BuscaDeCliente = ({ onEscolher, onNova }: { onEscolher: (c: ClienteEncontrada) => void; onNova: () => void }) => {
+const contato = (email: string, phone: string | null) => [email, phone ? maskPhone(phone) : null].filter(Boolean).join(' · ')
+
+const BuscaDeCliente = ({ onEscolher, onNova }: { onEscolher: (c: ClienteEncontrada) => void; onNova: (nome: string) => void }) => {
   const id = useId()
   const [termo, setTermo] = useState('')
   const atrasado = useTermoComAtraso(termo)
@@ -51,7 +74,7 @@ const BuscaDeCliente = ({ onEscolher, onNova }: { onEscolher: (c: ClienteEncontr
   return (
     <div className="space-y-2">
       <label htmlFor={id} className="text-sm font-medium text-foreground">
-        Buscar cliente
+        Buscar por nome, e-mail ou telefone
       </label>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -59,7 +82,7 @@ const BuscaDeCliente = ({ onEscolher, onNova }: { onEscolher: (c: ClienteEncontr
           id={id}
           value={termo}
           onChange={(e) => setTermo(e.target.value)}
-          placeholder="nome, e-mail, telefone ou CPF"
+          placeholder="Ex.: Juliana, juliana@…, 51 9981"
           className="h-11 pl-9"
           autoComplete="off"
         />
@@ -70,31 +93,30 @@ const BuscaDeCliente = ({ onEscolher, onNova }: { onEscolher: (c: ClienteEncontr
           Não consegui buscar as clientes agora. {erro}
         </p>
       ) : temTermo && !buscando && clientes.length === 0 ? (
-        <div data-testid="busca-cliente-vazia" className="space-y-2 rounded-lg bg-muted/40 p-3 text-sm">
-          <p className="text-muted-foreground">Nenhuma cliente com “{atrasado.trim()}”.</p>
-          <button
-            type="button"
-            onClick={onNova}
-            className="min-h-11 rounded-lg border border-input px-3 py-2 font-medium text-foreground transition-colors motion-reduce:transition-none hover:bg-muted"
-          >
+        <div data-testid="busca-cliente-vazia" className="flex flex-wrap items-center gap-x-2 rounded-xl border border-border p-3 text-sm">
+          <span className="text-muted-foreground">Nenhuma cliente com “{atrasado.trim()}”.</span>
+          <button type="button" onClick={() => onNova(atrasado.trim())} className={LINK_ACAO}>
             Cadastrar como cliente nova
           </button>
         </div>
       ) : (
         clientes.length > 0 && (
-          <ul aria-label="Clientes encontradas" className="space-y-1">
+          <ul aria-label="Clientes encontradas" className="max-h-72 space-y-0.5 overflow-y-auto rounded-xl border border-border p-1.5">
             {clientes.map((c) => (
               <li key={c.id}>
                 <button
                   type="button"
                   onClick={() => onEscolher(c)}
-                  className="flex min-h-11 w-full flex-col items-start rounded-lg border border-input px-3 py-2 text-left text-sm transition-colors motion-reduce:transition-none hover:bg-muted/50"
+                  className="flex min-h-[52px] w-full items-center gap-2.5 rounded-lg p-2 text-left text-sm transition-colors motion-reduce:transition-none hover:bg-muted/60"
                 >
-                  <span className="break-words font-medium text-foreground">{c.name || c.email}</span>
-                  <span className="break-all text-xs text-muted-foreground">{c.email}</span>
-                  {c.fichaId === null && (
-                    <span className="text-xs text-muted-foreground">Comprou sem cadastro</span>
-                  )}
+                  <span aria-hidden className={cn(AVATAR, 'h-[34px] w-[34px] text-sm')}>
+                    {inicial(c.name, c.email)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words font-semibold text-foreground">{c.name || c.email}</span>
+                    <span className="block break-all text-xs text-muted-foreground">{contato(c.email, c.phone)}</span>
+                  </span>
+                  <span className={cn(SELO, 'shrink-0')}>{c.fichaId === null ? 'Convidada' : c.temConta ? 'Com conta' : 'Cadastrada'}</span>
                 </button>
               </li>
             ))}
@@ -105,28 +127,45 @@ const BuscaDeCliente = ({ onEscolher, onNova }: { onEscolher: (c: ClienteEncontr
   )
 }
 
-const CamposDeContato = ({ customer, onChange, novo }: CustomerSectionProps & { novo: boolean }) => {
+interface DadosNovos {
+  name: string
+  email: string
+  phone: string
+  document: string
+}
+
+const CadastroNovo = ({
+  dados,
+  setDados,
+  onUsar,
+  onUsarFicha,
+}: {
+  dados: DadosNovos
+  setDados: (d: DadosNovos) => void
+  onUsar: () => void
+  onUsarFicha: (c: ClienteEncontrada) => void
+}) => {
   const base = useId()
+  const { existente } = useCustomerByEmail(dados.email)
+  const pronto = dados.name.trim() !== '' && isValidEmail(normalizeEmail(dados.email.trim())) && !existente
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {novo && (
-        <>
-          <FieldGroup label="Nome" htmlFor={`${base}-nome`}>
-            <Input id={`${base}-nome`} className="h-11" value={customer.name} onChange={(e) => onChange({ name: e.target.value })} autoComplete="off" />
-          </FieldGroup>
-          <FieldGroup label="E-mail" htmlFor={`${base}-email`}>
-            <Input id={`${base}-email`} type="email" className="h-11" value={customer.email} onChange={(e) => onChange({ email: e.target.value })} autoComplete="off" />
-          </FieldGroup>
-        </>
-      )}
-      <FieldGroup label="Telefone" htmlFor={`${base}-telefone`}>
+      <div className="sm:col-span-2">
+        <FieldGroup label="Nome completo" htmlFor={`${base}-nome`}>
+          <Input id={`${base}-nome`} className="h-11" value={dados.name} onChange={(e) => setDados({ ...dados, name: e.target.value })} autoComplete="off" />
+        </FieldGroup>
+      </div>
+      <FieldGroup label="E-mail" htmlFor={`${base}-email`}>
+        <Input id={`${base}-email`} type="email" className="h-11" value={dados.email} onChange={(e) => setDados({ ...dados, email: e.target.value })} autoComplete="off" />
+      </FieldGroup>
+      <FieldGroup label="WhatsApp" htmlFor={`${base}-telefone`}>
         <Input
           id={`${base}-telefone`}
           inputMode="tel"
           className="h-11"
-          value={customer.phone}
-          onChange={(e) => onChange({ phone: maskPhone(e.target.value) })}
-          placeholder="(51) 99999-0000"
+          placeholder="(51) 99999-9999"
+          value={dados.phone}
+          onChange={(e) => setDados({ ...dados, phone: maskPhone(e.target.value) })}
         />
       </FieldGroup>
       <FieldGroup label="CPF (opcional)" htmlFor={`${base}-cpf`}>
@@ -134,101 +173,167 @@ const CamposDeContato = ({ customer, onChange, novo }: CustomerSectionProps & { 
           id={`${base}-cpf`}
           inputMode="numeric"
           className="h-11"
-          value={customer.document}
-          onChange={(e) => onChange({ document: maskCpf(e.target.value) })}
+          value={dados.document}
+          onChange={(e) => setDados({ ...dados, document: maskCpf(e.target.value) })}
         />
       </FieldGroup>
+      <p className="self-end text-xs text-muted-foreground sm:col-span-2">A cliente confirma o CPF no link, antes de pagar.</p>
+      {existente && (
+        <div
+          role="status"
+          data-testid="ficha-existente"
+          className={cn(AVISO_AMBAR, 'flex flex-wrap items-center justify-between gap-2 sm:col-span-2')}
+        >
+          <span>
+            <b>{existente.name || existente.email}</b> já está cadastrada com este e-mail.
+          </span>
+          <Button type="button" variant="outline" className="h-11 bg-card" onClick={() => onUsarFicha(existente)}>
+            Usar a ficha dela
+          </Button>
+        </div>
+      )}
+      <div className="flex justify-end sm:col-span-2">
+        <Button type="button" className="h-11" disabled={!pronto} onClick={onUsar}>
+          Usar estes dados
+        </Button>
+      </div>
     </div>
   )
 }
 
-/** `MON-03` — o e-mail da "cliente nova" já tem ficha: oferecer a ficha no lugar de criar outra. */
-const FichaExistente = ({ email, onUsar }: { email: string; onUsar: (c: ClienteEncontrada) => void }) => {
-  const { existente } = useCustomerByEmail(email)
-  if (!existente) return null
+const CartaoDaCliente = ({ customer, onChange }: CustomerSectionProps) => {
+  const id = useId()
+  const [informando, setInformando] = useState(false)
+  const nova = customer.mode === 'nova'
+  const perfil = customer.perfil ?? null
+  const semTelefone = stripPhone(customer.phone) === ''
   return (
-    <InfoBanner
-      role="status"
-      data-testid="ficha-existente"
-      action={
-        <button
-          type="button"
-          onClick={() => onUsar(existente)}
-          className="min-h-11 shrink-0 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors motion-reduce:transition-none hover:bg-muted"
-        >
-          Usar este cadastro
-        </button>
-      }
-    >
-      Este e-mail já tem cadastro: {existente.name || existente.email}. Use o cadastro dela em vez de criar outro.
-    </InfoBanner>
-  )
-}
-
-const CustomerSection = ({ customer, onChange }: CustomerSectionProps) => {
-  const [buscando, setBuscando] = useState(customer.mode !== 'nova')
-  const escolhida = customer.mode === 'existente'
-
-  const escolher = (c: ClienteEncontrada) => {
-    onChange(clienteParaRascunho(c))
-    setBuscando(true)
-  }
-  const irParaNova = () => {
-    setBuscando(false)
-    onChange({ mode: 'nova', fichaId: null })
-  }
-  const irParaBusca = () => {
-    setBuscando(true)
-    if (customer.mode === 'nova') onChange({ mode: 'nenhuma', fichaId: null, name: '', email: '', phone: '', document: '' })
-  }
-
-  return (
-    <FormCard title="Cliente">
-      <div role="group" aria-label="Como escolher a cliente" className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          aria-pressed={buscando}
-          onClick={irParaBusca}
-          className={cn(BOTAO_SEGMENTO, buscando ? 'border-primary bg-primary/10 text-foreground' : 'border-input text-muted-foreground hover:bg-muted/50')}
-        >
-          <Users className="h-4 w-4" aria-hidden />
-          Cliente cadastrada
-        </button>
-        <button
-          type="button"
-          aria-pressed={!buscando}
-          onClick={irParaNova}
-          className={cn(BOTAO_SEGMENTO, !buscando ? 'border-primary bg-primary/10 text-foreground' : 'border-input text-muted-foreground hover:bg-muted/50')}
-        >
-          <UserPlus className="h-4 w-4" aria-hidden />
-          Cliente nova
-        </button>
-      </div>
-
-      {buscando && escolhida && (
-        <div data-testid="cliente-escolhida" className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-input bg-muted/30 p-3">
-          <div className="min-w-0">
-            <p className="break-words text-sm font-semibold text-foreground">{customer.name || customer.email}</p>
-            <p className="break-all text-xs text-muted-foreground">{customer.email}</p>
+    <div data-testid="cliente-escolhida" className="space-y-3">
+      <div className="flex items-start gap-3">
+        <span aria-hidden className={cn(AVATAR, 'h-11 w-11 text-lg')}>
+          {inicial(customer.name, customer.email)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-[15px] font-semibold text-foreground">{customer.name || customer.email}</p>
+          <p className="break-all text-sm text-muted-foreground">{contato(customer.email, customer.phone || null)}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {nova ? (
+              <span className={SELO_VERDE}>{NEW_CUSTOMER_BADGE}</span>
+            ) : (
+              <>
+                {customer.fichaId === null ? (
+                  <span className={SELO}>Comprou como convidada</span>
+                ) : perfil?.temConta ? (
+                  <span className={SELO}>Tem conta na loja</span>
+                ) : perfil ? (
+                  <span className={SELO}>Cadastrada, sem conta</span>
+                ) : null}
+                {perfil && (
+                  <span className={SELO}>
+                    {perfil.pedidos} {perfil.pedidos === 1 ? 'pedido' : 'pedidos'}
+                  </span>
+                )}
+              </>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => onChange({ mode: 'nenhuma', fichaId: null, name: '', email: '', phone: '', document: '' })}
-            className="min-h-11 rounded-lg px-3 text-sm font-medium text-foreground transition-colors motion-reduce:transition-none hover:bg-muted"
-          >
-            Trocar cliente
+        </div>
+      </div>
+      {semTelefone && !informando && (
+        <div data-testid="sem-telefone" className={cn(AVISO_AMBAR, 'flex flex-wrap items-center justify-between gap-x-2')}>
+          <span>{NO_PHONE_WARNING}</span>
+          <button type="button" className={LINK_ACAO} onClick={() => setInformando(true)}>
+            Informar o telefone
           </button>
         </div>
       )}
+      {informando && (
+        <FieldGroup label="WhatsApp" htmlFor={`${id}-telefone`}>
+          <Input
+            id={`${id}-telefone`}
+            inputMode="tel"
+            className="h-11"
+            placeholder="(51) 99999-9999"
+            autoFocus
+            value={customer.phone}
+            onChange={(e) => onChange({ phone: maskPhone(e.target.value) })}
+          />
+        </FieldGroup>
+      )}
+    </div>
+  )
+}
 
-      {buscando && !escolhida && <BuscaDeCliente onEscolher={escolher} onNova={irParaNova} />}
+const DADOS_VAZIOS: DadosNovos = { name: '', email: '', phone: '', document: '' }
 
-      {buscando && escolhida && <CamposDeContato customer={customer} onChange={onChange} novo={false} />}
+const CustomerSection = ({ customer, onChange }: CustomerSectionProps) => {
+  const [nova, setNova] = useState(false)
+  const [dados, setDados] = useState<DadosNovos>(DADOS_VAZIOS)
+  const escolhida = customer.mode !== 'nenhuma'
 
-      {!buscando && (
+  const escolher = (c: ClienteEncontrada) => {
+    onChange(clienteParaRascunho(c))
+    setNova(false)
+  }
+  const trocar = () => {
+    onChange(VAZIA)
+    setNova(false)
+    setDados(DADOS_VAZIOS)
+  }
+  const usarDados = () =>
+    onChange({
+      mode: 'nova',
+      fichaId: null,
+      name: dados.name.trim(),
+      email: dados.email.trim(),
+      phone: dados.phone,
+      document: dados.document,
+      perfil: null,
+    })
+
+  return (
+    <FormCard
+      title="Cliente"
+      action={
+        escolhida ? (
+          <button type="button" onClick={trocar} className={LINK_ACAO} aria-label="Trocar a cliente">
+            Trocar
+          </button>
+        ) : undefined
+      }
+    >
+      {escolhida ? (
+        <CartaoDaCliente customer={customer} onChange={onChange} />
+      ) : (
         <>
-          <CamposDeContato customer={customer} onChange={onChange} novo />
-          <FichaExistente email={customer.email} onUsar={escolher} />
+          <div role="group" aria-label="Tipo de cliente" className={SEGMENTADO}>
+            <button
+              type="button"
+              aria-pressed={!nova}
+              onClick={() => setNova(false)}
+              className={cn(SEGMENTO, !nova ? SEGMENTO_LIGADO : SEGMENTO_DESLIGADO)}
+            >
+              Já é cliente
+            </button>
+            <button
+              type="button"
+              aria-pressed={nova}
+              onClick={() => setNova(true)}
+              className={cn(SEGMENTO, nova ? SEGMENTO_LIGADO : SEGMENTO_DESLIGADO)}
+            >
+              Cliente nova
+            </button>
+          </div>
+          {nova ? (
+            <CadastroNovo dados={dados} setDados={setDados} onUsar={usarDados} onUsarFicha={escolher} />
+          ) : (
+            <BuscaDeCliente
+              onEscolher={escolher}
+              onNova={(nome) => {
+                setDados({ ...DADOS_VAZIOS, name: nome })
+                setNova(true)
+              }}
+            />
+          )}
         </>
       )}
     </FormCard>

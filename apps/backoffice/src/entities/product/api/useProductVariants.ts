@@ -23,11 +23,12 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import { isVariantAvailable, variantLabel } from '@estrelinha/core/pricing'
 import { hasEngraving, requiresMaterial } from '@estrelinha/core/material'
+import { capaDaLinha } from './useProductCovers'
 import type { OptionValues, ProductOption, StockPolicy } from '@estrelinha/supabase/types'
 
 /** As colunas da peça. Nomeadas, nunca `*` (a `description` é o grosso do catálogo e ninguém aqui a lê). */
 export const PROPOSAL_PRODUCT_COLUMNS =
-  'id, name, base_price, image_url, is_active, stock_policy, stock_total, requires_material, engraving_max_chars, options, weight_kg, width_cm, height_cm, length_cm'
+  'id, name, base_price, image_url, capa:images->0->>url, is_active, stock_policy, stock_total, requires_material, engraving_max_chars, options, weight_kg, width_cm, height_cm, length_cm'
 
 /** As colunas da variação. */
 export const PROPOSAL_VARIANT_COLUMNS =
@@ -121,6 +122,10 @@ export const lerPecaParaProposta = async (
     throw new Error((erroVariacoes as ErroDeLeitura).message || 'não foi possível ler as variações')
   }
 
+  // A capa da peça: a primeira da galeria, senão a coluna antiga (o catálogo importado só tem a
+  // galeria). A variação sem foto própria mostra a capa — é a peça que a Adri está escolhendo.
+  const capa = capaDaLinha(produto as { image_url: string | null; capa: string | null })
+
   const opcoes: ProductOption[] = Array.isArray(produto.options) ? produto.options : []
   const politica = politicaDe(produto.stock_policy)
 
@@ -136,7 +141,7 @@ export const lerPecaParaProposta = async (
         estoque,
         disponivel: isVariantAvailable({ stock: estoque, is_active: true }, politica),
         grava: hasEngraving(valores),
-        imagem: (v.image_url as string | null) ?? null,
+        imagem: ((v.image_url as string | null) ?? '').trim() || capa,
         valores,
         peso: numeroOuNulo(v.weight_kg),
       }
@@ -147,7 +152,7 @@ export const lerPecaParaProposta = async (
     nome: String(produto.name ?? ''),
     ativa: produto.is_active !== false,
     precoBase: Number(produto.base_price ?? 0),
-    imagem: produto.image_url ?? null,
+    imagem: capa,
     politica,
     estoqueTotal: Number(produto.stock_total ?? 0) || 0,
     pedeMaterial: requiresMaterial(produto),

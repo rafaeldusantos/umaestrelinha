@@ -157,7 +157,7 @@ describe('O link e o envio (LNK-01..03)', () => {
     const u = new URL(url as string)
     expect(u.origin + u.pathname).toBe('https://wa.me/5551999990000')
     expect(u.searchParams.get('text')).toBe(
-      `Oi, Ana! Montei seu pedido aqui na loja. É só conferir seus dados, escolher a entrega e o pagamento: ${LINK}. O link vale até 07/11.`,
+      `Oi, Ana! Montei seu pedido aqui na loja. É só conferir seus dados, escolher a entrega e o pagamento:\n\n${LINK}\n\nO link vale até 07/11.`,
     )
     expect(estado.invocacoes.find((i) => i.nome.endsWith('log-sent'))?.corpo).toEqual({ id: ID, channel: 'whatsapp' })
   })
@@ -364,13 +364,13 @@ describe('Histórico e leitura (HIS-01)', () => {
     expect(screen.queryByTestId('estado-da-proposta')).toBeNull()
   })
 
-  it('voltar leva à aba "Montados" da lista', async () => {
+  it('voltar leva à lista "Pedidos montados" (o item da sidebar)', async () => {
     montar()
     await screen.findByTestId('estado-da-proposta')
     await act(async () => {
       fireEvent.click(screen.getAllByRole('button', { name: /Voltar/ })[0])
     })
-    expect(local).toBe('/admin/pedidos?visao=montados')
+    expect(local).toBe('/admin/pedidos/montados')
   })
 })
 

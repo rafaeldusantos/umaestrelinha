@@ -14,4 +14,5 @@ export const clienteParaRascunho = (c: ClienteEncontrada): Partial<DraftCustomer
   email: c.email,
   phone: c.phone ? maskPhone(c.phone) : '',
   document: c.cpf ? maskCpf(c.cpf) : '',
+  perfil: { temConta: c.temConta === true, pedidos: c.pedidos ?? 0 },
 })

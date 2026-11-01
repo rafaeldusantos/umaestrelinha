@@ -45,9 +45,13 @@ describe('navGroups — os quatro eixos', () => {
     const vendas = navGroups.find(g => g.label === 'Vendas')!
     expect(vendas.items.map(i => i.to)).toEqual([
       '/admin/pedidos',
+      // Feature 89 (2026-11-01): os pedidos montados, logo abaixo de Pedidos.
+      '/admin/pedidos/montados',
       '/admin/carrinhos-abandonados',
       '/admin/clientes',
     ])
+
+    expect(vendas.items.map(i => i.label).slice(0, 2)).toEqual(['Pedidos', 'Pedidos montados'])
 
     const descontos = navGroups.find(g => g.label === 'Descontos')!
     expect(descontos.items.map(i => i.to)).toEqual(['/admin/cupons', '/admin/promocoes'])

@@ -1698,6 +1698,24 @@
   remonta o link (fica em `sessionStorage`; sem ele, "Gerar link novo" renova). O `create-order` de
   sempre continua sem transação (fora de escopo). A aba "Montados" é local do painel, fora de
   `ORDER_VIEWS`. Expirada é derivada de `expires_at`, sem job.
+
+### AD-071
+
+- **Status**: accepted (pedido do usuário em 2026-11-01, ajuste da feature `89`)
+- **Decision**: **a montagem do pedido mostra a foto da peça e da variação.** A busca de produto
+  (`ProductSearchField`) ganhou `mostrarFoto`, booleano e desligado por padrão — ligado SÓ na montagem
+  —, e a capa é lida por id só para as linhas na tela (`useProductCovers`, `images->0->>url`). As
+  variações viraram chips com foto (`VariantPicker`), a variação sem foto mostra a capa da peça. A tela
+  segue o protótipo `Pedido - Montar.html` (Claude Design): cartão da cliente com selos, endereços
+  salvos em radio + "Outro endereço", caixa "Acrescentar peça" (a peça entra pronta), um cartão
+  "Descontos", um resumo fixo com a prévia da entrega e o botão. E a sidebar ganhou **"Pedidos
+  montados"** logo abaixo de "Pedidos" (`/admin/pedidos/montados`); `isNavActive` passou a marcar o
+  destino MAIS específico.
+- **Reason**: a Adri escolhe o que VAI para a cliente, e "Prata 925" e "Banho de ouro" se distinguem
+  pela foto. Não é vitrine: é miniatura da peça, e as outras quatro superfícies da busca continuam sem
+  imagem (`AD-019` vale para elas).
+- **Trade-off**: uma leitura a mais (capas de até 20 ids) por busca na montagem; o pool continua
+  enxuto. A aba "Montados" de `/admin/pedidos` continua existindo ao lado da rota nova.
 - **Scope**: migration `20261103120000_89-pedido-montado.sql`, `packages/core/src/{proposals,coupons}`,
   `core/payment/pricing.ts` (`manualDiscount`), `supabase/functions/{order-proposals,checkout,mercado-pago}`,
   `apps/backoffice` (montar, proposta, aba "Montados", origem no pedido), `apps/store`

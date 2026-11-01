@@ -476,3 +476,49 @@ describe('ProductSearchField — o rótulo é o nome acessível do campo', () =>
     expect(screen.getByLabelText(ROTULO).id).toBe('produto-da-oferta')
   })
 })
+
+describe('ProductSearchField — mostrarFoto (montagem do pedido, ajuste de 2026-11-01)', () => {
+  /** O pool como em `encena`, e a capa por id: `select(PRODUCT_COVER_COLUMNS).in('id', ids)`. */
+  const encenaComCapas = (pool: ProdutoDoPool[], capas: Record<string, string | null>) => {
+    const pedidosDeCapa: string[][] = []
+    fromMock.mockImplementation(() => ({
+      select: (colunas: string, opcoes?: { head?: true }) => {
+        if (opcoes?.head) return Promise.resolve({ count: pool.length, error: null })
+        if (colunas.includes('capa:')) {
+          return {
+            in: (_c: string, ids: string[]) => {
+              pedidosDeCapa.push(ids)
+              return Promise.resolve({ data: ids.map(id => ({ id, image_url: null, capa: capas[id] ?? null })), error: null })
+            },
+          }
+        }
+        const construtor = { order: () => construtor, range: () => Promise.resolve({ data: pool, error: null }) }
+        return construtor
+      },
+    }))
+    return pedidosDeCapa
+  }
+  const UUID_A = '11111111-1111-4111-8111-111111111111'
+  const UUID_B = '22222222-2222-4222-8222-222222222222'
+
+  it('desligado (o padrão das outras quatro telas) não pede capa nenhuma', async () => {
+    const pedidos = encenaComCapas([peca(UUID_A, 'Colar de Cinzas')], { [UUID_A]: 'https://x/c.webp' })
+    const { container } = await montar()
+    expect(pedidos).toHaveLength(0)
+    expect(container.querySelectorAll('img')).toHaveLength(0)
+  })
+
+  it('ligado, cada linha mostra a capa da peça (pela rendição) e a sem foto mostra o quadrado neutro', async () => {
+    const pedidos = encenaComCapas(
+      [peca(UUID_A, 'Colar de Cinzas'), peca(UUID_B, 'Pingente Gota')],
+      { [UUID_A]: 'https://x.supabase.co/storage/v1/object/public/product-images/a.webp' },
+    )
+    await montar({ mostrarFoto: true })
+    const linhaA = await screen.findByTestId(`peca-${UUID_A}`)
+    await waitFor(() => expect(within(linhaA).getByTestId('peca-foto')).toBeInTheDocument())
+    expect(within(linhaA).getByTestId('peca-foto').getAttribute('src')).toContain('a.webp')
+    expect(within(screen.getByTestId(`peca-${UUID_B}`)).getByTestId('peca-foto-vazia')).toBeInTheDocument()
+    // Só os ids das linhas na tela, nunca o catálogo inteiro.
+    expect(pedidos.at(-1)?.slice().sort()).toEqual([UUID_A, UUID_B].sort())
+  })
+})

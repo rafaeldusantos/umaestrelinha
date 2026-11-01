@@ -5,7 +5,7 @@ export const PROPOSAL_PAGE_PATH = (id: string): string => `/admin/pedidos/montad
 export const PROPOSAL_EDIT_PATH = (id: string): string => `/admin/pedidos/montar/${id}`
 export const PROPOSAL_DUPLICATE_PATH = (id: string): string => `/admin/pedidos/montar?duplicar=${encodeURIComponent(id)}`
 export const PROPOSAL_BUILDER_PATH = '/admin/pedidos/montar'
-export const PROPOSALS_LIST_PATH = '/admin/pedidos?visao=montados'
+export const PROPOSALS_LIST_PATH = '/admin/pedidos/montados'
 
 export const NOT_EDITABLE = 'Esta proposta não pode mais ser editada.'
 export const VERSION_CONFLICT_TEXT = 'Esta proposta mudou em outra aba. Recarreguei.'

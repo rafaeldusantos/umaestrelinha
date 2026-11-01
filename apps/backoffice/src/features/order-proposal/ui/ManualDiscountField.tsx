@@ -7,108 +7,93 @@ import { useId } from 'react'
 import { Input } from '@estrelinha/ui/input'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { MANUAL_REASON_MAX, manualDiscountRefusal } from '@estrelinha/core/proposals'
-import { CharCounter, FieldGroup, FormCard, MoneyInput } from '@/shared/ui'
+import { CharCounter, MoneyInput } from '@/shared/ui'
 import { toManualDraft, type DraftManual } from '../model/draft'
+import { SEGMENTADO, SEGMENTO, SEGMENTO_DESLIGADO, SEGMENTO_LIGADO } from './estilos'
 
 interface Props {
   manual: DraftManual | null
   onChange: (manual: DraftManual | null) => void
 }
 
-// `min-w-0`, `[overflow-wrap:anywhere]` e o `flex-wrap` do grupo: com a fonte do sistema a 200 % o par
-// não cabia no cartão em 390 (prova em navegador da T27).
-const SEGMENTO =
-  'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-lg border px-3 text-center text-sm font-medium [overflow-wrap:anywhere] transition-colors motion-reduce:transition-none'
-
 const ManualDiscountField = ({ manual, onChange }: Props) => {
   const base = useId()
-
-  if (!manual) {
-    return (
-      <FormCard title="Desconto combinado">
-        <button
-          type="button"
-          onClick={() => onChange({ kind: 'amount', value: null, reason: '' })}
-          className="min-h-11 rounded-lg border border-dashed border-input px-3 py-2 text-sm font-medium text-foreground transition-colors motion-reduce:transition-none hover:bg-muted/50"
-        >
-          Acrescentar desconto combinado
-        </button>
-      </FormCard>
-    )
-  }
-
-  const recusa = manualDiscountRefusal(toManualDraft(manual))
-  const set = (patch: Partial<DraftManual>) => onChange({ ...manual, ...patch })
+  const recusa = manual ? manualDiscountRefusal(toManualDraft(manual)) : null
+  const set = (patch: Partial<DraftManual>) => manual && onChange({ ...manual, ...patch })
 
   return (
-    <FormCard
-      title="Desconto combinado"
-      action={
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          className="min-h-11 rounded-lg px-3 text-sm font-medium text-foreground transition-colors motion-reduce:transition-none hover:bg-muted"
-        >
-          Tirar desconto
-        </button>
-      }
-    >
-      <div role="group" aria-label="Tipo do desconto" className="flex flex-wrap gap-2">
-        {(['amount', 'percent'] as const).map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            aria-pressed={manual.kind === kind}
-            onClick={() => set({ kind, value: null })}
-            className={cn(SEGMENTO, manual.kind === kind ? 'border-primary bg-primary/10 text-foreground' : 'border-input text-muted-foreground hover:bg-muted/50')}
-          >
-            {kind === 'amount' ? 'Em reais' : 'Em percentual'}
-          </button>
-        ))}
-      </div>
-
-      {manual.kind === 'amount' ? (
-        <FieldGroup label="Valor do desconto" htmlFor={`${base}-valor`}>
-          <MoneyInput id={`${base}-valor`} className="h-11" value={manual.value} onChange={(v) => set({ value: v })} />
-        </FieldGroup>
-      ) : (
-        <FieldGroup label="Percentual do desconto" htmlFor={`${base}-valor`} hint="De 0,01% a 99,99%.">
-          <Input
-            id={`${base}-valor`}
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0.01"
-            max="99.99"
-            className="h-11"
-            value={manual.value ?? ''}
-            onChange={(e) => set({ value: e.target.value === '' ? null : Number(e.target.value) })}
-          />
-        </FieldGroup>
-      )}
-
-      <FieldGroup
-        label="Motivo"
-        htmlFor={`${base}-motivo`}
-        hint="Interno — a cliente vê só “Desconto combinado”."
-        counter={<CharCounter value={manual.reason} limit={MANUAL_REASON_MAX} />}
-      >
-        <Input
-          id={`${base}-motivo`}
-          className="h-11"
-          maxLength={MANUAL_REASON_MAX}
-          value={manual.reason}
-          onChange={(e) => set({ reason: e.target.value })}
-          placeholder="ex.: combinado no WhatsApp"
+    <div className="space-y-2">
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">
+        <input
+          type="checkbox"
+          className="h-[18px] w-[18px] shrink-0 accent-primary"
+          checked={manual !== null}
+          onChange={(e) => onChange(e.target.checked ? { kind: 'amount', value: null, reason: '' } : null)}
         />
-      </FieldGroup>
+        <span className="font-semibold">Desconto combinado</span>
+      </label>
 
-      {recusa && (
-        <p role="alert" data-testid="desconto-recusa" className="text-sm text-destructive">
-          {recusa}
-        </p>
+      {manual && (
+        <div className="grid grid-cols-[auto_minmax(0,180px)] items-center gap-2.5">
+          <div role="radiogroup" aria-label="Tipo do desconto" className={cn(SEGMENTADO, "w-fit")}>
+            {(['amount', 'percent'] as const).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                role="radio"
+                aria-checked={manual.kind === kind}
+                aria-label={kind === 'amount' ? 'Em reais' : 'Em percentual'}
+                onClick={() => set({ kind, value: null })}
+                className={cn(SEGMENTO, manual.kind === kind ? SEGMENTO_LIGADO : SEGMENTO_DESLIGADO)}
+              >
+                {kind === 'amount' ? 'R$' : '%'}
+              </button>
+            ))}
+          </div>
+          {manual.kind === 'amount' ? (
+            <MoneyInput id={`${base}-valor`} aria-label="Valor do desconto" className="h-11" value={manual.value} onChange={(v) => set({ value: v })} />
+          ) : (
+            <Input
+              id={`${base}-valor`}
+              aria-label="Percentual do desconto"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0.01"
+              max="99.99"
+              placeholder="10"
+              className="h-11"
+              value={manual.value ?? ''}
+              onChange={(e) => set({ value: e.target.value === '' ? null : Number(e.target.value) })}
+            />
+          )}
+          <div className="col-span-2 space-y-1.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <label htmlFor={`${base}-motivo`} className="text-sm font-medium text-foreground">
+                Motivo
+              </label>
+              <span className="inline-flex items-baseline gap-1 text-[11px] text-muted-foreground">
+                <CharCounter value={manual.reason} limit={MANUAL_REASON_MAX} /> · só você vê
+              </span>
+            </div>
+            <Input
+              id={`${base}-motivo`}
+              className="h-11"
+              maxLength={MANUAL_REASON_MAX}
+              value={manual.reason}
+              onChange={(e) => set({ reason: e.target.value })}
+              placeholder="Ex.: combinado no WhatsApp, segunda peça"
+            />
+          </div>
+          {recusa && (
+            <p role="alert" data-testid="desconto-recusa" className="col-span-2 text-sm text-destructive">
+              {recusa}
+            </p>
+          )}
+          <p className="col-span-2 text-xs text-muted-foreground">A cliente vê “Desconto combinado”, sem o motivo.</p>
+        </div>
       )}
-    </FormCard>
+    </div>
   )
 }
 

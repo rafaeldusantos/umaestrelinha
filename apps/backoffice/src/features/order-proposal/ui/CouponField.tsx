@@ -4,12 +4,13 @@
 // recusa aparece com o texto da loja, sem tradução: "Cupom expirado." é o mesmo aqui e no caixa.
 
 import { useId, useState } from 'react'
-import { X } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
 import { validateCoupon } from '@estrelinha/core/hooks/useCoupons'
 import { isValidEmail, normalizeEmail } from '@estrelinha/core/validators'
-import { ActionButton, FormCard } from '@/shared/ui'
+import { ActionButton } from '@/shared/ui'
 import type { DraftCoupon } from '../model/draft'
+import { rotuloDoCupom } from '../model/coupon'
+import { LINK_ACAO } from './estilos'
 
 interface Props {
   coupon: DraftCoupon | null
@@ -51,18 +52,15 @@ const CouponField = ({ coupon, subtotal, email, descartado = false, onApply, onR
   }
 
   return (
-    <FormCard title="Cupom">
+    <div className="space-y-2">
+      <span className="block text-sm font-medium text-foreground">Cupom</span>
       {coupon ? (
         <div data-testid="cupom-aplicado" className="space-y-2">
-          <div className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-input bg-muted/30 px-3">
-            <span className="min-w-0 truncate text-sm font-semibold text-foreground">{coupon.code}</span>
-            <button
-              type="button"
-              onClick={onRemove}
-              aria-label={`Tirar o cupom ${coupon.code}`}
-              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-4 w-4" aria-hidden />
+          <div className="flex min-h-11 flex-wrap items-center gap-x-2.5 rounded-xl border border-estrelinha-admin-emerald/30 bg-estrelinha-admin-emerald/10 px-3 py-1">
+            <span className="font-mono text-sm font-bold text-estrelinha-admin-emerald">{coupon.code}</span>
+            <span className="min-w-0 text-sm text-muted-foreground">{rotuloDoCupom(coupon.rule)}</span>
+            <button type="button" onClick={onRemove} aria-label={`Tirar o cupom ${coupon.code}`} className={`${LINK_ACAO} ml-auto`}>
+              Tirar
             </button>
           </div>
           {descartado && (
@@ -74,14 +72,13 @@ const CouponField = ({ coupon, subtotal, email, descartado = false, onApply, onR
       ) : (
         // Não é `<form>`: a página da montagem pode ser um formulário, e formulário dentro de
         // formulário é HTML inválido. Enter no campo aplica, como num formulário.
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-0 flex-1 basis-40 space-y-1.5">
-            <label htmlFor={id} className="text-sm font-medium text-foreground">
-              Código do cupom
-            </label>
+        <>
+          <div className="flex flex-wrap items-end gap-2">
             <Input
               id={id}
-              className="h-11 uppercase"
+              aria-label="Código do cupom"
+              placeholder="Código"
+              className="h-11 min-w-0 flex-1 basis-40 uppercase"
               value={codigo}
               onChange={(e) => {
                 setCodigo(e.target.value)
@@ -95,18 +92,19 @@ const CouponField = ({ coupon, subtotal, email, descartado = false, onApply, onR
               }}
               autoComplete="off"
             />
+            <ActionButton type="button" onClick={() => void aplicar()} variant="outline" alvo44 pending={aplicando} pendingLabel="Conferindo…" disabled={codigo.trim() === ''}>
+              Aplicar
+            </ActionButton>
           </div>
-          <ActionButton type="button" onClick={() => void aplicar()} variant="outline" alvo44 pending={aplicando} pendingLabel="Conferindo…" disabled={codigo.trim() === ''}>
-            Aplicar
-          </ActionButton>
-        </div>
+          {!recusa && <p className="text-xs text-muted-foreground">A mesma regra do caixa da loja.</p>}
+        </>
       )}
       {recusa && (
         <p role="alert" data-testid="cupom-recusa" className="text-sm text-destructive">
           {recusa}
         </p>
       )}
-    </FormCard>
+    </div>
   )
 }
 

@@ -19,7 +19,7 @@ import { isValidEmail, normalizeEmail } from '@estrelinha/core/validators'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export const CUSTOMER_PICK_COLUMNS = 'id, name, email, phone, cpf, has_account'
+export const CUSTOMER_PICK_COLUMNS = 'id, name, email, phone, cpf, has_account, user_id, orders_total'
 export const CUSTOMER_PICK_LIMIT = 10
 export const ADDRESS_COLUMNS =
   'id, label, cep, street, number, complement, neighborhood, city, state, is_default, created_at'
@@ -39,6 +39,10 @@ export interface ClienteEncontrada {
   cpf: string | null
   /** O id em `customers`, ou `null` para a convidada (sem ficha). */
   fichaId: string | null
+  /** Entra na loja com conta (`user_id` preenchido). A ficha sem login e a convidada são `false`. */
+  temConta: boolean
+  /** Quantos pedidos ela tem (`orders_total` da view). */
+  pedidos: number
 }
 
 export interface EnderecoSalvo {
@@ -61,6 +65,8 @@ const paraCliente = (r: any): ClienteEncontrada => ({
   phone: r.phone ?? null,
   cpf: r.cpf ?? null,
   fichaId: r.has_account === true ? String(r.id) : null,
+  temConta: r.user_id !== null && r.user_id !== undefined,
+  pedidos: Number(r.orders_total ?? 0) || 0,
 })
 
 const falha = (erro: any, padrao: string) => new Error(erro?.message || padrao)

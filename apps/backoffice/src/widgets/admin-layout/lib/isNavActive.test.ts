@@ -19,3 +19,19 @@ describe('isNavActive', () => {
     expect(isNavActive('/admin/produtos-extra', '/admin/produtos')).toBe(false)
   })
 })
+
+describe('isNavActive — o destino mais específico vence', () => {
+  it('Pedidos montados acende sozinho na lista e na página de uma proposta', () => {
+    for (const p of ['/admin/pedidos/montados', '/admin/pedidos/montados/abc']) {
+      expect(isNavActive(p, '/admin/pedidos/montados')).toBe(true)
+      expect(isNavActive(p, '/admin/pedidos')).toBe(false)
+    }
+  })
+
+  it('Pedidos continua acendendo no pedido e na montagem', () => {
+    expect(isNavActive('/admin/pedidos', '/admin/pedidos')).toBe(true)
+    expect(isNavActive('/admin/pedidos/123', '/admin/pedidos')).toBe(true)
+    expect(isNavActive('/admin/pedidos/montar', '/admin/pedidos')).toBe(true)
+    expect(isNavActive('/admin/pedidos/123', '/admin/pedidos/montados')).toBe(false)
+  })
+})

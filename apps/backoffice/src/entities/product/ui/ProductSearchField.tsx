@@ -8,8 +8,11 @@
 //
 // Três decisões mandam aqui, e nenhuma é estética:
 //
-// 1. **Isto é uma LISTA, não uma vitrine** (`AD-019`, `BUS-17`). Não há `<img>`, não há grade e não
-//    há slot de renderização livre. O slot resolveria o preço do order bump com elegância e abriria
+// 1. **Isto é uma LISTA, não uma vitrine** (`AD-019`, `BUS-17`). Por padrão não há `<img>`, não há
+//    grade e não há slot de renderização livre. A única exceção é `mostrarFoto` (booleano, como
+//    `mostrarPreco`), ligado só na montagem do pedido (feature 89, decisão do usuário em 2026-11-01):
+//    ali a Adri escolhe a peça que VAI para a cliente, e não compõe vitrine — a foto é a miniatura da
+//    peça, não um desenho da Home. As outras quatro superfícies continuam sem imagem. O slot resolveria o preço do order bump com elegância e abriria
 //    a porta para a miniatura — que é o segundo desenho da Home voltando ao painel pela terceira vez
 //    (features 25 e 39). O preço é um parâmetro **booleano** justamente por isso: número, não
 //    composição. Quem mostra como o bloco fica é a prévia, que é a loja num iframe.
@@ -28,6 +31,8 @@ import { Input } from '@estrelinha/ui/input'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useProductPool } from '../api/useProductPool'
+import { useProductCovers } from '../api/useProductCovers'
+import PecaFoto from './PecaFoto'
 import { buscarProdutos, type ProdutoDoPool } from '../lib/buscarProdutos'
 
 export interface ProductSearchFieldProps {
@@ -76,6 +81,13 @@ export interface ProductSearchFieldProps {
   mostrarPreco?: boolean
   /** O `id` do `<input>`, quando o chamador precisa apontar um `htmlFor` próprio. */
   id?: string
+  /**
+   * Padrão desligado. Ligado só na montagem do pedido (feature 89): a miniatura da capa de cada peça
+   * encontrada, lida por id só para as linhas na tela (`useProductCovers`).
+   */
+  mostrarFoto?: boolean
+  /** Foca o campo ao montar (a caixa "Acrescentar peça" abre já pronta para digitar). */
+  autoFocus?: boolean
 }
 
 const ProductSearchField = ({
@@ -91,6 +103,8 @@ const ProductSearchField = ({
   placeholder = 'procure pelo nome da peça',
   mostrarPreco = false,
   id = 'busca-de-produto',
+  mostrarFoto = false,
+  autoFocus = false,
 }: ProductSearchFieldProps) => {
   const { produtos, carregando, erro, recarregar } = useProductPool()
   const [busca, setBusca] = useState('')
@@ -123,6 +137,11 @@ const ProductSearchField = ({
     () => new Set(selecionados ?? []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chaveSelecionados],
+  )
+
+  const capas = useProductCovers(
+    resultado.itens.map(p => p.id),
+    mostrarFoto,
   )
 
   const termo = busca.trim()
@@ -178,6 +197,8 @@ const ProductSearchField = ({
           onChange={e => setBusca(e.target.value)}
           placeholder={placeholder}
           className="pl-8"
+          autoComplete="off"
+          autoFocus={autoFocus}
         />
       </div>
 
@@ -231,8 +252,14 @@ const ProductSearchField = ({
                         : 'border-input bg-card text-foreground hover:bg-muted/50',
                     )}
                   >
-                    {!jaEscolhida && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
-                    <span className="min-w-0 flex-1 truncate">{produto.name}</span>
+                    {mostrarFoto ? (
+                      <PecaFoto url={capas[produto.id]} tamanho={40} />
+                    ) : (
+                      !jaEscolhida && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                    )}
+                    <span className={cn('min-w-0 flex-1', mostrarFoto ? 'break-words text-sm font-medium' : 'truncate')}>
+                      {produto.name}
+                    </span>
 
                     {mostrarPreco && (
                       // Número, nunca composição: o parâmetro é booleano exatamente para não virar

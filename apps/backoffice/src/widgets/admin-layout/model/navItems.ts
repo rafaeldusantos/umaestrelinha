@@ -1,4 +1,4 @@
-import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings } from 'lucide-react'
+import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings, ClipboardList } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -65,6 +65,9 @@ export const navGroups: NavGroup[] = [
     label: 'Vendas',
     items: [
       { to: '/admin/pedidos', icon: ShoppingCart, label: 'Pedidos' },
+      // Feature 89 (2026-11-01): os pedidos que a Adri monta para a cliente concluir pelo link.
+      // `isNavActive` marca o destino MAIS ESPECÍFICO, então aqui "Pedidos" não acende junto.
+      { to: '/admin/pedidos/montados', icon: ClipboardList, label: 'Pedidos montados' },
       { to: '/admin/carrinhos-abandonados', icon: ShoppingBag, label: 'Carrinhos abandonados' },
       { to: '/admin/clientes', icon: Users, label: 'Clientes' },
     ],

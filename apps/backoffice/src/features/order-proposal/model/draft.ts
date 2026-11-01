@@ -36,6 +36,11 @@ export interface DraftCustomer {
   email: string
   phone: string
   document: string
+  /**
+   * Campo de TELA, só para mostrar quem foi escolhida (tem conta, quantos pedidos). `null` quando a
+   * tela não sabe — a proposta relida para editar não traz isso. Nunca vai ao servidor.
+   */
+  perfil?: { temConta: boolean; pedidos: number } | null
 }
 
 export interface DraftAddress {
@@ -70,6 +75,10 @@ export interface DraftLine {
   engraving_max: number | null
   requires_material: boolean
   dimensions: QuoteDimensions
+  /** Campo de TELA: a foto da variação escolhida (ou da peça). Nunca vai ao servidor. */
+  image_url?: string | null
+  /** Campo de TELA: o estoque da variação escolhida, para o teto do contador. `null` = livre. */
+  stock_cap?: number | null
 }
 
 export interface DraftCoupon {

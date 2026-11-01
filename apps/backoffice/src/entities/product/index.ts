@@ -22,3 +22,6 @@ export * from './api/useProductVariants'
 export { default as VariantPicker } from './ui/VariantPicker'
 export { textoDoEstoque } from './lib/estoque'
 export type { VariantPickerProps } from './ui/VariantPicker'
+// Ajuste da 89 (2026-11-01): a foto da peça e da variação na montagem do pedido.
+export { default as PecaFoto } from './ui/PecaFoto'
+export * from './api/useProductCovers'

@@ -19,6 +19,7 @@ const { estado } = vi.hoisted(() => ({
     invocar: (_nome: string, _corpo: Record<string, unknown>): unknown => ({ data: null, error: null }),
     invocacoes: [] as { nome: string; corpo: Record<string, unknown> }[],
     precoDoAnel: 90,
+    imagemDoAnel: null as string | null,
     origem: 'https://loja.exemplo.invalid' as string | null,
   },
 }))
@@ -52,6 +53,7 @@ vi.mock('@/shared/lib/storeOrigin', () => ({ storeOrigin: () => estado.origem, S
 import AdminProposalBuilderPage from './AdminProposalBuilderPage'
 import AdminProposalPage from './AdminProposalPage'
 import { NO_ITEMS, NOT_EDITABLE, VERSION_CONFLICT_TEXT } from '@/features/order-proposal'
+import { PROPOSAL_LINK_DAYS } from '@estrelinha/core/proposals'
 
 const PRICES_CHANGED = 'Os preços mudaram enquanto você montava. Confira o resumo.'
 const ANEL_ID = '22222222-2222-4222-8222-222222222222'
@@ -60,7 +62,7 @@ const PROPOSTA = '99999999-9999-4999-8999-999999999999'
 const EXPIRA = '2026-11-07T15:00:00Z'
 
 const anel = () => ({
-  id: ANEL_ID, name: 'Anel Simples', base_price: estado.precoDoAnel, image_url: null, is_active: true, stock_policy: 'track',
+  id: ANEL_ID, name: 'Anel Simples', base_price: estado.precoDoAnel, image_url: estado.imagemDoAnel, is_active: true, stock_policy: 'track',
   stock_total: 3, requires_material: false, engraving_max_chars: null, options: [],
   weight_kg: 0.03, width_cm: null, height_cm: null, length_cm: null,
 })
@@ -109,6 +111,7 @@ const respostasPadrao = (r: unknown) => {
 beforeEach(() => {
   estado.invocacoes = []
   estado.precoDoAnel = 90
+  estado.imagemDoAnel = null
   estado.origem = 'https://loja.exemplo.invalid'
   estado.responder = respostasPadrao
   estado.invocar = (nome) => {
@@ -135,18 +138,26 @@ const montar = (rota: string) =>
     </QueryClientProvider>,
   )
 
-const botaoCriar = () => screen.getByRole('button', { name: 'Criar link' })
+const botaoCriar = () => screen.getByRole('button', { name: 'Criar link do pedido' })
 
-const preencherClienteNova = () => {
+/** A cliente nova só entra no rascunho em "Usar estes dados" (o desenho do protótipo). */
+const preencherClienteNova = async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Cliente nova' }))
-  fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Carla Dias' } })
+  fireEvent.change(screen.getByLabelText('Nome completo'), { target: { value: 'Carla Dias' } })
   fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'carla@x.invalid' } })
-  fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: '51988887777' } })
+  fireEvent.change(screen.getByLabelText('WhatsApp'), { target: { value: '51988887777' } })
+  const usar = screen.getByRole('button', { name: 'Usar estes dados' })
+  await waitFor(() => expect(usar).toBeEnabled())
+  fireEvent.click(usar)
+  await screen.findByTestId('cliente-escolhida')
 }
 
+/** A caixa "Acrescentar peça": buscar → escolher a peça → "Acrescentar · R$ X" (o anel não tem grade). */
 const acrescentarAnel = async () => {
-  fireEvent.change(screen.getByLabelText('Acrescentar peça'), { target: { value: 'anel' } })
+  fireEvent.change(screen.getByLabelText('Buscar peça'), { target: { value: 'anel' } })
   fireEvent.click(await screen.findByText('Anel Simples', { selector: 'button *, button' }))
+  const acrescentar = await screen.findByRole('button', { name: /^Acrescentar · R\$\s?90,00$/ })
+  fireEvent.click(acrescentar)
   await waitFor(() => expect(screen.getByTestId('resumo-total')).toHaveTextContent(/R\$\s?90,00/))
 }
 
@@ -159,17 +170,21 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
     expect(screen.getByTestId('motivo-criar-link')).toHaveTextContent('Escolha a cliente ou cadastre uma nova.')
     expect(botaoCriar()).toHaveAttribute('aria-describedby', screen.getByTestId('motivo-criar-link').id)
 
-    preencherClienteNova()
+    await preencherClienteNova()
     expect(screen.getByTestId('motivo-criar-link')).toHaveTextContent(NO_ITEMS)
+    expect(screen.queryByText(/Os preços ficam travados/)).toBeNull()
     expect(botaoCriar()).toBeDisabled()
   })
 
   it('MON-12: o endereço é opcional — com cliente e peça o botão libera sem CEP', async () => {
     montar('/admin/pedidos/montar')
-    preencherClienteNova()
+    await preencherClienteNova()
     await acrescentarAnel()
     expect(botaoCriar()).toBeEnabled()
     expect(screen.queryByTestId('motivo-criar-link')).toBeNull()
+    // Sem motivo, a frase sob o botão diz quanto tempo o preço fica travado (PROPOSAL_LINK_DAYS).
+    expect(screen.getByText(`Os preços ficam travados por ${PROPOSAL_LINK_DAYS} dias.`)).toBeInTheDocument()
+    expect(PROPOSAL_LINK_DAYS).toBe(7)
   })
 
   it('MON-11: grava pela function (nunca PostgREST), com o total que a tela mostrou, e abre a página da proposta com o link', async () => {
@@ -187,7 +202,7 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
       return { data: null, error: null }
     }
     montar('/admin/pedidos/montar')
-    preencherClienteNova()
+    await preencherClienteNova()
     await acrescentarAnel()
     fireEvent.click(botaoCriar())
 
@@ -206,6 +221,17 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
     })
     expect(typeof corpo.idempotency_key).toBe('string')
     expect(corpo).not.toHaveProperty('id')
+    // Igualdade de chaves: os campos de TELA (`image_url`, `stock_cap`, `perfil`, `key`…) nunca chegam
+    // à function — nem no topo, nem nas linhas.
+    expect(Object.keys(corpo).sort()).toEqual(
+      [
+        'address_city', 'address_complement', 'address_neighborhood', 'address_number', 'address_state',
+        'address_street', 'address_zip', 'coupon_code', 'customer_document', 'customer_email', 'customer_id',
+        'customer_name', 'customer_phone', 'expected_total', 'idempotency_key', 'lines', 'manual_discount',
+      ].sort(),
+    )
+    const linhas = corpo.lines as Record<string, unknown>[]
+    expect(Object.keys(linhas[0]).sort()).toEqual(['engraving_text', 'product_id', 'quantity', 'variant_id'])
     // Nenhuma escrita PostgREST nas tabelas da proposta.
     const escritas = (estado.calls as Registro[]).filter((c) => c.upsert || c.insert || c.update || c.delete)
     expect(escritas).toHaveLength(0)
@@ -220,7 +246,7 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
         ? { data: { id: PROPOSTA, number: 'P-0007', version: 1, status: 'open', customer_id: FICHA, created: true, changed: true, reused: false, token: 't', expires_at: EXPIRA, summary: resumo(90) }, error: null }
         : { data: { proposal: detalhe(), state: 'open', actions: {} }, error: null }
     montar('/admin/pedidos/montar')
-    preencherClienteNova()
+    await preencherClienteNova()
     fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '90010000' } })
     fireEvent.change(screen.getByLabelText('Rua'), { target: { value: 'Rua A' } })
     fireEvent.click(screen.getByLabelText(/Salvar no cadastro/))
@@ -240,7 +266,7 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
         ? { data: { id: PROPOSTA, number: 'P-0007', version: 1, status: 'open', customer_id: null, created: true, changed: true, reused: false, token: 't', expires_at: EXPIRA, summary: resumo(90) }, error: null }
         : { data: { proposal: detalhe(), state: 'open', actions: {} }, error: null }
     montar('/admin/pedidos/montar')
-    preencherClienteNova()
+    await preencherClienteNova()
     await acrescentarAnel()
     fireEvent.click(botaoCriar())
     await screen.findByRole('heading', { name: 'Pedido montado P-0007' })
@@ -253,7 +279,7 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
         ? falha(409, { error: PRICES_CHANGED, code: 'prices_changed', summary: resumo(95) })
         : { data: null, error: null }
     montar('/admin/pedidos/montar')
-    preencherClienteNova()
+    await preencherClienteNova()
     await acrescentarAnel()
     const leiturasAntes = (estado.calls as Registro[]).filter((c) => c.table === 'products' && c.filters.some((f) => f.args[1] === ANEL_ID)).length
     // O preço mudou no banco depois que a tela leu.
@@ -277,11 +303,13 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
   it('falha sem código diz a frase do servidor e mantém o rascunho', async () => {
     estado.invocar = () => falha(422, { error: 'O cupom não vale para esta cliente.', code: 'coupon_refused' })
     montar('/admin/pedidos/montar')
-    preencherClienteNova()
+    await preencherClienteNova()
     await acrescentarAnel()
     fireEvent.click(botaoCriar())
     expect(await screen.findByRole('alert')).toHaveTextContent('O cupom não vale para esta cliente.')
-    expect(screen.getByLabelText('Nome')).toHaveValue('Carla Dias')
+    // O rascunho continua: a cliente escolhida e a peça na lista.
+    expect(screen.getByTestId('cliente-escolhida')).toHaveTextContent('Carla Dias')
+    expect(within(screen.getByRole('list', { name: 'Peças da proposta' })).getByText('Anel Simples')).toBeInTheDocument()
   })
 })
 
@@ -292,7 +320,7 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
       return falha(500, { error: 'Fora do ar.' })
     }
     montar(`/admin/pedidos/montar/${PROPOSTA}`)
-    expect(await screen.findByRole('heading', { name: 'Editar P-0007' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Editar pedido montado P-0007' })).toBeInTheDocument()
     expect(screen.getByTestId('cliente-escolhida')).toHaveTextContent('Ana Souza')
     await waitFor(() => expect(screen.getByTestId('resumo-total')).toHaveTextContent(/R\$\s?170,00/))
     fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }))
@@ -301,6 +329,18 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
     expect(corpo).toMatchObject({ id: PROPOSTA, version: 3, customer_id: FICHA, expected_total: 170 })
     expect(corpo.manual_discount).toEqual({ kind: 'amount', value: 10, reason: 'Cliente antiga' })
     expect(corpo).not.toHaveProperty('idempotency_key')
+  })
+
+  it('editar abre com a caixa de acrescentar FECHADA e a linha com a foto da peça', async () => {
+    estado.imagemDoAnel = 'https://img.exemplo.invalid/anel.webp'
+    montar(`/admin/pedidos/montar/${PROPOSTA}`)
+    await screen.findByRole('heading', { name: 'Editar pedido montado P-0007' })
+    const pecas = await screen.findByRole('list', { name: 'Peças da proposta' })
+    await waitFor(() =>
+      expect(within(pecas).getByTestId('peca-foto')).toHaveAttribute('src', expect.stringContaining('anel.webp')),
+    )
+    expect(screen.queryByTestId('acrescentar-peca')).toBeNull()
+    expect(screen.getByRole('button', { name: /Acrescentar peça/ })).toBeInTheDocument()
   })
 
   it('duas abas: version_conflict diz a frase e RELÊ a proposta', async () => {
@@ -313,7 +353,7 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
       return falha(409, { error: 'A proposta mudou.', code: 'version_conflict' })
     }
     montar(`/admin/pedidos/montar/${PROPOSTA}`)
-    await screen.findByRole('heading', { name: 'Editar P-0007' })
+    await screen.findByRole('heading', { name: 'Editar pedido montado P-0007' })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar alterações' })).toBeEnabled())
     const antes = gets
     fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }))
@@ -348,7 +388,7 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
       nome === 'order-proposals?action=get'
         ? { data: { proposal: detalhe(), state: 'open', actions: {} }, error: null }
         : falha(500, { error: 'x' })
-    preencherClienteNova()
+    await preencherClienteNova()
     fireEvent.click(botaoCriar())
     await waitFor(() => expect(saves()).toHaveLength(1))
     expect(saves()[0].corpo).not.toHaveProperty('id')

@@ -1,6 +1,6 @@
 // `MON-05` — a escolha da variação mostra o estoque e não oferece o que não se vende (feature 89, T11).
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import VariantPicker from '../VariantPicker'
 import { textoDoEstoque } from '../../lib/estoque'
@@ -50,12 +50,41 @@ describe('VariantPicker (MON-05)', () => {
     expect(onEscolher).toHaveBeenCalledWith(LINHAS[0])
   })
 
-  it('o grupo tem nome acessível e cada linha é alvo de 44px (token exato)', () => {
+  it('o grupo tem nome acessível e cada chip é alvo de 48px (token exato)', () => {
     render(<VariantPicker rotulo="Variação de Colar" variacoes={LINHAS} politica="track" escolhida={null} onEscolher={() => {}} />)
     expect(screen.getByRole('radiogroup', { name: 'Variação de Colar' })).toBeInTheDocument()
     for (const opcao of screen.getAllByRole('radio')) {
-      expect(opcao.className.split(/\s+/)).toContain('min-h-11')
+      expect(opcao.className.split(/\s+/)).toContain('min-h-12')
     }
+  })
+
+  // Ajuste de 2026-11-01 (protótipo `Pedido - Montar.html`): cada chip mostra a foto da variação.
+  it('cada chip tem a foto da variação, pela rendição; sem foto, o quadrado neutro no mesmo lugar', () => {
+    const URL = 'http://x/storage/v1/object/public/product-images/ouro.webp'
+    render(
+      <VariantPicker
+        rotulo="Variação de Colar"
+        variacoes={[v({ id: 'f', rotulo: 'Ouro', imagem: URL }), v({ id: 'g', rotulo: 'Prata', imagem: null })]}
+        politica="track"
+        escolhida={null}
+        onEscolher={() => {}}
+      />,
+    )
+    const [ouro, prata] = screen.getAllByRole('radio')
+    const foto = within(ouro).getByTestId('peca-foto')
+    expect(foto.getAttribute('src')).toContain('render/image')
+    expect(foto.getAttribute('src')).toContain('ouro.webp')
+    expect(foto.getAttribute('src')).toContain('width=80')
+    expect(foto).toHaveAttribute('alt', '')
+    expect(within(prata).getByTestId('peca-foto-vazia')).toBeInTheDocument()
+    expect(within(prata).queryByTestId('peca-foto')).toBeNull()
+  })
+
+  it('o chip sem estoque fica riscado, além de desabilitado', () => {
+    render(<VariantPicker rotulo="Variação de Colar" variacoes={LINHAS} politica="track" escolhida={null} onEscolher={() => {}} />)
+    const semEstoque = screen.getAllByRole('radio')[1]
+    expect(within(semEstoque).getByText(/G · Ouro/).className.split(/\s+/)).toContain('line-through')
+    expect(within(screen.getAllByRole('radio')[0]).getByText(/P · Prata/).className.split(/\s+/)).not.toContain('line-through')
   })
 
   it('o texto do estoque segue a política da peça', () => {
@@ -103,6 +132,21 @@ describe('VariantPicker (MON-05)', () => {
       rerender(<VariantPicker rotulo="Variação de Anel" variacoes={MUITAS} politica="none" escolhida="m5" onEscolher={onEscolher} />)
       expect(screen.getAllByRole('radio')).toHaveLength(1)
       expect(screen.getByRole('radio')).toHaveTextContent('Aro 14')
+    })
+
+    // BUG-20261031-trocar-variacao-solta-o-foco: "Trocar variação" some ao abrir a lista, e o foco
+    // caía no <body>. Ele vai para a parada de Tab do grupo reaberto — a variação escolhida.
+    it('"Trocar variação" pelo teclado leva o foco à variação escolhida, nunca ao <body>', () => {
+      render(<VariantPicker rotulo="Variação de Anel" variacoes={MUITAS} politica="none" escolhida="m3" onEscolher={() => {}} />)
+      const trocar = screen.getByRole('button', { name: 'Trocar variação (12 opções)' })
+      trocar.focus()
+      fireEvent.click(trocar)
+      expect(screen.getAllByRole('radio')).toHaveLength(12)
+      expect(screen.queryByRole('button', { name: /Trocar variação/ })).toBeNull()
+      const escolhida = screen.getByRole('radio', { checked: true })
+      expect(escolhida).toHaveTextContent('Aro 12')
+      expect(document.activeElement).toBe(escolhida)
+      expect(escolhida.tabIndex).toBe(0)
     })
 
     it('a escolhida que não está mais na lista não recolhe (a lista fica aberta)', () => {
