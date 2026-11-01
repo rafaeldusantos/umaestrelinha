@@ -1,0 +1,10 @@
+{
+  "name": "acme-loja",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "lint": "next lint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  }
+}

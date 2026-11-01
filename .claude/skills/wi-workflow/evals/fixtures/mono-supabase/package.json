@@ -1,0 +1,9 @@
+{
+  "name": "acme-app",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "lint": "eslint .",
+    "test:run": "vitest run"
+  }
+}

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Handoff — wi-workflow</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --ground:#F4F6F4; --card:#FFF; --ink:#121916; --ink2:#4C5A54; --ink3:#7C8B83;
+    --rule:#DBE2DD; --rule2:#B7C3BC; --accent:#0A6957; --warn:#8A5410; --field:#FFF;
+    --mono:'Cascadia Mono',Consolas,ui-monospace,'SF Mono',monospace;
+    --body:'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:#0E1412; --card:#151D1A; --ink:#E8EEEA; --ink2:#9BADA5; --ink3:#6B7D75;
+      --rule:#232F2A; --rule2:#35463F; --accent:#56C8A6; --warn:#E0954A; --field:#0B100E;
+    }
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:2rem 1.25rem 6rem; background:var(--ground); color:var(--ink);
+    font-family:var(--body); font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:860px; margin:0 auto; }
+  code { font-family:var(--mono); font-size:.88em; }
+
+  h2 { margin:2.2rem 0 .2rem; font-size:1.12rem; letter-spacing:-.005em; }
+  .wrap > h2:first-child { margin-top:0; }
+  h2 .count { font-family:var(--mono); font-size:.72rem; color:var(--ink3); font-weight:400; margin-left:.5rem; }
+
+  .item { background:var(--card); border:1px solid var(--rule); border-radius:6px; padding:1rem 1.1rem; margin-bottom:.85rem; }
+  .item > .id { font-family:var(--mono); font-size:.72rem; letter-spacing:.08em; color:var(--ink3); }
+  .item > .id .opc { margin-left:.5rem; letter-spacing:.06em; text-transform:uppercase; font-size:.64rem; color:var(--ink3); border:1px solid var(--rule2); border-radius:999px; padding:.05rem .4rem; }
+  .item > .t { font-weight:600; margin:.1rem 0 .55rem; }
+  .corpo { display:grid; grid-template-columns:auto 1fr; gap:.2rem .9rem; font-size:.85rem; margin-bottom:.75rem; }
+  .corpo dt { font-family:var(--mono); font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink3); padding-top:.2rem; white-space:nowrap; }
+  .corpo dd { margin:0; color:var(--ink2); white-space:pre-wrap; }
+
+  .sug { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.6rem; }
+  .sug button {
+    font:inherit; font-size:.82rem; padding:.28rem .7rem; cursor:pointer;
+    background:transparent; color:var(--ink2); border:1px solid var(--rule2); border-radius:999px;
+  }
+  .sug button:hover { border-color:var(--accent); color:var(--ink); }
+  .sug button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:var(--ground); font-weight:600; }
+
+  .fl { display:block; font-family:var(--mono); font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink3); margin-bottom:.25rem; }
+  textarea {
+    width:100%; min-height:4.2rem; resize:vertical; font:inherit; font-size:.9rem; line-height:1.5;
+    background:var(--field); color:var(--ink); border:1px solid var(--rule2); border-radius:4px; padding:.5rem .65rem;
+  }
+  textarea:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
+  .item.pend { border-color:var(--warn); }
+
+  .bar {
+    position:fixed; left:0; right:0; bottom:0; background:var(--card); border-top:1px solid var(--rule2);
+    padding:.7rem 1.25rem; display:flex; align-items:center; gap:1rem; justify-content:center;
+  }
+  .bar .inner { max-width:860px; width:100%; display:flex; align-items:center; gap:1rem; }
+  .status { flex:1; font-size:.82rem; color:var(--ink3); }
+  .status.bad { color:var(--warn); }
+  #enviar {
+    font:inherit; font-size:.95rem; font-weight:600; padding:.55rem 1.6rem; cursor:pointer;
+    background:var(--accent); color:var(--ground); border:0; border-radius:4px;
+  }
+  #enviar:disabled { opacity:.45; cursor:default; }
+
+  .done { text-align:center; padding:5rem 1rem; }
+  .done h1 { font-size:1.5rem; margin:0 0 .4rem; }
+  .done p { color:var(--ink2); margin:0; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">carregando…</div>
+
+<div class="bar" id="bar" hidden>
+  <div class="inner">
+    <span class="status" id="status"></span>
+    <button type="button" id="enviar" disabled>Enviar respostas</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById('app');
+  var bar = document.getElementById('bar');
+  var statusEl = document.getElementById('status');
+  var enviarBtn = document.getElementById('enviar');
+
+  var dados = null;
+  var estado = { respostas: {} };
+  var chaveRascunho = null;
+
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  }
+
+  function salvarRascunho() {
+    if (!chaveRascunho) return;
+    try { localStorage.setItem(chaveRascunho, JSON.stringify(estado)); } catch (e) {}
+  }
+
+  function carregarRascunho() {
+    if (!chaveRascunho) return;
+    try {
+      var cru = localStorage.getItem(chaveRascunho);
+      if (cru) {
+        var s = JSON.parse(cru);
+        if (s && s.respostas) estado = { respostas: s.respostas };
+      }
+    } catch (e) {}
+  }
+
+  function montaItem(item) {
+    var opcional = item.obrigatorio === false;
+    var wrap = el('div', 'item');
+    wrap.dataset.id = item.id;
+    var cab = el('div', 'id', item.id);
+    if (opcional) cab.appendChild(el('span', 'opc', 'opcional'));
+    wrap.appendChild(cab);
+    wrap.appendChild(el('div', 't', item.titulo || ''));
+
+    if (item.corpo && item.corpo.length) {
+      var dl = el('dl', 'corpo');
+      item.corpo.forEach(function (p) {
+        dl.appendChild(el('dt', null, p.rotulo));
+        dl.appendChild(el('dd', null, p.valor));
+      });
+      wrap.appendChild(dl);
+    }
+
+    var resp = estado.respostas[item.id] || { escolha: null, texto: '' };
+    estado.respostas[item.id] = resp;
+
+    if (item.sugestoes && item.sugestoes.length) {
+      var sug = el('div', 'sug');
+      item.sugestoes.forEach(function (s) {
+        var b = el('button', null, s);
+        b.type = 'button';
+        b.setAttribute('aria-pressed', resp.escolha === s ? 'true' : 'false');
+        b.addEventListener('click', function () {
+          resp.escolha = resp.escolha === s ? null : s;
+          Array.prototype.forEach.call(sug.children, function (o) {
+            o.setAttribute('aria-pressed', o.textContent === resp.escolha ? 'true' : 'false');
+          });
+          revalidar();
+        });
+        sug.appendChild(b);
+      });
+      wrap.appendChild(sug);
+    }
+
+    var idCampo = 'r-' + item.id;
+    var rotulo = el('label', 'fl', item.sugestoes && item.sugestoes.length ? 'Ressalva' : 'Resposta');
+    rotulo.setAttribute('for', idCampo);
+    wrap.appendChild(rotulo);
+    var ta = el('textarea');
+    ta.id = idCampo;
+    ta.value = resp.texto || '';
+    ta.placeholder = item.placeholder || '';
+    ta.addEventListener('input', function () { resp.texto = ta.value; revalidar(); });
+    wrap.appendChild(ta);
+    return wrap;
+  }
+
+  function pendentes() {
+    var faltam = [];
+    (dados.itens || []).forEach(function (it) {
+      if (it.obrigatorio === false) return;
+      var r = estado.respostas[it.id];
+      if (!r || (!r.escolha && !(r.texto || '').trim())) faltam.push(it.id);
+    });
+    return faltam;
+  }
+
+  function revalidar() {
+    salvarRascunho();
+    var faltam = pendentes();
+    Array.prototype.forEach.call(document.querySelectorAll('.item[data-id]'), function (n) {
+      n.classList.toggle('pend', faltam.indexOf(n.dataset.id) !== -1);
+    });
+    if (faltam.length) {
+      statusEl.textContent = faltam.length + ' sem resposta: ' + faltam.join(', ');
+      statusEl.className = 'status bad';
+      enviarBtn.disabled = true;
+    } else {
+      statusEl.textContent = 'tudo respondido';
+      statusEl.className = 'status';
+      enviarBtn.disabled = false;
+    }
+  }
+
+  function enviar() {
+    enviarBtn.disabled = true;
+    statusEl.className = 'status';
+    statusEl.textContent = 'enviando…';
+
+    // Percorre os itens deste handoff, e não as chaves do rascunho: rascunho de uma rodada
+    // anterior do mesmo WI carrega id que não existe mais.
+    var respostas = (dados.itens || []).map(function (it) {
+      var r = estado.respostas[it.id] || { escolha: null, texto: '' };
+      return { id: it.id, escolha: r.escolha || null, texto: (r.texto || '').trim() };
+    }).filter(function (r) { return r.escolha || r.texto; });
+
+    fetch('/answers', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ wi: dados.wi, respostas: respostas })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      try { localStorage.removeItem(chaveRascunho); } catch (e) {}
+      bar.hidden = true;
+      app.innerHTML = '';
+      var d = el('div', 'done');
+      d.appendChild(el('h1', null, 'Respostas enviadas'));
+      d.appendChild(el('p', null, 'Pode fechar esta aba — a sessão do ' + (dados.wi || 'WI') + ' já retomou.'));
+      app.appendChild(d);
+    }).catch(function (err) {
+      statusEl.className = 'status bad';
+      statusEl.textContent = 'falhou: ' + err.message + ' — tente de novo';
+      enviarBtn.disabled = false;
+    });
+  }
+
+  enviarBtn.addEventListener('click', enviar);
+
+  fetch('/handoff.json').then(function (r) { return r.json(); }).then(function (d) {
+    dados = d;
+    chaveRascunho = 'handoff:' + (d.wi || 'wi');
+    carregarRascunho();
+    document.title = (d.wi || 'Handoff') + ' — handoff';
+
+    var itens = d.itens || [];
+    app.innerHTML = '';
+    var h = el('h2', null, 'A decidir');
+    h.appendChild(el('span', 'count', String(itens.length)));
+    app.appendChild(h);
+    itens.forEach(function (it) { app.appendChild(montaItem(it)); });
+
+    bar.hidden = false;
+    revalidar();
+  }).catch(function (err) {
+    app.textContent = 'não consegui carregar o handoff: ' + err.message;
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "acme-pedidos",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "lint": "next lint",
+    "test": "vitest run",
+    "migrate": "node-pg-migrate up"
+  }
+}

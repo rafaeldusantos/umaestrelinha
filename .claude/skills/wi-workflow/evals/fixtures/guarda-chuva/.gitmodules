@@ -1,0 +1,12 @@
+[submodule "acme-web"]
+	path = acme-web
+	url = https://dev.azure.com/acme/Acme%20Platform/_git/acme-web
+[submodule "acme-api"]
+	path = acme-api
+	url = https://dev.azure.com/acme/Acme%20Platform/_git/acme-api
+[submodule "acme-qa"]
+	path = acme-qa
+	url = https://dev.azure.com/acme/Acme%20Platform/_git/acme-qa
+[submodule "acme-devops"]
+	path = acme-devops
+	url = https://dev.azure.com/acme/Acme%20Platform/_git/acme-devops

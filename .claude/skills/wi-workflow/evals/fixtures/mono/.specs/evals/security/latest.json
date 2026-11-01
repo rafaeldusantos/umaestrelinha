@@ -1,0 +1,20 @@
+{
+  "type": "security",
+  "repository": "acme-app",
+  "executed_at": "2026-10-01T12:00:00Z",
+  "execution_id": "exec-9",
+  "findings": [
+    {
+      "id": "SEC-03",
+      "title": "Token de acesso escrito em log",
+      "severity": "high",
+      "location": "src/auth/login.ts:2"
+    },
+    {
+      "id": "SEC-07",
+      "title": "Fatura aceita id sem validação de formato",
+      "severity": "low",
+      "location": "src/billing/invoice.ts:10"
+    }
+  ]
+}

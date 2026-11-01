@@ -41,10 +41,10 @@ jobs:
       - name: conferir a entrega
         env:
           # `vars`, não `secrets`: a origem pública da loja não é segredo, e mascará-la no log só
-          # atrapalharia quem estivesse depurando. O default é a loja provisória — trocar aqui faz
+          # atrapalharia quem estivesse depurando. O default é o domínio próprio (desde o cutover de 2026-10) — trocar aqui faz
           # parte do mesmo passo de cutover que troca `STORE_PUBLIC_URL` (desde a feature 70 a linha
           # do `robots.txt` é gerada dela no build — `apps/store/scripts/robots.mjs`).
-          ORIGEM: ${{ vars.STORE_PUBLIC_URL || 'https://umaestrelinha-store-five.vercel.app' }}
+          ORIGEM: ${{ vars.STORE_PUBLIC_URL || 'https://umaestrelinha.com.br' }}
           # Âncora de contagem, no molde dos guardas de varredura do repositório: o catálogo tinha
           # 719 URLs em 2026-08-29. É PISO, não igualdade — o catálogo cresce por curadoria, e um
           # teste que reprovasse por crescimento seria desligado na primeira semana.

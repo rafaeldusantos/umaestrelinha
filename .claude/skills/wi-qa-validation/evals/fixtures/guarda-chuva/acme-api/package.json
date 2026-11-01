@@ -1,0 +1,8 @@
+{
+  "name": "acme-api",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "migrate": "node-pg-migrate up"
+  }
+}

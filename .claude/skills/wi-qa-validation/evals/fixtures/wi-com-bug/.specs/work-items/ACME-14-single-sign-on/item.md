@@ -1,0 +1,27 @@
+---
+id: ACME-14
+titulo: Single sign-on com Azure AD
+tipo: feature
+entrada: prd
+fase: validation
+criado: 2026-10-20
+---
+## Descrição
+Quero que o pessoal entre com a conta Microsoft da empresa (Azure AD) e que o "Sair" encerre a sessão lá também.
+
+## Insumos
+- nenhum (o PRD veio colado na conversa e está em `prd.md`)
+
+## Gates
+| gate | quando | resultado |
+| ---- | ------ | --------- |
+| prd-review r1 | 2026-10-21 | `pass` · 0 aplicados ao `prd.md` · 1 em Decisões |
+| handoff | 2026-10-22 | `pass` · 3 itens → `spec.md` Decisões |
+| fila | 2026-10-22 | aprovada · 01–02 · auditoria `a fila serve` |
+| execução | 2026-10-23 | autorizada: 01–02 |
+| validation 1 | 2026-10-28 | `PASS` |
+| QA · Gate 1 — plano | 2026-10-29 | aprovado · 2 TC · qa/test-plans/sso-test-plan.md |
+| QA · Gate 3 — veredito | 2026-10-30 | fail · 1 bug novo · qa/qa-result.md |
+| fix tasks | 2026-10-30 | aprovadas: 03 (BUG-001) |
+| execução | 2026-10-30 | autorizada: 03 |
+| validation 2 | 2026-10-31 | `PASS` |
