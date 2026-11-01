@@ -278,3 +278,10 @@ Todas são uma peça coesa (um arquivo, um hook, uma página ou uma seção) —
 | T08–T10 | handler/core | unit | unit | ✅ |
 | T11–T26 | hook/componente/página | unit | unit | ✅ |
 | T27 | layout | navegador | navegador | ✅ |
+
+## Decisões do QA — confirmadas pelo usuário em 2026-10-31
+
+- **`BUG-20261031-ponto-final-depois-do-link-no-whatsapp` — opção (c), as duas.** (b) `proposalWhatsappText` (`core/proposals/link.ts`) põe o link sozinho numa linha, entre linhas em branco, sem pontuação colada — `LNK-02` emendada na `spec.md`; (a) `takeProposalToken` (`proposalToken.ts`, dono único da chave) apara o que não é base64url no fim do fragmento. Testes vermelhos antes: o literal da mensagem em core e no painel (pelo valor novo), +1 da linha própria (core), +19 do token e +1 pela página real (`#<token>.`). Mutantes mortos por asserção: o aparo apagado, a régua aparando `-`/`_`, a mensagem antiga, o ponto colado na linha.
+- **`BUG-20261031-frete-antigo-depois-que-a-adri-atualiza` — opção (a).** No ramo `ProposalChangedError` da `ProposalCheckoutPage`, `setShipping(null)` antes de reler; o fluxo reabre a Entrega sozinho. +1 caso pela página real (vermelho antes). Mutante: o `setShipping(null)` apagado, morto; as duas linhas extras da primeira versão (`setConfirmed`/`setEditing`) sobreviveram ao próprio mutante e saíram.
+- **Prova em navegador (2026-11-01, 390×844, local):** os dois `verified`, e `BUG-20261031-trocar-variacao-solta-o-foco` também (1440, só teclado). Adendo em `docs/qa/reports/2026-10-31-pedido-montado-reteste.md`.
+- **Gate:** functions 1417/38 · core 5130/202 · backoffice 4897/268 · store 6501/347, exit 0 um por vez; `tsc` 0 · 0 · core 11; lint store 2/2, backoffice 23/5.

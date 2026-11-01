@@ -177,7 +177,9 @@ pé está cada proposta.
 2. WHEN ela toca "Enviar pelo WhatsApp" THEN SHALL abrir o `wa.me` pelo dono único
    (`whatsappChatUrl`, `core`) com a mensagem: "Oi, {primeiro nome}! Montei seu pedido aqui na loja.
    É só conferir seus dados, escolher a entrega e o pagamento: {link}. O link vale até {dd/mm}." —
-   sem urgência, sem emoji. (`LNK-02`)
+   sem urgência, sem emoji. (`LNK-02`) — **Emendada em 2026-10-31 (decisão do usuário, QA da 89,
+   `BUG-20261031-ponto-final-depois-do-link-no-whatsapp`):** o `{link}` vai sozinho numa linha, entre
+   linhas em branco, sem os dois-pontos nem o ponto final colados a ele.
 3. WHEN o link é copiado ou aberto no WhatsApp THEN a proposta SHALL registrar "Link enviado" no
    histórico dela, com data e canal. (`LNK-03`)
 4. WHEN a Adri abre a aba **"Montados"** da lista de Pedidos THEN cada proposta SHALL mostrar número,

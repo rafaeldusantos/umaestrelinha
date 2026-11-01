@@ -153,6 +153,8 @@ describe('get-proposal — aberta (CON-01, SEG-04)', () => {
     const { proposal } = await res.json()
 
     expect(proposal).toMatchObject({ id: PROP, number: 'P-0007', version: 2, manual_discount: 20, items_total: 230 })
+    // Fecho da rodada 3 (K30, CON-04/A-07): o e-mail da proposta sai para a página mostrar (e travar).
+    expect(proposal.customer_email).toBe('maria@exemplo.invalid')
     expect(proposal.address).toMatchObject({ address_zip: '91240010', address_city: 'Porto Alegre' })
     expect(proposal.lines.map((l: any) => [l.product_name, l.unit_price, l.available])).toEqual([
       ['Pingente Estrela', 100, true],
@@ -208,6 +210,28 @@ describe('get-proposal — aberta (CON-01, SEG-04)', () => {
     const f = ambiente(opts as any)
     const { proposal } = await (await route(f.deps, pedir('get-proposal', { token: TOKEN }))).json()
     expect(proposal.lines.map((l: any) => l.available)).toEqual(esperado)
+  })
+
+  // Fecho da rodada 3 (K20): a leitura da PROPOSTA que falha é soluço do banco, não link morto.
+  // 404 `unavailable` faria a página dizer a frase final de CON-08, sem "Tentar de novo".
+  it('a leitura da proposta que falha ⇒ 502, nunca "este link não está mais disponível"', async () => {
+    const f = ambiente()
+    const original = f.deps.supabase.from
+    f.deps.supabase.from = (t: string) => {
+      if (t !== 'order_proposals') return original(t)
+      const falha: any = {
+        select: () => falha,
+        eq: () => falha,
+        maybeSingle: async () => ({ data: null, error: { message: 'connection reset' } }),
+      }
+      return falha
+    }
+    const res = await route(f.deps, pedir('get-proposal', { token: TOKEN }))
+    expect(res.status).toBe(502)
+    const corpo = await res.json()
+    expect(corpo.code).toBeUndefined()
+    expect(corpo.error).not.toBe(PROPOSAL_UNAVAILABLE)
+    expect(corpo.proposal).toBeUndefined()
   })
 
   it('a leitura do catálogo que falha ⇒ 502, nunca "disponível"', async () => {
@@ -395,6 +419,17 @@ describe('create-order com proposta — o pedido nasce da proposta (PRC-03, CON-
     expect(argsDoPedido(longe)[0].p_order.shipping_cost).toBe(20)
   })
 
+  // Fecho da rodada 3 (K25, A-11/AD-027): o interruptor da loja decide, não a faixa preenchida.
+  // Desligado com a faixa (200) abaixo dos itens (230): o frete cotado fica — é o estado de
+  // produção, e a página do link cobra esse frete.
+  it('A-11: com o interruptor DESLIGADO e a faixa alcançada, o frete cotado fica', async () => {
+    const desligado = ambiente({ ajustes: { ...AJUSTES, shipping: { free_shipping_enabled: false, free_shipping_threshold: 200 } } })
+    await route(desligado.deps, pedir('create-order', CONCLUIR()))
+    const p = argsDoPedido(desligado)[0].p_order
+    expect(p.shipping_cost).toBe(20)
+    expect(p.total).toBe(250)
+  })
+
   it('A-08: e-mail COM conta conclui sem desafio e sem criar conta; o pedido fica na ficha da proposta', async () => {
     const f = ambiente({ extra: { rpcByFn: { account_exists: { data: true }, create_order_from_proposal: { data: { order_id: 'ord-9', order_number: '0201', reused: false } } } } })
     const res = await route(f.deps, pedir('create-order', CONCLUIR()))
@@ -428,6 +463,38 @@ describe('create-order com proposta — o pedido nasce da proposta (PRC-03, CON-
   })
 
   // Fecho da rodada 1 (K07): o corpo sem telefone fica com o que a Adri já tinha na proposta.
+  // Fecho da rodada 3 (K23, CON-04): o endereço que a cliente editou no link é o que vai ao pedido,
+  // não o que a Adri gravou na proposta ("trocar o número da casa", o Independent Test da spec).
+  it('o endereço editado no link (número, CEP, rua, bairro, cidade, UF, complemento) vence o da proposta', async () => {
+    const f = ambiente()
+    await route(
+      f.deps,
+      pedir('create-order', CONCLUIR({
+        address_zip: '90010-150',
+        address_street: 'Avenida Borges de Medeiros',
+        address_number: '1501',
+        address_complement: 'apto 3',
+        address_neighborhood: 'Praia de Belas',
+        address_city: 'Canoas',
+        address_state: 'SC',
+      })),
+    )
+    const p = argsDoPedido(f)[0].p_order
+    expect(p).toMatchObject({
+      address_zip: '90010150',
+      address_street: 'Avenida Borges de Medeiros',
+      address_number: '1501',
+      address_complement: 'apto 3',
+      address_neighborhood: 'Praia de Belas',
+      address_city: 'Canoas',
+      address_state: 'SC',
+    })
+    // E o número de CONCLUIR (12) também, diferente do gravado (10).
+    const g = ambiente()
+    await route(g.deps, pedir('create-order', CONCLUIR()))
+    expect(argsDoPedido(g)[0].p_order.address_number).toBe('12')
+  })
+
   it('o corpo sem telefone (vazio ou ausente) leva o telefone DA PROPOSTA ao pedido', async () => {
     for (const corpo of [CONCLUIR({ customer_phone: '   ' }), (({ customer_phone: _x, ...r }) => r)(CONCLUIR())]) {
       const f = ambiente()

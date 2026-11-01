@@ -41,9 +41,15 @@ export function firstName(name: string | null | undefined): string {
 }
 
 /**
- * LNK-02, palavra por palavra: "Oi, {primeiro nome}! Montei seu pedido aqui na loja. É só conferir
- * seus dados, escolher a entrega e o pagamento: {link}. O link vale até {dd/mm}." — sem urgência e
- * sem emoji. Sem nome, a saudação fica "Oi!" (nunca "Oi, !").
+ * LNK-02: "Oi, {primeiro nome}! Montei seu pedido aqui na loja. É só conferir seus dados, escolher a
+ * entrega e o pagamento:" — linha em branco — "{link}" — linha em branco — "O link vale até {dd/mm}."
+ * Sem urgência e sem emoji. Sem nome, a saudação fica "Oi!" (nunca "Oi, !").
+ *
+ * O link vai SOZINHO numa linha, sem pontuação colada: com o ponto final logo depois dele, quem
+ * selecionava o trecho (ou um leitor de link que incluísse o ponto) abria `#<token>.` e caía em "Este
+ * link não está mais disponível" para um pedido válido (QA da 89,
+ * `BUG-20261031-ponto-final-depois-do-link-no-whatsapp`, decisão do usuário em 2026-10-31, opção c:
+ * esta linha sozinha e, na loja, `proposalToken.ts` aparando pontuação no fim do fragmento).
  */
 export function proposalWhatsappText(input: {
   firstName?: string | null
@@ -55,7 +61,8 @@ export function proposalWhatsappText(input: {
   const saudacao = nome ? `Oi, ${nome}!` : 'Oi!'
   return (
     `${saudacao} Montei seu pedido aqui na loja. ` +
-    `É só conferir seus dados, escolher a entrega e o pagamento: ${input.link}. ` +
+    `É só conferir seus dados, escolher a entrega e o pagamento:\n\n` +
+    `${input.link}\n\n` +
     `O link vale até ${proposalExpiryDate(input.expiresAt)}.`
   )
 }

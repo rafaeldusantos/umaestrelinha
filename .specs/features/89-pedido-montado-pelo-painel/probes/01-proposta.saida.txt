@@ -1,49 +1,98 @@
-ok — RLS ligada nas três tabelas
-ok — nenhuma policy nas três tabelas
-ok — anon e authenticated sem privilégio nas tabelas
-ok — service_role grava em order_proposals
-ok — as três RPCs e handle_new_customer são security definer com search_path vazio
-ok — anon e authenticated NÃO executam nenhuma das três RPCs
-ok — service_role executa as três RPCs
-ok — save cria a proposta na versão 1
-ok — o número tem a forma P-0000
-ok — as duas linhas gravadas na ordem do array
-ok — o e-mail é gravado normalizado (minúsculo e aparado)
-ok — cliente nova: a ficha nasce SEM conta e a proposta aponta para ela (A-09)
-ok — o histórico registra created
-ok — mesma idempotency_key devolve a MESMA proposta (reused)
-ok — mesmo e-mail em outra grafia reusa a ficha — nunca duas (MON-03)
-ok — ficha antiga em outra grafia é reusada pela comparação lower(btrim) — nunca duas
-ok — customer_id cujo e-mail não é o da proposta é recusado
-ok — sem itens recusa no_items
-ok — 31 linhas recusa too_many_lines
-ok — itens abaixo de R$ 1,00 são recusados pelo check (A-12)
-ok — quantidade 100 é recusada pelo check
-ok — motivo de 121 caracteres é recusado pelo check
-ok — editar sem mudar nada não sobe a versão nem grava evento
-ok — 200 e 200.00 são o mesmo conteúdo
-ok — editar com mudança sobe para a versão 2 e grava edited
-ok — as linhas foram regravadas, não duplicadas
-ok — versão velha recusa version_conflict e não grava (duas abas)
-ok — editar proposta inexistente recusa not_found
-ok — a primeira visita marca vista
-ok — a segunda visita não marca de novo — um evento só
-ok — versão velha recusa proposal_changed sem criar pedido
-ok — create_order_from_proposal cria o pedido
-ok — o pedido leva proposal_id, o e-mail e os valores DA PROPOSTA (o corpo é ignorado) e o contato editado
-ok — os itens do pedido vêm das linhas travadas da proposta
-ok — a proposta vira concluída com o order_id, na mesma transação
-ok — a segunda chamada devolve O MESMO pedido
-ok — concluída devolve o pedido mesmo com versão velha (segundo aparelho)
-ok — editar proposta concluída recusa not_open
-ok — expirada recusa a conclusão (unavailable) e a edição (expired)
-ok — cancelada recusa a conclusão sem criar pedido
-ok — cancelada não é marcada como vista
-ok — a conta nova ADOTA a ficha sem conta do mesmo e-mail — nenhuma segunda ficha
-ok — a adoção mantém o nome que a ficha já tinha
-ok — o pedido da proposta continua ligado à ficha, agora com conta
-ok — sem ficha: a conta cria a dela e adota o pedido órfão (ESP-22 intacto)
-ok — a ficha que já tem conta não é adotada por outra conta do mesmo e-mail (A-09)
-ok — a cliente logada continua sem poder trocar o user_id (guard_customer_identity)
-ok — fixtura: o mesmo e-mail com uma ficha com conta e uma sem conta, a sem conta mais antiga
-ok — sem customer_id no corpo, a ficha COM conta vence a sem conta do mesmo e-mail (CON-12, A-08)
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:63: NOTICE:  ok — RLS ligada nas três tabelas
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:67: NOTICE:  ok — nenhuma policy nas três tabelas
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:73: NOTICE:  ok — anon e authenticated sem privilégio nas tabelas
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:75: NOTICE:  ok — service_role grava em order_proposals
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:82: NOTICE:  ok — as três RPCs e handle_new_customer são security definer com search_path vazio
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:90: NOTICE:  ok — anon e authenticated NÃO executam nenhuma das três RPCs
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:95: NOTICE:  ok — service_role executa as três RPCs
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:105: NOTICE:  ok — save cria a proposta na versão 1
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:106: NOTICE:  ok — o número tem a forma P-0000
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:111: NOTICE:  ok — as duas linhas gravadas na ordem do array
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:114: NOTICE:  ok — o e-mail é gravado normalizado (minúsculo e aparado)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:119: NOTICE:  ok — cliente nova: a ficha nasce SEM conta e a proposta aponta para ela (A-09)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:122: NOTICE:  ok — o histórico registra created
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:130: NOTICE:  ok — mesma idempotency_key devolve a MESMA proposta (reused)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:140: NOTICE:  ok — mesmo e-mail em outra grafia reusa a ficha — nunca duas (MON-03)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:151: NOTICE:  ok — ficha antiga em outra grafia é reusada pela comparação lower(btrim) — nunca duas
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:159: NOTICE:  ok — customer_id cujo e-mail não é o da proposta é recusado
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:165: NOTICE:  ok — sem itens recusa no_items
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:172: NOTICE:  ok — 31 linhas recusa too_many_lines
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:184: NOTICE:  ok — itens abaixo de R$ 1,00 são recusados pelo check (A-12)
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:199: NOTICE:  ok — quantidade 100 é recusada pelo check
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:213: NOTICE:  ok — motivo de 121 caracteres é recusado pelo check
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:223: NOTICE:  ok — editar sem mudar nada não sobe a versão nem grava evento
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:229: NOTICE:  ok — 200 e 200.00 são o mesmo conteúdo
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:237: NOTICE:  ok — editar com mudança sobe para a versão 2 e grava edited
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:241: NOTICE:  ok — as linhas foram regravadas, não duplicadas
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:247: NOTICE:  ok — versão velha recusa version_conflict e não grava (duas abas)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:251: NOTICE:  ok — editar proposta inexistente recusa not_found
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:256: NOTICE:  ok — a primeira visita marca vista
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:259: NOTICE:  ok — a segunda visita não marca de novo — um evento só
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:280: NOTICE:  ok — versão velha recusa proposal_changed sem criar pedido
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:285: NOTICE:  ok — create_order_from_proposal cria o pedido
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:295: NOTICE:  ok — o pedido leva proposal_id, o e-mail e os valores DA PROPOSTA (o corpo é ignorado) e o contato editado
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:301: NOTICE:  ok — os itens do pedido vêm das linhas travadas da proposta
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:306: NOTICE:  ok — a proposta vira concluída com o order_id, na mesma transação
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:311: NOTICE:  ok — a segunda chamada devolve O MESMO pedido
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:314: NOTICE:  ok — concluída devolve o pedido mesmo com versão velha (segundo aparelho)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:318: NOTICE:  ok — editar proposta concluída recusa not_open
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:325: NOTICE:  ok — expirada recusa a conclusão (unavailable) e a edição (expired)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:334: NOTICE:  ok — cancelada recusa a conclusão sem criar pedido
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:336: NOTICE:  ok — cancelada não é marcada como vista
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:350: NOTICE:  ok — a conta nova ADOTA a ficha sem conta do mesmo e-mail — nenhuma segunda ficha
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:352: NOTICE:  ok — a adoção mantém o nome que a ficha já tinha
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:355: NOTICE:  ok — o pedido da proposta continua ligado à ficha, agora com conta
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:367: NOTICE:  ok — sem ficha: a conta cria a dela e adota o pedido órfão (ESP-22 intacto)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:382: NOTICE:  ok — a ficha que já tem conta não é adotada por outra conta do mesmo e-mail (A-09)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:404: NOTICE:  ok — a cliente logada continua sem poder trocar o user_id (guard_customer_identity)
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:423: NOTICE:  ok — fixtura: o mesmo e-mail com uma ficha com conta e uma sem conta, a sem conta mais antiga
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:432: NOTICE:  ok — sem customer_id no corpo, a ficha COM conta vence a sem conta do mesmo e-mail (CON-12, A-08)
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:453: NOTICE:  ok — fixtura: a linha da proposta tem preço de tabela 150 e travado 120
+
+psql:.specs/features/89-pedido-montado-pelo-painel/probes/01-proposta.sql:461: NOTICE:  ok — o item do pedido leva o preço TRAVADO da linha (120), não o de tabela (150) (PRC-03, P07)
+

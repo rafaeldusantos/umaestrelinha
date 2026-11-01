@@ -431,4 +431,33 @@ select pg_temp.confere(
       = (select id::text from public.customers where user_id = :'user_c'),
   'sem customer_id no corpo, a ficha COM conta vence a sem conta do mesmo e-mail (CON-12, A-08)');
 
+-- Fecho da rodada 3 do Verifier (P07, PRC-03): o pedido copia o preço TRAVADO da linha
+-- (`unit_price`), nunca o de tabela (`list_price`). Toda fixtura acima tinha as duas colunas
+-- iguais, e trocar uma pela outra no `insert into order_items` passava. Aqui uma linha tem
+-- promoção travada (150 de tabela, 120 travado): trocadas as colunas, o pedido nasceria a preço
+-- cheio e o `create-payment` recusaria o pagamento por divergência de linha.
+select public.save_order_proposal(pg_temp.corpo(jsonb_build_object(
+  'idempotency_key', 'probe-idem-promo', 'token_hash', 'probe-hash-promo',
+  'expires_at', (now() + interval '7 days')::text,
+  'subtotal', 230, 'promotion_discount', 30,
+  'items', jsonb_build_array(
+    jsonb_build_object('product_id', '11111111-1111-1111-1111-111111111111',
+      'product_name', 'Pingente Promo', 'quantity', 1, 'list_price', 150, 'unit_price', 120),
+    jsonb_build_object('product_id', '22222222-2222-2222-2222-222222222222',
+      'product_name', 'Anel Sem Promo', 'quantity', 2, 'list_price', 40, 'unit_price', 40))))) as rp \gset
+select pg_temp.confere(
+  (select list_price from public.order_proposal_items
+    where proposal_id = (:'rp'::jsonb->>'id')::uuid and product_name = 'Pingente Promo') = 150
+  and (select unit_price from public.order_proposal_items
+    where proposal_id = (:'rp'::jsonb->>'id')::uuid and product_name = 'Pingente Promo') = 120,
+  'fixtura: a linha da proposta tem preço de tabela 150 e travado 120');
+select public.create_order_from_proposal((:'rp'::jsonb->>'id')::uuid, 1,
+  pg_temp.pedido() || '{"client_request_id":"probe-crid-promo"}') as cp \gset
+select pg_temp.confere(
+  (select unit_price from public.order_items
+    where order_id = (:'cp'::jsonb->>'order_id')::uuid and product_name = 'Pingente Promo') = 120
+  and (select sum(quantity * unit_price) from public.order_items
+    where order_id = (:'cp'::jsonb->>'order_id')::uuid) = 200,
+  'o item do pedido leva o preço TRAVADO da linha (120), não o de tabela (150) (PRC-03, P07)');
+
 rollback;

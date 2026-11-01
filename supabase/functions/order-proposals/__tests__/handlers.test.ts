@@ -311,6 +311,19 @@ describe('save — criar', () => {
     expect(argsDoSave(f.rpcs)).toEqual([])
   })
 
+  // Fecho da rodada 3 (F24): "o mesmo total" é ao centavo. Um centavo a mais ou a menos do que a
+  // tela mostrava já é outro preço; só a diferença de arredondamento (abaixo de meio centavo) passa.
+  it('PRC-02: um centavo de diferença já é 409; meio centavo de arredondamento não', async () => {
+    for (const esperado of [400.01, 399.99]) {
+      const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+      const res = await route(f.deps, pedir('save', corpoNovo({ expected_total: esperado })))
+      expect(res.status).toBe(409)
+      expect(argsDoSave(f.rpcs)).toEqual([])
+    }
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    expect((await route(f.deps, pedir('save', corpoNovo({ expected_total: 400.004 })))).status).toBe(200)
+  })
+
   it('o token nunca aparece em log — nem ele, nem o hash', async () => {
     const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
     const corpo = await (await route(f.deps, pedir('save', corpoNovo()))).json()
@@ -354,6 +367,17 @@ describe('save — criar', () => {
     const res = await route(vencida.deps, pedir('save', { ...body, expected_total: 100 }))
     expect(res.status).toBe(200)
     expect(argsDoSave(vencida.rpcs)[0].items[0].unit_price).toBe(100)
+
+    // Fecho da rodada 3 (F15): a promoção vigente pelas datas mas DESLIGADA também não entra —
+    // a proposta travaria um desconto que a loja não oferece.
+    const inativa = ambiente({
+      lists: { promotions: [promo({ active: false })] },
+      rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK },
+    })
+    const r2 = await route(inativa.deps, pedir('save', { ...body, expected_total: 100 }))
+    expect(r2.status).toBe(200)
+    expect(argsDoSave(inativa.rpcs)[0].items[0]).toMatchObject({ list_price: 100, unit_price: 100 })
+    expect(argsDoSave(inativa.rpcs)[0].promotion_discount).toBe(0)
   })
 
   it('gravação em variação que não grava é descartada, nunca vai para a proposta', async () => {

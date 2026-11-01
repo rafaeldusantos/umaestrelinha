@@ -393,6 +393,13 @@ const ProposalCheckout = ({ token, proposal, ajuda, reler }: ProposalCheckoutPro
         } catch (err) {
           if (err instanceof ProposalChangedError) {
             // CON-10: nunca concluir com a versão velha — reler e pedir conferência.
+            // E a entrega volta a "não escolhida": o preço cotado era o do pacote antigo, e a
+            // Adri pode ter mudado as peças. A cliente escolhe de novo sobre a cotação do pacote
+            // atual — nenhum frete fica na tela sem ter sido cotado para ele (decisão do usuário,
+            // 2026-10-31, `BUG-20261031-frete-antigo-depois-que-a-adri-atualiza`, opção a).
+            // Sem entrega o bloco deixa de estar completo e o fluxo o reabre sozinho
+            // (`resolveFlow`); nenhuma outra trava é preciso.
+            useStore.getState().setShipping(null)
             setAviso(PROPOSAL_CHANGED_MESSAGE)
             await reler()
             return

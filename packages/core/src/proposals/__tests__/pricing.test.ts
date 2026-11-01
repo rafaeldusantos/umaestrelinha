@@ -72,6 +72,12 @@ describe('priceProposalDraft — A-12: o desconto não pode zerar o pedido', () 
     })
     expect(r.refusal).toBe(PROPOSAL_ZERO_REFUSAL)
     expect(r.itemsTotal).toBe(0)
+    // Fecho da rodada 3 (N05b): o resumo da montagem recusada mostra os números de verdade — a
+    // peça, o cupom e o avulso que coube —, não zeros; é o que diz à Adri quanto passou do ponto.
+    expect(r.subtotal).toBe(30)
+    expect(r.couponDiscount).toBe(10)
+    expect(r.manualDiscount).toBe(20)
+    expect(r.lockedLines.map((l) => l.unit_price)).toEqual([30])
   })
 
   it('cupom de frete grátis + avulso que zera: ainda recusa, sem lançar', () => {

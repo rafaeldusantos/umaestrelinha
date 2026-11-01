@@ -104,3 +104,48 @@ Store e backoffice batem com o fecho das tasks T30..T34 (6479/347, 4896/268). Co
 **Os cinco bugs consertados estão verified em navegador.** O High (o segundo link pagando o pedido anterior) passou nos dois caminhos: numa aba nova e na aba original do QA, que trazia a sessão gravada pelo código de antes. Sobra um bug novo, Low (foco em "Trocar variação"). Continuam abertos os dois Medium que esperam decisão humana (o ponto no link do WhatsApp e o frete antigo depois da atualização).
 
 Totais em aberto na feature 89: **High 0 · Medium 2 (decisão) · Low 1**. A suíte está verde nos quatro workspaces. **Pronta, com ressalvas:** as duas decisões de produto antes do deploy. Ainda falta testar o cartão, o WhatsApp e o Android reais e o `noindex` servido pela `api/page`, como no QA.
+
+## Adendo — 2026-11-01: as duas decisões, consertadas e retestadas; "Trocar variação" retestado
+
+As duas decisões da seção "Decisions for a Human" do QA foram **confirmadas pelo usuário em 2026-10-31** e implementadas: o ponto depois do link, opção (c) — as duas; o frete depois de "A Adri atualizou", opção (a) — a entrega volta a "não escolhida". Detalhe de cada conserto (arquivos, testes vermelhos antes, mutantes) nos arquivos dos bugs.
+
+- **Environment:** dev servers loja `:8082` e painel `:8083`, Supabase local `:54441`, `supabase functions serve --env-file` com `RESEND_API_KEY` inválida (nenhum e-mail saiu). `*.supabase.co`, `*.google-analytics.com`, `*.googletagmanager.com` e `**/g/collect*` bloqueados por rota; `**/functions/v1/mercado-pago**` também bloqueado (nenhum PIX criado no Mercado Pago). `navigator.webdriver` neutralizado. Chromium 1228. A cotação foi ao Melhor Envio de produção (só leitura), como no QA.
+- **A troca temporária do ambiente:** os `import type` de `packages/core/src/pricing/index.ts` e `grid.ts` trocados por aliases locais para a `order-proposals` subir, e restaurados por cópia ao fim — SHA-256 `eadce25c…` e `c726dc02…` conferidos (`shasum -c`), `git diff -- packages/core/src/pricing` vazio. Dev servers e `functions serve` parados no fim (só os processos desta rodada).
+- **A proposta** foi criada e editada pela `order-proposals?action=save` local (a mesma porta que o botão Salvar do painel chama), com o admin do `seed.sql`.
+
+| # | Bug | Persona | Viewport | Status | Notes |
+|---|---|---|---|---|---|
+| 6 | BUG-20261031-ponto-final-depois-do-link-no-whatsapp (Medium) | Cliente de luto pelo link | 390×844 | Pass | verified; o WhatsApp real segue não medido |
+| 7 | BUG-20261031-frete-antigo-depois-que-a-adri-atualiza (Medium) | Cliente de luto pelo link | 390×844 | Pass | verified, até o pedido gravado |
+| 8 | BUG-20261031-trocar-variacao-solta-o-foco (Low) | Adri montando uma venda | 1440, só teclado | Pass | verified |
+
+### 6 — o link com o ponto final colado
+
+- **Steps:** P-0013 criada (cliente "Rosa Prova Bugs", `rosa.prova.bugs89@exemplo.invalid`, "Anel Afetivo Coração com Cabelo" ×1, R$ 189,90). Aberto `/pedido-montado#<token>.` — com o ponto.
+- **Observed:** "Seu pedido" com a peça e o Resumo; nenhum "não está mais disponível". O `get-proposal` levou `{"token":"<token>"}` **sem** o ponto; `sessionStorage['estrelinha-proposal-token']` é o token limpo; a barra ficou `/pedido-montado`, sem fragmento; `scrollWidth` 390.
+- **A mensagem:** o texto do "Enviar pelo WhatsApp" agora põe o link sozinho numa linha (provado pela página real do painel em `AdminProposalPage.test.tsx`, não em navegador).
+- **Evidence:** `evidence/2026-10-31-pedido-montado/a1-link-com-ponto-abre.png`.
+
+### 7 — o frete depois de "A Adri atualizou"
+
+- **Steps:** na mesma aba, CEP 01310-100 semeado, PAC escolhido a R$ 25,75 (Resumo "Frete · Correios PAC", "Pagar R$ 202,36 com PIX"). A proposta editada para quantidade 2 (versão 2). "Pagar".
+- **Observed:** "A Adri atualizou seu pedido. Confira de novo antes de concluir."; o rascunho com `shipping` nulo; o Resumo com "Frete a calcular"; nenhum "Frete · Correios" na tela e nenhuma opção marcada; o bloco Entrega aberto com PAC **R$ 27,65** e SEDEX R$ 41,34 (a cotação do pacote novo); "Pagar R$ 353,21 com PIX" desabilitado; `scrollWidth` 390. Escolhido o PAC de novo: "Pagar R$ 380,86 com PIX" ⇒ `/pedido/<id>/pagamento`. Os dois `create-order`: `{v:1, frete:25.75}` (409) e `{v:2, frete:27.65}`. Banco: pedido **#0280**, `shipping_cost 27.65`, `total 380.86`; P-0013 `completed`.
+- **Evidence:** `a2-pac-escolhido.png`, `a3-entrega-desfeita.png`, `a4-pac-recotado.png`.
+
+### 8 — "Trocar variação" pelo teclado
+
+- **Steps:** 1440, só teclado, `/admin/pedidos/montar`: "Aliança com Coto", Tab, Enter ⇒ 108 variações; setas até a 6ª, Enter; foco em "Trocar variação (108 opções)", Enter.
+- **Observed:** 400 ms depois do Enter, `document.activeElement` é a variação escolhida (`role=radio`, `aria-checked=true`, `tabindex=0`, "Prata 925 · Não · 14") — antes era `BODY`. O botão saiu, a lista tem 108 opções, e o Tab seguinte sai do grupo para o campo seguinte.
+- **Evidence:** `a5-trocar-variacao-foco.png`.
+
+### Data left in the local database
+
+- P-0013 (`completed` → #0280, `shipping_cost 27.65`), a ficha e a conta de convidada `rosa.prova.bugs89@exemplo.invalid`. #0280 em PIX `pending`, sem cobrança criada (o `mercado-pago` estava bloqueado).
+
+### Exit gate — suítes completas, depois de restaurar o código
+
+Uma por vez, `--testTimeout=20000`, exit lido fora de pipe: **functions 1417/38 · core 5130/202 (+1) · backoffice 4897/268 · store 6501/347 (+21)**, os quatro exit 0. `tsc` store 0, backoffice 0, core 11 (herdados). ESLint store 2/2, backoffice 23/5.
+
+### Final Status (adendo)
+
+**Os três estão verified em navegador.** Totais em aberto na feature 89: **High 0 · Medium 0 · Low 0**. Falta, como antes: o cartão, o WhatsApp de Android e iOS e o Android reais, e o `noindex` servido pela `api/page`.

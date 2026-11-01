@@ -34,8 +34,20 @@ describe('proposalWhatsappText — LNK-02, palavra por palavra', () => {
     expect(
       proposalWhatsappText({ name: 'Mariana Souza Lima', link, expiresAt: '2026-11-07T15:00:00Z' }),
     ).toBe(
-      'Oi, Mariana! Montei seu pedido aqui na loja. É só conferir seus dados, escolher a entrega e o pagamento: https://loja.exemplo/pedido-montado#t. O link vale até 07/11.',
+      'Oi, Mariana! Montei seu pedido aqui na loja. É só conferir seus dados, escolher a entrega e o pagamento:\n\nhttps://loja.exemplo/pedido-montado#t\n\nO link vale até 07/11.',
     )
+  })
+
+  // BUG-20261031-ponto-final-depois-do-link-no-whatsapp (decisão do usuário, 2026-10-31, opção b):
+  // o link vai SOZINHO numa linha, sem pontuação colada antes nem depois — nem o ponto final, nem
+  // os dois-pontos da frase. Quem seleciona a linha, ou o leitor de link do WhatsApp, leva só o link.
+  it('o link ocupa uma linha inteira, sem pontuação colada', () => {
+    const real = 'https://loja.exemplo/pedido-montado#ASii_DHmA-0123'
+    const t = proposalWhatsappText({ name: 'Ana', link: real, expiresAt: '2026-11-07T15:00:00Z' })
+    const linhas = t.split('\n')
+    expect(linhas.filter((l) => l.includes('pedido-montado'))).toEqual([real])
+    expect(t).not.toContain(`${real}.`)
+    expect(t).not.toMatch(/: https?:/)
   })
 
   it('o dia é o de Brasília, não o UTC (02:30 UTC de 08/11 ainda é 07/11 em Porto Alegre)', () => {

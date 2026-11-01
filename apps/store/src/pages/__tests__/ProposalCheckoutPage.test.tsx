@@ -27,11 +27,16 @@ import { PROPOSAL_TOKEN_KEY } from '@/features/proposal-checkout/model/proposalT
 //
 // As expectativas são LITERAIS, escritas à mão a partir da letra da spec.
 
-const { invokeMock, createPaymentMock, getCardFormDataMock, toastError } = vi.hoisted(() => ({
+const { invokeMock, createPaymentMock, getCardFormDataMock, toastError, frete, cotacao } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   createPaymentMock: vi.fn(),
   getCardFormDataMock: vi.fn(),
   toastError: vi.fn(),
+  // A faixa de frete grátis da loja, trocável por caso (fecho da rodada 3, S13).
+  frete: { free_shipping_enabled: true as boolean, free_shipping_threshold: 1000 },
+  cotacao: {
+    atual: [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }] as Array<Record<string, unknown>>,
+  },
 }))
 
 vi.mock('@estrelinha/supabase/client', () => ({
@@ -51,8 +56,8 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
     min_installment_value: 10,
   }),
   useShippingSettings: () => ({
-    free_shipping_enabled: true,
-    free_shipping_threshold: 1000,
+    free_shipping_enabled: frete.free_shipping_enabled,
+    free_shipping_threshold: frete.free_shipping_threshold,
     default_shipping_cost: 9.9,
     handling_days: 2,
   }),
@@ -61,7 +66,7 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
 vi.mock('@/features/checkout/api/useCepLookup', () => ({ useCepLookup: () => ({ data: undefined }) }))
 vi.mock('@/features/checkout/api/useShippingQuote', () => ({
   useShippingQuote: () => ({
-    data: [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }],
+    data: cotacao.atual,
     isError: false,
     isLoading: false,
     isSuccess: true,
@@ -197,6 +202,9 @@ beforeEach(() => {
   })
   for (const k of Object.keys(respostas)) delete respostas[k]
   respostas['get-proposal'] = () => ({ data: { proposal: proposta() }, error: null })
+  frete.free_shipping_enabled = true
+  frete.free_shipping_threshold = 1000
+  cotacao.atual = [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }]
   createPaymentMock.mockReset()
   getCardFormDataMock.mockReset()
   toastError.mockReset()
@@ -218,6 +226,15 @@ describe('T25 — a página (CON-01..04, CON-07..11, SEG-02, SEG-03)', () => {
     expect(invokeMock).toHaveBeenCalledWith('checkout?action=get-proposal', { body: { token: TOKEN } })
     expect(window.location.hash).toBe('')
     expect(sessionStorage.getItem(PROPOSAL_TOKEN_KEY)).toBe(TOKEN)
+  })
+
+  // BUG-20261031-ponto-final-depois-do-link-no-whatsapp (opção a, 2026-10-31): o ponto final da
+  // frase colado ao link não derruba um pedido válido em "Este link não está mais disponível".
+  it('o link com o ponto final colado (#<token>.) abre o pedido, pedindo pelo token limpo', async () => {
+    montar(`#${TOKEN}.`)
+    await screen.findByRole('heading', { level: 1, name: 'Seu pedido' })
+    expect(invokeMock).toHaveBeenCalledWith('checkout?action=get-proposal', { body: { token: TOKEN } })
+    expect(screen.queryByText(/não está mais disponível/)).toBeNull()
   })
 
   it('o título, a frase e o prazo da spec (CON-02); o <title> é "Pedido montado" com noindex (SEG-03)', async () => {
@@ -289,6 +306,35 @@ describe('T25 — a página (CON-01..04, CON-07..11, SEG-02, SEG-03)', () => {
     expect(resumo).not.toHaveTextContent('R$ 0,00')
     // 250 dos itens, sem os 20 do PAC; PIX 5% sobre os itens = 12,50 ⇒ 237,50.
     expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 237,50')
+  })
+
+  // Fecho da rodada 3 do Verifier (S13, A-11/PRC-06): a página passa a faixa de frete grátis da loja
+  // a `proposalPricing`, a mesma que o `create-order` aplica — e ela zera o frete da entrega
+  // ESCOLHIDA, qualquer que seja. O `DeliveryBlock` só zera a mais barata (SHP-06), então a prova
+  // escolhe o SEDEX: sem a faixa na conta da página, ela cobraria 35 de frete e o pedido nasceria
+  // sem ele. Com o interruptor desligado e a mesma faixa, o SEDEX fica (AD-027).
+  it('faixa de frete grátis alcançada: a entrega escolhida fica grátis no total; desligada, não (A-11)', async () => {
+    cotacao.atual = [
+      { id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 },
+      { id: 2, name: 'SEDEX', company: 'Correios', price: '35.00', delivery_time: 2 },
+    ]
+    frete.free_shipping_threshold = 200
+    const { unmount } = montar()
+    await screen.findByRole('heading', { level: 1, name: 'Seu pedido' })
+    fireEvent.click((await screen.findAllByText(/SEDEX/))[0])
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
+    // 250 dos itens ≥ 200: o SEDEX sai do total; PIX 5% sobre os itens = 12,50 ⇒ 237,50.
+    expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 237,50')
+    unmount()
+
+    frete.free_shipping_enabled = false
+    useProposalCheckoutStore.getState().reset()
+    montar()
+    await screen.findByRole('heading', { level: 1, name: 'Seu pedido' })
+    fireEvent.click((await screen.findAllByText(/SEDEX/))[0])
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
+    // 250 − 12,50 + 35 = 272,50.
+    expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 272,50')
   })
 
   it('sem fragmento e sem token guardado ⇒ o link não vale (CON-08), sem chamar a function', async () => {
@@ -367,6 +413,59 @@ describe('T25 — a página (CON-01..04, CON-07..11, SEG-02, SEG-03)', () => {
       .filter(([n]) => n === 'checkout?action=create-order')
       .map(([, { body }]) => body.proposal_version)
     expect(versoes).toEqual([3, 4])
+  })
+})
+
+describe('QA 89 — a Adri atualizou o pedido com a página aberta (BUG-20261031-frete-antigo-depois-que-a-adri-atualiza)', () => {
+  // Decisão do usuário, 2026-10-31, opção (a): a entrega escolhida volta a "não escolhida" e a
+  // cliente escolhe de novo — nenhum preço de frete fica na tela sem ter sido cotado para o pacote
+  // atual. Duas opções de propósito: com uma só, a pré-seleção do bloco escolheria sozinha.
+  it('a frase de atualização desfaz a entrega; o preço velho some e o pedido nasce com o frete novo', async () => {
+    cotacao.atual = [
+      { id: 1, name: 'PAC', company: 'Correios', price: '35.00', delivery_time: 6 },
+      { id: 2, name: 'SEDEX', company: 'Correios', price: '50.00', delivery_time: 2 },
+    ]
+    let leituras = 0
+    respostas['get-proposal'] = () => {
+      leituras += 1
+      return { data: { proposal: proposta({ version: leituras === 1 ? 3 : 4 }) }, error: null }
+    }
+    respostas['create-order'] = () => falha(409, { error: 'x', code: 'proposal_changed' })
+    montar()
+    fireEvent.click(await screen.findByRole('button', { name: /^Correios PAC/ }))
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.cost).toBe(35))
+    await waitFor(() => expect(ctaPagar()).toBeEnabled())
+    expect(screen.getAllByText(/Frete · Correios PAC/).length).toBeGreaterThan(0)
+
+    // A Adri acrescentou uma peça: o pacote novo cota outro preço.
+    cotacao.atual = [
+      { id: 1, name: 'PAC', company: 'Correios', price: '37.49', delivery_time: 6 },
+      { id: 2, name: 'SEDEX', company: 'Correios', price: '55.00', delivery_time: 2 },
+    ]
+    fireEvent.click(ctaPagar())
+    expect(await screen.findByText('A Adri atualizou seu pedido. Confira de novo antes de concluir.')).toBeInTheDocument()
+    expect(leituras).toBe(2)
+
+    // A entrega voltou a "não escolhida": nada de PAC a 35 no resumo nem no rascunho.
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping).toBeNull())
+    expect(screen.queryByText(/Frete · Correios PAC/)).toBeNull()
+    expect(screen.queryByText(/R\$\s?35,00/)).toBeNull()
+    expect(ctaPagar()).toBeDisabled()
+
+    // Ela escolhe de novo, e o pedido vai com o frete do pacote atual.
+    respostas['create-order'] = () => ({ data: { order_id: 'ord-v4', order_number: '0266', access_token: 'a' }, error: null })
+    fireEvent.click(await screen.findByRole('button', { name: /^Correios PAC/ }))
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.cost).toBe(37.49))
+    await waitFor(() => expect(ctaPagar()).toBeEnabled())
+    fireEvent.click(ctaPagar())
+    expect(await screen.findByTestId('destino')).toHaveTextContent('/pedido/ord-v4/pagamento')
+    const corpos = invokeMock.mock.calls
+      .filter(([n]) => n === 'checkout?action=create-order')
+      .map(([, { body }]) => ({ v: body.proposal_version, frete: body.shipping_cost }))
+    expect(corpos).toEqual([
+      { v: 3, frete: 35 },
+      { v: 4, frete: 37.49 },
+    ])
   })
 })
 

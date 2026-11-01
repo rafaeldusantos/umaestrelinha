@@ -467,3 +467,42 @@ F21 e B13: equivalentes de efeito, sem fix (F21 sugere apagar o campo morto `act
 **Sensor**: 65 injetados (61 novos + 4 retestes) · 53 mortos por asserção, 0 por compilação · 12 sobreviventes (2 equivalentes, 1 baixo, **9 a fechar**). SHA-256 conferido nos 65.
 **Fix tasks**: (1) P07 fixtura com promoção travada no probe; (2) K25+S13 frete grátis por faixa nos dois lados, com o interruptor desligado e ligado; (3) F15 promoção inativa; (4) K23 endereço editado no `create-order`; (5) K30 e-mail na proposta pública; (6) K20 falha de leitura ⇒ 502; (7) B09 duas variações oferecíveis; (8) F24 diferença de um centavo. Opcional: N05b.
 **Lições**: L-090 (fixtura com as duas colunas iguais), L-091 (interruptor de elegibilidade só no estado "ligado"), evidência r3 em L-086 (K23).
+
+---
+
+## Fecho das lacunas da rodada 3 — 2026-10-31 (sem rodada 4)
+
+Autor = quem consertou (não é verificação independente). Pelo limite da skill a r3 foi a última rodada; as lacunas foram fechadas sem rodada 4, como na `72`, `73`, `83` e `88`. A `89` já está na árvore como commit `72c57cf3`; este fecho é working tree, sem commit. Os nove sobreviventes (P07, K25+S13, F15, K23, K30, K20, B09, F24 e o opcional N05b) foram reinjetados no arquivo REAL, um por vez, por um arnês que lança quando o trecho alvo não aparece exatamente uma vez, roda só a suíte do assunto e restaura com SHA-256 conferido. **10 mutantes, 10 mortos por asserção (para o SQL, `PROBE FALHOU`), 0 por compilação, SHA-256 conferido nos 10.** **Nenhum defeito de produto**: em todos os pontos o código de hoje fazia o certo; faltava a prova. O conserto do `BUG-20261031-trocar-variacao-solta-o-foco` vem no fim.
+
+| # | Lacuna | Conserto (só teste/probe) | Mutante reinjetado ⇒ quem mata |
+| --- | --- | --- | --- |
+| 1 | P07 — PRC-03, o pedido copia `unit_price` | probe `01-proposta.sql`: proposta com uma linha de promoção travada (`list_price` 150, `unit_price` 120, conferido na fixtura) concluída por `create_order_from_proposal` ⇒ `order_items.unit_price` = 120 e a soma das linhas = 200. **51 `ok —`**, exit 0; `01-proposta.saida.txt` regravado | P07 (`i.unit_price` → `i.list_price` no `insert into order_items`) ⇒ `PROBE FALHOU` no caso novo (os 50 anteriores passam) |
+| 2 | K25 — A-11 na function, o interruptor desligado | +1 em `checkout/__tests__/proposal.test.ts`: `free_shipping_enabled: false` com a faixa (200) abaixo dos itens (230) ⇒ `p_order.shipping_cost` = 20 e o total 250 | K25 (`free_shipping_enabled` forçado `true`) ⇒ o caso novo (1 de 52) |
+| 3 | S13 — A-11 na página, a faixa alcançada | +1 em `pages/__tests__/ProposalCheckoutPage.test.tsx` (página real; a faixa e a cotação do dublê viraram mutáveis por caso via `vi.hoisted`): duas cotações, a cliente escolhe o **SEDEX** (35) com a faixa alcançada ⇒ o total sai 237,50; com o interruptor desligado ⇒ 272,50. A escolha do SEDEX é a régua: o `DeliveryBlock` já zera a MAIS BARATA (SHP-06), então com o PAC a página seria verdadeira nos dois mundos (medido: a primeira escrita do caso, com o PAC, sobreviveu ao mutante) — quem zera a entrega escolhida, como o `create-order`, é o `proposalPricing` da página | S13 (`freeShipping: shippingSettings` → `null`) ⇒ o caso novo (1 de 21) |
+| 4 | F15 — A-05/PRC-01, promoção inativa | o caso "a promoção vigente é travada…" de `order-proposals/__tests__/handlers.test.ts` ganhou o terceiro par: `promo({ active: false })` vigente pelas datas ⇒ `unit_price` 100 (= `list_price`) e `promotion_discount` 0 | F15 (sem `if (p.active !== true) return false`) ⇒ esse caso |
+| 5 | K23 — CON-04, o endereço editado | +1 em `proposal.test.ts`: corpo com CEP, rua, número, complemento, bairro, cidade e UF diferentes dos gravados ⇒ `p_order` leva os do corpo (CEP só dígitos); e o número `12` de `CONCLUIR` contra o `10` gravado | K23 (`address_number` ← `row.address_number`) ⇒ o caso novo |
+| 6 | K30 — CON-04/A-07, o e-mail público | o primeiro caso de `get-proposal` ganhou `expect(proposal.customer_email).toBe('maria@exemplo.invalid')` | K30 (`customer_email: ''` em `publica`) ⇒ esse caso |
+| 7 | K20 — a leitura da proposta que falha | +1 em `proposal.test.ts`: `from('order_proposals')` dublado com `maybeSingle` em erro ⇒ 502, sem `code`, sem a frase de `PROPOSAL_UNAVAILABLE`, sem proposta (o dublê compartilhado não sabe dar erro em `maybeSingle`; o caso troca só essa tabela) | K20 (o primeiro `read_failed` → `return unavailable()`) ⇒ o caso novo |
+| 8 | B09 — MON-05, duas variações oferecíveis | o caso `acertoDaLinha` de `PiecesAndDiscounts.test.tsx` ganhou: linha nova (sem `variant_id`) com duas oferecíveis ⇒ `needsVariant`, `variant_id: null`, `list_price: null`; e o par — uma das duas sem estoque ⇒ entra a única, `b`, 210 | B09 (`oferecivel.length === 1` → `>= 1`) ⇒ esse caso (1 de 21) |
+| 9 | F24 — PRC-02, a tolerância | +1 em `handlers.test.ts`: `expected_total` 400,01 e 399,99 ⇒ 409 sem gravar; 400,004 (arredondamento) ⇒ 200 | F24 (`< 0.005` → `< 0.5`) ⇒ o caso novo (1 de 82) |
+| 10 | N05b (opcional) — os números da montagem recusada | o caso "desconto que zera os itens" de `core/proposals/__tests__/pricing.test.ts` ganhou: `subtotal` 30, `couponDiscount` 10, `manualDiscount` 20 e a linha travada a 30 | N05b (`outcome = priceItems(input, 1)` → `outcome = null`) ⇒ esse caso (1 de 66) |
+
+F21 e B13 continuam equivalentes de efeito declarados, sem conserto (a análise da r3 vale). **Arquivo de teste de outra frente**: `ProposalCheckoutPage.test.tsx` ganhou um caso e a faixa/cotação mutáveis no dublê (`frete`, `cotacao`, reiniciados no `beforeEach`); nenhum arquivo de produção dessa frente (`features/proposal-checkout/**`, `core/proposals/link.ts`, `ProposalCheckoutPage.tsx`) foi editado.
+
+### O conserto do foco — `BUG-20261031-trocar-variacao-solta-o-foco`
+
+- **Teste vermelho antes**: +1 em `apps/backoffice/src/entities/product/ui/__tests__/VariantPicker.test.tsx` — foca "Trocar variação (12 opções)", aciona, e exige `document.activeElement` = a variação escolhida (`aria-checked`, `tabIndex 0`). No código de antes: `BODY`.
+- **Conserto**: `VariantPicker.tsx` — `ref` no `radiogroup` e um efeito sobre `aberta` que, depois do commit que abre a lista, chama `devolverFoco` (dono único `apps/backoffice/src/shared/lib/foco.ts`) com a parada do grupo. `aberta` só vira `true` por esse botão.
+- **Mutante**: a chamada a `devolverFoco` apagada ⇒ morto por asserção pelo caso novo (SHA-256 conferido). A primeira versão tinha uma marca de "foi o gesto" (`ref`) e um caso "trocar a escolhida por fora não puxa o foco"; o mutante que tirava a marca **sobreviveu** — ela era redundante e o caso era verdadeiro nos dois mundos —, e os dois foram removidos em vez de mantidos.
+- O arquivo do bug está `fixed`; falta o reteste em navegador.
+
+### Gate (um workspace por vez, `--testTimeout=20000` sem o `--`, exit fora de pipe)
+
+| Workspace | Agora | Deste fecho |
+| --- | --- | --- |
+| functions | **1417/38**, exit 0 | +4 (K20, K23, K25, F24; K30 e F15 em casos existentes) |
+| core | **5129/202**, exit 0 | +0 (N05b em caso existente) |
+| backoffice | **4897/268**, exit 0 | +1 (o foco; B09 em caso existente) |
+| store | **6480/347**, exit 0 | +1 (S13) |
+
+A diferença restante contra as linhas do fecho da `89`/r2 (core +3, backoffice +8, store +3) já estava na árvore antes deste fecho (o commit `72c57cf3`); não é deste trabalho e não foi medida separadamente. Tipos: store 0 · backoffice 0 · core 11 herdados. Lint: backoffice 23/5 · store 2/2 (baseline). Migration intocada (SHA-256 `90e5db0b…` antes e depois da mutação P07).

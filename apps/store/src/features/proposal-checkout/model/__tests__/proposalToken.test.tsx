@@ -52,6 +52,32 @@ describe('takeProposalToken (SEG-02)', () => {
     set.mockRestore()
   })
 
+  // BUG-20261031-ponto-final-depois-do-link-no-whatsapp (decisão do usuário, 2026-10-31, opção a):
+  // o token é base64url e nunca contém pontuação; a que vier colada no FIM do fragmento (o ponto
+  // final da frase, a vírgula, o parêntese de quem citou o link) é aparada antes de ler.
+  it.each(['.', ',', ';', ':', '!', '?', ')', ']', '}', '>', '"', "'", '…', '...', '.)', '%2E', ').'])(
+    'pontuação no fim do fragmento (%s) é aparada; o token guardado é o limpo',
+    (sufixo) => {
+      window.history.replaceState(null, '', `/pedido-montado#${TOKEN}${sufixo}`)
+      expect(takeProposalToken()).toBe(TOKEN)
+      expect(sessionStorage.getItem(PROPOSAL_TOKEN_KEY)).toBe(TOKEN)
+      expect(window.location.hash).toBe('')
+    },
+  )
+
+  it('o hífen e o sublinhado do base64url NÃO são aparados no fim', () => {
+    for (const t of [`${TOKEN}-`, `${TOKEN}_`, `${TOKEN}-_`]) {
+      window.history.replaceState(null, '', `/pedido-montado#${t}`)
+      expect(takeProposalToken()).toBe(t)
+    }
+  })
+
+  it('fragmento só de pontuação não vira token: cai no guardado', () => {
+    sessionStorage.setItem(PROPOSAL_TOKEN_KEY, TOKEN)
+    window.history.replaceState(null, '', '/pedido-montado#.')
+    expect(takeProposalToken()).toBe(TOKEN)
+  })
+
   it('forgetProposalToken esquece', () => {
     sessionStorage.setItem(PROPOSAL_TOKEN_KEY, TOKEN)
     forgetProposalToken()
