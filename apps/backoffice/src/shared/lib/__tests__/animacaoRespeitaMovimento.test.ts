@@ -74,6 +74,10 @@ const ARQUIVOS = [
   // próprio. As âncoras abaixo subiram junto (+6 tokens / +3 pares), medidas pela própria régua.
   'features/store-menu/ui/MenuTree.tsx',
   'features/store-menu/ui/MenuTargetPicker.tsx',
+  // Compre Junto — a linha de peça do editor de listas (a alça, subir/descer/tirar e os marcadores
+  // de variação). Os outros dois arquivos de UI da tela não declaram movimento próprio. As âncoras
+  // abaixo subiram junto (+4 tokens / +2 pares), medidas pela própria régua.
+  'features/buy-together-lists/ui/ListItemRow.tsx',
 ] as const
 
 /**
@@ -175,11 +179,11 @@ describe('o movimento do painel respeita `prefers-reduced-motion` (ANI-05)', () 
     // os três da 85 (só o visualizador move: a desarmação da entrada do `DialogContent`), 54/26 com os dois da 86 — o número sobe
     // com o escopo, sempre medido, nunca arredondado para baixo "por segurança": uma âncora folgada
     // é uma âncora que para de acusar.
-    expect(tokens.length).toBeGreaterThanOrEqual(54)
+    expect(tokens.length).toBeGreaterThanOrEqual(58)
 
     // E a terceira: os pares existem mesmo. Uma régua que nunca visse `motion-reduce:` também
     // passaria na segunda âncora, acusando tudo — ou, com o filtro invertido, nada.
-    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(26)
+    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(28)
   })
 
   it('nenhum arquivo em escopo declara movimento sem o par `motion-reduce:`', () => {

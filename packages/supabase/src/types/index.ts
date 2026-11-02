@@ -736,3 +736,7 @@ export * from './home'
 // === Filtros de produto (feature 66) ===
 
 export * from './filters'
+
+// === Compre Junto (listas de peças e adicionais de cada joia) ===
+
+export * from './buyTogether'

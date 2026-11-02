@@ -88,6 +88,12 @@ export interface ProductSearchFieldProps {
   mostrarFoto?: boolean
   /** Foca o campo ao montar (a caixa "Acrescentar peça" abre já pronta para digitar). */
   autoFocus?: boolean
+  /**
+   * Padrão desligado. Ligado, a peça fora do ar vira linha desabilitada dizendo "Fora do ar", como a
+   * já escolhida: a lista do Compre Junto não aceita peça que a loja pularia. Nas outras superfícies
+   * escolher peça despublicada é estado legítimo, e continua sendo.
+   */
+  bloquearForaDoAr?: boolean
 }
 
 const ProductSearchField = ({
@@ -105,6 +111,7 @@ const ProductSearchField = ({
   id = 'busca-de-produto',
   mostrarFoto = false,
   autoFocus = false,
+  bloquearForaDoAr = false,
 }: ProductSearchFieldProps) => {
   const { produtos, carregando, erro, recarregar } = useProductPool()
   const [busca, setBusca] = useState('')
@@ -237,17 +244,19 @@ const ProductSearchField = ({
           <ul data-testid="pecas-encontradas" className="max-h-60 space-y-1 overflow-y-auto">
             {resultado.itens.map(produto => {
               const jaEscolhida = jaEscolhidos.has(produto.id)
+              const foraDoArBloqueada = bloquearForaDoAr && !jaEscolhida && !produto.is_active
+              const desabilitada = jaEscolhida || foraDoArBloqueada
 
               return (
                 <li key={produto.id}>
                   <button
                     type="button"
                     data-testid={`peca-${produto.id}`}
-                    disabled={jaEscolhida}
+                    disabled={desabilitada}
                     onClick={() => onEscolher(produto)}
                     className={cn(
                       'flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors motion-reduce:transition-none',
-                      jaEscolhida
+                      desabilitada
                         ? 'cursor-not-allowed border-border bg-muted/40 text-muted-foreground'
                         : 'border-input bg-card text-foreground hover:bg-muted/50',
                     )}
@@ -255,7 +264,7 @@ const ProductSearchField = ({
                     {mostrarFoto ? (
                       <PecaFoto url={capas[produto.id]} tamanho={40} />
                     ) : (
-                      !jaEscolhida && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                      !desabilitada && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                     )}
                     <span className={cn('min-w-0 flex-1', mostrarFoto ? 'break-words text-sm font-medium' : 'truncate')}>
                       {produto.name}
@@ -277,7 +286,13 @@ const ProductSearchField = ({
                       </span>
                     )}
 
-                    {!jaEscolhida && !produto.is_active && (
+                    {foraDoArBloqueada && (
+                      <span data-testid={`ja-escolhida-${produto.id}`} className="shrink-0 text-[11px]">
+                        Fora do ar
+                      </span>
+                    )}
+
+                    {!jaEscolhida && !foraDoArBloqueada && !produto.is_active && (
                       // Não é recusa: escolher uma peça despublicada é estado legítimo — ela pode
                       // voltar ao ar amanhã. Mas escolhê-la **sem saber** faria o painel dizer "1
                       // escolhida saiu do ar" um segundo depois, sem a dona entender por quê.

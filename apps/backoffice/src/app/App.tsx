@@ -21,6 +21,8 @@ import AdminFiltersPage from "@/pages/admin/AdminFiltersPage";
 import AdminFilterValuePage from "@/pages/admin/AdminFilterValuePage";
 import AdminFilterSuggestionsPage from "@/pages/admin/AdminFilterSuggestionsPage";
 import AdminFaqsPage from "@/pages/admin/AdminFaqsPage";
+import AdminBuyTogetherPage from "@/pages/admin/AdminBuyTogetherPage";
+import AdminBuyTogetherListPage from "@/pages/admin/AdminBuyTogetherListPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
 import AdminStoreFaqPage from "@/pages/admin/AdminStoreFaqPage";
@@ -101,6 +103,12 @@ const App = () => (
             <Route path="/admin/filtros/sugestoes" element={<AdminFilterSuggestionsPage />} />
             <Route path="/admin/filtros/:groupId" element={<AdminFiltersPage />} />
             <Route path="/admin/filtros/:groupId/valores/:valueId" element={<AdminFilterValuePage />} />
+            {/* O Compre Junto: o índice das listas e o editor (`nova` e `:id` são a MESMA tela, irmãs
+                auto-fechadas como em `/admin/home`). A estática `nova` vence `:id`. Só o índice entra
+                em `navGroups`. */}
+            <Route path="/admin/compre-junto" element={<AdminBuyTogetherPage />} />
+            <Route path="/admin/compre-junto/listas/nova" element={<AdminBuyTogetherListPage />} />
+            <Route path="/admin/compre-junto/listas/:id" element={<AdminBuyTogetherListPage />} />
             <Route path="/admin/perguntas" element={<AdminFaqsPage />} />
 
             {/* Loja — o que a cliente vê. A ordem segue `navGroups`, e `navItems.test.ts` lê este
