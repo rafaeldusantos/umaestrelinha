@@ -12,6 +12,7 @@ import {
   DEFAULT_MENU,
   DEFAULT_NOTIFICATIONS,
   DEFAULT_ANALYTICS,
+  DEFAULT_BUY_TOGETHER,
   type AnalyticsSettings,
   type GeneralSettings,
   type ShippingSettings,
@@ -49,6 +50,8 @@ const DEFAULTS: SettingsMap = {
   // Feature 61 — a medição do GA4. Sem esta linha `fetchAllSettings` descartaria a linha
   // `analytics` em silêncio, e a loja e o painel leriam "desligado" com a medição ligada no banco.
   analytics: DEFAULT_ANALYTICS,
+  // WI Compre Junto — a forma do bloco. Sem esta linha `fetchAllSettings` descartaria a chave.
+  buy_together: DEFAULT_BUY_TOGETHER,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {

@@ -3,6 +3,7 @@
 // Vazio e ilegível não são o mesmo estado (`AD-014`): a leitura que falha diz que falhou, e não
 // "nenhuma lista".
 
+import type { ReactNode } from 'react'
 import { ListChecks, Plus } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { BUY_TOGETHER_LIST_ITEMS_MAX } from '@estrelinha/core/buy-together'
@@ -19,6 +20,8 @@ export interface BuyTogetherListsIndexProps {
   onOpen: (id: string) => void
   /** O relógio, injetável para o "Atualizada" relativo ser testável. */
   now?: number
+  /** Um cartão entre o cabeçalho e as listas — a forma do bloco na loja. */
+  aside?: ReactNode
 }
 
 const relativa = (iso: string, agora: number): string => {
@@ -44,7 +47,7 @@ const Pilha = ({ lista, quantas }: { lista: ListaDoCompreJunto; quantas: number 
   </span>
 )
 
-const BuyTogetherListsIndex = ({ listas, loading, error, onRetry, onNew, onOpen, now }: BuyTogetherListsIndexProps) => {
+const BuyTogetherListsIndex = ({ listas, loading, error, onRetry, onNew, onOpen, now, aside }: BuyTogetherListsIndexProps) => {
   const agora = now ?? Date.now()
   const foraDoAr = (l: ListaDoCompreJunto) => l.pecas.filter(p => !p.ativa).length
 
@@ -61,6 +64,8 @@ const BuyTogetherListsIndex = ({ listas, loading, error, onRetry, onNew, onOpen,
           </Button>
         }
       />
+
+      {aside}
 
       <p className="mb-4 border-b border-border pb-2 text-sm font-semibold text-foreground">
         Listas <span data-testid="contagem-de-listas" className="text-muted-foreground">({listas.length})</span>

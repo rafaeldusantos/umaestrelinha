@@ -1400,6 +1400,12 @@ bloco fica (`AD-019`); a loja é quem mostra.
 - Peça fora do ar aparece marcada "saiu do ar" e sem marcadores de variação; as variações liberadas que
   deixaram de existir avisam que a loja pula a peça (nunca passa a valer todas).
 - Teste: `pages/admin/AdminBuyTogether.test.tsx` (páginas reais sobre um banco em memória).
+- **A forma do bloco na loja** mora no índice, no cartão `BuyTogetherFormCard` (prop `aside` do índice):
+  três opções ("Na linha", "Em folha", "Com fórmula"), uma configuração para a loja inteira, gravada em
+  `store_settings` na chave `buy_together` (`{ form }`, sem migration; sem linha vale "Na linha"). O
+  vocabulário, os nomes e a normalização são de `@estrelinha/core/buy-together` (`settings.ts`); a leitura
+  é `useBuyTogetherForm` (`core/hooks`) e a gravação, `useUpdateSettings`. Só muda a apresentação: preço,
+  total e o que vai à sacola são os mesmos. Teste: `pages/admin/AdminBuyTogetherForm.test.tsx`.
 
 ## Compre Junto › a aba "Compre junto" do produto
 

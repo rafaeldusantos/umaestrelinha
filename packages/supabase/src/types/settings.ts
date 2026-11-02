@@ -390,6 +390,7 @@ export type SettingsKey =
   | 'menu'
   | 'notifications'
   | 'analytics'
+  | 'buy_together'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -403,4 +404,18 @@ export interface SettingsMap {
   menu: MenuSettings
   notifications: NotificationSettings
   analytics: AnalyticsSettings
+  buy_together: BuyTogetherSettings
 }
+
+/**
+ * A forma do bloco Compre Junto na loja. `form` é a coluna crua: quem conhece as três formas e
+ * normaliza o que vier é `normalizeBuyTogetherForm` (`@estrelinha/core/buy-together`).
+ *
+ * Sem migration: ausência de linha é o padrão. `DEFAULT_BUY_TOGETHER.form` precisa ser
+ * `DEFAULT_BUY_TOGETHER_FORM` — `storeSettingsDefaults.test.ts` compara os dois.
+ */
+export interface BuyTogetherSettings {
+  form: string
+}
+
+export const DEFAULT_BUY_TOGETHER: BuyTogetherSettings = { form: 'inline' }
