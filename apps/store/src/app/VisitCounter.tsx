@@ -1,14 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { isPreviewWindow } from '@estrelinha/core/home'
 import { useAnalyticsSettings, useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { OPT_OUT_PARAM, readOptOutParam } from '@estrelinha/core/visits'
 import { useCookieConsentStore } from '@/entities/cookie-consent'
 import {
   ensureVisitorId,
   forgetVisitorId,
-  isOptedOut,
   markerAllowsCall,
   postVisit,
   readMarker,
@@ -16,8 +14,8 @@ import {
   setOptOut,
   visitCounterState,
   visitRefusal,
-  type VisitContext,
 } from '@/shared/lib/visits'
+import { visitContext, type VisitConfig } from '@/app/visitContext'
 
 /**
  * Feature 71 — o contador de visitas únicas da loja (`VIS-16`..`VIS-25`, `VIS-42`).
@@ -40,31 +38,12 @@ const FALHAS_MAX = 2
 const AVISO_SEM_CONTAR = 'Este navegador não é mais contado nas visitas da loja.'
 const AVISO_CONTANDO = 'Este navegador voltou a ser contado nas visitas da loja.'
 
-interface Configuracao {
-  settingsLoaded: boolean
-  productionHost: string
-}
-
-/** O contexto da decisão, lido NO INSTANTE da tentativa — nunca guardado da montagem. */
-function contexto(cfg: Configuracao): VisitContext {
-  const nav = typeof navigator === 'undefined' ? null : navigator
-  return {
-    production: import.meta.env.PROD === true,
-    preview: isPreviewWindow(window.location.search, window.parent !== window),
-    settingsLoaded: cfg.settingsLoaded,
-    productionHost: cfg.productionHost,
-    hostname: window.location.hostname,
-    statistics: useCookieConsentStore.getState().statistics,
-    optedOut: isOptedOut(),
-    webdriver: nav?.webdriver === true,
-    userAgent: nav?.userAgent ?? '',
-  }
-}
+type Configuracao = VisitConfig
 
 /** Relê a escolha de cookies (outra aba pode ter recusado, `VIS-25`) e decide. */
 function podeChamar(cfg: Configuracao): boolean {
   useCookieConsentStore.getState().syncFromStorage()
-  return visitRefusal(contexto(cfg)) === null
+  return visitRefusal(visitContext(cfg)) === null
 }
 
 async function tentar(cfg: Configuracao): Promise<void> {

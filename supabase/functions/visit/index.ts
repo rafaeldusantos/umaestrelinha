@@ -26,6 +26,9 @@ const deps: Deps = {
   // 30 gravações por minuto por IP, por isolate (`VIS-27`). É cortesia, não fronteira: o que segura
   // o crescimento da tabela é o teto diário de linhas, no banco.
   limiter: createRateLimiter(30, 60_000, now),
+  // O pulso de presença (`?action=ping`): 120 por minuto por IP, num balde próprio — uma aba manda um
+  // por minuto, e o teto da visita não pode ser consumido por ele (nem o contrário).
+  pingLimiter: createRateLimiter(120, 60_000, now),
   clock: createClockCache(),
   log: (linha) => console.log(JSON.stringify(linha)),
 }

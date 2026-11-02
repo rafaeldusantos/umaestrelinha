@@ -41,6 +41,8 @@ import {
 
 const ARQUIVO = '20261029120000_83-loja-ao-vivo.sql'
 const ARQUIVO_DA_71 = '20261021120000_71-visitas-unicas.sql'
+/** A migration que recria `store_movement` com "Com sacola" e a semana anterior. */
+const ARQUIVO_COM_SACOLA = '20261104140000_acessos-com-sacola.sql'
 
 const sql = lerMigration(ARQUIVO)
 const comandos = semComentario(sql)
@@ -522,16 +524,24 @@ describe('(9) a migration não escreve dado', () => {
 // (10) A vigente é a da 83
 // -------------------------------------------------------------------------------------------
 
-describe('(10) a migration vigente das duas funções recriadas é esta', () => {
-  it('`store_movement` e `record_store_visit`: a última, por prefixo, que as cria é a 83', () => {
-    expect(migrationVigenteDe('store_movement')).toBe(ARQUIVO)
+describe('(10) a migration vigente das funções recriadas', () => {
+  it('`record_store_visit` e `store_hour`: a última, por prefixo, que as cria é a 83', () => {
     expect(migrationVigenteDe('record_store_visit')).toBe(ARQUIVO)
     expect(migrationVigenteDe('store_hour')).toBe(ARQUIVO)
   })
 
-  it('sensor — sem a 83 na lista, a vigente volta a ser a 71', () => {
-    const semA83 = todasAsMigrations().filter((n) => n !== ARQUIVO)
-    expect(migrationVigenteDe('store_movement', semA83)).toBe(ARQUIVO_DA_71)
+  it('`store_movement`: a vigente é a da leitura com "Com sacola" e a semana anterior', () => {
+    expect(migrationVigenteDe('store_movement')).toBe(ARQUIVO_COM_SACOLA)
+  })
+
+  it('sensor — sem a 83 e a seguinte na lista, a vigente volta a ser a 71', () => {
+    const semAs = todasAsMigrations().filter((n) => n !== ARQUIVO && n !== ARQUIVO_COM_SACOLA)
+    expect(migrationVigenteDe('store_movement', semAs)).toBe(ARQUIVO_DA_71)
+  })
+
+  it('sensor — sem a seguinte, a vigente de `store_movement` volta a ser a 83', () => {
+    const semA = todasAsMigrations().filter((n) => n !== ARQUIVO_COM_SACOLA)
+    expect(migrationVigenteDe('store_movement', semA)).toBe(ARQUIVO)
   })
 })
 
@@ -647,5 +657,167 @@ describe('(13) LAV-73 — os dias do teto em cada comparação', () => {
 describe('o arnês de mutação', () => {
   it('`mutar()` LANÇA quando o alvo não existe', () => {
     expect(() => mutar(comandos, 'texto que não está no arquivo', 'x')).toThrow(/não encontrou o alvo/)
+  })
+})
+
+// -------------------------------------------------------------------------------------------
+// (14) A VIGENTE de store_movement ("Com sacola" e a semana anterior) — o que a 83 garantia
+//      continua garantido nela, e o que ela acrescenta tem régua. A semântica (o `least`, a soma
+//      dos dias, o corte da hora, a variação que some) é do probe
+//      `.specs/work-items/90-loja-ao-vivo-presenca/probes/04-acessos-com-sacola.sql`.
+// -------------------------------------------------------------------------------------------
+
+describe('(14) store_movement vigente — "Com sacola" e a semana anterior', () => {
+  const vig = lerMigration(ARQUIVO_COM_SACOLA)
+  const vigCmd = semComentario(vig)
+  const corpo = (texto: string) => corpoDaFuncao(texto, 'store_movement') ?? ''
+
+  const portaoPrimeiro = (texto: string) => {
+    const c = corpo(texto)
+    const begin = c.search(/\bbegin\b/i)
+    const portao = c.search(/if\s+not\s+public\.has_role\s*\(\s*auth\.uid\(\)\s*,\s*'admin'\s*\)\s+then\s+raise\s+exception/i)
+    const leitura = c.slice(begin).search(/\b(select|perform|with)\b/i)
+    return portaoDeAdmin(texto) && begin > -1 && portao > begin && leitura > -1 && portao < begin + leitura
+  }
+  const distintas = (texto: string): string[] =>
+    (corpo(texto).match(/count\s*\(\s*distinct\s+visitor_id\s*\)\s+filter\s*\([^)]*\)/gi) ?? []).map(norma)
+  const blocoDePeriodos = (texto: string): string | null => {
+    const c = corpo(texto)
+    const inicio = c.search(/'periodos'\s*,\s*jsonb_build_object\s*\(/i)
+    if (inicio < 0) return null
+    let nivel = 0
+    for (let i = c.indexOf('(', inicio); i < c.length; i++) {
+      if (c[i] === '(') nivel++
+      if (c[i] === ')') nivel--
+      if (nivel === 0) return norma(c.slice(inicio, i + 1))
+    }
+    return null
+  }
+  const itensDaConsulta = (texto: string): string[] => {
+    const q = consultaDePedidos(texto) ?? ''
+    const lista = q.replace(/^select\s+/i, '').split(/\binto\b/i)[0]
+    const itens: string[] = []
+    let nivel = 0
+    let atual = ''
+    for (const ch of lista) {
+      if (ch === '(') nivel++
+      if (ch === ')') nivel--
+      if (ch === ',' && nivel === 0) {
+        itens.push(norma(atual))
+        atual = ''
+      } else atual += ch
+    }
+    if (atual.trim()) itens.push(norma(atual))
+    return itens
+  }
+  const leiturasDe = (texto: string, tabela: string) =>
+    (corpo(texto).match(new RegExp(`\\bfrom\\s+(?:public\\.)?${tabela}\\b`, 'gi')) ?? []).length
+  /** O comando (até o `;`) que lê a tabela de visitas. */
+  const comandoDasVisitas = (texto: string): string => {
+    const c = corpo(texto)
+    const i = c.search(/\bfrom\s+public\.store_visits\b/i)
+    if (i < 0) return ''
+    const ini = c.lastIndexOf(';', i)
+    return c.slice(ini + 1, c.indexOf(';', i) + 1)
+  }
+  const atribuicao = (texto: string, nome: string): string | null => {
+    const m = corpo(texto).match(new RegExp(`\\b${nome}\\s*:=([\\s\\S]*?);`))
+    return m ? norma(m[1]) : null
+  }
+
+  it('âncora — o arquivo, store_movement e prune_store_visits', () => {
+    expect(vig.length).toBeGreaterThan(2000)
+    expect(blocoDaFuncao(vig, 'store_movement')).not.toBeNull()
+    expect(blocoDaFuncao(vig, 'prune_store_visits')).not.toBeNull()
+    expect(vigCmd.match(/create\s+or\s+replace\s+function\s+public\.\w+/gi)).toHaveLength(2)
+    expect(vigCmd).not.toMatch(/create\s+table/i)
+  })
+
+  it('portão `has_role` ⇒ 42501 é o primeiro comando; definer; search_path vazio; execute só a authenticated', () => {
+    expect(portaoPrimeiro(vig)).toBe(true)
+    expect(temSecurityDefiner(vig, 'store_movement')).toBe(true)
+    expect(temSearchPathVazio(vig, 'store_movement')).toBe(true)
+    expect(papeis(vig, 'revoke', 'function', 'store_movement')).toEqual(expect.arrayContaining(['public', 'anon']))
+    expect(papeis(vig, 'grant', 'function', 'store_movement')).toEqual(['authenticated'])
+  })
+
+  it('periodos: o bloco é o da 71, inteiro, e as seis expressões de venda as da 71, na mesma ordem', () => {
+    expect(blocoDePeriodos(vig)).toBe(blocoDePeriodos(sql71))
+    expect(itensDaConsulta(vig).slice(0, 6)).toEqual(itensDaConsulta(sql71))
+  })
+
+  it('periodos: os três `count(distinct visitor_id)` da 71 vêm primeiro, e os dois seguintes são EXATAMENTE as duas semanas até a hora', () => {
+    const d = distintas(vig)
+    expect(d.slice(0, 3)).toEqual(distintas(sql71))
+    expect(d).toHaveLength(5)
+    expect(corpo(vig)).toContain('count(distinct visitor_id) filter (where (day >= v_semana and day < v_hoje) or (day = v_hoje and first_hour < v_hora)) as semana_base')
+    expect(corpo(vig)).toContain('count(distinct visitor_id) filter (where (day >= v_semana_ant and day < v_hoje_ant) or (day = v_hoje_ant and first_hour < v_hora)) as semana_ant')
+  })
+
+  it('sensor — a semana de periodos de outro recorte reprova', () => {
+    const m = mutarNoBloco(vig, 'store_movement', 'filter (where day between v_semana and v_hoje)', 'filter (where day between v_desde and v_hoje)')
+    expect(distintas(m).slice(0, 3)).not.toEqual(distintas(sql71))
+  })
+
+  it('sensor — o ticket sem `round` reprova o bloco de periodos', () => {
+    const m = mutarNoBloco(vig, 'store_movement', 'then round(v_f_semana / v_n_semana, 2) end', 'then v_f_semana / v_n_semana end')
+    expect(blocoDePeriodos(m)).not.toBe(blocoDePeriodos(sql71))
+  })
+
+  it('um snapshot: UM `from public.store_visits` e UM `from public.store_presence_carts`, no MESMO comando', () => {
+    expect(leiturasDe(vig, 'store_visits')).toBe(1)
+    expect(leiturasDe(vig, 'store_presence_carts')).toBe(1)
+    expect(comandoDasVisitas(vig)).toMatch(/\bfrom\s+public\.store_presence_carts\b/i)
+  })
+
+  it('sensor — a marca lida num segundo comando reprova', () => {
+    const m = mutarNoBloco(
+      vig,
+      'store_movement',
+      '  v_inicio_dia := public.store_day(v_inicio);',
+      '  v_inicio_dia := public.store_day(v_inicio);\n  select count(*) into v_s_hoje from public.store_presence_carts where day = v_hoje;',
+    )
+    expect(leiturasDe(m, 'store_presence_carts')).toBe(2)
+  })
+
+  it('"Com sacola" de cada dia é limitado pelas visitas do dia (`least`), inteiro e no corte da hora', () => {
+    expect(corpo(vig)).toContain('least(coalesce(cd.n, 0), coalesce(vd.n, 0)) as n')
+    expect(corpo(vig)).toContain('least(coalesce(cd.n_h, 0), coalesce(vd.n_h, 0)) as n_h')
+  })
+
+  it('sensor — tirar o `least` do dia reprova', () => {
+    const m = mutarNoBloco(vig, 'store_movement', 'least(coalesce(cd.n, 0), coalesce(vd.n, 0)) as n', 'coalesce(cd.n, 0) as n')
+    expect(corpo(m)).not.toContain('least(coalesce(cd.n, 0), coalesce(vd.n, 0)) as n')
+  })
+
+  it('a Semana de "Com sacola" é a SOMA dos dias de inicio_semana até hoje', () => {
+    expect(corpo(vig)).toContain('coalesce(sum(n) filter (where dia between v_semana and v_hoje), 0) as semana')
+  })
+
+  it('a semana anterior perde a comparação com o teto em qualquer dia das duas semanas', () => {
+    expect(atribuicao(vig, 'v_sem_cmp_semana')).toContain('coalesce(v_teto between v_semana_ant and v_hoje, false)')
+  })
+
+  it('a semana anterior só compara depois de a contagem e a retenção de 14 dias cobrirem a semana anterior', () => {
+    const a = atribuicao(vig, 'v_sem_cmp_semana') ?? ''
+    expect(a).toContain('v_inicio_dia is null or v_inicio_dia >= v_semana_ant')
+    expect(a).toContain('v_historico_dia is null or v_historico_dia > v_semana')
+    expect(a).toContain('(v_hoje = v_semana and v_hora = 0)')
+  })
+
+  it('o teto das comparações de Hoje e Ontem é o da 83', () => {
+    expect(atribuicao(vig, 'v_sem_cmp_hoje')).toBe(atribuicao(sql, 'v_sem_cmp_hoje'))
+    expect(atribuicao(vig, 'v_sem_cmp_ontem')).toBe(atribuicao(sql, 'v_sem_cmp_ontem'))
+  })
+
+  it('o único `alter table` acrescenta `history_since timestamptz not null default now()` ao contador — e nada a store_visits', () => {
+    const alters = vigCmd.match(/\balter\s+table\b[^;]*;/gi) ?? []
+    expect(alters.map(norma)).toEqual([
+      'alter table public.store_visit_counter add column if not exists history_since timestamptz not null default now();',
+    ])
+  })
+
+  it('a migration não escreve dado', () => {
+    expect(foraDasFuncoes(vig).match(/\b(insert\s+into|update\s+(?:only\s+)?(?:public\.)?\w+\s+set|delete\s+from)\b/gi) ?? []).toEqual([])
   })
 })

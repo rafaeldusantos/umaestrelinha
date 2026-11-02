@@ -20,10 +20,10 @@ import GraficoDosAcessos from './GraficoDosAcessos'
 
 const CARTAO = 'min-w-0 rounded-[20px] border border-estrelinha-line bg-estrelinha-surface p-4'
 const EYEBROW = 'text-[11px] font-semibold uppercase tracking-[.1em] text-estrelinha-ink-soft'
-/** Visitas e Vendas lado a lado, a Conversão em largura inteira; a 200 % de fonte, uma coluna. */
-const GRADE = 'grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-3 [&>*:last-child]:col-span-full'
+/** Os quatro números em 2×2 no celular; a 200 % de fonte, uma coluna. */
+const GRADE = 'grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-3'
 const NOTA = 'text-xs text-estrelinha-ink-soft'
-const ROTULOS = ['Visitas', 'Vendas', 'Conversão'] as const
+const ROTULOS = ['Visitas', 'Com sacola', 'Vendas', 'Conversão'] as const
 
 /**
  * A seção **Acessos** da Loja ao vivo (feature `83`, `LAV-50`..`LAV-55`, `LAV-67`).
@@ -74,6 +74,8 @@ const SecaoAcessos = ({ leitura, periodoInicial }: { leitura: Leitura<StoreMovem
     tentando.current = true
     leitura.tentarDeNovo()
   }
+  const cartoes = m ? accessCards(m, periodo) : []
+  const notaDosCartoes = cartoes.flatMap((c) => (c.nota ? [c.nota] : []))
   const notas = m ? [countingSinceLine(periodo, m), cappedLine(periodo, m), emptyCounterLine(m)].filter((n): n is string => !!n) : []
 
   return (
@@ -112,7 +114,7 @@ const SecaoAcessos = ({ leitura, periodoInicial }: { leitura: Leitura<StoreMovem
       ) : m ? (
         <>
           <div data-testid="cartoes-dos-acessos" className={GRADE}>
-            {accessCards(m, periodo).map((c) => (
+            {cartoes.map((c) => (
               <div key={c.rotulo} role="group" aria-label={`${c.rotulo}, ${falado}, ${c.valor}`} className={CARTAO}>
                 <div className={EYEBROW}>{c.rotulo}</div>
                 <div className="mt-2 whitespace-nowrap font-display text-[22px] font-bold text-estrelinha-primary">{c.valor}</div>
@@ -127,6 +129,11 @@ const SecaoAcessos = ({ leitura, periodoInicial }: { leitura: Leitura<StoreMovem
               </div>
             ))}
           </div>
+          {notaDosCartoes.map((n) => (
+            <p key={n} className={NOTA}>
+              {n}
+            </p>
+          ))}
 
           <div data-testid="grafico" className={CARTAO}>
             {grafico ? <GraficoDosAcessos grafico={grafico} /> : <p className="text-sm text-estrelinha-ink-soft">{CHART_UNAVAILABLE}</p>}

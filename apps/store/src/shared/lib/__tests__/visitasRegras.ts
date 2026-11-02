@@ -241,6 +241,8 @@ export const listaPositiva = (texto: string): boolean => {
  */
 export const PISO_DA_71 = 'v_desde'
 export const PISO_DA_83 = 'least\\(\\s*v_desde\\s*,\\s*v_anteontem\\s*\\)'
+/** Com a semana anterior na leitura: o piso desce até a segunda da semana anterior. */
+export const PISO_COM_SEMANA_ANTERIOR = 'least\\(\\s*v_desde\\s*,\\s*v_anteontem\\s*,\\s*v_semana_ant\\s*\\)'
 export const pelaRegua = (texto: string, piso: string = PISO_DA_71): boolean =>
   new RegExp(`o\\.paid_at\\s*>=\\s*public\\.store_day_start\\(\\s*${piso}\\s*\\)`, 'i').test(consultaDePedidos(texto) ?? '')
 
@@ -278,6 +280,8 @@ export const periodoCasado = (texto: string, p: 'hoje' | 'ontem' | 'semana'): bo
  */
 export const FILTROS_DA_71 = 6
 export const FILTROS_DA_83 = 9
+/** Com a semana anterior: as nove de antes e as duas da semana até a hora completa (atual e anterior). */
+export const FILTROS_COM_SEMANA_ANTERIOR = 11
 export const fronteiras = (texto: string, filtros: number = FILTROS_DA_71): boolean => {
   const q = consultaDePedidos(texto) ?? ''
   const conta = (re: RegExp) => (q.match(re) ?? []).length

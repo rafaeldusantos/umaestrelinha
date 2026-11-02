@@ -23,6 +23,10 @@ const ROOT = resolve(HERE, '../../../../../..')
 /** Escritos literalmente: a régua não pode ser o objeto que ela mede. */
 const PASTA = 'apps/store/src/shared/lib/visits'
 const MONTADOR = 'apps/store/src/app/VisitCounter.tsx'
+/** A presença na loja decide pela mesma regra, e também não pode ler o GA4. */
+const PASTA_DA_PRESENCA = 'apps/store/src/shared/lib/presence'
+const PULSO = 'apps/store/src/app/PresencePing.tsx'
+const CONTEXTO = 'apps/store/src/app/visitContext.ts'
 const ANALYTICS = 'apps/store/src/shared/lib/analytics/index.ts'
 
 /** Os três nomes do GA4 que a decisão de contar não pode ler. */
@@ -57,7 +61,7 @@ const daPasta = (relativo: string): Arquivo[] => {
   return saida
 }
 
-const arquivos: Arquivo[] = [...daPasta(PASTA), ler(MONTADOR)]
+const arquivos: Arquivo[] = [...daPasta(PASTA), ler(MONTADOR), ...daPasta(PASTA_DA_PRESENCA), ler(PULSO), ler(CONTEXTO)]
 
 /** Cita algum dos três nomes em CÓDIGO. */
 const leOGa = (fonte: string): boolean => PROIBIDOS.test(semComentario(fonte))
@@ -73,6 +77,10 @@ describe('VIS-22 — o contador não lê o GA4', () => {
         `${PASTA}/visitor.ts`,
         `${PASTA}/send.ts`,
         MONTADOR,
+        `${PASTA_DA_PRESENCA}/presence.ts`,
+        `${PASTA_DA_PRESENCA}/send.ts`,
+        PULSO,
+        CONTEXTO,
       ]),
     )
     // A decisão existe, e é ela que o montador chama.
@@ -80,6 +88,7 @@ describe('VIS-22 — o contador não lê o GA4', () => {
       /export function visitRefusal\(/,
     )
     expect(semComentario(arquivos.find((a) => a.nome === MONTADOR)!.fonte)).toMatch(/visitRefusal\(/)
+    expect(semComentario(arquivos.find((a) => a.nome === PULSO)!.fonte)).toMatch(/visitRefusal\(/)
   })
 
   it('nenhum arquivo do contador lê o interruptor, o ID de medição ou canMeasure', () => {

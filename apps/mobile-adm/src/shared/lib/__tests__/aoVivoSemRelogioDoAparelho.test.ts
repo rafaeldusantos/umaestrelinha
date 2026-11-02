@@ -1,4 +1,4 @@
-// Feature `83` · T10 — `LAV-61`: na Loja ao vivo e no cartão "Visitas hoje", nenhum número, faixa,
+// Feature `83` · T10 — `LAV-61`: na Loja ao vivo e no cartão "Agora na loja", nenhum número, faixa,
 // faixa em andamento, dia da semana ou "hoje" vem do relógio do APARELHO — tudo vem da resposta do
 // servidor (`faixa_atual`, `hoje`, `por_dia`, `ate_hora`). Um aparelho com a hora errada, ou o fuso de
 // outro lugar, desenharia a faixa dourada na hora errada, e nenhum teste de componente repara: o
@@ -7,7 +7,7 @@
 // A régua lê o FONTE do disco (comentário fora: CRLF primeiro, linha e bloco na MESMA passada) e acusa
 // `new Date(`, `Date.now(`, `getHours`, `getDay` e `toLocaleDateString`, por token.
 //
-// **Escopo LITERAL** (`L-035`): os arquivos que a `83` criou no app, `core/live/**` (produção) e
+// **Escopo LITERAL** (`L-035`): os arquivos que a `83` e a presença criaram no app, `core/live/**` (produção) e
 // `core/stats/counterNotes.ts`. Arquivo novo da Loja ao vivo entra nesta lista na task em que nasce.
 // **Allowlist de UM**: `shared/lib/useSegundosDesde.ts`, que mede a DURAÇÃO desde a chegada da
 // resposta (`LAV-07`) — o próprio relógio do aparelho contra ele mesmo, nunca contra o servidor. O caso
@@ -35,8 +35,17 @@ const DO_APP = [
   'widgets/store-access/ui/CabecalhoAoVivo.tsx',
   'widgets/store-access/ui/GraficoDosAcessos.tsx',
   'widgets/store-access/ui/SecaoAcessos.tsx',
-  'widgets/visits-card/index.ts',
-  'widgets/visits-card/ui/CartaoVisitasHoje.tsx',
+  'entities/stats/api/leituras.ts',
+  'widgets/live-card/index.ts',
+  'widgets/live-card/ui/CartaoAgoraNaLoja.tsx',
+  'widgets/store-live/index.ts',
+  'widgets/store-live/ui/estilo.ts',
+  'widgets/store-live/ui/BlocosDaPresenca.tsx',
+  'widgets/store-live/ui/AgoraNaLoja.tsx',
+  'widgets/store-live/ui/OQueEstaoFazendo.tsx',
+  'widgets/store-live/ui/JoiasSendoVistas.tsx',
+  'widgets/store-live/ui/DeOndeVieram.tsx',
+  'widgets/store-live/ui/NoCelular.tsx',
 ] as const
 const DE_CORE = [
   ...readdirSync(resolve(CORE, 'live'))

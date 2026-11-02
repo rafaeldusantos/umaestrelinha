@@ -22,10 +22,10 @@ const semExtensao = (imports: string[]) => imports.filter((s) => s.startsWith('.
 const proibido = (s: string) => /^(react|react-dom)(\/|$)|^@supabase\/|^@estrelinha\/|^@\/|^node:|^(https?:|npm:|jsr:)/.test(s)
 
 describe('core/live é puro', () => {
-  it('âncora: pelo menos três arquivos (index, access, card), e o barril importa os dois', () => {
-    expect(arquivos.length).toBeGreaterThanOrEqual(3)
-    expect(arquivos.map((a) => a.nome)).toEqual(expect.arrayContaining(['index.ts', 'access.ts', 'card.ts']))
-    expect(arquivos.find((a) => a.nome === 'index.ts')!.imports).toEqual(['./access.ts', './card.ts'])
+  it('âncora: pelo menos cinco arquivos (index, access, buckets, presence, screen), e o barril importa os quatro', () => {
+    expect(arquivos.length).toBeGreaterThanOrEqual(5)
+    expect(arquivos.map((a) => a.nome)).toEqual(expect.arrayContaining(['index.ts', 'access.ts', 'buckets.ts', 'presence.ts', 'screen.ts']))
+    expect(arquivos.find((a) => a.nome === 'index.ts')!.imports).toEqual(['./access.ts', './buckets.ts', './presence.ts', './screen.ts'])
   })
 
   it('todo especificador relativo leva `.ts` (`import type` incluso)', () => {

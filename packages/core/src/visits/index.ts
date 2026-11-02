@@ -3,3 +3,16 @@
 export { BOT_SIGNATURES, isBotUserAgent } from './bots.ts'
 export { isVisitorId, visitBody, visitBodyRefusal } from './visitor.ts'
 export { OPT_OUT_PARAM, optOutHref, readOptOutParam } from './optOut.ts'
+export {
+  PRESENCE_CART_MAX,
+  PRESENCE_DEVICES,
+  PRESENCE_PAGE_KINDS,
+  PRESENCE_SOURCES,
+  isPresenceSlug,
+  presenceBody,
+  presenceBodyRefusal,
+  type PresenceBody,
+  type PresenceDevice,
+  type PresencePageKind,
+  type PresenceSource,
+} from './presence.ts'

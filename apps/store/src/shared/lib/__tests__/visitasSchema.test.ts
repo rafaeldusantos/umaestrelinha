@@ -10,7 +10,7 @@ import {
   corpoDaFuncao,
   diaDe,
   diaEPrazo,
-  FILTROS_DA_83,
+  FILTROS_COM_SEMANA_ANTERIOR,
   fronteiras,
   foraDasFuncoes,
   lerMigration,
@@ -21,7 +21,7 @@ import {
   papeis,
   pelaRegua,
   periodoCasado,
-  PISO_DA_83,
+  PISO_COM_SEMANA_ANTERIOR,
   podaAntesDeGravar,
   podaSegura,
   portaoDeAdmin as portao,
@@ -846,7 +846,9 @@ describe('o arnês de mutação', () => {
  * as três expressões da comparação). Quem recriar a função de novo revisa os dois aqui — a âncora do
  * nome do arquivo reprova até isso acontecer.
  */
-const VIGENTE_ESPERADA = '20261029120000_83-loja-ao-vivo.sql'
+const VIGENTE_DA_GRAVACAO = '20261029120000_83-loja-ao-vivo.sql'
+/** A leitura foi recriada de novo para "Com sacola" e a semana anterior; a gravação não. */
+const VIGENTE_DO_MOVIMENTO = '20261104140000_acessos-com-sacola.sql'
 const vigenteDoMovimento = migrationVigenteDe('store_movement')
 const vigenteDaGravacao = migrationVigenteDe('record_store_visit')
 const mov = vigenteDoMovimento ? lerMigration(vigenteDoMovimento) : ''
@@ -854,9 +856,9 @@ const grav = vigenteDaGravacao ? lerMigration(vigenteDaGravacao) : ''
 const comandosMov = semComentario(mov)
 
 describe('8. a migration vigente — âncora', () => {
-  it('as duas funções têm uma migration vigente, e é a da 83 (as réguas abaixo foram calibradas nela)', () => {
-    expect(vigenteDoMovimento).toBe(VIGENTE_ESPERADA)
-    expect(vigenteDaGravacao).toBe(VIGENTE_ESPERADA)
+  it('as duas funções têm uma migration vigente, e é a esperada (as réguas abaixo foram calibradas nela)', () => {
+    expect(vigenteDoMovimento).toBe(VIGENTE_DO_MOVIMENTO)
+    expect(vigenteDaGravacao).toBe(VIGENTE_DA_GRAVACAO)
     expect(mov.length).toBeGreaterThan(1000)
   })
 
@@ -901,11 +903,11 @@ describe('8. store_movement vigente — a régua de visita e de venda da 71', ()
   })
 
   it('o piso do predicado de `orders` usa `store_day_start` (D5)', () => {
-    expect(pelaRegua(mov, PISO_DA_83)).toBe(true)
+    expect(pelaRegua(mov, PISO_COM_SEMANA_ANTERIOR)).toBe(true)
   })
 
-  it('as seis fronteiras de período, meio-abertas, e o total de filtros da 83', () => {
-    expect(fronteiras(mov, FILTROS_DA_83)).toBe(true)
+  it('as seis fronteiras de período, meio-abertas, e o total de filtros com a semana anterior', () => {
+    expect(fronteiras(mov, FILTROS_COM_SEMANA_ANTERIOR)).toBe(true)
   })
 
   it('todo `sum(` dentro de `coalesce(…, 0)`, e o ticket `round(…, 2)` com o mesmo sufixo nos três', () => {
@@ -938,7 +940,7 @@ describe('8. store_movement vigente — a régua de visita e de venda da 71', ()
 
   it('sensor — `>=` → `>` na fronteira de Hoje da vigente reprova', () => {
     const m = mutarNoBlocoDe(mov, 'store_movement', 'count(*) filter (where o.paid_at >= v_ini_hoje),', 'count(*) filter (where o.paid_at > v_ini_hoje),')
-    expect(fronteiras(m, FILTROS_DA_83)).toBe(false)
+    expect(fronteiras(m, FILTROS_COM_SEMANA_ANTERIOR)).toBe(false)
   })
 
   it('sensor — tirar um `coalesce` da vigente reprova', () => {
@@ -948,7 +950,7 @@ describe('8. store_movement vigente — a régua de visita e de venda da 71', ()
 
   it('sensor — um filtro a mais na consulta de pedidos da vigente reprova o total', () => {
     const m = mutarNoBlocoDe(mov, 'store_movement', 'count(*) filter (where o.paid_at >= v_ini_semana),', 'count(*) filter (where o.paid_at >= v_ini_semana), count(*) filter (where o.paid_at >= v_ini_semana - 1),')
-    expect(fronteiras(m, FILTROS_DA_83)).toBe(false)
+    expect(fronteiras(m, FILTROS_COM_SEMANA_ANTERIOR)).toBe(false)
   })
 })
 
@@ -984,5 +986,51 @@ describe('8. record_store_visit vigente — a gravação da 71, intacta', () => 
 
   it('sensor — o teto de 50.000 na vigente reprova', () => {
     expect(teto(mutarNoBlocoDe(grav, 'record_store_visit', '>= 5000', '>= 50000'))).toBe(false)
+  })
+})
+
+// -------------------------------------------------------------------------------------------
+// 9. prune_store_visits vigente — 14 dias: hoje e os 13 anteriores (a semana anterior inteira)
+// -------------------------------------------------------------------------------------------
+
+describe('9. prune_store_visits vigente — 14 dias, invoker, fechada', () => {
+  const vigenteDaPoda = migrationVigenteDe('prune_store_visits')
+  const poda = vigenteDaPoda ? lerMigration(vigenteDaPoda) : ''
+  const apaga = (texto: string, dias: number) =>
+    new RegExp(`delete\\s+from\\s+public\\.store_visits\\s+where\\s+day\\s*<\\s*p_dia\\s*-\\s*${dias}\\s*;`, 'i').test(
+      blocoDaFuncao(texto, 'prune_store_visits') ?? '',
+    )
+
+  it('a vigente é a da leitura com a semana anterior', () => {
+    expect(vigenteDaPoda).toBe(VIGENTE_DO_MOVIMENTO)
+  })
+
+  it('apaga `day < p_dia - 13` — e nunca a régua de 8 dias', () => {
+    expect(apaga(poda, 13)).toBe(true)
+    expect(apaga(poda, 7)).toBe(false)
+  })
+
+  it('sensor — de volta a `- 7`, reprova', () => {
+    expect(apaga(mutarNoBlocoDe(poda, 'prune_store_visits', 'p_dia - 13', 'p_dia - 7'), 13)).toBe(false)
+  })
+
+  it('sensor — retenção maior que 14 dias (`- 30`) reprova', () => {
+    expect(apaga(mutarNoBlocoDe(poda, 'prune_store_visits', 'p_dia - 13', 'p_dia - 30'), 13)).toBe(false)
+  })
+
+  it('`security invoker`, revogada dos três e SEM grant nenhum', () => {
+    expect(temSecurityDefiner(poda, 'prune_store_visits')).toBe(false)
+    expect(blocoDaFuncao(poda, 'prune_store_visits')).toMatch(/\bsecurity\s+invoker\b/i)
+    expect(revogadaDosTres(poda, 'function', 'prune_store_visits')).toBe(true)
+    expect(papeis(poda, 'grant', 'function', 'prune_store_visits')).toEqual([])
+  })
+
+  it('sensor — `security definer` na vigente É acusado', () => {
+    expect(temSecurityDefiner(mutarNoBlocoDe(poda, 'prune_store_visits', 'security invoker', 'security definer'), 'prune_store_visits')).toBe(true)
+  })
+
+  it('sensor — o piso de pedidos sem a semana anterior reprova a régua', () => {
+    const m = mutarNoBlocoDe(mov, 'store_movement', 'least(v_desde, v_anteontem, v_semana_ant))', 'least(v_desde, v_anteontem))')
+    expect(pelaRegua(m, PISO_COM_SEMANA_ANTERIOR)).toBe(false)
   })
 })

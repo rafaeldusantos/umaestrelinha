@@ -1,5 +1,5 @@
-// Feature `83` · T09 — o cartão "Visitas hoje" na Início e o caminho até a Loja ao vivo, pela árvore
-// REAL (`<App />` com sessão admin sobre o dublê). `LAV-04`, `LAV-05`, `LAV-50`, e o critério 1 do PRD
+// Feature `83` · T09 — o caminho da Início até a Loja ao vivo pelo cartão "Agora na loja", pela árvore
+// REAL (`<App />` com sessão admin sobre o dublê). `LAV-05`, `LAV-50`, e o critério 1 do PRD
 // ATRAVESSANDO as duas telas (Visitas e Vendas da faixa == as da seção, nos três períodos), e o foco
 // no título ao entrar e ao voltar (`LAV-62`, conserto da rodada 1 do Verificador).
 process.env.TZ = 'UTC'
@@ -11,12 +11,10 @@ import { fake, type RespostaRpc } from '@/test/fakeSupabase'
 import { montarApp } from '@/test/montarApp'
 import { resumo } from '@/test/resumo'
 import { movimentoComAcessos } from '@/test/movimento'
-import { FALHA_DE_LEITURA, NAO_ATUALIZOU } from '@/shared/ui/leitura'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))
 
 const EMAIL = 'adri@exemplo.invalid'
-const REDE = { message: 'Failed to fetch' }
 
 let instantes: number[] = []
 
@@ -51,7 +49,7 @@ const abrir = async () => {
   await andar(50)
 }
 
-const cartao = () => screen.getByTestId('cartao-visitas-hoje')
+const cartao = () => screen.getByTestId('cartao-agora-na-loja')
 const faixa = () => screen.getByRole('region', { name: 'Movimento da loja' })
 const valorDoGrupo = (dentro: HTMLElement, rotulo: string, falado: string) => {
   const g = within(dentro).getByRole('group', { name: new RegExp(`^${rotulo}, ${falado}, `) })
@@ -72,53 +70,6 @@ const distinto = () =>
       semana: { visitas: 230, vendas: 9, faturamento: 900, ticket: 100 },
     },
   })
-
-describe('o cartão na Início (LAV-04)', () => {
-  it('logo abaixo da faixa: hero → cartão → linha de frescor → "Precisa de você"', async () => {
-    responder((n) => (n === 1 ? { data: movimentoComAcessos(), error: null } : { data: null, error: REDE }))
-    await abrir()
-    act(() => {
-      fake.emitir('orders')
-    })
-    await andar(3000)
-    const ordem = [faixa(), cartao(), screen.getByTestId('frescor'), document.querySelector('section[aria-labelledby="precisa-de-voce"]')!]
-    expect(screen.getByTestId('frescor')).toHaveTextContent(NAO_ATUALIZOU)
-    for (let i = 1; i < ordem.length; i++) {
-      expect(ordem[i - 1].compareDocumentPosition(ordem[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    }
-    // o cartão com o número de antes (a releitura falhou com dado)
-    expect(cartao()).toHaveAccessibleName('Visitas hoje, 41. Abrir loja ao vivo')
-  })
-
-  it('o número do cartão é o "Visitas" da faixa em Hoje (a mesma resposta)', async () => {
-    sempre(distinto())
-    await abrir()
-    expect(cartao()).toHaveAccessibleName(`Visitas hoje, ${valorDoGrupo(faixa(), 'Visitas', 'hoje')}. Abrir loja ao vivo`)
-    expect(valorDoGrupo(faixa(), 'Visitas', 'hoje')).toBe('41')
-  })
-
-  it('carregando: o traço, e o toque ABRE a Loja ao vivo', async () => {
-    fake.pendurarRpc('store_movement')
-    await abrir()
-    expect(cartao()).toHaveAccessibleName('Visitas hoje, carregando. Abrir loja ao vivo')
-    fireEvent.click(cartao())
-    await andar(50)
-    expect(window.location.pathname).toBe('/ao-vivo')
-  })
-
-  it('em falha: "Não consegui carregar." e o toque RELÊ (+1 chamada), sem navegar', async () => {
-    fake.falharRpc('store_movement', REDE)
-    await abrir()
-    await andar(3000)
-    expect(cartao()).toHaveAccessibleName('Visitas hoje: não consegui carregar. Tentar de novo')
-    expect(cartao()).toHaveTextContent(FALHA_DE_LEITURA)
-    const antes = chamadas()
-    fireEvent.click(cartao())
-    await andar(50)
-    expect(chamadas()).toBe(antes + 1)
-    expect(window.location.pathname).toBe('/')
-  })
-})
 
 describe('o foco ao entrar e ao voltar (LAV-62)', () => {
   it('tocar o cartão leva o foco ao h1 "Loja ao vivo"; o Voltar o devolve ao h1 da Início', async () => {

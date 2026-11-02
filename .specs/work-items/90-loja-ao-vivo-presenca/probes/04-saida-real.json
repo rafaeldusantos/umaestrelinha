@@ -1,0 +1,112 @@
+{
+    "hoje": "2026-10-21",
+    "ontem": "2026-10-20",
+    "acessos": {
+        "hoje": {
+            "sem_hora": 0,
+            "por_faixa": [
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                null,
+                null
+            ],
+            "com_sacola": 1
+        },
+        "ontem": {
+            "sem_hora": 0,
+            "por_faixa": [
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0
+            ],
+            "com_sacola": 0
+        },
+        "semana": {
+            "por_dia": [
+                {
+                    "dia": "2026-10-19",
+                    "visitas": 0
+                },
+                {
+                    "dia": "2026-10-20",
+                    "visitas": 1
+                },
+                {
+                    "dia": "2026-10-21",
+                    "visitas": 1
+                }
+            ],
+            "com_sacola": 1
+        },
+        "comparacao": {
+            "hoje": {
+                "vendas": 0,
+                "visitas": 1,
+                "ate_hora": 15,
+                "base_hoje": {
+                    "vendas": 0,
+                    "visitas": 1,
+                    "com_sacola": 1
+                },
+                "com_sacola": 0
+            },
+            "ontem": {
+                "dia": "2026-10-19",
+                "vendas": 0,
+                "visitas": 0,
+                "com_sacola": 0
+            },
+            "semana": {
+                "vendas": 0,
+                "ate_dia": "2026-10-14",
+                "visitas": 1,
+                "ate_hora": 15,
+                "com_sacola": 0,
+                "base_semana": {
+                    "vendas": 0,
+                    "visitas": 2,
+                    "com_sacola": 1
+                }
+            }
+        },
+        "faixa_atual": 5
+    },
+    "lido_em": "2026-10-21T18:02:00+00:00",
+    "periodos": {
+        "hoje": {
+            "ticket": null,
+            "vendas": 0,
+            "visitas": 1,
+            "faturamento": 0
+        },
+        "ontem": {
+            "ticket": null,
+            "vendas": 0,
+            "visitas": 1,
+            "faturamento": 0
+        },
+        "semana": {
+            "ticket": null,
+            "vendas": 0,
+            "visitas": 2,
+            "faturamento": 0
+        }
+    },
+    "teto_dia": null,
+    "expira_em": "2026-10-22T03:00:00+00:00",
+    "inicio_semana": "2026-10-19",
+    "ultima_visita": "2026-10-21T13:00:00+00:00",
+    "contagem_desde": "2026-09-01T12:00:00+00:00",
+    "production_host": "umaestrelinha.com.br",
+    "ultima_visita_dia": "2026-10-21",
+    "contagem_desde_dia": "2026-09-01"
+}

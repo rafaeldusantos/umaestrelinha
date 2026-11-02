@@ -66,6 +66,7 @@ const criar = (
     supabase: supabase.client,
     now: relogio.now,
     limiter: opcoes.limiter ?? createRateLimiter(30, 60_000, relogio.now),
+    pingLimiter: createRateLimiter(120, 60_000, relogio.now),
     clock: createClockCache(),
     log: (linha) => logs.push(linha),
   }

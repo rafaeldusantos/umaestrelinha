@@ -11,8 +11,13 @@
 //
 // ⚠️ Este arquivo NÃO importa nada (ver `ids.ts`).
 
-/** Minúsculas, sem porta, sem ponto final e sem o `www.` da frente. */
-function canonicalHost(host: string | null | undefined): string {
+/**
+ * Minúsculas, sem porta, sem ponto final e sem o `www.` da frente.
+ *
+ * Exportada para o guarda que a compara com a cópia SQL (`store_canonical_host`, na migration da
+ * presença na loja), que decide o host de produção dentro da gravação.
+ */
+export function canonicalHost(host: string | null | undefined): string {
   if (typeof host !== 'string') return ''
   let h = host.trim().toLowerCase()
   const porta = h.lastIndexOf(':')

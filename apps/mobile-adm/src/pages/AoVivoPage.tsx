@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { STORE_MOVEMENT_KEY, periodoDaEntrada, useMovimento } from '@/entities/stats'
+import { STORE_LIVE_KEY, STORE_MOVEMENT_KEY, periodoDaEntrada, useMovimento, usePresenca } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
 import { CabecalhoAoVivo, SecaoAcessos, TITULO_AO_VIVO } from '@/widgets/store-access'
+import { BlocosDaPresenca } from '@/widgets/store-live'
 import PullToRefresh from '@/shared/ui/PullToRefresh'
 import { leituraDe } from '@/shared/ui/leituraDe'
 
@@ -21,27 +22,51 @@ export const CICLO_AO_VIVO_MS = 15_000
  *   confirma o papel traz o dado. `42501` ⇒ a vigia (`useRecusaDePapel`) e a recusa da `72`; enquanto
  *   isso, nenhum número, nem o do cache.
  * - O período inicial vem do `history.state` da entrada (`periodoDaEntrada`), nunca da URL.
+ * - **A presença** (Fase 2, `usePresenca`, `store_live`, chave própria): os blocos A–E acima de
+ *   Acessos. Também relê a cada 15 s só visível, e o `42501` dela cai na MESMA vigia. Cada leitura
+ *   tem a sua chave: a falha de uma não apaga os blocos da outra. O puxar relê as duas, e o frescor
+ *   é o da leitura MAIS ANTIGA entre as que estão na tela (a duração desde a chegada de cada uma).
  */
 const AoVivoPage = () => {
   const { state } = useLocation()
   const [periodoInicial] = useState(() => periodoDaEntrada(state))
   const movimento = useMovimento({ refetchInterval: CICLO_AO_VIVO_MS })
+  const presenca = usePresenca({ refetchInterval: CICLO_AO_VIVO_MS })
   const queryClient = useQueryClient()
-  const recusada = useRecusaDePapel([movimento.error], !!movimento.data && !movimento.isError)
+  const recusada = useRecusaDePapel(
+    [movimento.error, presenca.error],
+    (!!movimento.data && !movimento.isError) || (!!presenca.data && !presenca.isError),
+  )
 
   useEffect(() => {
     document.title = `${TITULO_AO_VIVO} · Ateliê`
   }, [])
 
-  const reler = useCallback(() => queryClient.invalidateQueries({ queryKey: STORE_MOVEMENT_KEY }), [queryClient])
+  const reler = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: STORE_MOVEMENT_KEY }),
+        queryClient.invalidateQueries({ queryKey: STORE_LIVE_KEY }),
+      ]),
+    [queryClient],
+  )
   const leitura = leituraDe(movimento, recusada)
-  const naoAtualizou = !recusada && movimento.isError && !!movimento.data
+  const daPresenca = leituraDe(presenca, recusada)
+  // A chegada mais ANTIGA entre as leituras que estão na tela (instantes LOCAIS do React Query).
+  const chegadas = [leitura.dado ? movimento.dataUpdatedAt : null, daPresenca.dado ? presenca.dataUpdatedAt : null].filter(
+    (t): t is number => t !== null,
+  )
+  const atualizadoEm = chegadas.length ? Math.min(...chegadas) : null
+  const naoAtualizou = !recusada && ((movimento.isError && !!movimento.data) || (presenca.isError && !!presenca.data))
 
   return (
     <PullToRefresh onRefresh={reler}>
-      <div className="space-y-4">
-        <CabecalhoAoVivo atualizadoEm={leitura.dado ? movimento.dataUpdatedAt : null} naoAtualizou={naoAtualizou} />
-        <SecaoAcessos leitura={leitura} periodoInicial={periodoInicial} />
+      <div className="space-y-3">
+        <CabecalhoAoVivo atualizadoEm={atualizadoEm} naoAtualizou={naoAtualizou} />
+        <BlocosDaPresenca leitura={daPresenca} />
+        <div className="pt-3">
+          <SecaoAcessos leitura={leitura} periodoInicial={periodoInicial} />
+        </div>
       </div>
     </PullToRefresh>
   )

@@ -22,6 +22,7 @@ import { applyConsent, clearGaCookies, setConsentReader } from '@/shared/lib/ana
 // Do módulo do marcador, e não do barril de `shared/lib/visits`: o barril carrega também o envio, e
 // com ele o client do Supabase — que a escolha de cookies não tem por que levar junto.
 import { forgetVisitorId } from '@/shared/lib/visits/visitor'
+import { forgetPresence } from '@/shared/lib/presence/presence'
 
 export const COOKIE_CONSENT_KEY = 'estrelinha-cookie-consent'
 
@@ -122,6 +123,8 @@ export const useCookieConsentStore = create<CookieConsentState>()((set, get) => 
         // `VIS-24`: o código do contador sai na mesma ação; o prazo do dia fica, para reaceitar
         // hoje não contar de novo.
         forgetVisitorId()
+        // A presença na loja também: o id do dia e a faixa de origem saem na mesma ação.
+        forgetPresence()
       }
     },
     openPreferences: () => set({ preferencesOpen: true }),

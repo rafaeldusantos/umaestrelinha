@@ -179,6 +179,9 @@ const RPCS = [
   'mark_order_proposal_viewed',
   // Feature 71 — a function `visit` (gravação de visita única e o relógio do banco). Nenhuma das
   // duas toca as tabelas de marcação; a varredura das migrations abaixo é quem prova.
+  // A function `visit` (ação `ping`) grava a presença na loja. Só toca as três
+  // tabelas da presença (`presencaSchema.test.ts`).
+  'record_store_presence',
   'record_store_visit',
   // Feature 89 — a function `order-proposals` grava a proposta (criar e editar) numa transação. Só
   // toca as tabelas da proposta e `customers` (`pedidoMontadoSchema.test.ts`).
@@ -190,6 +193,9 @@ const RPCS = [
   // cliente. Só toca `order_notifications` (`avisoPuladoSchema.test.ts`).
   'skip_order_notification',
   'store_clock',
+  // A presença na loja (`core/hooks/useStoreLive.ts`), lida pelo cartão "Agora na loja" da Início do
+  // app do ateliê. Só lê, e é admin: o `has_role` está no corpo dela.
+  'store_live',
   // Feature 71, task 22 — a leitura do bloco "Movimento da loja" no Dashboard do painel. Só lê, e é
   // admin: o `has_role` está no corpo dela.
   'store_movement',

@@ -60,12 +60,20 @@ export interface StoreAccessDay {
   por_faixa: (number | null)[]
   /** Linhas do dia sem hora (gravadas antes da feature 83). */
   sem_hora: number
+  /**
+   * Das visitas do dia, quantas puseram ao menos uma joia na sacola: navegadores distintos com a
+   * marca diária, limitados pelas visitas do dia (nunca passa de `visitas`). Ausente na resposta do
+   * banco anterior a esta leitura.
+   */
+  com_sacola?: number
 }
 
 /** O período comparável. `null` quando o servidor decidiu que ele não foi contado inteiro. */
 export interface StoreAccessComparison {
   visitas: number | null
   vendas: number | null
+  /** `null` quando a marca de sacola não foi medida inteira no período anterior. */
+  com_sacola?: number | null
 }
 
 /** Hoje × ontem em HORAS COMPLETAS dos dois lados: de 0h até `ate_hora` (exclusivo). */
@@ -89,17 +97,36 @@ export interface StoreAccessWeekDay {
   visitas: number
 }
 
+/**
+ * A semana de segunda até a hora completa `ate_hora` de hoje contra a semana anterior de segunda até
+ * `ate_dia` (o mesmo dia da semana) e a mesma hora. Os campos de fora são o lado anterior.
+ */
+export interface StoreAccessWeekComparison extends StoreAccessComparison {
+  /** `'AAAA-MM-DD'` — o mesmo dia da semana, na semana anterior. */
+  ate_dia: string
+  ate_hora: number
+  /** A semana atual no mesmo corte — o lado "atual" da variação; o número grande continua o total. */
+  base_semana: StoreAccessComparison
+}
+
 export interface StoreAccess {
   /** 0..7 — a faixa em andamento, decidida pelo servidor. */
   faixa_atual: number
   hoje: StoreAccessDay
   ontem: StoreAccessDay
   /** De `inicio_semana` até `hoje`, um item por dia; o último é hoje. */
-  semana: { por_dia: StoreAccessWeekDay[] }
+  semana: {
+    por_dia: StoreAccessWeekDay[]
+    /** A SOMA dos dias de "Com sacola" (quem pôs joia na sacola em dois dias conta duas vezes). */
+    com_sacola?: number
+  }
   comparacao: {
     hoje: StoreAccessTodayComparison
     ontem: StoreAccessYesterdayComparison
-    /** Sempre `null` na Fase 1: a semana anterior das visitas não está no banco (`BL-056`). */
-    semana: null
+    /**
+     * `null` quando a semana anterior não foi contada até o mesmo ponto (segunda às 0h, contagem ou
+     * retenção de 14 dias começando depois, linha sem hora num dia do corte, teto nas duas semanas).
+     */
+    semana: StoreAccessWeekComparison | null
   }
 }

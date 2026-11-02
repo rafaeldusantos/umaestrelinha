@@ -342,7 +342,11 @@ Consequências práticas, nesta ordem:
     navegador e o prazo da próxima contagem de visita, feature `71`) e `estrelinha-nao-contar` (a
     marca de "não contar este navegador", feature `71`). As duas do contador têm **um** dono,
     `apps/store/src/shared/lib/visits/visitor.ts`, e `visitanteComDonoUnico.test.ts` recusa a chave em
-    qualquer outro arquivo dos dois apps, testes inclusos.
+    qualquer outro arquivo dos dois apps, testes inclusos. A presença na loja (Loja ao vivo, Fase 2) tem mais duas: `estrelinha-presenca` (o id
+    aleatório da presença, que troca à meia-noite de Brasília pelo prazo do servidor) e
+    `estrelinha-presenca-origem` (**`sessionStorage`** — só a faixa de origem do pouso da aba). O dono
+    é `apps/store/src/shared/lib/presence/presence.ts`, e `presencaComDonoUnico.test.ts` recusa a
+    chave em qualquer outro arquivo dos três apps, testes inclusos.
 - **Sem credenciais no código.** Cada app tem `.env` (gitignored) com `VITE_SUPABASE_URL` e
   `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`); o client (`@estrelinha/supabase`) lança erro
   se faltarem. Secrets de servidor ficam no `.env` da **raiz**. Detalhe em `supabase/CLAUDE.md`.

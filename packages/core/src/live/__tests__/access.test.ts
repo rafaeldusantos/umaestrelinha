@@ -145,6 +145,8 @@ describe('accessCards (LAV-51)', () => {
     expect(accessCards(movimento(), 'hoje')).toEqual([
       // total 142, mas a variação é 90 × 80 = +12,5 ⇒ +13 (com o total seria +78)
       { rotulo: 'Visitas', valor: '142', variacao: { texto: '+13% vs ontem até as 15h', tom: 'alta' } },
+      // a fixtura não traz `com_sacola` (a resposta do banco anterior): o cartão existe, com "—"
+      { rotulo: 'Com sacola', valor: '—', variacao: null },
       // 1 × 2 = −50
       { rotulo: 'Vendas', valor: '3', variacao: { texto: '−50% vs ontem até as 15h', tom: 'neutra' } },
       // 3/142 = 2,1%; variação entre 1/90 e 2/80 = −55,6 ⇒ −56
@@ -155,6 +157,7 @@ describe('accessCards (LAV-51)', () => {
   it('Ontem: o dia inteiro contra anteontem inteiro — visitas e vendas DISCORDAM (L-013)', () => {
     expect(accessCards(movimento(), 'ontem')).toEqual([
       { rotulo: 'Visitas', valor: '120', variacao: { texto: '+20% vs anteontem', tom: 'alta' } },
+      { rotulo: 'Com sacola', valor: '—', variacao: null },
       // 4 × 5 = −20 (com as vendas de anteontem no lugar das de ontem seria 0%)
       { rotulo: 'Vendas', valor: '4', variacao: { texto: '−20% vs anteontem', tom: 'neutra' } },
       // 4/120 = 3,33% contra 5/100 = 5% ⇒ −33,3 ⇒ −33
@@ -162,9 +165,10 @@ describe('accessCards (LAV-51)', () => {
     ])
   })
 
-  it('Semana: os três números, nenhum com variação (Semana = opção (a) do portão)', () => {
+  it('Semana com `comparacao.semana` nula: os números, nenhum com variação', () => {
     expect(accessCards(movimento(), 'semana')).toEqual([
       { rotulo: 'Visitas', valor: '1.240', variacao: null },
+      { rotulo: 'Com sacola', valor: '—', variacao: null },
       { rotulo: 'Vendas', valor: '9', variacao: null },
       { rotulo: 'Conversão', valor: '0,7%', variacao: null },
     ])
@@ -173,7 +177,7 @@ describe('accessCards (LAV-51)', () => {
   it('sem `acessos`: os números, e nenhuma variação nos três', () => {
     for (const p of ['hoje', 'ontem', 'semana'] as const) {
       const cards = accessCards(movimento({ acessos: undefined }), p)
-      expect(cards.map((c) => c.rotulo)).toEqual(['Visitas', 'Vendas', 'Conversão'])
+      expect(cards.map((c) => c.rotulo)).toEqual(['Visitas', 'Com sacola', 'Vendas', 'Conversão'])
       expect(cards.every((c) => c.variacao === null)).toBe(true)
     }
     expect(accessCards(movimento({ acessos: undefined }), 'hoje')[0].valor).toBe('142')
@@ -183,7 +187,7 @@ describe('accessCards (LAV-51)', () => {
     const m = movimento({
       periodos: { ...movimento().periodos, hoje: { visitas: 0, vendas: 2, faturamento: 200, ticket: 100 } },
     })
-    const conv = accessCards(m, 'hoje')[2]
+    const conv = accessCards(m, 'hoje')[3]
     expect(conv).toEqual({ rotulo: 'Conversão', valor: '—', variacao: null })
   })
 
@@ -192,7 +196,7 @@ describe('accessCards (LAV-51)', () => {
     const m = movimento({
       acessos: acessos({ comparacao: { ...base, hoje: { ate_hora: 15, visitas: null, vendas: 2, base_hoje: { visitas: null, vendas: 1 } } } }),
     })
-    const [vis, ven, conv] = accessCards(m, 'hoje')
+    const [vis, , ven, conv] = accessCards(m, 'hoje')
     expect(vis.variacao).toBeNull()
     expect(ven.variacao).toEqual({ texto: '−50% vs ontem até as 15h', tom: 'neutra' })
     expect(conv.variacao).toBeNull()
@@ -201,7 +205,7 @@ describe('accessCards (LAV-51)', () => {
   it('comparação com anterior 0 ⇒ sem linha (nem +∞%)', () => {
     const base = acessos().comparacao
     const m = movimento({ acessos: acessos({ comparacao: { ...base, ontem: { dia: '2026-10-19', visitas: 0, vendas: 0 } } }) })
-    expect(accessCards(m, 'ontem').map((c) => c.variacao)).toEqual([null, null, null])
+    expect(accessCards(m, 'ontem').map((c) => c.variacao)).toEqual([null, null, null, null])
   })
 })
 
@@ -315,5 +319,106 @@ describe('freshnessLine (LAV-07)', () => {
     [119, 'Atualizado há 1 min'],
   ])('%s s ⇒ "%s"', (s, frase) => {
     expect(freshnessLine(s)).toBe(frase)
+  })
+})
+
+describe('accessCards — "Com sacola" e a semana anterior', () => {
+  /** Valores DISTINTOS por campo e por lado (`L-013`): trocar um pelo outro muda o texto esperado. */
+  const comSacola = (extra: Partial<StoreAccess> = {}): StoreMovement =>
+    movimento({
+      acessos: acessos({
+        hoje: { por_faixa: [1, 0, 2, 3, 4, 5, null, null], sem_hora: 0, com_sacola: 21 },
+        ontem: { por_faixa: [2, 1, 0, 6, 9, 7, 5, 3], sem_hora: 0, com_sacola: 30 },
+        semana: { por_dia: acessos().semana.por_dia, com_sacola: 175 },
+        comparacao: {
+          hoje: { ate_hora: 15, visitas: 80, vendas: 2, com_sacola: 8, base_hoje: { visitas: 90, vendas: 1, com_sacola: 10 } },
+          ontem: { dia: '2026-10-19', visitas: 100, vendas: 5, com_sacola: 24 },
+          semana: {
+            ate_dia: '2026-10-14',
+            ate_hora: 15,
+            visitas: 1000,
+            vendas: 10,
+            com_sacola: 200,
+            base_semana: { visitas: 1100, vendas: 8, com_sacola: 150 },
+          },
+        },
+        ...extra,
+      }),
+    })
+
+  it('os quatro cartões, na ordem: Visitas, Com sacola, Vendas, Conversão', () => {
+    for (const p of ['hoje', 'ontem', 'semana'] as const) {
+      expect(accessCards(comSacola(), p).map((c) => c.rotulo)).toEqual(['Visitas', 'Com sacola', 'Vendas', 'Conversão'])
+    }
+  })
+
+  it('Hoje: o número é o do dia; a variação compara as horas completas (base 10 × ontem até as 15h 8 = +25%)', () => {
+    expect(accessCards(comSacola(), 'hoje')[1]).toEqual({
+      rotulo: 'Com sacola',
+      valor: '21',
+      variacao: { texto: '+25% vs ontem até as 15h', tom: 'alta' },
+    })
+  })
+
+  it('Ontem: o dia inteiro contra anteontem (30 × 24 = +25%)', () => {
+    expect(accessCards(comSacola(), 'ontem')[1]).toEqual({
+      rotulo: 'Com sacola',
+      valor: '30',
+      variacao: { texto: '+25% vs anteontem', tom: 'alta' },
+    })
+  })
+
+  it('Semana: os quatro números com "vs semana anterior", pela base até a hora (não pelo total)', () => {
+    const [vis, sac, ven, conv] = accessCards(comSacola(), 'semana')
+    // 1100 × 1000 = +10 (com o total 1240 seria +24)
+    expect(vis).toEqual({ rotulo: 'Visitas', valor: '1.240', variacao: { texto: '+10% vs semana anterior', tom: 'alta' } })
+    // 150 × 200 = −25 (com o total 175 seria −13)
+    expect(sac.valor).toBe('175')
+    expect(sac.variacao).toEqual({ texto: '−25% vs semana anterior', tom: 'neutra' })
+    // 8 × 10 = −20
+    expect(ven).toEqual({ rotulo: 'Vendas', valor: '9', variacao: { texto: '−20% vs semana anterior', tom: 'neutra' } })
+    // 8/1100 = 0,727% contra 10/1000 = 1% ⇒ −27,3 ⇒ −27
+    expect(conv).toEqual({ rotulo: 'Conversão', valor: '0,7%', variacao: { texto: '−27% vs semana anterior', tom: 'neutra' } })
+  })
+
+  it('Semana: "Com sacola" leva a nota da soma dos dias; nenhum outro cartão e nenhum outro período a leva', () => {
+    const semana = accessCards(comSacola(), 'semana')
+    expect(semana[1].nota).toBe('Com sacola, na semana, é a soma dos dias: quem pôs joia na sacola em dois dias conta duas vezes.')
+    expect(semana.filter((c) => c.nota).map((c) => c.rotulo)).toEqual(['Com sacola'])
+    for (const p of ['hoje', 'ontem'] as const) expect(accessCards(comSacola(), p).some((c) => c.nota)).toBe(false)
+  })
+
+  it('a semana anterior só aparece quando o servidor a manda: com `comparacao.semana` nula, nenhuma linha nos quatro', () => {
+    const base = comSacola().acessos!.comparacao
+    const m = comSacola({ comparacao: { ...base, semana: null } })
+    expect(accessCards(m, 'semana').map((c) => c.variacao)).toEqual([null, null, null, null])
+    expect(comparisonLabel(m, 'semana')).toBeNull()
+    expect(comparisonLabel(comSacola(), 'semana')).toBe('semana anterior')
+  })
+
+  it('base 0 ou `null` ⇒ sem linha: a marca não medida no período anterior apaga só "Com sacola"', () => {
+    const base = comSacola().acessos!.comparacao
+    const m = comSacola({
+      comparacao: {
+        hoje: { ...base.hoje, com_sacola: null, base_hoje: { ...base.hoje.base_hoje, com_sacola: null } },
+        ontem: { ...base.ontem, com_sacola: 0 },
+        semana: { ...base.semana!, com_sacola: null, base_semana: { ...base.semana!.base_semana, com_sacola: null } },
+      },
+    })
+    for (const p of ['hoje', 'ontem', 'semana'] as const) {
+      const [vis, sac] = accessCards(m, p)
+      expect(sac.variacao).toBeNull()
+      expect(vis.variacao).not.toBeNull()
+    }
+    const sem0 = comSacola({ comparacao: { ...base, semana: { ...base.semana!, visitas: 0 } } })
+    expect(accessCards(sem0, 'semana')[0].variacao).toBeNull()
+  })
+
+  it('sem `com_sacola` na resposta (o banco antes desta leitura): o cartão existe com "—" e sem variação', () => {
+    const m = movimento()
+    for (const p of ['hoje', 'ontem', 'semana'] as const) {
+      expect(accessCards(m, p)[1]).toEqual({ rotulo: 'Com sacola', valor: '—', variacao: null })
+    }
+    expect(accessCards(movimento({ acessos: undefined }), 'hoje')[1]).toEqual({ rotulo: 'Com sacola', valor: '—', variacao: null })
   })
 })

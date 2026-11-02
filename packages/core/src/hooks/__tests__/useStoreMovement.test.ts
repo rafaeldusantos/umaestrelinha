@@ -35,6 +35,7 @@ import type {
   StoreAccessComparison,
   StoreAccessDay,
   StoreAccessTodayComparison,
+  StoreAccessWeekComparison,
   StoreAccessWeekDay,
   StoreAccessYesterdayComparison,
   StoreMovement,
@@ -385,11 +386,12 @@ describe('StoreMovement — o tipo bate com a saída REAL da RPC (AD-012)', () =
 })
 
 describe('StoreAccess — o tipo da chave `acessos` bate com a saída REAL da RPC (feature 83, AD-012)', () => {
-  // A saída real, gerada por `probes/saida-real.sql` (como admin, `begin … rollback`). Ler o ARQUIVO
-  // (e não só uma lista escrita aqui) prende o tipo ao que o banco devolveu de fato.
+  // A saída real da leitura vigente — com "Com sacola" e a semana anterior —, gerada por
+  // `.specs/work-items/90-loja-ao-vivo-presenca/probes/04-saida-real.sql` (como admin, `begin … rollback`).
+  // Ler o ARQUIVO (e não só uma lista escrita aqui) prende o tipo ao que o banco devolveu de fato.
   const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..')
   const real = JSON.parse(
-    readFileSync(resolve(RAIZ, '.specs/features/83-loja-ao-vivo/probes/saida-real.json'), 'utf8'),
+    readFileSync(resolve(RAIZ, '.specs/work-items/90-loja-ao-vivo-presenca/probes/04-saida-real.json'), 'utf8'),
   ) as Record<string, unknown>
   const acessos = real.acessos as Record<string, Record<string, unknown>>
   const chaves = (o: unknown) => Object.keys(o as object).sort()
@@ -397,14 +399,20 @@ describe('StoreAccess — o tipo da chave `acessos` bate com a saída REAL da RP
   const ACESSOS_DO_TIPO: Record<keyof StoreAccess, true> = {
     faixa_atual: true, hoje: true, ontem: true, semana: true, comparacao: true,
   }
-  const DIA_DO_TIPO: Record<keyof StoreAccessDay, true> = { por_faixa: true, sem_hora: true }
+  const DIA_DO_TIPO: Record<keyof StoreAccessDay, true> = { por_faixa: true, sem_hora: true, com_sacola: true }
   const ITEM_DA_SEMANA_DO_TIPO: Record<keyof StoreAccessWeekDay, true> = { dia: true, visitas: true }
   const COMPARACAO_DO_TIPO: Record<keyof StoreAccess['comparacao'], true> = { hoje: true, ontem: true, semana: true }
   const CMP_HOJE_DO_TIPO: Record<keyof StoreAccessTodayComparison, true> = {
-    ate_hora: true, visitas: true, vendas: true, base_hoje: true,
+    ate_hora: true, visitas: true, vendas: true, com_sacola: true, base_hoje: true,
   }
-  const BASE_DO_TIPO: Record<keyof StoreAccessComparison, true> = { visitas: true, vendas: true }
-  const CMP_ONTEM_DO_TIPO: Record<keyof StoreAccessYesterdayComparison, true> = { dia: true, visitas: true, vendas: true }
+  const BASE_DO_TIPO: Record<keyof StoreAccessComparison, true> = { visitas: true, vendas: true, com_sacola: true }
+  const CMP_ONTEM_DO_TIPO: Record<keyof StoreAccessYesterdayComparison, true> = {
+    dia: true, visitas: true, vendas: true, com_sacola: true,
+  }
+  const CMP_SEMANA_DO_TIPO: Record<keyof StoreAccessWeekComparison, true> = {
+    ate_dia: true, ate_hora: true, visitas: true, vendas: true, com_sacola: true, base_semana: true,
+  }
+  const SEMANA_DO_TIPO: Record<keyof StoreAccess['semana'], true> = { por_dia: true, com_sacola: true }
 
   it('a saída real tem TODAS as chaves de topo do tipo, `acessos` incluída', () => {
     expect(chaves(real)).toEqual(Object.keys({
@@ -417,19 +425,22 @@ describe('StoreAccess — o tipo da chave `acessos` bate com a saída REAL da RP
     expect(chaves(acessos)).toEqual(Object.keys(ACESSOS_DO_TIPO).sort())
     expect(chaves(acessos.hoje)).toEqual(Object.keys(DIA_DO_TIPO).sort())
     expect(chaves(acessos.ontem)).toEqual(Object.keys(DIA_DO_TIPO).sort())
-    expect(chaves(acessos.semana)).toEqual(['por_dia'])
+    expect(chaves(acessos.semana)).toEqual(Object.keys(SEMANA_DO_TIPO).sort())
     expect(chaves((acessos.semana.por_dia as unknown[])[0])).toEqual(Object.keys(ITEM_DA_SEMANA_DO_TIPO).sort())
     expect(chaves(acessos.comparacao)).toEqual(Object.keys(COMPARACAO_DO_TIPO).sort())
     const cmp = acessos.comparacao as Record<string, Record<string, unknown> | null>
     expect(chaves(cmp.hoje)).toEqual(Object.keys(CMP_HOJE_DO_TIPO).sort())
     expect(chaves(cmp.hoje?.base_hoje)).toEqual(Object.keys(BASE_DO_TIPO).sort())
     expect(chaves(cmp.ontem)).toEqual(Object.keys(CMP_ONTEM_DO_TIPO).sort())
-    expect(cmp.semana).toBeNull()
+    expect(chaves(cmp.semana)).toEqual(Object.keys(CMP_SEMANA_DO_TIPO).sort())
+    expect(chaves(cmp.semana?.base_semana)).toEqual(Object.keys(BASE_DO_TIPO).sort())
   })
 
   it('as listas literais (as do design) são as da saída real', () => {
     expect(chaves(acessos)).toEqual(['comparacao', 'faixa_atual', 'hoje', 'ontem', 'semana'])
-    expect(chaves((acessos.comparacao as Record<string, unknown>).hoje)).toEqual(['ate_hora', 'base_hoje', 'vendas', 'visitas'])
+    expect(chaves((acessos.comparacao as Record<string, unknown>).hoje)).toEqual(['ate_hora', 'base_hoje', 'com_sacola', 'vendas', 'visitas'])
+    expect(chaves((acessos.comparacao as Record<string, unknown>).semana)).toEqual(['ate_dia', 'ate_hora', 'base_semana', 'com_sacola', 'vendas', 'visitas'])
+    expect(chaves(acessos.hoje)).toEqual(['com_sacola', 'por_faixa', 'sem_hora'])
     expect((acessos.hoje.por_faixa as unknown[]).length).toBe(8)
     expect((acessos.ontem.por_faixa as unknown[]).length).toBe(8)
   })

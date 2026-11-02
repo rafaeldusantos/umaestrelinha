@@ -47,12 +47,16 @@ export const accessDelta = (atual: number | null, anterior: number | null): numb
   return Math.sign(x) * Math.round(Math.abs(x)) || 0
 }
 
-/** Quem é o "anterior": Hoje ⇒ `ontem até as {h}h` · Ontem ⇒ `anteontem` · Semana ⇒ `null`. */
+/**
+ * Quem é o "anterior": Hoje ⇒ `ontem até as {h}h` · Ontem ⇒ `anteontem` · Semana ⇒ `semana anterior`
+ * só quando o servidor mandou a comparação da semana (ela é `null` enquanto a semana anterior não foi
+ * contada até o mesmo dia e a mesma hora).
+ */
 export const comparisonLabel = (m: StoreMovement, periodo: MovementPeriodKey): string | null => {
   if (!m.acessos) return null
   if (periodo === 'hoje') return `ontem até as ${m.acessos.comparacao.hoje.ate_hora}h`
   if (periodo === 'ontem') return 'anteontem'
-  return null
+  return m.acessos.comparacao.semana ? 'semana anterior' : null
 }
 
 export type DeltaTone = 'alta' | 'neutra'
@@ -64,13 +68,18 @@ export const deltaLine = (p: number, contra: string): { texto: string; tom: Delt
   return { texto: `0% vs ${contra}`, tom: 'neutra' }
 }
 
+/** A régua de "Com sacola" na Semana, em letra pequena sob os números. */
+const CART_WEEK_NOTE = 'Com sacola, na semana, é a soma dos dias: quem pôs joia na sacola em dois dias conta duas vezes.'
+
 export interface AccessCard {
-  rotulo: 'Visitas' | 'Vendas' | 'Conversão'
+  rotulo: 'Visitas' | 'Com sacola' | 'Vendas' | 'Conversão'
   valor: string
   variacao: { texto: string; tom: DeltaTone } | null
+  /** Só no cartão "Com sacola" da Semana: a nota da soma dos dias. */
+  nota?: string
 }
 
-/** O par comparado de um período: o lado atual e o anterior. `null` em Semana ou sem `acessos`. */
+/** O par comparado de um período: o lado atual e o anterior. `null` sem `acessos` ou sem a semana anterior. */
 const parComparado = (
   m: StoreMovement,
   periodo: MovementPeriodKey,
@@ -81,15 +90,38 @@ const parComparado = (
   if (periodo === 'hoje') return { atual: a.comparacao.hoje.base_hoje, anterior: a.comparacao.hoje }
   if (periodo === 'ontem') {
     const p = m.periodos.ontem
-    return { atual: { visitas: p.visitas, vendas: p.vendas }, anterior: a.comparacao.ontem }
+    return { atual: { visitas: p.visitas, vendas: p.vendas, com_sacola: a.ontem.com_sacola }, anterior: a.comparacao.ontem }
   }
-  return null
+  // Semana: de segunda até a hora completa dos DOIS lados — a variação é `base_semana`.
+  const s = a.comparacao.semana
+  return s ? { atual: s.base_semana, anterior: s } : null
 }
 
 const conversaoDe = (par: StoreAccessComparison): number | null =>
   par.visitas === null || par.vendas === null ? null : conversion(par.vendas, par.visitas)
 
-/** Os três cartões de um período, na ordem: Visitas, Vendas, Conversão. */
+/**
+ * "Com sacola" do período: o número que o banco mandou, ou `'—'` sem ele (o banco anterior a esta
+ * leitura). Na Semana leva a nota da soma dos dias.
+ */
+const cartCard = (
+  m: StoreMovement,
+  periodo: MovementPeriodKey,
+  par: ReturnType<typeof parComparado>,
+  linha: (d: number | null) => AccessCard['variacao'],
+): AccessCard => {
+  const n = m.acessos?.[periodo].com_sacola
+  if (n === undefined || n === null) return { rotulo: 'Com sacola', valor: '—', variacao: null }
+  const card: AccessCard = {
+    rotulo: 'Com sacola',
+    valor: formatCount(n),
+    variacao: par ? linha(accessDelta(par.atual.com_sacola ?? null, par.anterior.com_sacola ?? null)) : null,
+  }
+  if (periodo === 'semana') card.nota = CART_WEEK_NOTE
+  return card
+}
+
+/** Os quatro cartões de um período, na ordem: Visitas, Com sacola, Vendas, Conversão. */
 export const accessCards = (m: StoreMovement, periodo: MovementPeriodKey): AccessCard[] => {
   const p = m.periodos[periodo]
   const par = parComparado(m, periodo)
@@ -98,6 +130,7 @@ export const accessCards = (m: StoreMovement, periodo: MovementPeriodKey): Acces
   const conv = conversion(p.vendas, p.visitas)
   return [
     { rotulo: 'Visitas', valor: formatCount(p.visitas), variacao: par ? linha(accessDelta(par.atual.visitas, par.anterior.visitas)) : null },
+    cartCard(m, periodo, par, linha),
     { rotulo: 'Vendas', valor: formatCount(p.vendas), variacao: par ? linha(accessDelta(par.atual.vendas, par.anterior.vendas)) : null },
     {
       rotulo: 'Conversão',

@@ -11,6 +11,7 @@ import ScrollToTop from "@/app/ScrollToTop";
 import AnalyticsLoader from "@/app/AnalyticsLoader";
 import PageViewTracker from "@/app/PageViewTracker";
 import VisitCounter from "@/app/VisitCounter";
+import PresencePing from "@/app/PresencePing";
 import { setPreviewMode } from "@/shared/lib/analytics";
 import { CookieNotice } from "@/widgets/cookie-notice";
 import AbandonedCartTracker from "@/features/abandoned-cart/ui/AbandonedCartTracker";
@@ -115,6 +116,11 @@ const App = () => (
           depende da medição do GA4: desligar o GA4 no painel não para a contagem.
         */}
         {!previewMode && <VisitCounter />}
+        {/*
+          A presença na loja: com a aba visível, avisa a cada minuto que este navegador está na loja.
+          Mesmo lugar e mesma decisão do contador (fora das `Routes`, fora da prévia, sem o GA4).
+        */}
+        {!previewMode && <PresencePing />}
         {/*
           O limite de erro fica ACIMA do `Suspense`: quem falha é o `import()` de dentro dele, e um
           limite irmão não pegaria. Sem ele, um chunk que não baixa — rede que caiu, ou um deploy novo

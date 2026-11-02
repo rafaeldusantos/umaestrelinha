@@ -55,3 +55,33 @@ export const acessos = (extra: Partial<StoreAccess> = {}): StoreAccess => ({
 /** `movimento()` com a chave `acessos` da `83`. */
 export const movimentoComAcessos = (extra: Partial<StoreMovement> = {}): StoreMovement =>
   movimento({ acessos: acessos(), ...extra })
+
+/**
+ * `movimentoComAcessos()` com "Com sacola" e a semana anterior, como a leitura vigente devolve. Os
+ * números divergem de propósito (`L-013`): o total de "Com sacola" × a base até a hora × o lado
+ * anterior; a semana anterior × a atual até a hora.
+ */
+export const movimentoComSacola = (extra: Partial<StoreMovement> = {}): StoreMovement => {
+  const a = acessos()
+  return movimento({
+    acessos: {
+      ...a,
+      hoje: { ...a.hoje, com_sacola: 9 },
+      ontem: { ...a.ontem, com_sacola: 4 },
+      semana: { ...a.semana, com_sacola: 57 },
+      comparacao: {
+        hoje: { ...a.comparacao.hoje, com_sacola: 3, base_hoje: { ...a.comparacao.hoje.base_hoje, com_sacola: 6 } },
+        ontem: { ...a.comparacao.ontem, com_sacola: 2 },
+        semana: {
+          ate_dia: '2026-10-15',
+          ate_hora: 11,
+          visitas: 250,
+          vendas: 4,
+          com_sacola: 40,
+          base_semana: { visitas: 200, vendas: 6, com_sacola: 50 },
+        },
+      },
+    },
+    ...extra,
+  })
+}

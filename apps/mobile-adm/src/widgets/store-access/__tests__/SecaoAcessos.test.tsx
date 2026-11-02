@@ -9,7 +9,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { MovementPeriodKey, StoreMovement } from '@estrelinha/core/stats'
 import { FALHA_DE_LEITURA, TENTAR_DE_NOVO, type Leitura } from '@/shared/ui/leitura'
-import { acessos, movimento, movimentoComAcessos } from '@/test/movimento'
+import { acessos, movimento, movimentoComAcessos, movimentoComSacola } from '@/test/movimento'
 import SecaoAcessos from '../ui/SecaoAcessos'
 
 const comDado = (m: StoreMovement): Leitura<StoreMovement> => ({ dado: m, falhou: false, tentarDeNovo: vi.fn() })
@@ -73,9 +73,9 @@ describe('os três cartões (LAV-51)', () => {
     expect(variacao('Conversão, ontem, 0,0%')).toBeNull()
   })
 
-  it('Semana: os três números, nenhuma linha de variação', () => {
+  it('Semana sem a semana anterior contada (`comparacao.semana` nula): os quatro números, nenhuma linha de variação', () => {
     montar(comDado(movimentoComAcessos()), 'semana')
-    for (const nome of ['Visitas, esta semana, 230', 'Vendas, esta semana, 9', 'Conversão, esta semana, 3,9%']) {
+    for (const nome of ['Visitas, esta semana, 230', 'Com sacola, esta semana, —', 'Vendas, esta semana, 9', 'Conversão, esta semana, 3,9%']) {
       expect(variacao(nome)).toBeNull()
     }
   })
@@ -95,18 +95,23 @@ describe('os três cartões (LAV-51)', () => {
     expect(grupo('Visitas, esta semana, 12.345')).toBeTruthy()
   })
 
-  it('exatamente três cartões, nesta ordem, e nenhum "Com sacola"', () => {
+  it('exatamente quatro cartões, nesta ordem: Visitas, Com sacola, Vendas, Conversão — "—" sem o número no banco', () => {
     montar(comDado(movimentoComAcessos()))
     const cartoes = within(screen.getByTestId('cartoes-dos-acessos')).getAllByRole('group')
-    expect(cartoes.map((c) => c.getAttribute('aria-label'))).toEqual(['Visitas, hoje, 41', 'Vendas, hoje, 3', 'Conversão, hoje, 7,3%'])
-    expect(secao().textContent).not.toMatch(/sacola/i)
+    expect(cartoes.map((c) => c.getAttribute('aria-label'))).toEqual([
+      'Visitas, hoje, 41',
+      'Com sacola, hoje, —',
+      'Vendas, hoje, 3',
+      'Conversão, hoje, 7,3%',
+    ])
+    expect(variacao('Com sacola, hoje, —')).toBeNull()
   })
 
-  it('a grade: `auto-fit` com piso em rem e a Conversão em largura inteira (tokens exatos, LAV-63)', () => {
+  it('a grade: `auto-fit` com piso em rem, quatro cartões em 2×2 — nenhum em largura inteira (tokens exatos, LAV-63)', () => {
     montar(comDado(movimentoComAcessos()))
     const grade = screen.getByTestId('cartoes-dos-acessos')
     expect(temClasse(grade, 'grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))]')).toBe(true)
-    expect(temClasse(grade, '[&>*:last-child]:col-span-full')).toBe(true)
+    expect(temClasse(grade, '[&>*:last-child]:col-span-full')).toBe(false)
     expect(temClasse(grade, 'grid-cols-2')).toBe(false)
   })
 
@@ -114,6 +119,54 @@ describe('os três cartões (LAV-51)', () => {
     montar(comDado(movimentoComAcessos()))
     const numero = within(grupo('Visitas, hoje, 41')).getByText('41')
     for (const t of ['font-display', 'text-[22px]', 'font-bold', 'text-estrelinha-primary']) expect(temClasse(numero, t)).toBe(true)
+  })
+})
+
+describe('"Com sacola" e a semana anterior (LAV-51)', () => {
+  const grupo = (nome: string) => screen.getByRole('group', { name: nome })
+  const variacao = (nome: string) => within(grupo(nome)).queryByTestId('variacao')
+  const NOTA_DA_SOMA = 'Com sacola, na semana, é a soma dos dias: quem pôs joia na sacola em dois dias conta duas vezes.'
+  const nota = () => within(secao()).queryByText(NOTA_DA_SOMA, { exact: true, normalizer: (t) => t })
+
+  it('Hoje: "Com sacola" com o número do dia e a variação das horas completas (6 × 3)', () => {
+    montar(comDado(movimentoComSacola()))
+    expect(variacao('Com sacola, hoje, 9')?.textContent).toBe('+100% vs ontem até as 11h')
+  })
+
+  it('Ontem: "Com sacola" contra anteontem (4 × 2)', () => {
+    montar(comDado(movimentoComSacola()), 'ontem')
+    expect(variacao('Com sacola, ontem, 4')?.textContent).toBe('+100% vs anteontem')
+  })
+
+  it('Semana: os quatro números com "vs semana anterior" — alta em `done`, queda em `ink-soft`, nunca vermelho', () => {
+    montar(comDado(movimentoComSacola()), 'semana')
+    expect(variacao('Visitas, esta semana, 230')?.textContent).toBe('−20% vs semana anterior')
+    expect(variacao('Com sacola, esta semana, 57')?.textContent).toBe('+25% vs semana anterior')
+    expect(variacao('Vendas, esta semana, 9')?.textContent).toBe('+50% vs semana anterior')
+    expect(variacao('Conversão, esta semana, 3,9%')?.textContent).toBe('+88% vs semana anterior')
+    expect(temClasse(variacao('Visitas, esta semana, 230')!, 'text-estrelinha-ink-soft')).toBe(true)
+    expect(temClasse(variacao('Com sacola, esta semana, 57')!, 'text-estrelinha-done')).toBe(true)
+    for (const v of screen.getAllByTestId('variacao')) expect(v.className).not.toMatch(/red|destructive|danger/)
+  })
+
+  it('a nota da soma dos dias aparece SÓ na Semana, em 12 px `ink-soft`, logo depois dos números', () => {
+    montar(comDado(movimentoComSacola()))
+    expect(nota()).toBeNull()
+    escolher('Ontem')
+    expect(nota()).toBeNull()
+    escolher('Semana')
+    const n = nota()!
+    expect(n).not.toBeNull()
+    expect(temClasse(n, 'text-xs')).toBe(true)
+    expect(temClasse(n, 'text-estrelinha-ink-soft')).toBe(true)
+    expect(n.previousElementSibling).toBe(screen.getByTestId('cartoes-dos-acessos'))
+  })
+
+  it('sem a semana anterior contada, a nota continua e nenhuma variação aparece', () => {
+    const m = movimentoComSacola()
+    montar(comDado({ ...m, acessos: { ...m.acessos!, comparacao: { ...m.acessos!.comparacao, semana: null } } }), 'semana')
+    expect(screen.queryAllByTestId('variacao')).toHaveLength(0)
+    expect(nota()).not.toBeNull()
   })
 })
 
@@ -285,7 +338,13 @@ describe('os estados, exclusivos (LAV-55, L-063)', () => {
   it('carregando: `aria-busy`, traços, seletor travado — e nenhum número, nenhuma falha, nenhum consentimento', () => {
     montar({ dado: undefined, falhou: false, tentarDeNovo: vi.fn() })
     expect(secao().getAttribute('aria-busy')).toBe('true')
-    expect(pulsando(secao())).toBeGreaterThanOrEqual(4)
+    expect(pulsando(secao())).toBeGreaterThanOrEqual(5)
+    expect(within(secao()).getAllByText(/^(Visitas|Com sacola|Vendas|Conversão)$/).map((e) => e.textContent)).toEqual([
+      'Visitas',
+      'Com sacola',
+      'Vendas',
+      'Conversão',
+    ])
     for (const b of ['Hoje', 'Ontem', 'Semana']) expect((botao(b) as HTMLButtonElement).disabled).toBe(true)
     expect(secao().textContent).not.toMatch(/\d/)
     expect(within(secao()).queryByText(FALHA_DE_LEITURA)).toBeNull()

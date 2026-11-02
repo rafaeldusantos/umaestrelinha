@@ -35,7 +35,7 @@ export const countingSinceLine = (aba: MovementPeriodKey, m: StoreMovement): str
 }
 
 /** `VIS-39` — por que Visitas está em `0`. O host é o que o BANCO usa, nunca o do hook de configurações. */
-export const emptyCounterLine = (m: StoreMovement): string | null => {
+export const emptyCounterLine = (m: Pick<StoreMovement, 'contagem_desde' | 'production_host'>): string | null => {
   if (m.contagem_desde !== null) return null
   const host = m.production_host.trim()
   if (host === '') return 'O contador está parado: falta configurar o endereço de produção da loja.'

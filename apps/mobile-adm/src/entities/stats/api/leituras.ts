@@ -1,5 +1,6 @@
 import { retryUnlessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 import { useStoreMovement } from '@estrelinha/core/hooks/useStoreMovement'
+import { useStoreLive } from '@estrelinha/core/hooks/useStoreLive'
 
 export { STORE_MOVEMENT_KEY } from '@estrelinha/core/hooks/useStoreMovement'
 export { STORE_OVERVIEW_KEY, useStoreOverview as useResumo } from '@estrelinha/core/hooks/useStoreOverview'
@@ -16,3 +17,13 @@ export { STORE_OVERVIEW_KEY, useStoreOverview as useResumo } from '@estrelinha/c
  */
 export const useMovimento = ({ refetchInterval }: { refetchInterval?: number } = {}) =>
   useStoreMovement({ retry: retryUnlessDenied, refetchInterval })
+
+export { STORE_LIVE_KEY } from '@estrelinha/core/hooks/useStoreLive'
+
+/**
+ * A presença na loja (`store_live`), com a regra de repetição do app: o `42501` não repete, e a recusa
+ * cai na mesma vigia das outras leituras (`useRecusaDePapel`). A Início relê a cada 30 s, a Loja ao
+ * vivo a 15 s, só com a aba visível e nunca depois de uma recusa (a regra mora no hook de `core`).
+ */
+export const usePresenca = ({ refetchInterval }: { refetchInterval?: number } = {}) =>
+  useStoreLive({ retry: retryUnlessDenied, refetchInterval })

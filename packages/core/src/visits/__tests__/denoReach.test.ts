@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest'
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 /** Folhas: zero import. Escritas por extenso — a âncora nunca itera o objeto que mede. */
-const FOLHAS = ['visits/bots.ts', 'visits/visitor.ts', 'visits/optOut.ts', 'time/zone.ts']
+const FOLHAS = ['visits/bots.ts', 'visits/visitor.ts', 'visits/optOut.ts', 'visits/presence.ts', 'time/zone.ts']
 /** Barril: só especificadores relativos com `.ts`. */
 const BARRIL = 'visits/index.ts'
 
@@ -49,13 +49,14 @@ const problemasDoBarril = (ler: Leitor): string[] =>
   especificadores(ler(BARRIL)).filter((s) => !s.startsWith('.') || !s.endsWith('.ts'))
 
 describe('core/visits — alcançável pelo Deno', () => {
-  it('âncora — as quatro folhas e o barril foram lidos, com o conteúdo esperado', () => {
+  it('âncora — as cinco folhas e o barril foram lidos, com o conteúdo esperado', () => {
     expect(lerDoDisco('visits/bots.ts')).toContain('BOT_SIGNATURES')
     expect(lerDoDisco('visits/visitor.ts')).toContain('visitBodyRefusal')
     expect(lerDoDisco('visits/optOut.ts')).toContain('OPT_OUT_PARAM')
+    expect(lerDoDisco('visits/presence.ts')).toContain('presenceBodyRefusal')
     expect(lerDoDisco('time/zone.ts')).toContain('STORE_TIME_ZONE')
-    // O barril reexporta as três folhas de `visits` — exatamente três especificadores.
-    expect(especificadores(lerDoDisco(BARRIL)).sort()).toEqual(['./bots.ts', './optOut.ts', './visitor.ts'])
+    // O barril reexporta as quatro folhas de `visits` — exatamente quatro especificadores.
+    expect(especificadores(lerDoDisco(BARRIL)).sort()).toEqual(['./bots.ts', './optOut.ts', './presence.ts', './visitor.ts'])
   })
 
   it.each(FOLHAS)('%s não importa nada', (folha) => {

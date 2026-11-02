@@ -7,6 +7,7 @@ export type {
   StoreAccessComparison,
   StoreAccessDay,
   StoreAccessTodayComparison,
+  StoreAccessWeekComparison,
   StoreAccessWeekDay,
   StoreAccessYesterdayComparison,
   StoreMovement,

@@ -196,9 +196,23 @@ const PrivacyPolicyPage = () => {
           seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código,
           a data e a hora cheia da sua primeira visita naquele dia (por exemplo, 14h) — e nada mais:
           não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros são
-          apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google. Desligar
+          apagados depois de 14 dias e não são compartilhados com ninguém, nem com o Google. Desligar
           “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar os
           dados do site no navegador tem o mesmo efeito.
+        </p>
+        {/* A presença na loja. Palavra por palavra; a aprovação da Adri é pré-condição do deploy. */}
+        <p>
+          Enquanto a loja está aberta na tela, o seu navegador também avisa ao meu servidor, a cada
+          minuto, que você está na loja. Por até 30 minutos fica registrado só o tipo de página que
+          você vê (uma joia, uma lista de joias, a sacola, o pagamento ou o guia de como mandar o
+          material), qual joia, quantos itens há na sacola, de que tipo de lugar você veio
+          (Instagram, Google, WhatsApp, direto ou outros) e se você usa celular, computador ou
+          tablet — nunca o seu IP, o endereço completo da página nem o endereço de onde você veio.
+          Depois disso, por até 1 hora fica o registro de quem estava na loja em cada minuto e, por
+          até 14 dias, a marca de que aquele navegador pôs uma joia na sacola naquele dia e a hora em
+          que pôs; as duas coisas ficam ligadas só a um código aleatório que troca todo dia e não se
+          liga ao código da contagem de visitas. Desligar “Estatísticas” também desliga esse aviso e
+          apaga esse código do seu navegador.
         </p>
       </PolicySection>
 

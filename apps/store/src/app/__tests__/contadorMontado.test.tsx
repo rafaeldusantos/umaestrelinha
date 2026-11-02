@@ -30,17 +30,17 @@ interface Montagem {
   foraDasRoutes: boolean
 }
 
-/** Onde o contador está montado, ou `null` quando a forma esperada não aparece. */
-function montagem(fonte: string): Montagem | null {
+/** Onde o componente está montado, ou `null` quando a forma esperada não aparece. */
+function montagem(fonte: string, nome = 'VisitCounter'): Montagem | null {
   const codigo = semComentario(fonte)
-  const elemento = codigo.search(/\{\s*!previewMode\s*&&\s*<VisitCounter\s*\/>\s*\}/)
+  const elemento = codigo.search(new RegExp(`\\{\\s*!previewMode\\s*&&\\s*<${nome}\\s*\\/>\\s*\\}`))
   if (elemento === -1) return null
   const abreRouter = codigo.indexOf('<BrowserRouter>')
   const fechaRouter = codigo.indexOf('</BrowserRouter>')
   const abreRoutes = codigo.indexOf('<Routes>')
   const fechaRoutes = codigo.indexOf('</Routes>')
   return {
-    importado: /import\s+VisitCounter\s+from\s+["']@\/app\/VisitCounter["']/.test(codigo),
+    importado: new RegExp(`import\\s+${nome}\\s+from\\s+["']@\\/app\\/${nome}["']`).test(codigo),
     dentroDoRouter: abreRouter !== -1 && abreRouter < elemento && elemento < fechaRouter,
     foraDasRoutes: abreRoutes !== -1 && (elemento < abreRoutes || elemento > fechaRoutes),
   }
@@ -55,6 +55,10 @@ describe('VIS-17 — o contador está montado no App', () => {
 
   it('importado, dentro do BrowserRouter e fora das Routes', () => {
     expect(montagem(APP)).toEqual({ importado: true, dentroDoRouter: true, foraDasRoutes: true })
+  })
+
+  it('o pulso de presença está montado do MESMO jeito: importado, no Router, fora das Routes e só fora da prévia', () => {
+    expect(montagem(APP, 'PresencePing')).toEqual({ importado: true, dentroDoRouter: true, foraDasRoutes: true })
   })
 
   describe('sensores', () => {
@@ -90,6 +94,12 @@ describe('VIS-17 — o contador está montado no App', () => {
     it('fora do BrowserRouter é acusado', () => {
       const fora = `{!previewMode && <VisitCounter />}\n${base.replace('  {!previewMode && <VisitCounter />}\n', '')}`
       expect(montagem(fora)!.dentroDoRouter).toBe(false)
+    })
+
+    it('o pulso sem o portão da prévia não é reconhecido', () => {
+      const pulso = base.split('VisitCounter').join('PresencePing')
+      expect(montagem(pulso, 'PresencePing')).toEqual({ importado: true, dentroDoRouter: true, foraDasRoutes: true })
+      expect(montagem(pulso.replace('{!previewMode && <PresencePing />}', '<PresencePing />'), 'PresencePing')).toBeNull()
     })
 
     it('só citado em comentário não conta como montado — com LF e com CRLF', () => {

@@ -25,8 +25,9 @@
 import { isBotUserAgent } from '../../../packages/core/src/visits/bots.ts'
 import { visitBodyRefusal } from '../../../packages/core/src/visits/visitor.ts'
 import { trafficType } from '../../../packages/core/src/analytics/host.ts'
-import { json, preflight } from '../_shared/http.ts'
+import { corsHeaders, json } from '../_shared/http.ts'
 import { clientIp, type RateLimiter } from '../_shared/rateLimit.ts'
+import { routePing } from './ping.ts'
 
 export interface Clock {
   dia: string
@@ -60,6 +61,8 @@ export interface Deps {
   supabase: any
   now: () => number
   limiter: RateLimiter
+  /** O teto por IP do pulso de presença (`?action=ping`), separado do da visita: um não consome o outro. */
+  pingLimiter: RateLimiter
   /** Injetado: em estado de módulo, o relógio de um caso de teste vazaria para o seguinte. */
   clock: ClockCache
   log: (linha: Record<string, unknown>) => void
@@ -114,8 +117,23 @@ async function lerStoreClock(deps: Deps) {
   return c
 }
 
+/**
+ * O preflight desta function: o CORS do dono (`_shared/http.ts`) mais `Access-Control-Max-Age`, para o
+ * navegador não repetir o `OPTIONS` antes de cada pulso de presença (um por minuto por aba).
+ */
+export const PREFLIGHT_MAX_AGE_S = 86_400
+
+function preflightDaVisita(): Response {
+  return new Response('ok', { headers: { ...corsHeaders, 'Access-Control-Max-Age': String(PREFLIGHT_MAX_AGE_S) } })
+}
+
 export async function route(deps: Deps, req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return preflight()
+  if (req.method === 'OPTIONS') return preflightDaVisita()
+
+  // A ação `ping` — o pulso de presença — tem portões e teto próprios (`ping.ts`).
+  if (new URL(req.url).searchParams.get('action') === 'ping') {
+    return routePing({ supabase: deps.supabase, limiter: deps.pingLimiter, log: deps.log }, req)
+  }
 
   const responder = (desfecho: Desfecho, corpo: unknown, status: number, extra: Record<string, unknown> = {}) => {
     deps.log({ fn: 'visit', desfecho, ...extra })

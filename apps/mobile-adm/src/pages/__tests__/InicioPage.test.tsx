@@ -68,8 +68,10 @@ describe('a Início abre lendo as duas RPCs admin (MAI-01, MAI-09, MAI-23)', () 
     expect(blocoAguardando()?.textContent).toContain('3')
     expect(fake.chamadasDe('store_movement')).toEqual([{ nome: 'store_movement', args: [] }])
     expect(fake.chamadasDe('store_overview')).toEqual([{ nome: 'store_overview', args: [] }])
+    // A presença do cartão "Agora na loja" é a terceira RPC admin, também sem argumento.
+    expect(fake.chamadasDe('store_live')).toEqual([{ nome: 'store_live', args: [] }])
     // `MAI-23`: só RPC. Nenhum `orders` pelo PostgREST (a RLS daria os pedidos da própria conta).
-    expect(fake.leiturasDeDado().sort()).toEqual(['rpc:store_movement', 'rpc:store_overview'])
+    expect(fake.leiturasDeDado().sort()).toEqual(['rpc:store_live', 'rpc:store_movement', 'rpc:store_overview'])
   })
 
   it('o leitor de tela lê cada número com o rótulo (MAI-30)', async () => {
@@ -283,15 +285,15 @@ describe('recusa por papel (MAI-22, MAI-24)', () => {
   it('erro de REDE (sem código) nunca leva à recusa nem reconfere o papel', async () => {
     fake.falharRpc('store_movement', REDE)
     fake.falharRpc('store_overview', { message: 'boom', code: '500' })
+    fake.falharRpc('store_live', REDE)
     await abrir()
     await andar(3000)
     expect(window.location.pathname).toBe('/')
     expect(screen.queryByText(SEM_ACESSO)).toBeNull()
     expect(fake.estado.tabelas.filter((t) => t === 'user_roles')).toHaveLength(1)
-    // Feature `83`: SETE blocos em falha — os seis de antes e o cartão "Visitas hoje", que lê o mesmo
-    // movimento (`LAV-04`). Âncora de contagem subindo com o fato; a régua (`toHaveLength`) fica.
+    // SETE blocos em falha — os seis de antes e o cartão "Agora na loja", que lê a presença.
     expect(screen.getAllByText(FALHA_DE_LEITURA)).toHaveLength(7)
-    expect(screen.getByTestId('cartao-visitas-hoje')).toHaveTextContent(FALHA_DE_LEITURA)
+    expect(screen.getByTestId('cartao-agora-na-loja')).toHaveTextContent(FALHA_DE_LEITURA)
   })
 })
 

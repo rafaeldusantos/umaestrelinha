@@ -1,4 +1,4 @@
-// Feature `83` · T11 — `LAV-60`: a Loja ao vivo (e o cartão "Visitas hoje" da Início) sobre o
+// Feature `83` · T11 — `LAV-60`: a Loja ao vivo (e a faixa do movimento na Início) sobre o
 // supabase-js REAL (`src/test/clientReal.ts`). O `PostgrestClient` de verdade transforma o 403 do
 // PostgREST em `{ error: { code: '42501' } }` — a recusa —, e o 500 e a rede caída em erros SEM esse
 // código — a falha do bloco, nunca "Esta conta não tem acesso".
@@ -38,12 +38,12 @@ const OK: RespostaRpcReal = { status: 200, corpo: movimentoComAcessos() }
 
 const andar = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms))
 
-/** Um número da seção, do cartão ou a linha de frescor: o que NÃO pode aparecer na recusa. */
+/** Um número da seção, da faixa da Início ou a linha de frescor: o que NÃO pode aparecer na recusa. */
 const algumNumero = (): string | null => {
   const grupo = document.querySelector('[role="group"][aria-label^="Visitas,"], [role="group"][aria-label^="Vendas,"], [role="group"][aria-label^="Conversão,"]')
   if (grupo) return `grupo ${grupo.getAttribute('aria-label')}`
-  const cartao = document.querySelector('[data-testid="cartao-visitas-hoje"]')
-  if (cartao && /\d/.test(cartao.textContent ?? '')) return `cartão ${cartao.textContent}`
+  const faixa = document.querySelector('[role="region"][aria-label="Movimento da loja"] [role="group"][aria-label^="Visitas, "]')
+  if (faixa) return `faixa ${faixa.getAttribute('aria-label')}`
   if (/Atualizado/.test(document.body.textContent ?? '')) return 'frescor'
   return null
 }
@@ -125,7 +125,7 @@ describe('a recusa (`42501`) sobre o client real', () => {
     expect(r.quantos(RPC_MOVIMENTO)).toBe(1)
   })
 
-  it('403 na primeira leitura da Início ⇒ o cartão "Visitas hoje" nunca mostra número, e o Login', async () => {
+  it('403 na primeira leitura da Início ⇒ a faixa nunca mostra número, e o Login', async () => {
     const { violacoes, observador, depoisDaEntrega } = montarVigiando('/', 1)
     await andarConferindo(4000, depoisDaEntrega, violacoes)
     observador.disconnect()
@@ -199,11 +199,11 @@ describe('falha não é recusa (LAV-60)', () => {
   it.each([
     ['500', ERRO_500],
     ['rede caída', 'rede' as const],
-  ])('%s na Início ⇒ o cartão diz "Não consegui carregar.", NUNCA a recusa', async (_nome, resposta) => {
+  ])('%s na Início ⇒ a faixa diz "Não consegui carregar.", NUNCA a recusa', async (_nome, resposta) => {
     const r = await abrirCom('/', resposta)
     expect(window.location.pathname).toBe('/')
     expect(screen.queryByText(SEM_ACESSO)).toBeNull()
-    expect(screen.getByTestId('cartao-visitas-hoje')).toHaveTextContent(FALHA_DE_LEITURA)
+    expect(screen.getByRole('region', { name: 'Movimento da loja' })).toHaveTextContent(FALHA_DE_LEITURA)
     expect(r.quantos(ROLES)).toBe(1)
   })
 })
