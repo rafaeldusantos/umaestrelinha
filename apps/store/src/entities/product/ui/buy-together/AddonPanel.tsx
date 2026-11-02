@@ -8,11 +8,19 @@ import EngravingField from '../EngravingField'
 import VariantPicker from '../VariantPicker'
 import { panelIdOf } from './panel'
 
-export const Foto = ({ url, size }: { url: string | null; size: string }) => (
-  <span className={`${size} shrink-0 overflow-hidden rounded-sm bg-estrelinha-ground-deep`}>
+interface FotoProps {
+  url: string | null
+  size: string
+  /** O raio da vaga. O cartão de peça é `rounded-sm`; a foto da linha do bloco, `rounded-md`. */
+  rounded?: 'rounded-sm' | 'rounded-md'
+  /** A largura da rendição: a da vaga a DPR 3, sem baixar mais que o necessário. */
+  width?: 180 | 240
+}
+
+export const Foto = ({ url, size, rounded = 'rounded-sm', width = 180 }: FotoProps) => (
+  <span className={`${size} block shrink-0 overflow-hidden ${rounded} bg-estrelinha-ground-deep`}>
     {url && (
-      // Vaga de 56px: 180 cobre DPR 3 sem baixar mais que o necessário.
-      <img src={renditionUrl(url, 180)} alt="" loading="lazy" className="h-full w-full object-cover" />
+      <img src={renditionUrl(url, width)} alt="" loading="lazy" className="h-full w-full object-cover" />
     )}
   </span>
 )
@@ -20,6 +28,11 @@ export const Foto = ({ url, size }: { url: string | null; size: string }) => (
 interface Props {
   addon: BuyTogetherAddon
   actions: Pick<BuyTogether, 'choosePiece' | 'selectOptions' | 'setEngraving'>
+  /**
+   * Desenhar aqui a frase do que falta. A folha ("Em folha") a desenha; na linha quem a desenha é a
+   * própria linha, entre ela e as escolhas, e só depois de a cliente tentar levar o conjunto.
+   */
+  showMissing?: boolean
 }
 
 /**
@@ -27,7 +40,7 @@ interface Props {
  * falta. É o MESMO nas três formas do bloco — a forma só decide onde ele aparece (na linha, numa
  * folha ou num diálogo), e por isso ele mora num arquivo só.
  */
-const AddonPanel = ({ addon, actions }: Props) => {
+const AddonPanel = ({ addon, actions, showMissing = true }: Props) => {
   const { choosePiece, selectOptions, setEngraving } = actions
   const cards = useRef<(HTMLButtonElement | null)[]>([])
   const panelId = panelIdOf(addon)
@@ -116,7 +129,7 @@ const AddonPanel = ({ addon, actions }: Props) => {
         }}
       />
 
-      {addon.marked && addon.missing !== null && (
+      {showMissing && addon.marked && addon.missing !== null && (
         <p role="status" className="mt-3 text-[13px] font-medium leading-[18px] text-estrelinha-primary">
           {addon.missing}
         </p>

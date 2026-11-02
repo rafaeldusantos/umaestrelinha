@@ -12,6 +12,11 @@ export interface BuyAction {
   bundleTotal: number | null
   /** O aviso do botão, ou `null`. Some sozinho quando a causa some. */
   notice: string | null
+  /**
+   * A cliente já tentou levar o conjunto com um adicional incompleto. É o mesmo estado que decide o
+   * `notice`; o bloco o lê para só então dizer, na linha, o que falta.
+   */
+  attempted: boolean
   /** O toque no botão — o mesmo na coluna de informação e na barra fixa. */
   tap: () => void
 }
@@ -100,6 +105,7 @@ export const useBuyAction = (purchase: ProductPurchase, buyTogether?: BuyTogethe
     pieces: 1 + marked,
     bundleTotal: bundle ? buyTogether.total : null,
     notice,
+    attempted,
     tap,
   }
 }

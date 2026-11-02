@@ -393,6 +393,8 @@ describe.each([['inline'], ['sheet'], ['formula']])('as regras de compra valem i
     ofertar([addon('a1', 0, 'ping')], [pingente()])
     renderPage()
     fireEvent.click(caixa(NOME))
+    // Na linha, a frase só vem depois de a cliente tentar levar; a folha a mostra desde a abertura.
+    if (forma_ !== 'sheet') fireEvent.click(screen.getByRole('button', { name: 'Levar o conjunto' }))
     expect(screen.getAllByText('Escolha o cor da pingente.').length).toBeGreaterThan(0)
     const rodape = screen.getByText('Total do conjunto').closest('div')!
     expect(texto(rodape)).toMatch(/R\$\s?100,00/)

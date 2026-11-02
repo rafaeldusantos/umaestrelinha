@@ -153,13 +153,13 @@ describe('Compre Junto — o total do conjunto é anunciado', () => {
 
     fireEvent.click(caixa(/Levar junto: Pingente/))
     fireEvent.click(within(linhaDo('a1')).getByRole('radio', { name: 'Prata' }))
-    expect(texto(r)).toMatch(/^Total do conjunto: R\$\s?135,00, R\$\s?128,25 com Pix$/)
+    expect(texto(r)).toMatch(/^Total do conjunto: R\$\s?135,00, R\$\s?128,25 no Pix$/)
     const rodape = screen.getByText('Total do conjunto').closest('div')!
     expect(texto(rodape)).toMatch(/R\$\s?135,00/)
 
     fireEvent.click(within(linhaDo('a1')).getByRole('radio', { name: 'Ouro' }))
     expect(regiao()).toBe(r)
-    expect(texto(r)).toMatch(/^Total do conjunto: R\$\s?125,00, R\$\s?118,75 com Pix$/)
+    expect(texto(r)).toMatch(/^Total do conjunto: R\$\s?125,00, R\$\s?118,75 no Pix$/)
 
     fireEvent.click(caixa(/Levar junto: Corrente Fina/))
     expect(regiao()).toBe(r)

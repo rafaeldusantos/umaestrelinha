@@ -145,6 +145,10 @@ const renderPage = (main: Product = principal(), search = '') => {
 const linhaDo = (id: string) => document.querySelector<HTMLElement>(`[data-addon-id="${id}"]`)!
 const caixa = (nome: RegExp) => screen.getByRole('checkbox', { name: nome })
 const texto = (el: HTMLElement | null) => (el?.textContent ?? '').replace(/\s+/g, ' ')
+const tentarLevar = () => fireEvent.click(screen.getByRole('button', { name: 'Levar o conjunto' }))
+/** Token exato de classe: `rounded-md` não casa `rounded-md-x`, e `h-6` não casa `min-h-6`. */
+const temClasse = (el: Element, token: string) =>
+  new RegExp(`(?:^|\\s)${token.replace(/[[\]().]/g, '\\$&')}(?![-\\w])`).test(el.getAttribute('class') ?? '')
 
 beforeEach(() => {
   seq = 0
@@ -274,13 +278,15 @@ describe('Compre Junto na página — o que aparece e como abre', () => {
 })
 
 describe('Compre Junto na página — marcar, escolher e o total', () => {
-  it('marcar abre as escolhas e diz qual escolha falta', () => {
+  it('marcar abre as escolhas; a frase do que falta só vem depois de tentar levar o conjunto', () => {
     ofertar([addon('a1', 0, 'ping')], [pingente()])
     renderPage()
     fireEvent.click(caixa(/Levar junto: Pingente/))
     expect(caixa(/Levar junto: Pingente/)).toBeChecked()
     const linha = within(linhaDo('a1'))
     expect(linha.getByRole('radiogroup')).toBeInTheDocument()
+    expect(linha.queryByText('Escolha o cor da pingente.')).toBeNull()
+    tentarLevar()
     expect(linha.getByText('Escolha o cor da pingente.')).toBeInTheDocument()
   })
 
@@ -293,7 +299,8 @@ describe('Compre Junto na página — marcar, escolher e o total', () => {
     const rodape = screen.getByText('Total do conjunto').closest('div')!
     expect(texto(rodape)).toMatch(/R\$\s?135,00/)
     expect(texto(rodape)).toMatch(/R\$\s?128,25/)
-    expect(texto(rodape)).toContain('com Pix')
+    expect(texto(rodape)).toContain('no Pix')
+    expect(texto(rodape)).not.toContain('com Pix')
     expect(
       screen.getByText(
         'O botão de compra leva a joia e as peças marcadas. Cada uma entra na sacola como uma linha própria, e você pode tirar qualquer uma depois.',
@@ -335,6 +342,7 @@ describe('Compre Junto na página — marcar, escolher e o total', () => {
     const rosa = within(linhaDo('a1')).getByRole('radio', { name: 'Rosa' })
     expect(rosa).toBeDisabled()
     fireEvent.click(rosa)
+    tentarLevar()
     expect(within(linhaDo('a1')).getByText('Escolha o cor da pingente.')).toBeInTheDocument()
   })
 
@@ -398,6 +406,7 @@ describe('Compre Junto na página — listas', () => {
     umaLista()
     renderPage()
     fireEvent.click(caixa(/Correntes/))
+    tentarLevar()
     expect(within(linhaDo('a1')).getByText('Escolha a peça.')).toBeInTheDocument()
     fireEvent.click(within(linhaDo('a1')).getByRole('radio', { name: 'Corrente Veneziana' }))
     expect(caixa(/Levar junto: Correntes, Corrente Veneziana/)).toBeChecked()
@@ -537,5 +546,124 @@ describe('Compre Junto na página — medição', () => {
   it('sem bloco não há view_item_list do Compre Junto', () => {
     renderPage()
     expect(eventos('view_item_list')).toHaveLength(0)
+  })
+})
+
+describe('Compre Junto na página — o desenho da forma "Na linha"', () => {
+  it('a frase do que falta aparece junto da linha só depois de tentar levar, e some ao completar', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    fireEvent.click(caixa(/Levar junto: Pingente/))
+    expect(within(linhaDo('a1')).queryByRole('status')).toBeNull()
+
+    tentarLevar()
+    const frase = within(linhaDo('a1')).getByRole('status')
+    expect(frase).toHaveTextContent('Escolha o cor da pingente.')
+    // Entre a linha e as escolhas: antes do grupo de cor.
+    const grupo = within(linhaDo('a1')).getByRole('radiogroup')
+    expect(frase.compareDocumentPosition(grupo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(temClasse(frase, 'text-estrelinha-alert')).toBe(true)
+
+    fireEvent.click(within(linhaDo('a1')).getByRole('radio', { name: 'Prata' }))
+    expect(within(linhaDo('a1')).queryByRole('status')).toBeNull()
+    expect(within(linhaDo('a1')).queryByText('Escolha o cor da pingente.')).toBeNull()
+  })
+
+  it('o link "Ver opções" some com a linha marcada e volta ao desmarcar', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    const linha = within(linhaDo('a1'))
+    expect(linha.getByRole('button', { name: 'Ver opções' })).toBeInTheDocument()
+    fireEvent.click(caixa(/Levar junto: Pingente/))
+    expect(linha.queryByRole('button', { name: /opções/ })).toBeNull()
+    fireEvent.click(caixa(/Levar junto: Pingente/))
+    expect(linha.getByRole('button', { name: /opções/ })).toBeInTheDocument()
+  })
+
+  it('o link "Ver os N modelos" da lista também some com a linha marcada', () => {
+    ofertar(
+      [{ ...addon('a1', 0, 'x'), kind: 'list', targetProductId: null, listId: 'L1' }],
+      [peca('c1', 'Corrente Veneziana', { price: 50 }), peca('c2', 'Corrente Elo', { price: 60 })],
+      {
+        lists: [
+          {
+            id: 'L1',
+            name: 'Correntes',
+            items: [
+              { productId: 'c1', position: 0, variantIds: [] },
+              { productId: 'c2', position: 1, variantIds: [] },
+            ],
+          },
+        ],
+      },
+    )
+    renderPage()
+    expect(within(linhaDo('a1')).getByRole('button', { name: 'Ver os 2 modelos' })).toBeInTheDocument()
+    fireEvent.click(caixa(/Correntes/))
+    expect(within(linhaDo('a1')).queryByRole('button', { name: /modelos|opções/ })).toBeNull()
+  })
+
+  it('o preço da linha, antes da escolha, é o da peça em foco, sem "a partir de"', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    // A peça custa 20; as variações vão de 25 a 40 — o mínimo delas não é o que a linha mostra.
+    expect(texto(linhaDo('a1'))).not.toContain('a partir de')
+    expect(texto(linhaDo('a1'))).toMatch(/R\$\s?20,00/)
+    expect(texto(linhaDo('a1'))).not.toMatch(/R\$\s?25,00/)
+  })
+
+  it('o preço da linha fica abaixo do nome', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    const nome = within(linhaDo('a1')).getByText('Pingente Estrela do Mar')
+    const preco = within(linhaDo('a1')).getByText(/R\$\s?20,00/)
+    expect(nome.compareDocumentPosition(preco) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(nome.parentElement!.contains(preco)).toBe(true)
+  })
+
+  it('o rodapé diz "no Pix" e a região viva anuncia o mesmo', () => {
+    ofertar([addon('a1', 0, 'simples')], [peca('simples', 'Corrente Fina', { price: 30 })])
+    renderPage()
+    fireEvent.click(caixa(/Corrente Fina/))
+    const rodape = screen.getByText('Total do conjunto').closest('div')!
+    expect(texto(rodape)).toMatch(/R\$\s?123,50\s?no Pix/)
+    expect(texto(rodape)).not.toContain('com Pix')
+    const bloco = screen.getByRole('heading', { name: 'Compre junto' }).closest('section')!
+    const regiao = Array.from(bloco.querySelectorAll('[role="status"]')).find(el =>
+      /Total do conjunto/.test(el.textContent ?? ''),
+    )!
+    expect(texto(regiao as HTMLElement)).toMatch(/^Total do conjunto: R\$\s?130,00, R\$\s?123,50 no Pix$/)
+  })
+
+  it('forma do desenho: superfície com borda e raio, linhas sem cartão, caixa própria em célula de 44px, foto 64×80, rodapé sem caixa areia', () => {
+    ofertar([addon('a1', 0, 'ping'), addon('a2', 1, 'simples')], [pingente(), peca('simples', 'Corrente Fina', { price: 30 })])
+    renderPage()
+    const bloco = screen.getByRole('heading', { name: 'Compre junto' }).closest('section')!
+    for (const t of ['bg-estrelinha-surface', 'border', 'border-estrelinha-line', 'rounded-lg']) {
+      expect(temClasse(bloco, t), t).toBe(true)
+    }
+    expect(temClasse(bloco, 'border-t')).toBe(false)
+
+    for (const id of ['a1', 'a2']) {
+      const linha = linhaDo(id)
+      expect(temClasse(linha, 'rounded-md')).toBe(false)
+      expect(temClasse(linha, 'bg-white')).toBe(false)
+      expect(temClasse(linha, 'border-t'), 'fio entre as linhas').toBe(true)
+    }
+
+    const marcar = caixa(/Corrente Fina/)
+    for (const t of ['appearance-none', 'h-6', 'w-6', 'border-2', 'border-estrelinha-field', 'rounded-sm']) {
+      expect(temClasse(marcar, t), t).toBe(true)
+    }
+    const celula = marcar.parentElement!
+    expect(temClasse(celula, 'h-11') && temClasse(celula, 'w-11')).toBe(true)
+
+    const foto = linhaDo('a2').querySelector('[data-addon-foto] > span')!
+    expect(temClasse(foto, 'h-20') && temClasse(foto, 'w-16') && temClasse(foto, 'rounded-md')).toBe(true)
+
+    fireEvent.click(marcar)
+    const rodape = screen.getByText('Total do conjunto').closest('div')!
+    expect(temClasse(rodape, 'bg-estrelinha-ground-deep')).toBe(false)
+    expect(temClasse(rodape, 'border-t')).toBe(true)
   })
 })

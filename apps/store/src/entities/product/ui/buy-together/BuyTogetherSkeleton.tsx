@@ -1,3 +1,5 @@
+import { BUY_TOGETHER_SURFACE } from './panel'
+
 /**
  * O espaço reservado do bloco Compre Junto enquanto as peças chegam.
  *
@@ -18,7 +20,7 @@ const BuyTogetherSkeleton = () => (
   <section
     aria-busy="true"
     aria-label="Compre junto"
-    className={`mt-6 flex flex-col gap-3 border-t border-estrelinha-line pt-5 ${BUY_TOGETHER_RESERVED_MIN_H}`}
+    className={`${BUY_TOGETHER_SURFACE} ${BUY_TOGETHER_RESERVED_MIN_H}`}
   >
     <Bloco className="h-6 w-40" />
     <Bloco className="h-14 w-full" />
