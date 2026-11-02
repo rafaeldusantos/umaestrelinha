@@ -1,7 +1,15 @@
 import type { ProductPurchase } from '../model/useProductPurchase'
 
+/** O que o campo lê: o estado de gravação do principal, ou o de um adicional do Compre Junto. */
+type EngravingState = Pick<
+  ProductPurchase,
+  'engraving' | 'setEngraving' | 'engravingEnabled' | 'engravingLimit' | 'engravingRefusal'
+>
+
 interface Props {
-  purchase: ProductPurchase
+  purchase: EngravingState
+  /** O `id` do `<input>`. O do principal é fixo (`ENGRAVING_FIELD_ID`); cada adicional leva o seu. */
+  id?: string
 }
 
 /** O `id` é fixo porque a barra de compra do mobile foca este campo quando o CTA é bloqueado. */
@@ -18,7 +26,7 @@ export const ENGRAVING_FIELD_ID = 'engraving-text'
  * O componente mora em `entities/product` e lê o **mesmo** `purchase` que a coluna de informação e a
  * barra fixa dividem — não há um segundo estado de gravação em lugar nenhum.
  */
-const EngravingField = ({ purchase }: Props) => {
+const EngravingField = ({ purchase, id = ENGRAVING_FIELD_ID }: Props) => {
   const { engraving, setEngraving, engravingEnabled, engravingLimit, engravingRefusal } = purchase
   if (!engravingEnabled) return null
 
@@ -29,7 +37,7 @@ const EngravingField = ({ purchase }: Props) => {
     <div className="mt-5">
       <div className="flex items-baseline justify-between gap-2">
         <label
-          htmlFor={ENGRAVING_FIELD_ID}
+          htmlFor={id}
           className="font-display text-[15px] font-semibold text-estrelinha-ink"
         >
           O que gravar
@@ -50,12 +58,12 @@ const EngravingField = ({ purchase }: Props) => {
         contador mostra o excesso e o CTA fica bloqueado — ela decide o que tirar.
       */}
       <input
-        id={ENGRAVING_FIELD_ID}
+        id={id}
         type="text"
         value={engraving}
         onChange={e => setEngraving(e.target.value)}
         aria-invalid={excedeu}
-        aria-describedby={excedeu ? `${ENGRAVING_FIELD_ID}-erro` : undefined}
+        aria-describedby={excedeu ? `${id}-erro` : undefined}
         placeholder="Nome, data ou uma palavra"
         className={`mt-2 h-12 w-full rounded-sm border bg-white px-3 text-[15px] text-estrelinha-ink placeholder:text-estrelinha-ink-soft/70 focus:outline-none focus:ring-2 focus:ring-estrelinha-primary/40 ${
           excedeu ? 'border-estrelinha-primary' : 'border-estrelinha-field'
@@ -64,7 +72,7 @@ const EngravingField = ({ purchase }: Props) => {
 
       {excedeu ? (
         <p
-          id={`${ENGRAVING_FIELD_ID}-erro`}
+          id={`${id}-erro`}
           className="mt-2 text-[13px] leading-[20px] text-estrelinha-primary"
         >
           {engravingRefusal}

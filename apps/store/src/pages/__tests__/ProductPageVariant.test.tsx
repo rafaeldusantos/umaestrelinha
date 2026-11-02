@@ -20,6 +20,10 @@ const { useProductMock } = vi.hoisted(() => ({ useProductMock: vi.fn() }))
 vi.mock('@/entities/product/api/useProduct', () => ({ useProduct: useProductMock }))
 vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: () => ({ data: [] }) }))
 vi.mock('@/entities/product/api/useProductFaqs', () => ({ useProductFaqs: () => ({ data: [] }) }))
+// O Compre Junto lê duas consultas; este arquivo dubla os hooks de dados, e a joia aqui não tem adicional.
+vi.mock('@/entities/product/api/useBuyTogetherData', () => ({
+  useBuyTogetherData: () => ({ status: 'off', addons: [], lists: [], products: [] }),
+}))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', async (importOriginal) => ({
   ...((await importOriginal()) as object),
