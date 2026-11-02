@@ -34,6 +34,9 @@ const ReadyBlock = ({ state }: Props) => {
   const { addons, markedCount, total } = state
   // O PIX é o do TOTAL, pela mesma regra de desconto da página — nunca a soma dos PIX das peças.
   const pix = total !== null && pix_enabled ? bundlePix(total, pix_discount_percent) : null
+  const temTotal = markedCount > 0 && total !== null
+  const anuncioPix = pix === null ? '' : `, ${formatPrice(pix)} com Pix`
+  const anuncio = temTotal ? `Total do conjunto: ${formatPrice(total)}${anuncioPix}` : ''
 
   return (
     <section
@@ -55,7 +58,16 @@ const ReadyBlock = ({ state }: Props) => {
         ))}
       </ul>
 
-      {markedCount > 0 && total !== null && (
+      {/*
+        O leitor de tela só anuncia a mudança de uma região viva que já estava no DOM: esta nasce com o bloco,
+        vazia, e recebe cada total novo. O rodapé abaixo monta e desmonta, e por isso não é a região. Uma só
+        para a página: a barra fixa mostra o mesmo valor sem anunciá-lo de novo.
+      */}
+      <p role="status" className="sr-only">
+        {anuncio}
+      </p>
+
+      {temTotal && (
         <div className="mt-4 flex flex-col gap-1 rounded-md bg-estrelinha-ground-deep p-3">
           <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span className="text-[14px] font-semibold text-estrelinha-ink">Total do conjunto</span>
