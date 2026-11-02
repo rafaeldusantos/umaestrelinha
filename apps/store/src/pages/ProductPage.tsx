@@ -15,6 +15,7 @@ import { useCategories } from '@/entities/category/api/useCategories'
 import { displayCategory } from '@/entities/product/lib/displayCategory'
 import { findVariantByPublicId } from '@/entities/product/lib/variantSelection'
 import { useProductPurchase } from '@/entities/product/model/useProductPurchase'
+import { useBuyTogether } from '@/entities/product/model/useBuyTogether'
 import ProductGallery from '@/entities/product/ui/ProductGallery'
 import ProductInfo from '@/entities/product/ui/ProductInfo'
 import ProductDetailsAccordion from '@/entities/product/ui/ProductDetailsAccordion'
@@ -197,6 +198,12 @@ const ProductPageBody = ({
     variantFromUrl,
   )
   /**
+   * O Compre Junto, lido AQUI (e não no bloco): a sacola e a barra fixa leem o mesmo
+   * estado. Leitura que falha ou joia sem adicional: o bloco some e
+   * a página continua como era.
+   */
+  const buyTogether = useBuyTogether(product, purchase)
+  /**
    * `FAQ-01`/`FAQ-09` — as perguntas do produto, lidas AQUI e passadas por prop.
    *
    * O hook não mora dentro do `ProductDetailsAccordion` de propósito: um `useQuery` num componente
@@ -317,6 +324,7 @@ const ProductPageBody = ({
             product={product}
             categoryName={category?.name}
             purchase={purchase}
+            buyTogether={buyTogether}
           />
         </motion.div>
       </div>
