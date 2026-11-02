@@ -36,7 +36,10 @@ export const addonEngravingRefusal = (
   return `Cabem até ${limit} caracteres nesta peça. Tire ${value.length - limit} para continuar.`
 }
 
-/** A frase do que falta num adicional marcado, ou `null` quando está completo. */
+/**
+ * A frase do que falta num adicional marcado, ou `null` quando está completo. O eixo e a palavra do
+ * nome entram no meio da frase, então saem em minúscula ("Escolha o cor da pingente.").
+ */
 export const addonMissingChoice = (input: {
   kind: BuyTogetherAddonKind
   /** Numa lista, a cliente já escolheu uma peça? */
@@ -47,6 +50,6 @@ export const addonMissingChoice = (input: {
 }): string | null => {
   if (input.kind === 'list' && !input.pieceChosen) return 'Escolha a peça.'
   if (input.missingAxis === null) return null
-  const first = input.pieceName.trim().split(/\s+/)[0] ?? ''
-  return `Escolha o ${input.missingAxis} da ${first}.`
+  const first = (input.pieceName.trim().split(/\s+/)[0] ?? '').toLocaleLowerCase('pt-BR')
+  return `Escolha o ${input.missingAxis.toLocaleLowerCase('pt-BR')} da ${first}.`
 }

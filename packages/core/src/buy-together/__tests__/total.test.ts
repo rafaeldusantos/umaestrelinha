@@ -76,7 +76,16 @@ describe('addonMissingChoice', () => {
         missingAxis: 'Cor',
         pieceName: 'Pingente Estrela do Mar',
       }),
-    ).toBe('Escolha o Cor da Pingente.')
+    ).toBe('Escolha o cor da pingente.')
+  })
+
+  it('o eixo inteiro e a primeira palavra saem em minúscula, sem perder o acento', () => {
+    expect(
+      addonMissingChoice({ kind: 'product', pieceChosen: true, missingAxis: 'Comprimento', pieceName: 'Corrente Veneziana' }),
+    ).toBe('Escolha o comprimento da corrente.')
+    expect(
+      addonMissingChoice({ kind: 'list', pieceChosen: true, missingAxis: 'Acabamento Ouro Rosé', pieceName: 'Árvore da Vida' }),
+    ).toBe('Escolha o acabamento ouro rosé da árvore.')
   })
 
   it('nada falta: nulo', () => {

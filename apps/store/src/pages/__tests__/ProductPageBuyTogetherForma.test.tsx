@@ -253,7 +253,7 @@ describe('a forma "Em folha"', () => {
     const dialogo = screen.getByRole('dialog')
     const incluir = within(dialogo).getByRole('button', { name: 'Incluir no conjunto' })
     expect(incluir).toBeDisabled()
-    expect(within(dialogo).getAllByText('Escolha o Cor da Pingente.').length).toBeGreaterThan(0)
+    expect(within(dialogo).getAllByText('Escolha o cor da pingente.').length).toBeGreaterThan(0)
     fireEvent.click(within(dialogo).getByRole('radio', { name: 'Prata' }))
     expect(within(dialogo).getByRole('button', { name: 'Incluir no conjunto' })).toBeEnabled()
   })
@@ -393,7 +393,7 @@ describe.each([['inline'], ['sheet'], ['formula']])('as regras de compra valem i
     ofertar([addon('a1', 0, 'ping')], [pingente()])
     renderPage()
     fireEvent.click(caixa(NOME))
-    expect(screen.getAllByText('Escolha o Cor da Pingente.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Escolha o cor da pingente.').length).toBeGreaterThan(0)
     const rodape = screen.getByText('Total do conjunto').closest('div')!
     expect(texto(rodape)).toMatch(/R\$\s?100,00/)
   })

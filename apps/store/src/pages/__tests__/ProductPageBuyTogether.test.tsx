@@ -281,7 +281,7 @@ describe('Compre Junto na página — marcar, escolher e o total', () => {
     expect(caixa(/Levar junto: Pingente/)).toBeChecked()
     const linha = within(linhaDo('a1'))
     expect(linha.getByRole('radiogroup')).toBeInTheDocument()
-    expect(linha.getByText('Escolha o Cor da Pingente.')).toBeInTheDocument()
+    expect(linha.getByText('Escolha o cor da pingente.')).toBeInTheDocument()
   })
 
   it('o total e o PIX do conjunto acompanham a escolha: 100 + 35, PIX 128,25', () => {
@@ -335,7 +335,7 @@ describe('Compre Junto na página — marcar, escolher e o total', () => {
     const rosa = within(linhaDo('a1')).getByRole('radio', { name: 'Rosa' })
     expect(rosa).toBeDisabled()
     fireEvent.click(rosa)
-    expect(within(linhaDo('a1')).getByText('Escolha o Cor da Pingente.')).toBeInTheDocument()
+    expect(within(linhaDo('a1')).getByText('Escolha o cor da pingente.')).toBeInTheDocument()
   })
 
   it('eixo com uma única opção vendável já nasce escolhido', () => {
