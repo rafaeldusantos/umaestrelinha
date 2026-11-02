@@ -19,7 +19,8 @@ const ALTURA = 56
 
 /**
  * **A. Agora na loja** — o cartão `ink` do topo da Loja ao vivo. O número é o ÚNICO ouro como texto
- * do app, e só porque está sobre `ink` (4,78:1). Os 30 minutos chegam do servidor (o último é igual
+ * do app, e só porque está sobre `ink` (4,78:1). Os tons do protótipo sobre `ink` (`on-ink-strong`, `on-ink`,
+ * `on-ink-border`) não existem no preset: são o branco a 80 %, 62 % e 12 % (9,2:1 e 6,2:1 sobre `ink`). Os 30 minutos chegam do servidor (o último é igual
  * ao total de agora); as alturas são de `core/live`. Nenhuma transição nas barras.
  *
  * Estados: carregando (traços), falha (a frase e "Tentar de novo", como cada bloco), loja ainda não medida (a frase de Acessos), ninguém na loja (a frase, com o gráfico).
@@ -39,7 +40,7 @@ const AgoraNaLoja = ({ leitura }: { leitura: Leitura<StoreLive> }) => {
     >
       <h2
         id="agora-na-loja"
-        className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.1em] text-estrelinha-on-primary"
+        className="flex items-center gap-2 font-body text-[11px] font-semibold uppercase tracking-[.1em] text-white/80"
       >
         <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-estrelinha-accent" />
         {LIVE_CARD_TITLE}
@@ -66,7 +67,7 @@ const AgoraNaLoja = ({ leitura }: { leitura: Leitura<StoreLive> }) => {
                 >
                   {formatCount(total)}
                 </span>
-                <span className="text-[15px] font-light">
+                <span className="text-[15px] font-light text-white/80">
                   {peopleWord(total)} {LIVE_WINDOW_LINE}
                 </span>
               </>
@@ -78,11 +79,11 @@ const AgoraNaLoja = ({ leitura }: { leitura: Leitura<StoreLive> }) => {
                 key={i}
                 data-n={b.n}
                 style={{ height: `${b.altura}px` }}
-                className={cn('flex-1 rounded-[2px]', b.atual ? 'bg-estrelinha-accent' : 'bg-estrelinha-on-primary/20')}
+                className={cn('flex-1 rounded-[2px]', b.atual ? 'bg-estrelinha-accent' : 'bg-white/[.12]')}
               />
             ))}
           </div>
-          <div aria-hidden="true" className="mt-1.5 flex justify-between text-[11px] text-estrelinha-on-primary/75">
+          <div aria-hidden="true" className="mt-1.5 flex justify-between text-[11px] text-white/[.62]">
             <span>{LIVE_CHART_FROM}</span>
             <span>{LIVE_CHART_TO}</span>
           </div>

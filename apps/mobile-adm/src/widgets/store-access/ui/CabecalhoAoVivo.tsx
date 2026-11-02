@@ -36,7 +36,9 @@ const Atualizado = ({ desde }: { desde: number }) => (
 )
 
 /**
- * O cabeçalho da Loja ao vivo (feature `83`, `LAV-07`): 60 px, `surface`, fio embaixo, preso no topo,
+ * O cabeçalho da Loja ao vivo (feature `83`, `LAV-07`): 60 px com o fio de baixo DENTRO da medida
+ * (`box-border` e recuo de 4 px: 4 + 44 do Voltar + 4 + 1 do fio cabem no piso; o piso
+ * é mínimo, e a fonte grande faz o cabeçalho crescer), `surface`, preso no topo,
  * sangrando o recuo do `<main>` (`-mx-4 -mt-4`, como `CabecalhoDoPedido`). O `h1` existe em todo
  * estado (`LAV-62`: o foco da troca de rota vai a ele).
  *
@@ -46,7 +48,7 @@ const Atualizado = ({ desde }: { desde: number }) => (
 const CabecalhoAoVivo = ({ atualizadoEm, naoAtualizou }: { atualizadoEm: number | null; naoAtualizou: boolean }) => (
   <header
     data-testid="cabecalho-ao-vivo"
-    className="sticky top-0 z-10 -mx-4 -mt-4 flex min-h-[60px] items-center gap-1.5 border-b border-estrelinha-line bg-estrelinha-surface py-2 pl-2 pr-4"
+    className="sticky top-0 z-10 -mx-4 -mt-4 box-border flex min-h-[60px] items-center gap-1.5 border-b border-estrelinha-line bg-estrelinha-surface py-1 pl-2 pr-4"
   >
     <BotaoVoltar />
     <div className="min-w-0 flex-1">

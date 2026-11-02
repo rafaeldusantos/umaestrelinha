@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '@/app/App'
 import { real, type Cenario, type RespostaRpcReal } from '@/test/clientReal'
 import { movimentoComAcessos } from '@/test/movimento'
+import { presenca } from '@/test/presenca'
 import { resumo } from '@/test/resumo'
 import { SEM_ACESSO } from '@/pages/LoginPage'
 import { FALHA_DE_LEITURA } from '@/shared/ui/leitura'
@@ -57,7 +58,7 @@ const montarVigiando = (rota: string, recusarNa: number, { perderPapel = true, .
   let entregueEm: number | null = null
   const depoisDaEntrega = () => entregueEm !== null && Date.now() > entregueEm
   const violacoes: string[] = []
-  const rpc = new Proxy({ store_overview: { status: 200, corpo: resumo() } } as Record<string, RespostaRpcReal>, {
+  const rpc = new Proxy({ store_overview: { status: 200, corpo: resumo() }, store_live: { status: 200, corpo: presenca() } } as Record<string, RespostaRpcReal>, {
     get(alvo, chave) {
       if (chave !== 'store_movement') return alvo[chave as string]
       n += 1

@@ -153,7 +153,7 @@
 
 # Resultado de QA — 90 · Loja ao vivo, Fases 2 e 3
 
-**Gate 3:** pendente
+**Gate 3:** confirmado em 2026-11-02 (o usuário mandou corrigir os bugs: "Após o push, ajuste os bugs")
 
 ## Resumo
 
@@ -387,3 +387,21 @@ nada — nenhum `spec-gap` desta rodada é `mudança` decisiva para a jornada. O
 - Joia sem foto, Guia sozinho, cliente em `/conta`, cliente logada preenchendo telefone e cidade, faixa "Outros" no design-check
 - Variações não feitas por orçamento: 1440 e teclado no CH-01, fonte 200 % da nota de consentimento, foco não roubado com o leitor ao vivo, barras de "De onde vieram" com movimento reduzido
 - Virada da meia-noite com a tela aberta e teto de 5.000 visitas — sem massa nem horário
+
+---
+
+## Rodada 2 — confirmação (2026-11-02)
+
+**Veredito: pass.** Reteste dos oito bugs depois das fix tasks 05–08 (`qa/retest.md`): **8 resolved**, 0 still-open, 0 cannot-reproduce, 0 blocked. Nenhum achado novo no entorno.
+
+| Bug | Severidade | Antes | Depois |
+| --- | --- | --- | --- |
+| BUG-003 | high | open | resolved — a 200 % em 390/360/320 a coluna de texto mede 244/214/174 px, gráfico e seta descem, sem rolagem lateral |
+| BUG-004 | high | open | resolved — o nome mede 196/166/126 px (eram 124/94/54), "1 pessoa" desce, nada sobreposto |
+| BUG-001 | medium | open | resolved — o cartão mantém o número e diz "Não consegui atualizar agora." com "Tentar de novo" |
+| BUG-002 | medium | open | resolved — sem frescor com uma das leituras sem dado; com as duas, a mais antiga |
+| BUG-005..008 | low | open | resolved — fonte, cores, recuo e 60 px conforme o protótipo |
+
+Observações do entorno, sem bug: a 200 % em 320 o "s" do frescor fica sozinho na segunda linha; em 320 a 100 % o gráfico do cartão desce para baixo do texto; "Precisa de você" a 16 px (o protótipo desenha 20), anterior a este lote.
+
+**Gate 3 (rodada 2):** registrado em 2026-11-02 no fecho do laço de conserto pedido pelo usuário ("ajuste os bugs"); as oito transições `open → resolved` foram gravadas nos `BUG-*`.

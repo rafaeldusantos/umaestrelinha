@@ -25,7 +25,8 @@ export const CICLO_AO_VIVO_MS = 15_000
  * - **A presença** (Fase 2, `usePresenca`, `store_live`, chave própria): os blocos A–E acima de
  *   Acessos. Também relê a cada 15 s só visível, e o `42501` dela cai na MESMA vigia. Cada leitura
  *   tem a sua chave: a falha de uma não apaga os blocos da outra. O puxar relê as duas, e o frescor
- *   é o da leitura MAIS ANTIGA entre as que estão na tela (a duração desde a chegada de cada uma).
+ *   é o da leitura MAIS ANTIGA das duas (a duração desde a chegada de cada uma), e só com as duas
+ *   na tela.
  */
 const AoVivoPage = () => {
   const { state } = useLocation()
@@ -52,11 +53,11 @@ const AoVivoPage = () => {
   )
   const leitura = leituraDe(movimento, recusada)
   const daPresenca = leituraDe(presenca, recusada)
-  // A chegada mais ANTIGA entre as leituras que estão na tela (instantes LOCAIS do React Query).
-  const chegadas = [leitura.dado ? movimento.dataUpdatedAt : null, daPresenca.dado ? presenca.dataUpdatedAt : null].filter(
-    (t): t is number => t !== null,
-  )
-  const atualizadoEm = chegadas.length ? Math.min(...chegadas) : null
+  // A chegada mais ANTIGA das DUAS leituras (instantes LOCAIS do React Query). Com uma delas sem
+  // dado — carregando ou em falha —, não há frescor a afirmar: a linha some, como "nada enquanto não
+  // há dado" da `83`. Contar só pela que chegou diria "Atualizado agora" acima de blocos em falha.
+  const atualizadoEm =
+    leitura.dado && daPresenca.dado ? Math.min(movimento.dataUpdatedAt, presenca.dataUpdatedAt) : null
   const naoAtualizou = !recusada && ((movimento.isError && !!movimento.data) || (presenca.isError && !!presenca.data))
 
   return (

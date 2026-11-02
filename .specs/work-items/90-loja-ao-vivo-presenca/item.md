@@ -31,3 +31,7 @@ Escopo decidido pelo usuário em 2026-11-01 (respostas às perguntas da sessão)
 | execução | 2026-11-01 | autorizada: 01–04, e o QA no fim ("pode implementar todas as tarefas e ao finalizar orquestrar os testes com as Skills de QA"); 02 e 04 em paralelo a pedido do humano |
 | validation 1 | 2026-11-02 | PASS · 30/30 critérios em escopo · 1 erro de lint novo corrigido na Validation |
 | qa gate 1 | 2026-11-02 | plano aprovado sob a autorização prévia · 9 charters · 51 TC · 0 🔴 |
+| qa gate 3 | 2026-11-02 | rodada 1 fail · 8 bugs novos (2 high, 2 medium, 4 low), todos `open` · 0 transições · 0 perguntas ao produto · confirmado ("ajuste os bugs") |
+| fila de bugs | 2026-11-02 | 05–08, um lote por tarefa (L1..L4 do qa-result); execução pedida pelo usuário |
+| validation 2 | 2026-11-02 | PASS · fix tasks 05–08 · mobile-adm 2365/148, os outros cinco iguais · tipos e lint na baseline |
+| qa rodada 2 | 2026-11-02 | pass · 8/8 resolved · 0 achados novos · production_host local restaurado |

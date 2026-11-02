@@ -100,6 +100,8 @@ const InicioPage = () => {
   const doResumo = leituraDe(resumo, recusada)
   const daPresenca = leituraDe(presenca, recusada)
   const lidoEm = recusada ? null : maisAntigo([doMovimento.dado?.lido_em, doResumo.dado?.lido_em])
+  // A presença diz a falha DENTRO do cartão (o número é de "agora"), não na linha de frescor.
+  const presencaNaoAtualizou = !recusada && presenca.isError && !!presenca.data
   const naoAtualizou = !recusada && ((movimento.isError && !!movimento.data) || (resumo.isError && !!resumo.data))
 
   return (
@@ -125,7 +127,11 @@ const InicioPage = () => {
             </div>
           }
         />
-        <CartaoAgoraNaLoja leitura={daPresenca} periodo={periodo} />
+        {/* A área do protótipo: 16 px acima e 20 nas laterais (o `<main>` dá 16; a área, mais 4). Só o
+            cartão: os outros blocos seguem no recuo do `<main>`. */}
+        <div data-testid="area-agora-na-loja" className="!mt-4 px-1">
+          <CartaoAgoraNaLoja leitura={daPresenca} periodo={periodo} naoAtualizou={presencaNaoAtualizou} />
+        </div>
         {lidoEm && <LinhaDeFrescor naoAtualizou={naoAtualizou} />}
         <QueueTiles leitura={doResumo} />
         <section aria-labelledby="o-mes-e-a-semana" className="space-y-3">

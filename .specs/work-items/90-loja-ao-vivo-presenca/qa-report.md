@@ -102,3 +102,30 @@ Integração local (Supabase 54441/54442):
 ## Verdict
 
 **PASS**.
+
+---
+
+## Validation 2 — fix tasks 05–08 (bugs da QA, rodada 1)
+
+**Date**: 2026-11-02 · **Status**: PASS
+
+| Workspace | Exit | Arquivos | Testes |
+| --- | --- | --- | --- |
+| core | 0 | 207 | 5229 |
+| functions | 0 | 39 | 1431 |
+| store | 0 | 353 | 6641 |
+| backoffice | 0 | 272 | 4951 |
+| mobile-adm | 0 | 148 | 2365 (+26/+5: `JoiasSendoVistas`, `rotulosECoresDaPresenca`, `aoVivoFrescor`, `inicioCartaoReleitura`, `CartaoAgoraNaLoja.forma`) |
+| catalog-import | 0 | 23 | 512 |
+
+**Tipos**: store 0 · store server 0 · mobile-adm 0 · backoffice 7 (os da baseline, de outra frente) · core 11 (herdados). **Lint**: store 2/2 · backoffice 23/5 · mobile-adm 0/0. **Build**: loja e app, exit 0.
+
+| Bug | Tarefa | Prova (componente/página) | Revisão |
+| --- | --- | --- | --- |
+| BUG-003, BUG-001, BUG-007 | 05 | `CartaoAgoraNaLoja.forma.test.tsx`, `inicioCartaoReleitura.test.tsx` | 2 rodadas: a 1ª achou a cauda `shrink-0` transbordando a 200 % e o número escondido na falha (contra `MAI-18`); consertados, a 2ª serve |
+| BUG-004 | 06 | `JoiasSendoVistas.test.tsx` | serve com correção (um caso-sensor tautológico apagado) |
+| BUG-002, BUG-008 | 07 | `aoVivoFrescor.test.tsx` | serve com correção (dois identificadores de processo em comentário); as fixtures de `AoVivoPage.test.tsx` e `aoVivoComClientReal.test.tsx` passaram a responder `store_live` — a afirmação da 83 ("Atualizado agora" só com Acessos) caducou com D-14 |
+| BUG-005, BUG-006 | 08 | `rotulosECoresDaPresenca.test.tsx` | serve |
+
+**Caducou**: os testes de frescor da 83 que cobravam "Atualizado agora" com a presença sem dado (D-14 / BUG-002).
+**Fora do que a Validation prova**: as medidas a 130/200 % em 390/360/320, as cores e a fonte calculadas, o BUG-001/002 de ponta a ponta — é o reteste da QA.

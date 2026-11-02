@@ -12,6 +12,7 @@ import { fake, type RespostaRpc } from '@/test/fakeSupabase'
 import { montarApp } from '@/test/montarApp'
 import { resumo } from '@/test/resumo'
 import { movimentoComAcessos } from '@/test/movimento'
+import { presenca } from '@/test/presenca'
 import { SEM_ACESSO } from '@/pages/LoginPage'
 import { FALHA_DE_LEITURA, NAO_ATUALIZOU } from '@/shared/ui/leitura'
 import { ATUALIZANDO } from '@/shared/ui/PullToRefresh'
@@ -30,6 +31,8 @@ beforeEach(() => {
   fake.reset()
   fake.comSessao(EMAIL, { admin: true })
   fake.responderRpc('store_overview', resumo())
+  // a presença responde com dado: sem ela o frescor some
+  fake.responderRpc('store_live', presenca())
   instantes = []
   vi.useFakeTimers({ shouldAdvanceTime: true })
 })
