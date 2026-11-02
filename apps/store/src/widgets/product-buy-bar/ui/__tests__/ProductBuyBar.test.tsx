@@ -248,3 +248,41 @@ describe('ProductBuyBar — a forma que impede o estouro', () => {
     expect(cta.className).not.toContain('opacity-50')
   })
 })
+
+describe('ProductBuyBar — com o conjunto marcado', () => {
+  const comConjunto = (marcados: number, total: number | null) => {
+    const Barra = () => {
+      const value = product({ price: 10 })
+      const purchase = useProductPurchase(value)
+      const buyTogether = {
+        display: 'ready', addons: [], markedCount: marcados, total, canTake: true,
+        firstIncompleteId: null, incompleteCount: 0, taken: [],
+      } as unknown as import('@/entities/product/model/useBuyTogether').BuyTogether
+      return (
+        <MemoryRouter>
+          <ProductBuyBar product={value} purchase={purchase} buyTogether={buyTogether} />
+        </MemoryRouter>
+      )
+    }
+    return render(<Barra />)
+  }
+
+  it('mostra o total do conjunto e "Conjunto · N peças", sem o Pix, e o botão leva o conjunto', () => {
+    comConjunto(2, 45.5)
+    const barra = screen.getByTestId('product-buy-bar')
+    expect(barra.textContent).toContain('R$')
+    expect(barra.textContent).toContain('45,50')
+    expect(barra.textContent).toContain('Conjunto · 3 peças')
+    expect(barra.textContent).not.toContain('no Pix')
+    expect(screen.getByRole('button', { name: /Levar o conjunto/ })).toBeTruthy()
+  })
+
+  it('sem adicional marcado: o preço do principal e "no Pix", como sempre', () => {
+    comConjunto(0, null)
+    const barra = screen.getByTestId('product-buy-bar')
+    expect(barra.textContent).toContain('10,00')
+    expect(barra.textContent).toContain('no Pix')
+    expect(barra.textContent).not.toContain('Conjunto ·')
+    expect(screen.getByRole('button', { name: /Adicionar à sacola/ })).toBeTruthy()
+  })
+})

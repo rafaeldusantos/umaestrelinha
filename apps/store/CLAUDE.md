@@ -815,6 +815,68 @@ que a dona enviou** com um rótulo embaixo e um link para a coleção. Desenho n
   anúncio. A resolução é `entities/product/lib/variantSelection`, e o parâmetro **não acrescenta nó ao
   DOM** — é seleção inicial, não UI nova.
 
+### O bloco Compre Junto (WI-01)
+
+Na coluna de informação, **entre a gravação do principal e a linha de estoque**, a cliente vê os
+adicionais que a dona configurou, marca os que quer e vê o total e o PIX do conjunto. Nada vem marcado.
+
+- **Quem lê o quê.** `useBuyTogetherData` (`entities/product/api`) lê a configuração com a lista e as
+  peças dela num `select` só — a FK da lista é **nomeada** (`PGRST201`) — e depois os produtos de todos
+  os adicionais por `useProductsByIds`, numa consulta só. É **consulta própria**, e não um embed no
+  `PRODUCT_SELECT` (compartilhado com a listagem e a recuperação de carrinho; molde de
+  `useProductFaqs`). A falha **sobe**: `status: 'error'` e o bloco some, a página segue de pé.
+- **`useBuyTogether(product, purchase)`** (`entities/product/model`) é o estado do conjunto, montado
+  pela `ProductPage` e passado ao `ProductInfo` por prop opcional — a barra fixa e o botão único
+  (tarefa seguinte) leem o mesmo. Lê a variação e a quantidade do principal de `purchase`; o bloco
+  **não repete o seletor**. Devolve `display` (`off`/`loading`/`ready`), os adicionais, `total`,
+  `canTake`, `firstIncompleteId` e `taken` (o que vai à sacola: peça, variação, gravação aparada).
+- **A regra mora em `core/buy-together`**: `resolveAddons` (disponibilidade, o principal e a peça
+  repetida pulados só ali, o adicional que some para a variação do principal), `bundleTotal` (principal
+  × quantidade + cada adicional uma vez, em centavos) e `bundlePix` — **o PIX é o do TOTAL**
+  (`pixPrice`), nunca a soma dos PIX das peças. O bloco chama `bundlePix` e lê o desconto de
+  `usePaymentSettings`; o hook não lê configuração, para os testes de página que dublam o módulo de
+  configurações continuarem montando a página.
+- **Três estados, como na Home**: sem adicional ou carregando a configuração, o bloco **não escreve
+  nada**; com adicionais e produtos a caminho, `BuyTogetherSkeleton` reserva `min-h-[320px]`
+  (`aria-busy`); resolvido e vazio some. Principal esgotado (grade toda sem estoque, ou simples sem
+  saldo) esconde o bloco; **combinação indisponível** do principal o mantém.
+- **A peça esgotada aparece desabilitada, a não liberada some**: o seletor recebe o produto restrito às
+  variações que a dona liberou (`restrict`). `liberated` vazio = todas; com ids que sumiram ou
+  esgotaram a peça some, **nunca vira "todas"**. Eixo com um único valor vendável já nasce escolhido.
+- **Gravação por adicional**: `EngravingField` ganhou `id` (o do principal continua `ENGRAVING_FIELD_ID`,
+  que a barra fixa foca) e recebe qualquer objeto com o estado de gravação. O limite é o da peça, a
+  recusa é `addonEngravingRefusal`. `VariantPicker` ganhou `idPrefix`, para dois seletores com o eixo
+  `Cor` não repetirem `id`.
+- **O bloco não diz material.** Adicional que exige material entra normalmente; o pós-compra segue o de
+  hoje. `semMaterialNaPaginaDoProduto` alcança o bloco, o hook e a leitura, e `tomDoCompreJunto.test.ts`
+  recusa urgência, escassez, prova social, exclamação e emoji nos textos do bloco e de `core`.
+- **Medição**: a lista é `compre-junto` (`BUY_TOGETHER_LIST`). `view_item_list` por `useTrackList` (uma por
+  conjunto de peças mostrado); `select_item` ao **marcar** o adicional, uma vez por adicional por
+  montagem — desmarcar e remarcar não repete.
+- **Lista pede a peça**: numa lista a cliente escolhe **exatamente uma** (grupo de rádio com cartões,
+  a primeira com o foco do teclado, nenhuma marcada). A frase de falta é "Escolha a peça." — o nome da
+  lista não serve de artigo ("a corrente", "o pingente").
+
+### O botão único leva o conjunto (WI-01)
+
+A coluna de informação e a barra fixa do celular leem **um** objeto, `useBuyAction(purchase, buyTogether)`
+(`entities/product/model`), montado pela `ProductPage`: o rótulo ("Adicionar à sacola" sem adicional
+marcado, "Levar o conjunto" com), o aviso e o toque. Cada superfície cai num `useBuyAction` próprio se a
+prop `action` não vier — é o que mantém os testes antigos de `ProductInfo` e `ProductBuyBar` de pé.
+
+- **`purchase.add(taken?)`**: o laço da quantidade é só do principal; cada adicional entra com
+  **quantidade 1**, qualquer que seja a do principal. Tudo vai num `addItems` e num **único**
+  `add_to_cart` (o principal uma vez, os adicionais com `item_list_id: 'compre-junto'`).
+- **Validação antes de qualquer escrita**: gravação do principal recusada ⇒ nada entra (como antes);
+  adicional marcado e incompleto, ou com gravação recusada ⇒ nada entra, o foco e a rolagem vão ao
+  primeiro incompleto (ou ao campo de gravação dele) e o aviso diz "Falta uma escolha em N peça(s)…" ou
+  "A gravação passou do limite…". O aviso é derivado do estado: some quando a causa some. A
+  combinação indisponível do principal já tem a frase dela ao lado do seletor; o botão da coluna fica
+  `disabled`, e o da barra continua levando ao campo quando o bloqueio é a gravação.
+- **A barra fixa com conjunto** mostra o total e "Conjunto · N peças" (N = o principal + os marcados), **sem
+  o riscado e sem o preço no Pix** — o Pix do conjunto mora só no bloco. Sem adicional marcado, é a barra
+  de sempre. A coluna, no computador, ganha a nota "A joia e N peças marcadas · total" sob o botão.
+
 ### Perguntas frequentes (feature `28`)
 
 Até a `28` a seção era um `<dl>` cravado com **duas perguntas genéricas**, iguais nos 691 produtos,
@@ -1110,6 +1172,20 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
   escolha das parcelas. A confirmação é a rota `/pedido/:id`
   (lê o pedido do banco), nunca estado interno da página — assim sobrevive ao reload; o carrinho e o
   cupom são limpos **só** na aprovação.
+
+### A sacola v4 e a marca "acompanha" (WI-01)
+
+`estrelinha-cart` **mantém a chave** e sobe para `version: 4`: o `migrate` v3 → v4 **preserva** a sacola
+(só ganha um campo opcional). O item pode ter `accompanies: { mainProductId, listId }[]` — os principais
+que a linha acompanhava, e a lista de onde o adicional veio. A marca **não entra no `itemKey`** (a peça
+avulsa e a do conjunto são a mesma linha e somam) e **não decide preço** (o servidor recalcula).
+
+- `addItems(entries)` leva várias linhas num gesto, cada uma somando à existente de mesma identidade e
+  acumulando marcas (sem repetir a mesma). O `addItem` de uma peça segue como era.
+- A frase "Acompanha o X e o Y" é **derivada na renderização** (`companionsOf` + `companionPhrase`): só nomeia
+  principais que ainda estão na sacola, com o nome inteiro do produto. Removido o principal, ela some e
+  os adicionais ficam como peças comuns; remover uma linha nunca remove as outras.
+- A marca ainda não vai ao pedido (`buildOrderPayload`, `create-order`): é a tarefa seguinte do Work Item.
 
 ### As parcelas do cartão são da loja, e os juros são do Mercado Pago (2026-10-04)
 

@@ -16,6 +16,9 @@ import ShareButtons from '@/features/share-product/ui/ShareButtons'
 import ShippingCalc from '@/features/shipping-calc/ui/ShippingCalc'
 import { PAGE_MAX_AXES } from '../lib/variantSelection'
 import type { ProductPurchase } from '../model/useProductPurchase'
+import type { BuyTogether } from '../model/useBuyTogether'
+import { useBuyAction, type BuyAction } from '../model/useBuyAction'
+import BuyTogetherBlock from './buy-together/BuyTogetherBlock'
 import EngravingField from './EngravingField'
 import VariantPicker from './VariantPicker'
 import { PixIcon, SacolaIcon } from '@estrelinha/ui/icons'
@@ -25,6 +28,10 @@ interface Props {
   categoryName?: string
   /** O estado de compra, montado pela página e dividido com a barra fixa do mobile. */
   purchase: ProductPurchase
+  /** O estado do Compre Junto, montado pela página. Ausente = a página fica como antes do bloco. */
+  buyTogether?: BuyTogether
+  /** O botão único, montado pela página e dividido com a barra fixa. Ausente = a coluna monta o seu. */
+  action?: BuyAction
 }
 
 /**
@@ -50,9 +57,10 @@ const STOCK_TONE = {
  * Não guarda estado de compra: quem guarda é `useProductPurchase`, na página, porque a mesma escolha
  * alimenta a barra fixa do rodapé mobile.
  */
-const ProductInfo = ({ product, categoryName, purchase }: Props) => {
-  const { qty, setQty, selected, select, sellableGrid, price, savings, stock, canAdd, add } =
-    purchase
+const ProductInfo = ({ product, categoryName, purchase, buyTogether, action }: Props) => {
+  const ownAction = useBuyAction(purchase, buyTogether)
+  const buy = action ?? ownAction
+  const { qty, setQty, selected, select, sellableGrid, price, savings, stock, canAdd } = purchase
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
   const location = useLocation()
   const { whatsapp, store_name } = useGeneralSettings()
@@ -162,6 +170,10 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           continua marcado no cadastro, e a conversa acontece na confirmação do pedido. */}
       <EngravingField purchase={purchase} />
 
+      {/* Compre Junto — entre a escolha do principal (variação e gravação) e o estoque/CTA. O bloco
+          lê a variação e a quantidade do principal pelo estado; não repete o seletor. */}
+      {buyTogether && <BuyTogetherBlock state={buyTogether} />}
+
       <hr className="mt-5 border-estrelinha-line" />
 
       <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[13px] leading-4">
@@ -213,12 +225,12 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
 
         <button
           type="button"
-          onClick={add}
+          onClick={buy.tap}
           disabled={!canAdd}
           className="flex h-12 flex-1 items-center justify-center gap-2 rounded-sm bg-estrelinha-primary font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-50"
         >
           <SacolaIcon className="h-5 w-5" aria-hidden />
-          {canAdd ? 'Adicionar à sacola' : 'Indisponível'}
+          {canAdd ? buy.label : 'Indisponível'}
         </button>
 
         <button
@@ -237,6 +249,19 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           />
         </button>
       </div>
+
+      {buy.notice && (
+        <p role="alert" className="mt-2 text-[13px] leading-5 text-estrelinha-primary">
+          {buy.notice}
+        </p>
+      )}
+
+      {buy.bundleTotal !== null && (
+        <p className="mt-2 hidden text-[13px] leading-5 text-estrelinha-ink-soft md:block">
+          A joia e {buy.pieces - 1} {buy.pieces - 1 === 1 ? 'peça marcada' : 'peças marcadas'} ·{' '}
+          <span className="font-semibold text-estrelinha-ink">{formatPrice(buy.bundleTotal)}</span>
+        </p>
+      )}
 
       <div className="mt-3">
         <ShareButtons name={product.name} url={currentUrl} />

@@ -45,6 +45,8 @@ export interface BuyTogetherPiece {
 export interface BuyTogetherAddon {
   id: string
   kind: 'product' | 'list'
+  /** A lista de onde o adicional vem, ou `null` na peça avulsa. A marca "acompanha" a leva. */
+  listId: string | null
   /** O nome do adicional: o da lista, ou o da peça. */
   name: string
   pieces: BuyTogetherPiece[]
@@ -73,6 +75,7 @@ export interface BuyTogetherAddon {
 
 export interface TakenAddon {
   addonId: string
+  listId: string | null
   product: Product
   variant: ProductVariant | null
   /** O texto aparado, ou `null`. */
@@ -244,6 +247,7 @@ export const useBuyTogether = (product: Product, purchase: ProductPurchase): Buy
     return {
       id: addon.id,
       kind: addon.kind,
+      listId: addon.listId,
       name: addon.kind === 'list' ? (addon.listName ?? shownPiece.product.name) : shownPiece.product.name,
       pieces,
       marked: choice.marked,
@@ -270,6 +274,7 @@ export const useBuyTogether = (product: Product, purchase: ProductPurchase): Buy
     .filter(a => a.ready && a.piece)
     .map(a => ({
       addonId: a.id,
+      listId: a.listId,
       product: a.piece!.product,
       variant: a.variant,
       engraving: a.engravingEnabled ? normalizeEngraving(a.engraving) : null,

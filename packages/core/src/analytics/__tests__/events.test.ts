@@ -71,6 +71,21 @@ describe('eventos do navegador — nome e parâmetros exatos', () => {
     })
   })
 
+  it('EVT-05 add_to_cart com vários itens — todos num evento, o principal uma vez, item_list_id nos adicionais', () => {
+    const adicional = { ...B, quantity: 1, list_id: 'compre-junto', list_name: 'Compre Junto' }
+    expect(addToCartEvent({ items: [{ ...A, quantity: 2 }, adicional] })).toEqual({
+      name: 'add_to_cart',
+      params: {
+        currency: 'BRL',
+        value: 250.5,
+        items: [
+          { ...itemA, quantity: 2 },
+          { ...itemB, quantity: 1, item_list_id: 'compre-junto', item_list_name: 'Compre Junto' },
+        ],
+      },
+    })
+  })
+
   it('EVT-06 remove_from_cart — a quantidade RETIRADA', () => {
     expect(removeFromCartEvent({ item: { ...B, quantity: 1 } })).toEqual({
       name: 'remove_from_cart',

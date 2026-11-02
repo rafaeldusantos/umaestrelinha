@@ -40,6 +40,9 @@ export interface AnalyticsItemInput {
   quantity?: number
   /** Posição na listagem (`view_item_list`, `select_item`). */
   index?: number
+  /** A lista de origem do item, no nível do item (o adicional do Compre Junto leva a do bloco). */
+  list_id?: string | null
+  list_name?: string | null
 }
 
 /** O item como o GA4 o recebe. As chaves opcionais só aparecem quando há valor. */
@@ -52,6 +55,8 @@ export interface AnalyticsItem {
   price: number
   quantity: number
   index?: number
+  item_list_id?: string
+  item_list_name?: string
 }
 
 /**
@@ -67,6 +72,8 @@ export const ANALYTICS_ITEM_KEYS = [
   'price',
   'quantity',
   'index',
+  'item_list_id',
+  'item_list_name',
 ] as const
 
 /** Dinheiro com duas casas, sem o ruído de ponto flutuante (`0.1 + 0.2`). */
@@ -97,6 +104,10 @@ export function toAnalyticsItem(input: AnalyticsItemInput): AnalyticsItem {
   if (typeof input.index === 'number' && Number.isFinite(input.index) && input.index >= 0) {
     item.index = Math.trunc(input.index)
   }
+  const listaId = texto(input.list_id)
+  if (listaId !== '') item.item_list_id = listaId
+  const listaNome = texto(input.list_name)
+  if (listaNome !== '') item.item_list_name = listaNome
   return item
 }
 

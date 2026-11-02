@@ -16,6 +16,7 @@ import { displayCategory } from '@/entities/product/lib/displayCategory'
 import { findVariantByPublicId } from '@/entities/product/lib/variantSelection'
 import { useProductPurchase } from '@/entities/product/model/useProductPurchase'
 import { useBuyTogether } from '@/entities/product/model/useBuyTogether'
+import { useBuyAction } from '@/entities/product'
 import ProductGallery from '@/entities/product/ui/ProductGallery'
 import ProductInfo from '@/entities/product/ui/ProductInfo'
 import ProductDetailsAccordion from '@/entities/product/ui/ProductDetailsAccordion'
@@ -203,6 +204,8 @@ const ProductPageBody = ({
    * a página continua como era.
    */
   const buyTogether = useBuyTogether(product, purchase)
+  /** O botão único: a coluna de informação e a barra fixa leem o mesmo rótulo, aviso e toque. */
+  const buyAction = useBuyAction(purchase, buyTogether)
   /**
    * `FAQ-01`/`FAQ-09` — as perguntas do produto, lidas AQUI e passadas por prop.
    *
@@ -325,6 +328,7 @@ const ProductPageBody = ({
             categoryName={category?.name}
             purchase={purchase}
             buyTogether={buyTogether}
+            action={buyAction}
           />
         </motion.div>
       </div>
@@ -337,7 +341,13 @@ const ProductPageBody = ({
 
       {/* A folga do rodapé fixo é do `StoreLayout`, depois do `Footer` — que é o fim real do
           documento. Um espaçador aqui reservaria espaço antes do rodapé, não depois dele. */}
-      <ProductBuyBar product={product} purchase={purchase} revealAfter={fotoPrincipal} />
+      <ProductBuyBar
+        product={product}
+        purchase={purchase}
+        buyTogether={buyTogether}
+        action={buyAction}
+        revealAfter={fotoPrincipal}
+      />
 
       {/* GAV-04 — a gaveta de "como enviar o material", montada UMA vez por página.
 

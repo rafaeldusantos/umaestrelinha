@@ -80,3 +80,16 @@ export const variantChips = (item: CartItem): string[] =>
     .split('·')
     .map((s) => s.trim())
     .filter(Boolean)
+
+/**
+ * A frase da linha de um adicional do Compre Junto: `Acompanha o A e o B`, ou `o A, o B e o C`.
+ * `null` sem principal na sacola — a linha vira peça comum. Nomes inteiros, sem encurtar: o texto
+ * quebra de linha quando preciso.
+ */
+export const companionPhrase = (names: readonly string[]): string | null => {
+  if (names.length === 0) return null
+  const itens = names.map((n) => `o ${n}`)
+  const lista =
+    itens.length === 1 ? itens[0] : `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`
+  return `Acompanha ${lista}`
+}

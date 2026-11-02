@@ -106,9 +106,18 @@ export function viewItemEvent(input: { item: AnalyticsItemInput }): AnalyticsEve
   return { name: 'view_item', params: comercio([input.item]) }
 }
 
-/** `EVT-05`. **Uma** chamada com a quantidade adicionada, nunca uma por unidade. */
-export function addToCartEvent(input: { item: AnalyticsItemInput }): AnalyticsEvent {
-  return { name: 'add_to_cart', params: comercio([input.item]) }
+/**
+ * `EVT-05`. **Uma** chamada com a quantidade adicionada, nunca uma por unidade. Aceita `item` (a
+ * adição de uma peça) ou `items` (o conjunto do Compre Junto: todas as peças num só evento, o
+ * principal uma vez). Os adicionais levam `list_id`/`list_name` no próprio item.
+ */
+export function addToCartEvent(
+  input: { item: AnalyticsItemInput } | { items: readonly AnalyticsItemInput[] },
+): AnalyticsEvent {
+  return {
+    name: 'add_to_cart',
+    params: comercio('items' in input ? input.items : [input.item]),
+  }
 }
 
 /** `EVT-06`. `quantity` é a quantidade RETIRADA, não a que sobra. */

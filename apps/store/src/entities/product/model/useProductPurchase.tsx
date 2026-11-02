@@ -12,6 +12,8 @@ import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { addToCartEvent } from '@estrelinha/core/analytics'
 import { productItem, track } from '@/shared/lib/analytics'
+import type { CartEntry } from '@/entities/cart/model/cartStore'
+import { BUY_TOGETHER_LIST, type TakenAddon } from './useBuyTogether'
 import {
   PAGE_MAX_AXES,
   canAddSelection,
@@ -37,7 +39,13 @@ export interface ProductPurchase {
   savings: ReturnType<typeof savingsOf>
   stock: StockLine
   canAdd: boolean
-  add: () => void
+  /**
+   * Leva o principal à sacola. Com `taken`, leva junto cada adicional já completo do Compre Junto:
+   * o laço da quantidade é só do principal, o adicional entra com quantidade 1, e tudo vai num único
+   * `addItems` e num único evento. Quem confere se os adicionais estão completos é o chamador
+   * (`useBuyAction`); aqui só a recusa da gravação do principal aborta.
+   */
+  add: (taken?: readonly TakenAddon[]) => void
   /** O texto cru do campo — com espaços, como a cliente digitou. */
   engraving: string
   setEngraving: (text: string) => void
@@ -82,7 +90,7 @@ export const useProductPurchase = (
       initialSelection(product, PAGE_MAX_AXES),
   )
   const [engraving, setEngravingText] = useState('')
-  const addItem = useCartStore(s => s.addItem)
+  const addItems = useCartStore(s => s.addItems)
 
   // PST-10: grade sem eixo ou sem linha vendável = produto simples, por `base_price`.
   const sellableGrid = hasSellableGrid(product)
@@ -113,7 +121,7 @@ export const useProductPurchase = (
     onVariantChange?.(findVariant(product.variants, values))
   }
 
-  const add = () => {
+  const add = (taken: readonly TakenAddon[] = []) => {
     // A recusa da gravação vem ANTES do esgotado: dizer "essa combinação está indisponível" para
     // quem só passou do limite de caracteres manda a cliente procurar o defeito no lugar errado.
     if (refusal) {
@@ -140,12 +148,41 @@ export const useProductPurchase = (
     // Só de espaços é vazio (MAT-03): senão " " viraria uma linha separada no carrinho e um pedido
     // de gravação em branco na bancada.
     const engravingText = engravingEnabled ? normalizeEngraving(engraving) : null
-    for (let i = 0; i < qty; i++) addItem(product, '', '', input, engravingText)
-    // Feature 61 · EVT-05: UM evento com a quantidade adicionada, FORA do laço — o laço chama
-    // `addItem` uma vez por unidade, e um evento por volta contaria três adições onde houve uma.
+    const entries: CartEntry[] = [
+      { product, variant: input, engravingText, quantity: qty },
+      ...taken.map((t): CartEntry => ({
+        product: t.product,
+        variant: t.variant
+          ? {
+              variantId: t.variant.id,
+              variantLabel: variantLabel(t.product.options, t.variant.option_values),
+              optionValues: t.variant.option_values,
+              unitPrice: t.variant.price!,
+            }
+          : undefined,
+        engravingText: t.engraving,
+        quantity: 1,
+        accompanies: { mainProductId: product.id, listId: t.listId },
+      })),
+    ]
+    addItems(entries)
+    // Feature 61 · EVT-05: UM evento com todas as peças e as quantidades adicionadas — o principal
+    // uma vez, com a quantidade dele, e cada adicional com 1 e a lista de origem do bloco.
     track(
       addToCartEvent({
-        item: productItem(product, { price, variant: input?.variantLabel ?? null, quantity: qty }),
+        items: [
+          productItem(product, { price, variant: input?.variantLabel ?? null, quantity: qty }),
+          ...taken.map((t, i) => ({
+            ...productItem(t.product, {
+              price: t.price,
+              variant: t.variant ? variantLabel(t.product.options, t.variant.option_values) : null,
+              quantity: 1,
+              index: i,
+            }),
+            list_id: BUY_TOGETHER_LIST.id,
+            list_name: BUY_TOGETHER_LIST.name,
+          })),
+        ],
       }),
     )
 
