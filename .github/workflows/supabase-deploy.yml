@@ -94,7 +94,9 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Fixada: a v3.0.0 (2026-11-02) recusa o `[inbucket]` do config.toml e derrubou o deploy no dry run.
+          # Subir junto com a CLI local e a troca para `[local_smtp]`, nunca sozinha.
+          version: 2.121.0
 
       # Secret ausente chega ao step como string VAZIA — o GitHub não avisa, e a falha aparece
       # como erro da CLI: `required flag(s) "project-ref" not set`. A mensagem fala do comando e
