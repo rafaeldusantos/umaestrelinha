@@ -1722,7 +1722,43 @@
   (`/pedido-montado`, `checkoutStore` por instância)
 - **Date**: 2026-10-31
 
+### AD-072
+
+- **Status**: accepted (WI-01, Compre Junto, 2026-11-02)
+- **Decision**: **a lista do Compre Junto NÃO é coleção.** Ela mora em tabelas próprias
+  (`buy_together_lists` e `buy_together_list_items`, com os adicionais de cada joia em
+  `product_buy_together`: até 3, cada um uma peça ou uma lista), sem rota, menu nem sitemap — só existe
+  dentro do Compre Junto. O pedido guarda, **no momento da compra**, de quais joias e de quais listas cada
+  peça adicional veio (`order_items.accompanies_product_ids text[]` e `accompanies_list_ids uuid[]`,
+  alinhados por posição, nulos na peça comum, **sem chave estrangeira**), e o relatório de adesão
+  (`buy_together_adoption`, RPC admin) lê só essa marca, na régua de venda do Dashboard (`AD-055`) e em
+  dias de Brasília.
+- **Reason**: reaproveitar coleção daria à lista uma página, um lugar no menu e no sitemap, e um segundo
+  sentido para "categoria" — a curadoria de vitrine e a oferta junto com a joia divergiriam no primeiro
+  ajuste (o "defeito 01"). A marca como snapshot é o que deixa a dona editar e apagar listas sem
+  reescrever o histórico do relatório.
+- **Trade-off**: o nome da lista no relatório é o de HOJE (a lista apagada volta como "Lista apagada");
+  a coluna antiga `products.buy_together_ids` fica no banco até uma migration futura, depois do painel
+  publicado; o relatório nasce vazio (só conta pedidos com a marca).
+- **Scope**: migrations `20261105120000_compre-junto.sql`, `20261105130000_compre-junto-conversao.sql`,
+  `20261106120000_compre-junto-no-pedido.sql`, `20261107120000_compre-junto-adesao.sql`;
+  `packages/core/src/buy-together`; `supabase/functions/checkout`; `apps/backoffice` (Compre Junto ›
+  Listas e Adesão, a aba "Compre junto" do produto, a marca no pedido); `apps/store` (o bloco, o conjunto
+  na sacola, a forma do bloco).
+- **Date**: 2026-11-02
+
 ## Handoff
+
+### 2026-11-02 · `WI-01-compre-junto` **IMPLEMENTADO (tarefas 01..07), sem push — falta a prova em navegador do relatório**
+
+- **Work Item**: `.specs/work-items/WI-01-compre-junto/` (branch `feature/WI-01`). Decisão `AD-072`.
+  Quatro migrations aplicadas **só no banco local**; probes `01-listas.sh` .. `05-adesao.sh`.
+- **Ordem de publicação**: tabelas → conversão → marca no pedido e relatório → painel → loja e
+  `checkout` → `drop column` de `products.buy_together_ids` só depois do painel publicado. O usuário
+  confere a contagem de `buy_together_ids` em produção antes do deploy. Migration nova não vai à
+  `master` sem pergunta.
+- **Baselines no fecho**: store 6865/364 · backoffice 5043/280 · core 5310/213 · functions 1439/39 ·
+  mobile-adm 2365/148 · catalog-import 512/23 (`CLAUDE.md` › Baselines).
 
 ### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), verificada, QA e reteste feitos, commitada na branch, sem push — falta o Android real**
 
