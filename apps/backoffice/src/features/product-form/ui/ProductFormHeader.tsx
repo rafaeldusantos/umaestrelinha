@@ -12,6 +12,8 @@ interface Props {
   /** `Date.now()` do último rascunho gravado, ou `null`. */
   draftSavedAt: number | null
   saving: boolean
+  /** Um motivo que impede salvar agora (ex.: um adicional do Compre Junto sem lista ou peça). */
+  blockedNote?: string | null
   onBack: () => void
   onDiscard: () => void
   onSave: () => void
@@ -37,6 +39,7 @@ const ProductFormHeader = ({
   isDirty,
   draftSavedAt,
   saving,
+  blockedNote = null,
   onBack,
   onDiscard,
   onSave,
@@ -47,12 +50,12 @@ const ProductFormHeader = ({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 's' || !(event.metaKey || event.ctrlKey)) return
       event.preventDefault()
-      if (saving) return
+      if (saving || blockedNote) return
       onSave()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onSave, saving])
+  }, [onSave, saving, blockedNote])
 
   // Gruda só a partir de `md` (feature 67, D1). Até a 67 este `sticky` nunca grudou — o `main` do
   // painel era `overflow-auto` —, e no celular o cabeçalho embrulha em três linhas: medido, 165px
@@ -88,6 +91,11 @@ const ProductFormHeader = ({
         </div>
 
         <div className="flex max-w-full flex-wrap items-center gap-2">
+          {blockedNote && (
+            <span data-testid="salvar-bloqueado" className="text-xs text-destructive">
+              {blockedNote}
+            </span>
+          )}
           <Button type="button" variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
             <Trash2 className="mr-1 h-4 w-4" /> Descartar
           </Button>
@@ -96,7 +104,7 @@ const ProductFormHeader = ({
             size="sm"
             className="gradient-cta text-white"
             onClick={onSave}
-            disabled={saving}
+            disabled={saving || !!blockedNote}
           >
             {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
             Salvar

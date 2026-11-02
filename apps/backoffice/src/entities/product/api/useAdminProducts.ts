@@ -53,7 +53,7 @@ export const useAdminProducts = () => {
       compare_price: data.original_price ?? data.compare_price ?? null,
       stock_total: data.stock_total ?? 0,
       low_stock_threshold: data.low_stock_threshold ?? 5,
-      related_product_ids: data.related_product_ids ?? [], buy_together_ids: data.buy_together_ids ?? [],
+      related_product_ids: data.related_product_ids ?? [],
       variants: normalizeVariants(data.product_variants, data.id),
       category_name: (data as any).categories?.name,
     }

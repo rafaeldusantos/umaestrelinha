@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { PRODUCT_POOL_KEY } from '@/entities/product'
@@ -95,19 +95,21 @@ beforeEach(() => {
 })
 
 describe('AdminProductFormPage — as abas (PFM-01, FAQ-16)', () => {
-  // Reescrito na feature 85 (MOD-01): eram 6 abas com "Mídia" entre Perguntas e Preços.
-  it('exibe exatamente 5 abas, com os rótulos da spec', async () => {
+  // Reescrito na feature 85 (MOD-01): eram 6 abas com "Mídia" entre Perguntas e Preços. Voltou a 6
+  // com a aba "Compre junto" (Compre Junto por adicionais), depois de Relacionados.
+  it('exibe exatamente 6 abas, com os rótulos da spec', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
 
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(5)
+    expect(tabs).toHaveLength(6)
     expect(tabs.map(t => t.textContent?.replace(/\d+$/, '').trim())).toEqual([
       'Geral',
       'Perguntas',
       'Preços & variações',
       'SEO',
       'Relacionados',
+      'Compre junto',
     ])
   })
 
@@ -273,11 +275,12 @@ describe('AdminProductFormPage — a aba Relacionados lê o pool (BUS-26)', () =
     fireEvent.mouseDown(screen.getByRole('tab', { name: /Relacionados/ }))
   }
 
-  it('os dois seletores existem, e nenhum recebe catálogo por prop', async () => {
+  it('o seletor existe, e não recebe catálogo por prop; o Compre junto não mora mais aqui', async () => {
     await abrirRelacionados()
 
     await waitFor(() => expect(screen.getByLabelText('Produtos relacionados')).toBeInTheDocument())
-    expect(screen.getByLabelText('Compre junto')).toBeInTheDocument()
+    const painel = screen.getByRole('tabpanel')
+    expect(within(painel).queryByText('Compre junto')).toBeNull()
   })
 
   it('a peça do POOL aparece na busca — o dublê de `useAdminProducts` não a tem', async () => {
@@ -288,9 +291,9 @@ describe('AdminProductFormPage — a aba Relacionados lê o pool (BUS-26)', () =
   })
 
   it('o próprio produto não se relaciona consigo — `excluir` na edição', async () => {
-    // Em `/admin/produtos/novo` não há id, então nada é excluído: as duas buscas mostram a peça.
+    // Em `/admin/produtos/novo` não há id, então nada é excluído: a busca mostra a peça.
     await abrirRelacionados()
 
-    await waitFor(() => expect(screen.getAllByTestId(`peca-${PECA.id}`)).toHaveLength(2))
+    await waitFor(() => expect(screen.getAllByTestId(`peca-${PECA.id}`)).toHaveLength(1))
   })
 })

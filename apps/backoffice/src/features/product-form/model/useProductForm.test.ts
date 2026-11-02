@@ -46,7 +46,6 @@ const dbRow = (over: Record<string, unknown> = {}) => ({
   seo_description: 'O botton da Lua',
   scheduled_at: '2026-09-01T10:00:00+00:00',
   related_product_ids: ['p2'],
-  buy_together_ids: ['p3'],
   product_variants: [
     {
       id: 'v-45-fosco',

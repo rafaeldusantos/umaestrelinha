@@ -14,9 +14,9 @@ import type { ProductFormState } from './useProductForm'
  * As abas do formulário. `variacoes` deixou de existir na T25, e `midia` na feature 85 (MOD-01): a
  * mídia virou o modal aberto pelo card Resumo.
  */
-export type TabId = 'geral' | 'perguntas' | 'precos' | 'seo' | 'relacionados'
+export type TabId = 'geral' | 'perguntas' | 'precos' | 'seo' | 'relacionados' | 'compre-junto'
 
-export const TAB_IDS: readonly TabId[] = ['geral', 'perguntas', 'precos', 'seo', 'relacionados']
+export const TAB_IDS: readonly TabId[] = ['geral', 'perguntas', 'precos', 'seo', 'relacionados', 'compre-junto']
 
 /**
  * `error` bloqueia o salvar de produto ATIVO. `warning` é informação — a vitrine fica estranha, mas o
