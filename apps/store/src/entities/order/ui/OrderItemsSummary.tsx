@@ -8,6 +8,7 @@
 // aparece como linha: ele já está embutido no subtotal, e uma linha de desconto ao lado de um
 // subtotal líquido contaria o mesmo dinheiro duas vezes para quem lê.
 import { formatPrice } from '@estrelinha/core/formatters'
+import { companionPhrase, orderItemCompanionNames } from '@estrelinha/core/buy-together'
 import { itemDetailLine, type OrderSummaryItem } from '../lib/itemDetailLine'
 
 export type { OrderSummaryItem } from '../lib/itemDetailLine'
@@ -49,38 +50,44 @@ const OrderItemsSummary = ({ order }: OrderItemsSummaryProps) => {
       <h2 className="font-heading text-lg font-semibold text-estrelinha-ink">Peças do pedido</h2>
 
       <ul className="flex flex-col gap-4">
-        {itens.map((item) => (
-          <li key={item.id} className="flex gap-3">
-            {item.product_image ? (
-              <img
-                src={item.product_image}
-                alt=""
-                className="h-14 w-14 shrink-0 rounded-sm border border-estrelinha-line object-cover"
-              />
-            ) : (
-              // Sem foto, o quadrado neutro — nunca um ícone de imagem quebrada (edge case da spec).
-              <span
-                aria-hidden
-                data-testid="item-sem-foto"
-                className="h-14 w-14 shrink-0 rounded-sm bg-estrelinha-ground-deep"
-              />
-            )}
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <p className="line-clamp-2 text-[15px] font-medium leading-5 text-estrelinha-ink">
-                {item.product_name}
-              </p>
-              <p className="text-[13px] text-estrelinha-ink-soft">{itemDetailLine(item)}</p>
-              {item.engraving_text?.trim() && (
-                <p className="text-[13px] text-estrelinha-ink-soft">
-                  Gravação: “{item.engraving_text.trim()}”
-                </p>
+        {itens.map((item) => {
+          // Compre Junto: a peça levada junto diz qual joia ela acompanha. O nome vem da linha do
+          // principal no MESMO pedido (snapshot), nunca do catálogo de hoje.
+          const acompanha = companionPhrase(orderItemCompanionNames(item, itens))
+          return (
+            <li key={item.id} className="flex gap-3">
+              {item.product_image ? (
+                <img
+                  src={item.product_image}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-sm border border-estrelinha-line object-cover"
+                />
+              ) : (
+                // Sem foto, o quadrado neutro — nunca um ícone de imagem quebrada (edge case da spec).
+                <span
+                  aria-hidden
+                  data-testid="item-sem-foto"
+                  className="h-14 w-14 shrink-0 rounded-sm bg-estrelinha-ground-deep"
+                />
               )}
-            </div>
-            <span className="shrink-0 whitespace-nowrap text-[15px] font-semibold text-estrelinha-ink">
-              {formatPrice(item.unit_price * item.quantity)}
-            </span>
-          </li>
-        ))}
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="line-clamp-2 text-[15px] font-medium leading-5 text-estrelinha-ink">
+                  {item.product_name}
+                </p>
+                {acompanha && <p className="text-[13px] text-estrelinha-ink-soft">{acompanha}</p>}
+                <p className="text-[13px] text-estrelinha-ink-soft">{itemDetailLine(item)}</p>
+                {item.engraving_text?.trim() && (
+                  <p className="text-[13px] text-estrelinha-ink-soft">
+                    Gravação: “{item.engraving_text.trim()}”
+                  </p>
+                )}
+              </div>
+              <span className="shrink-0 whitespace-nowrap text-[15px] font-semibold text-estrelinha-ink">
+                {formatPrice(item.unit_price * item.quantity)}
+              </span>
+            </li>
+          )
+        })}
       </ul>
 
       <dl className="flex flex-col gap-1.5 border-t border-estrelinha-line pt-3">

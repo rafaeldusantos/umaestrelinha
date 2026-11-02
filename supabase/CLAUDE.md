@@ -110,6 +110,36 @@ ausente seria indistinguível de run quebrado na aba Actions.
   executar o seed avulso **depois** do import apagaria a categoria real `joias-afetivas` e, por
   cascade, os vínculos de produto dela.
 
+### O Compre Junto — listas e adicionais (migration `20261105120000_compre-junto.sql`)
+
+Três tabelas e uma view. **A lista não é coleção**: sem rota, menu nem sitemap.
+
+- `buy_together_lists` (nome 1..40 por `btrim`, `updated_at` por trigger) · `buy_together_list_items`
+  (peça da lista: `position` 0..11 numa chave única **adiada** — é o teto de 12 e deixa trocar duas
+  posições numa gravação; `variant_ids uuid[]` **sem FK**: vazio = todas as ativas, e uma FK com
+  cascata deixaria zero linhas e a peça passaria a valer todas) · `product_buy_together` (adicional
+  da joia: `position` 0..2, `kind` `product`/`list`, o alvo acompanha o tipo por `check`). As **duas FKs
+  para `products` têm nome** (`..._product_id_fkey` e `..._target_product_id_fkey`), senão o embed
+  responde `300 PGRST201`. O vínculo adicional→lista é **`on delete restrict`**.
+- `buy_together_list_usage` é VIEW `security_invoker` (uma linha por lista × joia que a usa), não coluna.
+- **Leitura pública SEM condição de ativo** (precedente `product_faqs`); a joia inativa some pela RLS de
+  `products`. Escrita só `has_role` no `using` e no `with check`. Nenhum `grant`, nenhum dado.
+- Guarda: `compreJuntoSchema.test.ts` (suíte da loja). Probe contra o banco local:
+  `.specs/work-items/WI-01-compre-junto/probes/01-listas.sh`.
+
+### A marca "acompanha" no pedido (migration `20261106120000_compre-junto-no-pedido.sql`)
+
+`order_items` ganhou `accompanies_product_ids text[]` (texto, como `product_id`) e
+`accompanies_list_ids uuid[]`, **nulas, sem default e sem chave estrangeira** — snapshot de quais
+joias e de quais listas a peça adicional veio, **alinhadas por posição** (a mesma linha pode
+acompanhar mais de um principal; elemento nulo na lista = peça escolhida direto no produto), para a
+frase do pedido e o relatório de adesão. Quem soma por joia ou por lista desaninha os dois arrays
+juntos (`unnest(a, b)`); quem conta peças conta a LINHA uma vez. Apagar ou editar a lista depois não
+muda o pedido. Nenhum
+dado, nenhum `grant`. Guarda: `compreJuntoNoPedidoSchema.test.ts` (suíte da loja). Probe:
+`.specs/work-items/WI-01-compre-junto/probes/04-marca-no-pedido.sh` (colunas, sem FK, o antigo lê igual
+por md5, gravar a marca e apagar a lista numa transação desfeita).
+
 ### RLS — o molde que os guardas cobram
 
 Seis migrations são lidas do disco por teste (`materialTransitions`, `homeSections`, `faqSchema`,
@@ -414,6 +444,17 @@ convidada e para quem tem sessão.
   - A única mudança adjacente é o recuo do pagador para `orders.customer_document` quando não há
     ficha. **Sem ele, `CSC-08` seria falso**: o pedido órfão existiria, a cliente teria o token, e o
     pagamento seria recusado com 422 por falta de CPF que ela já informou.
+- **`order_items` é gravado por LISTA EXPLÍCITA** (`COLUNAS_DOS_ITENS`, as 14 colunas de antes), no
+  molde de `COLUNAS_DO_PEDIDO` — até o Compre Junto era `{ ...item, order_id }`, e o navegador podia
+  mandar qualquer chave (inclusive `order_id`). `id`, `order_id` e chave inventada não chegam ao
+  banco. A marca do Compre Junto (`COLUNAS_DA_MARCA`, os dois arrays) passa por `orderItemMarks`
+  (`core/buy-together/marks.ts`, import relativo com `.ts`, a mesma regra da loja): cada marca cujo
+  principal não está nos itens do pedido, que aponta para a própria peça, ou de forma forjada
+  (principal que não é texto, lista que não é uuid, coluna que não é array) é **descartada**, a lista
+  dela cai junto e os dois arrays são regravados alinhados; sem nenhuma, a linha entra como peça
+  comum — a venda nunca cai por ela. **Informativa**: não decide preço nem desconto, e o `create-payment`
+  recalcula por `select` explícito que não a lê. `chavesDoItemDoPedido.test.ts` (loja) cruza as chaves
+  de `buildOrderItems` com as duas listas lidas do disco.
 - **Retirada no escritório forjada é recusada AQUI** (feature `63`, `RET-12`, `AD-049`). Pedido com
   `shipping_service_id = 'retirada'` lê `store_settings` (`shipping` e `material`, por
   `.eq('key', …)`) e passa por `pickupRefusal` (`core/shipping/pickup.ts`, import relativo com

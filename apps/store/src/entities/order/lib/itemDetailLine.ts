@@ -12,6 +12,10 @@ export interface OrderSummaryItem {
   quantity: number
   unit_price: number
   engraving_text?: string | null
+  /** O produto da linha — é por ele que a peça que acompanha acha o nome do principal. */
+  product_id?: string | null
+  /** Compre Junto: os principais que esta peça acompanhava na compra (snapshot). */
+  accompanies_product_ids?: string[] | null
 }
 
 /**

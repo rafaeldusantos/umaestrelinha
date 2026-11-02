@@ -36,6 +36,11 @@ import {
   PICKUP_SERVICE_ID,
   pickupRefusal,
 } from '../../../packages/core/src/shipping/pickup.ts'
+import {
+  markColumns,
+  marksFromColumns,
+  orderItemMarks,
+} from '../../../packages/core/src/buy-together/marks.ts'
 import { corsHeaders, json, preflight } from '../_shared/http.ts'
 import { clientIp, createRateLimiter, type RateLimiter } from '../_shared/rateLimit.ts'
 import {
@@ -229,6 +234,59 @@ const COLUNAS_DO_PEDIDO = [
 ] as const
 
 /**
+ * As colunas de `order_items` que a loja preenche, copiadas como vieram. Tudo o mais — `id`,
+ * `order_id`, chave que o navegador inventar — não chega ao banco: o `order_id` é o do pedido
+ * recém-criado, e uma lista explícita é o que impede o corpo de gravar coluna que ninguém pediu.
+ *
+ * `apps/store` monta estas chaves em `buildOrderItems`, e as duas pontas não se importam:
+ * `apps/store/src/features/checkout/lib/__tests__/chavesDoItemDoPedido.test.ts` cruza as chaves com esta lista lida do disco.
+ * Esquecer uma chave aqui seria descarte silencioso.
+ */
+const COLUNAS_DOS_ITENS = [
+  'product_id',
+  'product_name',
+  'product_image',
+  'size',
+  'finish',
+  'quantity',
+  'unit_price',
+  'variant_id',
+  'price_source',
+  'variant_label',
+  'variant_options',
+  'requires_material',
+  'material_kinds',
+  'engraving_text',
+] as const
+
+/**
+ * A marca "acompanha" do Compre Junto: de quais principais e de quais listas a peça veio — dois
+ * arrays alinhados por posição, porque a mesma linha pode acompanhar mais de um principal. Fica FORA
+ * de `COLUNAS_DOS_ITENS` porque não é copiada como veio: passa por `orderItemMarks`
+ * (`core/buy-together`, a mesma regra que a loja chama), que descarta cada marca cujo principal não
+ * está nos itens do pedido ou cuja forma é forjada, e regrava os dois arrays juntos. Informativa: não
+ * decide preço nem desconto, e o `create-payment` não a lê.
+ */
+const COLUNAS_DA_MARCA = ['accompanies_product_ids', 'accompanies_list_ids'] as const
+
+/** A linha de `order_items` como o banco a recebe. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function linhaDoItem(item: any, orderId: string, idsDoPedido: readonly string[]): Record<string, unknown> {
+  const linha: Record<string, unknown> = { order_id: orderId }
+  for (const coluna of COLUNAS_DOS_ITENS) {
+    if (item?.[coluna] !== undefined) linha[coluna] = item[coluna]
+  }
+  const [principais, listas] = COLUNAS_DA_MARCA
+  const marcas = orderItemMarks(
+    marksFromColumns(item?.[principais], item?.[listas]),
+    idsDoPedido,
+    typeof item?.product_id === 'string' ? item.product_id : '',
+  )
+  if (marcas.length > 0) Object.assign(linha, markColumns(marcas))
+  return linha
+}
+
+/**
  * Os ids do GA4 e a recusa da medição (feature `61`, `CMP-01`) — o que o `sendPurchase` da
  * `mercado-pago` lê depois, quando a aprovação chega.
  *
@@ -242,7 +300,7 @@ const COLUNAS_DO_PEDIDO = [
  *  - `analytics_declined`: booleano **estrito**. `"true"`, `1` ou ausente não gravam nada, e a
  *    coluna fica no default `false` do banco.
  *
- * Nada disto vai para `order_items` — os itens são gravados com spread do corpo do item, nunca do
+ * Nada disto vai para `order_items` — os itens são gravados por `COLUNAS_DOS_ITENS`, nunca do
  * corpo do pedido.
  */
 const ID_DO_GA = /^[0-9.]{1,64}$/
@@ -429,10 +487,15 @@ export async function createOrder(
   }
   const orderId = criado.id as string
 
+  // Os principais que este pedido tem: é contra eles que a marca "acompanha" de cada linha vale.
+  const idsDoPedido = itens
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((item: any) => item?.product_id)
+    .filter((id: unknown): id is string => typeof id === 'string' && id !== '')
   const { error: erroItens } = await deps.supabase
     .from('order_items')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .insert(itens.map((item: any) => ({ ...item, order_id: orderId })))
+    .insert(itens.map((item: any) => linhaDoItem(item, orderId, idsDoPedido)))
 
   if (erroItens) {
     log({ action: 'create-order', status: 'items_failed', order_id: orderId })

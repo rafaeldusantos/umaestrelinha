@@ -1397,6 +1397,9 @@ describe('CheckoutPage — criação do pedido (CHK-07, CHK-08)', () => {
       requires_material: false,
       material_kinds: [],
       engraving_text: null,
+      // Compre Junto: o bump é oferta do checkout, nunca peça levada junto — a marca vai nula.
+      accompanies_product_ids: null,
+      accompanies_list_ids: null,
     })
     // itens do carrinho seguem com o preço cheio
     expect(payload.items[0].unit_price).toBe(50)

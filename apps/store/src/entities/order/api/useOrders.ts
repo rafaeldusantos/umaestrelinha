@@ -17,6 +17,11 @@ export interface OrderItem {
   requires_material?: boolean | null
   material_kinds?: string[] | null
   engraving_text?: string | null
+  /** Sempre veio no `select('*')`; a frase "acompanha" acha o principal por ele. */
+  product_id?: string | null
+  /** Compre Junto — os principais que a peça acompanhava e as listas de origem (snapshot). */
+  accompanies_product_ids?: string[] | null
+  accompanies_list_ids?: (string | null)[] | null
 }
 
 export interface Order {
@@ -167,6 +172,13 @@ export interface CreateOrderInput {
     requires_material?: boolean
     material_kinds?: string[]
     engraving_text?: string | null
+    /**
+     * Compre Junto — os principais que esta peça acompanha e a lista de origem de cada um, alinhados
+     * por posição (`null` na peça comum; elemento `null` na avulsa). Informativa: não decide preço; o
+     * servidor descarta a marca cujo principal não está no pedido.
+     */
+    accompanies_product_ids?: string[] | null
+    accompanies_list_ids?: (string | null)[] | null
   }[]
   /**
    * `MAT-07`: o pedido nasce na fila ou fora dela, derivado dos itens por `initialMaterialStatus`.

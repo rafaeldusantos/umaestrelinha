@@ -5,6 +5,7 @@ import type { Product } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useCouponStore } from '@/entities/coupon'
+import { companionPhrase as fraseDoPedido } from '@estrelinha/core/buy-together'
 import { companionPhrase } from '../../model/drawerFacts'
 
 vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
@@ -15,7 +16,6 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
     free_shipping_enabled: false,
     free_shipping_threshold: 0,
     default_shipping_cost: 9.9,
-    origin_zip: '',
     handling_days: 2,
   }),
 }))
@@ -56,6 +56,10 @@ describe('companionPhrase', () => {
     expect(companionPhrase(['Pingente X'])).toBe('Acompanha o Pingente X')
     expect(companionPhrase(['Pingente X', 'Pingente Y'])).toBe('Acompanha o Pingente X e o Pingente Y')
     expect(companionPhrase(['A', 'B', 'C'])).toBe('Acompanha o A, o B e o C')
+  })
+
+  it('é a MESMA frase da confirmação do pedido e do painel (referência, não cópia)', () => {
+    expect(companionPhrase).toBe(fraseDoPedido)
   })
 })
 

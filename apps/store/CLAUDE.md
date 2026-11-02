@@ -1185,7 +1185,18 @@ avulsa e a do conjunto são a mesma linha e somam) e **não decide preço** (o s
 - A frase "Acompanha o X e o Y" é **derivada na renderização** (`companionsOf` + `companionPhrase`): só nomeia
   principais que ainda estão na sacola, com o nome inteiro do produto. Removido o principal, ela some e
   os adicionais ficam como peças comuns; remover uma linha nunca remove as outras.
-- A marca ainda não vai ao pedido (`buildOrderPayload`, `create-order`): é a tarefa seguinte do Work Item.
+- **A marca vai ao pedido** (`buildOrderItems`): cada linha leva `accompanies_product_ids` e
+  `accompanies_list_ids` — **todos** os principais da linha que ainda estão na sacola e a lista de
+  origem de cada um, alinhados por posição (`markColumns`), escolhidos por `orderItemMarks`
+  (`core/buy-together/marks.ts`), a MESMA regra que a function `checkout` chama ao gravar. A linha que
+  na sacola diz "Acompanha o X e o Y" diz o mesmo no pedido. Linha comum e bump mandam as duas chaves nulas. As chaves do item batem
+  com as colunas que o `create-order` grava: `features/checkout/lib/__tests__/chavesDoItemDoPedido.test.ts`
+  lê a function do disco e compara por igualdade (esquecer uma chave seria descarte silencioso).
+- **A confirmação `/pedido/:id` diz "Acompanha o <principal>"** sob o nome da peça
+  (`OrderItemsSummary`), com o nome tirado da linha do principal no MESMO pedido
+  (`orderItemCompanionNames`). A frase é `companionPhrase`, que mora em `core/buy-together` e a
+  gaveta reexporta (a mesma referência; o painel diz a mesma). Minha Conta não muda (foto e contagem).
+  O pedido de quem não usou o Compre Junto fica igual.
 
 ### As parcelas do cartão são da loja, e os juros são do Mercado Pago (2026-10-04)
 
