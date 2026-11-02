@@ -12,8 +12,9 @@ import type { OptionValues, Product, ProductVariant } from '@estrelinha/supabase
  * 135 − 6,75 = 128,25.
  */
 
-const { useProductMock, dados, trackSpy } = vi.hoisted(() => ({
+const { useProductMock, dados, trackSpy, lidoPor } = vi.hoisted(() => ({
   useProductMock: vi.fn(),
+  lidoPor: [] as unknown[],
   dados: { value: { status: 'off', addons: [], lists: [], products: [] } as Record<string, unknown> },
   trackSpy: vi.fn(),
 }))
@@ -22,7 +23,9 @@ vi.mock('sonner', () => ({ toast: { custom: vi.fn(), error: vi.fn(), success: vi
 vi.mock('@/entities/product/api/useProduct', () => ({ useProduct: useProductMock }))
 vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: () => ({ data: [] }) }))
 vi.mock('@/entities/product/api/useProductFaqs', () => ({ useProductFaqs: () => ({ data: [] }) }))
-vi.mock('@/entities/product/api/useBuyTogetherData', () => ({ useBuyTogetherData: () => dados.value }))
+vi.mock('@/entities/product/api/useBuyTogetherData', () => ({
+  useBuyTogetherData: (slug: unknown) => (lidoPor.push(slug), dados.value),
+}))
 // A forma do bloco é lida de `store_settings` (testada nas páginas de forma); aqui vale a padrão.
 vi.mock('@estrelinha/core/hooks/useBuyTogetherForm', () => ({ useBuyTogetherForm: () => 'inline' }))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
@@ -188,13 +191,48 @@ describe('Compre Junto na página — o que aparece e como abre', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Pulseira Afeto' })).toBeInTheDocument()
   })
 
-  it('carregando os produtos: reserva o espaço com esqueleto ocupado e altura mínima', () => {
-    dados.value = { status: 'loading', addons: [addon('a1', 0, 'ping')], lists: [], products: [] }
-    renderPage()
-    const reserva = screen.getByLabelText('Compre junto')
-    expect(reserva).toHaveAttribute('aria-busy', 'true')
-    expect(reserva.className).toMatch(/(?:^|\s)min-h-\[320px\](?![-\w])/)
-    expect(screen.queryByRole('checkbox')).toBeNull()
+  it('o Compre Junto é lido pelo slug da URL, sem esperar o produto chegar', () => {
+    lidoPor.length = 0
+    useProductMock.mockReturnValue({ data: undefined, isFetching: true })
+    render(
+      <MemoryRouter initialEntries={['/produtos/main']}>
+        <Routes>
+          <Route path="/produtos/:slug" element={<ProductPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(lidoPor).toContain('main')
+  })
+
+  it('enquanto o Compre Junto não respondeu, a página segura a coluna, e a solta quando ele responde', () => {
+    dados.value = { status: 'loading', addons: [], lists: [], products: [] }
+    const { container, rerender } = renderPage()
+    expect(screen.queryByRole('heading', { level: 1, name: 'Pulseira Afeto' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Adicionar à sacola' })).toBeNull()
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
+
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    rerender(
+      <MemoryRouter initialEntries={['/produtos/main']}>
+        <Routes>
+          <Route path="/produtos/:slug" element={<ProductPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('heading', { level: 1, name: 'Pulseira Afeto' })).toBeInTheDocument()
+    // O bloco já chega no tamanho real: nenhum esqueleto ocupando a coluna.
+    expect(screen.getByRole('heading', { name: 'Compre junto' })).toBeInTheDocument()
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull()
+  })
+
+  it.each([
+    ['falha', 'error'],
+    ['volta vazio', 'off'],
+  ])('o Compre Junto que %s não segura a página', (_, status) => {
+    dados.value = { status, addons: [], lists: [], products: [] }
+    const { container } = renderPage()
+    expect(screen.getByRole('heading', { level: 1, name: 'Pulseira Afeto' })).toBeInTheDocument()
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull()
   })
 
   it('sem adicional configurado não há esqueleto nem bloco', () => {

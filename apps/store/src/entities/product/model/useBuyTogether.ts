@@ -139,7 +139,7 @@ const seedSelection = (piece: BuyTogetherPiece): OptionValues => {
  * página mostra. O hook só decide e mostra; a sacola e a barra fixa leem o mesmo estado.
  */
 export const useBuyTogether = (product: Product, purchase: ProductPurchase): BuyTogether => {
-  const data = useBuyTogetherData(product.id)
+  const data = useBuyTogetherData(product.slug)
   const [choices, setChoices] = useState<Record<string, Choice>>({})
   const announced = useRef(new Set<string>())
 

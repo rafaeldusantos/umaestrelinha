@@ -820,11 +820,15 @@ que a dona enviou** com um rótulo embaixo e um link para a coleção. Desenho n
 Na coluna de informação, **entre a gravação do principal e a linha de estoque**, a cliente vê os
 adicionais que a dona configurou, marca os que quer e vê o total e o PIX do conjunto. Nada vem marcado.
 
-- **Quem lê o quê.** `useBuyTogetherData` (`entities/product/api`) lê a configuração com a lista e as
-  peças dela num `select` só — a FK da lista é **nomeada** (`PGRST201`) — e depois os produtos de todos
-  os adicionais por `useProductsByIds`, numa consulta só. É **consulta própria**, e não um embed no
+- **Quem lê o quê.** `useBuyTogetherData(slug)` (`entities/product/api`) lê, **numa ida ao banco só**, a
+  configuração, a lista com as peças e os produtos de todos os adicionais (`PRODUCT_CARD_SELECT` dentro
+  dos embeds, FKs **nomeadas** por causa do `PGRST201`), filtrada pelo **slug** da joia (`main.slug`, com
+  `!inner` na FK do principal). Pelo slug para sair **junto** com a consulta do produto: a cascata de
+  antes (produto → configuração por id → produtos por `useProductsByIds`) fazia o bloco empurrar o botão
+  de compra duas vezes numa rede lenta (BUG-001 da QA da WI-01). É **consulta própria**, e não um embed no
   `PRODUCT_SELECT` (compartilhado com a listagem e a recuperação de carrinho; molde de
-  `useProductFaqs`). A falha **sobe**: `status: 'error'` e o bloco some, a página segue de pé.
+  `useProductFaqs`). A falha **sobe**: `status: 'error'` e o bloco some, a página segue de pé — e a
+  **primeira** falha já é erro (`failureCount > 0`), sem esperar as novas tentativas do React Query.
 - **`useBuyTogether(product, purchase)`** (`entities/product/model`) é o estado do conjunto, montado
   pela `ProductPage` e passado ao `ProductInfo` por prop opcional — a barra fixa e o botão único
   (tarefa seguinte) leem o mesmo. Lê a variação e a quantidade do principal de `purchase`; o bloco
@@ -836,9 +840,13 @@ adicionais que a dona configurou, marca os que quer e vê o total e o PIX do con
   (`pixPrice`), nunca a soma dos PIX das peças. O bloco chama `bundlePix` e lê o desconto de
   `usePaymentSettings`; o hook não lê configuração, para os testes de página que dublam o módulo de
   configurações continuarem montando a página.
-- **Três estados, como na Home**: sem adicional ou carregando a configuração, o bloco **não escreve
-  nada**; com adicionais e produtos a caminho, `BuyTogetherSkeleton` reserva `min-h-[320px]`
-  (`aria-busy`); resolvido e vazio some. Principal esgotado (grade toda sem estoque, ou simples sem
+- **A página espera o Compre Junto, e o bloco nasce no tamanho real**: a `ProductPage` chama
+  `useBuyTogetherData(slug)` ao lado de `useProduct` e segura o corpo (o mesmo `aria-busy` de quando o
+  produto carrega) até a **primeira** resposta, erro ou falha — `isLoading`, nunca `isPending`, que fica
+  verdadeiro para sempre com a consulta desligada. Joia sem adicional não ganha espera (as duas correm em
+  paralelo) nem espaço reservado. `BuyTogetherSkeleton` (`min-h-[320px]`, `aria-busy`) continua no bloco
+  para o estado `loading` do conjunto, mas a página não o alcança pelo caminho comum; resolvido e vazio
+  some. Principal esgotado (grade toda sem estoque, ou simples sem
   saldo) esconde o bloco; **combinação indisponível** do principal o mantém.
 - **A peça esgotada aparece desabilitada, a não liberada some**: o seletor recebe o produto restrito às
   variações que a dona liberou (`restrict`). `liberated` vazio = todas; com ids que sumiram ou

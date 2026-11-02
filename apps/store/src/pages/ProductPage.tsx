@@ -16,6 +16,7 @@ import { displayCategory } from '@/entities/product/lib/displayCategory'
 import { findVariantByPublicId } from '@/entities/product/lib/variantSelection'
 import { useProductPurchase } from '@/entities/product/model/useProductPurchase'
 import { useBuyTogether } from '@/entities/product/model/useBuyTogether'
+import { useBuyTogetherData } from '@/entities/product/api/useBuyTogetherData'
 import { useBuyAction } from '@/entities/product'
 import ProductGallery from '@/entities/product/ui/ProductGallery'
 import ProductInfo from '@/entities/product/ui/ProductInfo'
@@ -65,6 +66,15 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
   const [searchParams] = useSearchParams()
   const variantParam = searchParams.get('variant')
   const { data: product, isFetching } = useProduct(slug || '')
+  /*
+   * O Compre Junto sai AQUI, pelo slug da URL, junto com a consulta do produto — e não depois dela.
+   * O corpo (`useBuyTogether`) lê a mesma chave e acha a resposta no cache. Enquanto a primeira
+   * resposta não chega, a página segura a coluna (logo abaixo): assim ela nasce com o bloco já no
+   * tamanho real, e o botão de compra e a linha de estoque não andam quando o bloco chega. Joia sem
+   * adicional não ganha espera a mais — as duas consultas correm em paralelo. Falha não segura: a
+   * primeira já solta a página.
+   */
+  const { status: buyTogetherStatus } = useBuyTogetherData(slug || '')
   // PMD-06 AC 3: o seletor vive no `ProductInfo` e a galeria é irmã dele — o estado da linha
   // escolhida precisa estar no pai comum para a imagem em destaque acompanhar a escolha.
   const [variantImage, setVariantImage] = useState<string | null>(null)
@@ -126,6 +136,8 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
     // mesma situação era a divergência que esta feature existe para fechar.
     return <NotFound />
   }
+
+  if (buyTogetherStatus === 'loading') return <div className="container py-20" aria-busy="true" />
 
   return (
     <ProductPageBody
