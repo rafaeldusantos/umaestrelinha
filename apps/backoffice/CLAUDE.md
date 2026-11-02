@@ -1385,7 +1385,7 @@ uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {m
 
 ## Compre Junto › Listas (`/admin/compre-junto`)
 
-Catálogo › **Compre Junto**, entre Filtros da loja e a Biblioteca. Três rotas: o índice
+Catálogo › **Compre Junto**, entre Filtros da loja e a Biblioteca. Três rotas das listas: o índice
 (`/admin/compre-junto`, o único destino da sidebar) e o editor (`/listas/nova` e `/listas/:id`, irmãs
 auto-fechadas com o mesmo `element`). A lista **não é vitrine** nem página: o painel não desenha como o
 bloco fica (`AD-019`); a loja é quem mostra.
@@ -1406,6 +1406,29 @@ bloco fica (`AD-019`); a loja é quem mostra.
   vocabulário, os nomes e a normalização são de `@estrelinha/core/buy-together` (`settings.ts`); a leitura
   é `useBuyTogetherForm` (`core/hooks`) e a gravação, `useUpdateSettings`. Só muda a apresentação: preço,
   total e o que vai à sacola são os mesmos. Teste: `pages/admin/AdminBuyTogetherForm.test.tsx`.
+
+## Compre Junto › Adesão (`/admin/compre-junto/adesao`)
+
+A segunda aba do menu Compre Junto (`BuyTogetherTabs`, em `features/buy-together-lists`: Listas |
+Adesão são **rotas**, como "Montados" em Pedidos; a sidebar continua com o índice só, e `isNavActive`
+acende Compre Junto pelo segmento). A rota é irmã auto-fechada das outras três, dentro do `RequireAdmin`.
+
+- **UMA leitura**: `useBuyTogetherAdoption(dias)` (`features/buy-together-adoption`) chama
+  `rpc('buy_together_adoption', { p_dias })`. O banco decide o dia (Brasília) e o que é venda (a régua
+  do Dashboard, `AD-055`), conta e devolve a parte e a média já calculadas (`null` quando o divisor é
+  zero); `model/adoption.ts` só **escreve** o que veio. Período 7 · 30 · 90 dias (padrão 30), num
+  `Tabs` como o do bloco "Movimento da loja".
+- **Tela**: três indicadores (`StatCard` com `loading` — esqueleto no lugar do número, nenhum zero
+  antes da resposta), a regra por escrito (`RULE_NOTE`) e o cartão "Por joia principal" / "Por lista":
+  **tabela a partir de `md`, cartões abaixo**, com a barra de valor proporcional ao maior valor do
+  recorte. Por lista não tem coluna Pedidos, traz a linha "Peça escolhida direto no produto" e as
+  listas sem venda com 0 e "—"; a lista apagada aparece como "Lista apagada".
+- **Vazio** (nenhum pedido com Compre Junto no período) é frase escrita no lugar do cartão; **erro**
+  sem dado é "Não foi possível ler o relatório." com "Tentar de novo". O número é de pedidos e peças,
+  nunca de "pessoas".
+- ⚠️ A RPC entrou na lista literal de `marcacaoSoPorAcao.test.ts` (suíte da LOJA).
+- Teste: `pages/admin/AdminBuyTogetherAdoption.test.tsx` (página real, só o client dublado). O que o
+  SQL conta é do probe `05-adesao.sh`; o guarda da migration é `compreJuntoAdesaoSchema.test.ts`.
 
 ## Compre Junto › a aba "Compre junto" do produto
 

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import { BuyTogetherFormCard, BuyTogetherListsIndex, useBuyTogetherLists } from '@/features/buy-together-lists'
+import { BuyTogetherFormCard, BuyTogetherListsIndex, BuyTogetherTabs, useBuyTogetherLists } from '@/features/buy-together-lists'
 
-/** `/admin/compre-junto` — o índice das listas do Compre Junto. */
+/** `/admin/compre-junto` — a aba Listas do Compre Junto (o índice); a aba Adesão é `/admin/compre-junto/adesao`. */
 const AdminBuyTogetherPage = () => {
   const navigate = useNavigate()
   const { listas, loading, error, refetch } = useBuyTogetherLists()
@@ -9,7 +9,12 @@ const AdminBuyTogetherPage = () => {
   return (
     <BuyTogetherListsIndex
       listas={listas}
-      aside={<BuyTogetherFormCard />}
+      aside={
+        <>
+          <BuyTogetherTabs />
+          <BuyTogetherFormCard />
+        </>
+      }
       loading={loading}
       error={error}
       onRetry={refetch}

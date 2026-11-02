@@ -853,6 +853,13 @@ adicionais que a dona configurou, marca os que quer e vê o total e o PIX do con
 - **Medição**: a lista é `compre-junto` (`BUY_TOGETHER_LIST`). `view_item_list` por `useTrackList` (uma por
   conjunto de peças mostrado); `select_item` ao **marcar** o adicional, uma vez por adicional por
   montagem — desmarcar e remarcar não repete.
+- **A forma do bloco é da dona** (`useBuyTogetherForm`, `core/hooks`; vocabulário em
+  `core/buy-together/settings.ts`, chave `buy_together` de `store_settings`): "Na linha" (o padrão, e o
+  que vale sem linha gravada ou com valor desconhecido — as escolhas abrem abaixo da peça), "Em folha"
+  (`AddonSheet`: folha no celular, diálogo no computador, botão "Incluir no conjunto") e "Com fórmula"
+  ("Na linha" com a faixa `FormulaStrip` "Esta joia + peça + …" acima). Só o `BuyTogetherBlock` lê a
+  forma, e só quando há adicional a mostrar. **Só apresentação**: preço, total, PIX e o que vai à sacola
+  são os mesmos nas três.
 - **Lista pede a peça**: numa lista a cliente escolhe **exatamente uma** (grupo de rádio com cartões,
   a primeira com o foco do teclado, nenhuma marcada). A frase de falta é "Escolha a peça." — o nome da
   lista não serve de artigo ("a corrente", "o pingente").

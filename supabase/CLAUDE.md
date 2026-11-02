@@ -140,6 +140,17 @@ dado, nenhum `grant`. Guarda: `compreJuntoNoPedidoSchema.test.ts` (suíte da loj
 `.specs/work-items/WI-01-compre-junto/probes/04-marca-no-pedido.sh` (colunas, sem FK, o antigo lê igual
 por md5, gravar a marca e apagar a lista numa transação desfeita).
 
+### O relatório de adesão ao Compre Junto (migration `20261107120000_compre-junto-adesao.sql`)
+
+`buy_together_adoption(p_dias, p_agora)`: RPC admin de leitura, no molde de `store_overview` —
+`security definer`, `search_path = ''`, `stable`, `has_role` ⇒ `42501` antes de qualquer leitura,
+`execute` só a `authenticated`, período só 7/30/90 (⇒ `22023`). Venda é a régua do `store_movement`
+vigente (`payment_status = 'approved'` e `status <> 'cancelled'`), em dias de Brasília
+(`store_day`/`store_day_start`). Lê **só a marca** do pedido (nunca as peças das listas nem os
+adicionais), conta a peça só quando o principal está no mesmo pedido e conta a linha UMA vez (nas peças,
+por joia e por lista). Nenhuma tabela, coluna ou dado. Guarda: `compreJuntoAdesaoSchema.test.ts` (suíte da
+loja, com o fragmento da régua comparado ao do Dashboard). Probe: `probes/05-adesao.sh` do WI-01.
+
 ### RLS — o molde que os guardas cobram
 
 Seis migrations são lidas do disco por teste (`materialTransitions`, `homeSections`, `faqSchema`,

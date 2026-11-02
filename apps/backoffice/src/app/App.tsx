@@ -23,6 +23,7 @@ import AdminFilterSuggestionsPage from "@/pages/admin/AdminFilterSuggestionsPage
 import AdminFaqsPage from "@/pages/admin/AdminFaqsPage";
 import AdminBuyTogetherPage from "@/pages/admin/AdminBuyTogetherPage";
 import AdminBuyTogetherListPage from "@/pages/admin/AdminBuyTogetherListPage";
+import AdminBuyTogetherAdoptionPage from "@/pages/admin/AdminBuyTogetherAdoptionPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
 import AdminStoreFaqPage from "@/pages/admin/AdminStoreFaqPage";
@@ -107,6 +108,7 @@ const App = () => (
                 auto-fechadas como em `/admin/home`). A estática `nova` vence `:id`. Só o índice entra
                 em `navGroups`. */}
             <Route path="/admin/compre-junto" element={<AdminBuyTogetherPage />} />
+            <Route path="/admin/compre-junto/adesao" element={<AdminBuyTogetherAdoptionPage />} />
             <Route path="/admin/compre-junto/listas/nova" element={<AdminBuyTogetherListPage />} />
             <Route path="/admin/compre-junto/listas/:id" element={<AdminBuyTogetherListPage />} />
             <Route path="/admin/perguntas" element={<AdminFaqsPage />} />

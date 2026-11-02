@@ -158,6 +158,10 @@ const RPCS = [
   'account_exists',
   'anonymize_customer',
   'apply_payment_approval',
+  // Compre Junto — o relatório de adesão da aba Adesão do painel
+  // (`features/buy-together-adoption`). Só lê `orders`, `order_items`, `products` e as listas, e é
+  // admin: o `has_role` está no corpo dela (`compreJuntoAdesaoSchema.test.ts`).
+  'buy_together_adoption',
   // Feature 74 — a confirmação de papel que o app do celular faz em paralelo com cada leitura de
   // pedido (`apps/mobile-adm/src/shared/api/lerComPapel.ts`). Não lê tabela nenhuma: só
   // `has_role` e o instante do banco (`atelieClockSchema.test.ts`).
