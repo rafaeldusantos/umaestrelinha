@@ -16,6 +16,8 @@ export interface BuyAction {
   tap: () => void
 }
 
+const ENGRAVING_NOTICE = 'A gravação passou do limite. Ajuste o texto para continuar.'
+
 const SELECTORS = 'input:not([type="hidden"]), button, [role="radio"], select, textarea'
 
 const focusAddon = (state: BuyTogether, id: string) => {
@@ -46,7 +48,7 @@ const focusAddon = (state: BuyTogether, id: string) => {
  * Marcou adicional → "Levar o conjunto". Faltando escolha ou com gravação recusada em qualquer peça,
  * nada entra: o foco vai ao primeiro adicional incompleto e o aviso diz o que falta. O principal
  * bloqueado (combinação indisponível, gravação acima do limite) continua sendo a decisão de
- * `useProductPurchase`.
+ * `useProductPurchase`; com adicional marcado, a gravação do principal acima do limite acende o aviso.
  */
 export const useBuyAction = (purchase: ProductPurchase, buyTogether?: BuyTogether): BuyAction => {
   const [attempted, setAttempted] = useState(false)
@@ -57,11 +59,15 @@ export const useBuyAction = (purchase: ProductPurchase, buyTogether?: BuyTogethe
   const incomplete = bundle ? buyTogether.incompleteCount : 0
 
   let notice: string | null = null
-  // A combinação indisponível do principal já tem o aviso dela na coluna (ao lado do seletor); este
-  // aviso é só da tentativa de levar um conjunto com escolha faltando.
-  if (attempted && incomplete > 0) {
+  // A combinação indisponível do principal já tem o aviso dela na coluna (ao lado do seletor). Com o
+  // conjunto montado, a gravação do principal acima do limite bloqueia o botão na hora, então o aviso
+  // dela também é na hora, e vem antes da escolha faltando num adicional. Sem conjunto, a recusa fica
+  // só junto do campo.
+  if (bundle && purchase.engravingRefusal) {
+    notice = ENGRAVING_NOTICE
+  } else if (attempted && incomplete > 0) {
     notice = first?.engravingRefusal
-      ? 'A gravação passou do limite. Ajuste o texto para continuar.'
+      ? ENGRAVING_NOTICE
       : incomplete === 1
         ? 'Falta uma escolha em 1 peça. Ela está marcada acima.'
         : `Falta uma escolha em ${incomplete} peças. Elas estão marcadas acima.`

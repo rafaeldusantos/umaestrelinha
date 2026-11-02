@@ -329,6 +329,79 @@ describe('levar o conjunto — o que recusa', () => {
   })
 })
 
+const AVISO_DA_GRAVACAO = 'A gravação passou do limite. Ajuste o texto para continuar.'
+const principalGravavel = () =>
+  principal({
+    engraving_max_chars: 12,
+    options: [{ name: 'Com gravação', values: ['Sim', 'Não'], position: 0 }],
+    variants: [variante({ 'Com gravação': 'Sim' }, 100), variante({ 'Com gravação': 'Não' }, 90)],
+  })
+const gravarNoPrincipal = (texto: string) => {
+  fireEvent.click(screen.getAllByRole('radio', { name: 'Sim' })[0])
+  fireEvent.change(screen.getAllByLabelText('O que gravar')[0], { target: { value: texto } })
+}
+const avisosComAFrase = () => screen.queryAllByRole('alert').filter(a => a.textContent?.includes(AVISO_DA_GRAVACAO))
+
+describe('o aviso do conjunto com a gravação do principal acima do limite', () => {
+  it('com adicional completo marcado, o aviso aparece antes de qualquer toque, e nada entra ao tocar', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage(principalGravavel())
+    marcarPingente('Ouro')
+    gravarNoPrincipal('Lúcia Mariana')
+
+    expect(screen.getByRole('alert')).toHaveTextContent(AVISO_DA_GRAVACAO)
+    fireEvent.click(barra().getByRole('button', { name: 'Revisar a gravação' }))
+    expect(items()).toHaveLength(0)
+    expect(screen.getByRole('alert')).toHaveTextContent(AVISO_DA_GRAVACAO)
+  })
+
+  it('o aviso some quando a gravação do principal volta ao limite', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage(principalGravavel())
+    marcarPingente('Ouro')
+    gravarNoPrincipal('Lúcia Mariana')
+    expect(avisosComAFrase()).toHaveLength(1)
+
+    fireEvent.change(screen.getAllByLabelText('O que gravar')[0], { target: { value: 'Lúcia Maria' } })
+    expect(avisosComAFrase()).toHaveLength(0)
+  })
+
+  it('o aviso some quando nenhum adicional fica marcado', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage(principalGravavel())
+    marcarPingente('Ouro')
+    gravarNoPrincipal('Lúcia Mariana')
+    expect(avisosComAFrase()).toHaveLength(1)
+
+    fireEvent.click(caixa(/Levar junto: Pingente Estrela/))
+    expect(avisosComAFrase()).toHaveLength(0)
+  })
+
+  it('sem adicional marcado, a gravação do principal acima do limite não acende o aviso', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage(principalGravavel())
+    gravarNoPrincipal('Lúcia Mariana')
+
+    expect(barra().getByRole('button', { name: 'Revisar a gravação' })).toBeInTheDocument()
+    expect(avisosComAFrase()).toHaveLength(0)
+    fireEvent.click(barra().getByRole('button', { name: 'Revisar a gravação' }))
+    expect(avisosComAFrase()).toHaveLength(0)
+  })
+
+  it('a gravação recusada só no adicional continua sem aviso antes do toque', () => {
+    ofertar([addon('a1', 0, 'grav')], [gravavel()])
+    renderPage()
+    fireEvent.click(caixa(/Pingente Gravado/))
+    const linha = within(linhaDo('a1'))
+    fireEvent.click(linha.getByRole('radio', { name: 'Sim' }))
+    fireEvent.change(linha.getByLabelText('O que gravar'), { target: { value: 'Maria Clara' } })
+
+    expect(avisosComAFrase()).toHaveLength(0)
+    fireEvent.click(botaoDaColuna('Levar o conjunto'))
+    expect(avisosComAFrase()).toHaveLength(1)
+  })
+})
+
 describe('a barra fixa com o conjunto', () => {
   it('sem adicional marcado: o preço do principal e "no Pix"', () => {
     ofertar([addon('a1', 0, 'ping')], [pingente()])
