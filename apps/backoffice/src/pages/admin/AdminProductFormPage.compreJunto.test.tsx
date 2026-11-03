@@ -216,7 +216,7 @@ describe('o teto de 3 adicionais', () => {
     expect(screen.queryByTestId('recusa-do-quarto')).toBeNull()
 
     acrescentar()
-    expect(screen.getByTestId('recusa-do-quarto')).toHaveTextContent('Uma joia leva até 3 adicionais. Tire um para acrescentar outro.')
+    expect(screen.getByTestId('recusa-do-quarto')).toHaveTextContent('Cada joia leva até 3 adicionais. Tire um para acrescentar outro.')
     expect(screen.getByRole('button', { name: 'Acrescentar um adicional' })).toBeEnabled()
     expect(screen.queryByTestId('adicional-3')).toBeNull()
 
@@ -303,7 +303,7 @@ describe('adicional do tipo peça', () => {
     fireEvent.click(screen.getByTestId(`peca-${PINGENTE}`))
     const a = adicionalN(0)
     await waitFor(() => expect(within(a).getByTestId('peca-escolhida-0')).toHaveTextContent('Pingente Estrela'))
-    expect(within(a).getByText('Nenhuma marcada vale todas as ativas, inclusive as que você criar depois.')).toBeInTheDocument()
+    fireEvent.click(await within(a).findByRole('button', { name: 'Escolher quais' }))
 
     const prata = await within(a).findByRole('button', { name: /Prata/, pressed: false })
     fireEvent.click(prata)
@@ -328,7 +328,8 @@ describe('adicional do tipo peça', () => {
     await abrirPeca()
     fireEvent.click(screen.getByTestId(`peca-${PINGENTE}`))
     const a = adicionalN(0)
-    fireEvent.click(await within(a).findByRole('button', { name: /Prata/ }))
+    fireEvent.click(await within(a).findByRole('button', { name: 'Escolher quais' }))
+    fireEvent.click(within(a).getByRole('button', { name: /Prata/ }))
     fireEvent.click(within(a).getByRole('button', { name: 'Trocar' }))
     expect(within(a).queryByTestId('peca-escolhida-0')).toBeNull()
     expect(await screen.findByRole('textbox', { name: /Peça do adicional 1/ })).toBeInTheDocument()
@@ -351,6 +352,9 @@ describe('peça que saiu do ar', () => {
     montar()
     await abrirAba()
     expect(await screen.findByText(/Nenhuma das variações escolhidas existe mais/)).toBeInTheDocument()
+    fireEvent.click(within(adicionalN(0)).getByRole('button', { name: 'Esconder' }))
+    expect(within(adicionalN(0)).queryByRole('button', { name: /Prata/ })).toBeNull()
+    expect(screen.getByText(/Nenhuma das variações escolhidas existe mais/)).toBeInTheDocument()
   })
 })
 
@@ -453,5 +457,129 @@ describe('o salvar', () => {
       { method: 'eq', args: ['product_id', PRINCIPAL] },
       { method: 'in', args: ['id', ['ad1']] },
     ])
+  })
+})
+
+describe('o cartão "Na loja"', () => {
+  const naLoja = () => screen.getByRole('heading', { level: 2, name: 'Na loja' }).closest('section')!
+  const itensNaLoja = () => within(naLoja()).getAllByRole('listitem')
+
+  it('sem adicionais, diz "Nenhum adicional."', async () => {
+    montar()
+    await abrirAba()
+    expect(within(naLoja()).getByText('O bloco fica entre a escolha da variação e o botão de compra, nesta ordem:')).toBeInTheDocument()
+    expect(within(naLoja()).getByText('Nenhum adicional.')).toBeInTheDocument()
+    expect(within(naLoja()).queryByRole('list')).toBeNull()
+  })
+
+  it('lista os adicionais na ordem, com o tipo, o "some com" e o incompleto; subir inverte a ordem', async () => {
+    banco.produto!.product_buy_together = [
+      adicional('ad1', 0, { target_product_id: FITA, hidden_on_variant_ids: [V_CORRENTE, V_CHAVEIRO] }),
+      adicional('ad2', 1, { kind: 'list', target_product_id: null, list_id: 'l1' }),
+    ]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(itensNaLoja()[0]).toHaveTextContent('Fita de Cetim'))
+    const [primeiro, segundo] = itensNaLoja()
+    expect(primeiro.querySelector('b')?.textContent).toBe('Fita de Cetim')
+    expect(primeiro.textContent).toBe('Fita de Cetimuma peça só · some com Corrente, Chaveiro')
+    expect(segundo.querySelector('b')?.textContent).toBe('Correntes')
+    expect(segundo.textContent).toBe('Correntesa cliente escolhe uma peça')
+
+    acrescentar()
+    expect(itensNaLoja()).toHaveLength(3)
+    expect(itensNaLoja()[2].textContent).toBe('falta escolher')
+
+    fireEvent.click(within(adicionalN(1)).getByRole('button', { name: 'Subir o adicional 2' }))
+    expect(itensNaLoja()[0].querySelector('b')?.textContent).toBe('Correntes')
+    expect(itensNaLoja()[1].querySelector('b')?.textContent).toBe('Fita de Cetim')
+  })
+
+  it('acompanha o rascunho: marcar "some" e trocar de tipo mudam a linha na hora', async () => {
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: FITA })]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(itensNaLoja()[0].textContent).toBe('Fita de Cetimuma peça só'))
+    fireEvent.click(within(adicionalN(0)).getByRole('button', { name: 'Chaveiro' }))
+    expect(itensNaLoja()[0].textContent).toBe('Fita de Cetimuma peça só · some com Chaveiro')
+    fireEvent.click(within(adicionalN(0)).getByRole('button', { name: 'Uma peça de uma lista' }))
+    expect(itensNaLoja()[0].textContent).toBe('falta escolher')
+  })
+
+  it('"Quando a peça sai do ar" vem depois de "Na loja", com o texto do protótipo', async () => {
+    montar()
+    await abrirAba()
+    const saida = screen.getByRole('heading', { level: 2, name: 'Quando a peça sai do ar' })
+    expect(naLoja().compareDocumentPosition(saida) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(saida.closest('section')).toHaveTextContent(
+      'A loja pula o adicional sem quebrar a página, e ele aparece marcado aqui. Se todas as variações que você escolheu deixarem de existir, ele também sai — nunca passa a oferecer todas.',
+    )
+  })
+})
+
+describe('os textos do protótipo na aba', () => {
+  it('a frase do cartão "Compre junto"', async () => {
+    montar()
+    await abrirAba()
+    expect(
+      screen.getByText('Até três peças que a cliente pode levar junto com esta joia, na ordem em que aparecem na loja. Nada vem marcado: ela escolhe o que quer.'),
+    ).toBeInTheDocument()
+  })
+
+  it('a dica de nome sob a escolha de lista e sob a peça escolhida, com "a partir de"', async () => {
+    montar()
+    await abrirAba()
+    acrescentar()
+    const a = adicionalN(0)
+    expect(within(a).getByText('O nome da lista é o que a cliente lê no bloco.')).toBeInTheDocument()
+    expect(within(a).queryByText('O nome do produto é o que a cliente lê no bloco.')).toBeNull()
+
+    fireEvent.click(within(a).getByRole('button', { name: 'Uma peça só' }))
+    fireEvent.change(await screen.findByRole('textbox', { name: /Peça do adicional 1/ }), { target: { value: 'pingente' } })
+    expect(within(a).queryByText('O nome do produto é o que a cliente lê no bloco.')).toBeNull()
+    fireEvent.click(screen.getByTestId(`peca-${PINGENTE}`))
+    await waitFor(() => expect(within(a).getByTestId('peca-escolhida-0')).toHaveTextContent('Pingente Estrela'))
+    expect(within(a).getByTestId('peca-escolhida-0')).toHaveTextContent(/a partir de R\$\s50,00/)
+    expect(within(a).getByText('O nome do produto é o que a cliente lê no bloco.')).toBeInTheDocument()
+    expect(within(a).queryByText('O nome da lista é o que a cliente lê no bloco.')).toBeNull()
+  })
+})
+
+describe('as variações oferecidas', () => {
+  it('nenhuma marcada: resumo "todas as ativas (N)", chips escondidos até "Escolher quais", e a frase aberta', async () => {
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: PINGENTE })]
+    montar()
+    await abrirAba()
+    const a = adicionalN(0)
+    const resumo = await within(a).findByTestId('resumo-variacoes-0')
+    expect(resumo).toHaveTextContent('Variações oferecidas: todas as ativas (2)')
+    const abrir = within(a).getByRole('button', { name: 'Escolher quais' })
+    expect(abrir).toHaveAttribute('aria-expanded', 'false')
+    expect(within(a).queryByRole('button', { name: /Prata/ })).toBeNull()
+    expect(within(a).queryByRole('button', { name: 'Oferecer todas' })).toBeNull()
+    const frase = 'Nenhuma marcada: a loja oferece todas as variações ativas, inclusive as que você criar depois.'
+    expect(within(a).queryByText(frase)).toBeNull()
+
+    fireEvent.click(abrir)
+    expect(within(a).getByRole('button', { name: 'Esconder' })).toHaveAttribute('aria-expanded', 'true')
+    expect(within(a).getByRole('button', { name: /Prata/ })).toBeInTheDocument()
+    expect(within(a).getByText(frase)).toBeInTheDocument()
+
+    fireEvent.click(within(a).getByRole('button', { name: /Prata/ }))
+    expect(resumo).toHaveTextContent('Variações oferecidas: 1 de 2')
+    expect(within(a).queryByText(frase)).toBeNull()
+    expect(within(a).getByRole('button', { name: 'Oferecer todas' })).toBeInTheDocument()
+  })
+
+  it('já com variação marcada, abre por padrão e conta só as que ainda existem', async () => {
+    banco.produto!.product_buy_together = [
+      adicional('ad1', 0, { target_product_id: PINGENTE, target_variant_ids: [V_OURO, uuid(999)] }),
+    ]
+    montar()
+    await abrirAba()
+    const a = adicionalN(0)
+    expect(await within(a).findByTestId('resumo-variacoes-0')).toHaveTextContent('Variações oferecidas: 1 de 2')
+    expect(within(a).getByRole('button', { name: 'Esconder' })).toHaveAttribute('aria-expanded', 'true')
+    expect(within(a).getByRole('button', { name: /Ouro/ })).toHaveAttribute('aria-pressed', 'true')
   })
 })

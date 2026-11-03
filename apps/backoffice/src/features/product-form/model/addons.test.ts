@@ -29,7 +29,7 @@ describe('addAddon', () => {
   it('a 4ª tentativa é recusada com o motivo escrito, e a lista não muda', () => {
     const antes = tres()
     const r = addAddon(antes)
-    expect(r.refusal).toBe('Uma joia leva até 3 adicionais. Tire um para acrescentar outro.')
+    expect(r.refusal).toBe('Cada joia leva até 3 adicionais. Tire um para acrescentar outro.')
     expect(r.addons).toEqual(antes)
   })
 

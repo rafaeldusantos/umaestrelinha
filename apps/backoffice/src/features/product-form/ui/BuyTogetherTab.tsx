@@ -5,11 +5,13 @@
 // painel não desenha vitrine (`AD-019`). A peça é lida por id (`useProductVariants`), nunca por nome.
 // O rascunho vive no formulário do produto e é gravado DEPOIS dele (`persistAddons`).
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
+import { Card, CardContent, CardHeader } from '@estrelinha/ui/card'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { BUY_TOGETHER_ADDONS_MAX, addonCountRefusal } from '@estrelinha/core/buy-together'
+import { formatPrice } from '@estrelinha/core/formatters'
 import { PecaFoto, ProductSearchField, useProductVariants } from '@/entities/product'
 import { useBuyTogetherLists, type ListaDoCompreJunto } from '@/features/buy-together-lists'
 import { FormCard } from '@/shared/ui'
@@ -50,6 +52,12 @@ const CHIP =
   'flex min-h-11 items-center gap-2 rounded-lg border px-2 py-1 text-xs transition-colors motion-reduce:transition-none'
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
+
+const HINT = 'text-[11px] text-muted-foreground'
+
+/** As variações da joia em que o adicional some, na ordem das variações da joia. */
+const someCom = (addon: AddonDraft, mainVariants: MainVariantOption[]) =>
+  mainVariants.filter(v => addon.hiddenOnVariantIds.includes(v.id))
 
 interface RowProps {
   index: number
@@ -121,6 +129,7 @@ const ListChoice = ({
           <p className="text-xs text-muted-foreground">Ainda não há listas. Crie a primeira para usá-la aqui.</p>
         )}
       </div>
+      <p className={HINT}>O nome da lista é o que a cliente lê no bloco.</p>
       {contemPrincipal && (
         <p data-testid="lista-com-principal" className="text-xs text-muted-foreground">
           Esta joia está na lista e é pulada aqui: ela nunca é oferecida junto de si mesma.
@@ -158,6 +167,8 @@ const ProductChoice = ({
   onChange,
 }: Pick<RowProps, 'index' | 'addon' | 'addons' | 'mainProductId' | 'onChange'>) => {
   const [recusa, setRecusa] = useState<string | null>(null)
+  // Abre sozinha quando o adicional já chega com variação marcada (o protótipo: `useState(vars.length > 0)`).
+  const [aberto, setAberto] = useState(addon.targetVariantIds.length > 0)
   const { peca, carregando } = useProductVariants(addon.targetProductId)
 
   if (addon.targetProductId === null) {
@@ -190,6 +201,7 @@ const ProductChoice = ({
   const ativas = peca?.variacoes ?? []
   const vivas = ativas.filter(v => addon.targetVariantIds.includes(v.id))
   const semNenhumaViva = addon.targetVariantIds.length > 0 && !!peca && vivas.length === 0
+  const todas = addon.targetVariantIds.length === 0
 
   return (
     <div className="space-y-2">
@@ -201,9 +213,12 @@ const ProductChoice = ({
         )}
       >
         <PecaFoto url={peca?.imagem} tamanho={44} />
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-          {peca?.nome ?? (carregando ? 'Carregando…' : 'Peça sem nome')}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">
+            {peca?.nome ?? (carregando ? 'Carregando…' : 'Peça sem nome')}
+          </p>
+          {peca && <p className={HINT}>a partir de {formatPrice(peca.precoBase)}</p>}
+        </div>
         {foraDoAr && (
           <span
             data-testid={`saiu-do-ar-${index}`}
@@ -222,6 +237,7 @@ const ProductChoice = ({
           Trocar
         </Button>
       </div>
+      <p className={HINT}>O nome do produto é o que a cliente lê no bloco.</p>
 
       {foraDoAr && (
         <p className="text-xs text-muted-foreground">
@@ -231,31 +247,24 @@ const ProductChoice = ({
 
       {!foraDoAr && ativas.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium text-foreground">Variações oferecidas</p>
-          <ul className="flex flex-wrap gap-2">
-            {ativas.map(v => {
-              const marcada = addon.targetVariantIds.includes(v.id)
-              return (
-                <li key={v.id}>
-                  <button
-                    type="button"
-                    aria-pressed={marcada}
-                    onClick={() => onChange(toggleTargetVariant(addons, addon.key, v.id))}
-                    className={cn(
-                      CHIP,
-                      marcada ? 'border-primary bg-primary/5 font-semibold text-foreground' : 'border-input text-muted-foreground hover:bg-muted/50',
-                    )}
-                  >
-                    <PecaFoto url={v.imagem} tamanho={28} />
-                    {v.rotulo}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-            <span>Nenhuma marcada vale todas as ativas, inclusive as que você criar depois.</span>
-            {addon.targetVariantIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span data-testid={`resumo-variacoes-${index}`}>
+              Variações oferecidas:{' '}
+              <b className="font-semibold text-foreground">
+                {todas ? `todas as ativas (${ativas.length})` : `${vivas.length} de ${ativas.length}`}
+              </b>
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="min-h-11"
+              aria-expanded={aberto}
+              onClick={() => setAberto(a => !a)}
+            >
+              {aberto ? 'Esconder' : 'Escolher quais'}
+            </Button>
+            {!todas && (
               <Button
                 type="button"
                 variant="ghost"
@@ -267,6 +276,34 @@ const ProductChoice = ({
               </Button>
             )}
           </div>
+          {aberto && (
+            <ul className="flex flex-wrap gap-2">
+              {ativas.map(v => {
+                const marcada = addon.targetVariantIds.includes(v.id)
+                return (
+                  <li key={v.id}>
+                    <button
+                      type="button"
+                      aria-pressed={marcada}
+                      onClick={() => onChange(toggleTargetVariant(addons, addon.key, v.id))}
+                      className={cn(
+                        CHIP,
+                        marcada ? 'border-primary bg-primary/5 font-semibold text-foreground' : 'border-input text-muted-foreground hover:bg-muted/50',
+                      )}
+                    >
+                      <PecaFoto url={v.imagem} tamanho={28} />
+                      {v.rotulo}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {aberto && todas && (
+            <p className={HINT}>
+              Nenhuma marcada: a loja oferece todas as variações ativas, inclusive as que você criar depois.
+            </p>
+          )}
           {semNenhumaViva && (
             <p className="text-xs text-destructive">
               Nenhuma das variações escolhidas existe mais. A loja pula este adicional até você escolher outras.
@@ -284,7 +321,7 @@ const AddonRow = ({ index, total, addon, addons, mainProductId, mainVariants, li
   const nome =
     addon.kind === 'list' ? lista?.name : peca?.nome
   const titulo = nome ?? `Adicional ${index + 1}`
-  const escondidoEm = mainVariants.filter(v => addon.hiddenOnVariantIds.includes(v.id))
+  const escondidoEm = someCom(addon, mainVariants)
 
   return (
     <li data-testid={`adicional-${index}`} className="space-y-3 rounded-xl border border-border/60 p-3">
@@ -385,6 +422,54 @@ const AddonRow = ({ index, total, addon, addons, mainProductId, mainVariants, li
   )
 }
 
+/** Uma linha do cartão "Na loja": o nome que a cliente lê, da mesma fonte do título do adicional. */
+const NaLojaItem = ({
+  addon,
+  listas,
+  mainVariants,
+}: {
+  addon: AddonDraft
+  listas: ListaDoCompreJunto[]
+  mainVariants: MainVariantOption[]
+}) => {
+  const { peca, carregando } = useProductVariants(addon.kind === 'product' ? addon.targetProductId : null)
+  const escolhido = addon.kind === 'list' ? addon.listId !== null : addon.targetProductId !== null
+  const nome = addon.kind === 'list' ? listas.find(l => l.id === addon.listId)?.name : peca?.nome
+  const some = someCom(addon, mainVariants)
+
+  if (!escolhido) {
+    return (
+      <li>
+        <b className="font-semibold">
+          <span className="font-normal text-muted-foreground">falta escolher</span>
+        </b>
+      </li>
+    )
+  }
+  return (
+    <li className="min-w-0 break-words">
+      <b className="font-semibold text-foreground">{nome ?? (carregando ? 'Carregando…' : 'Sem nome')}</b>
+      <br />
+      <span className="text-xs text-muted-foreground">
+        {addon.kind === 'list' ? 'a cliente escolhe uma peça' : 'uma peça só'}
+        {some.length > 0 ? ` · some com ${some.map(v => v.label).join(', ')}` : ''}
+      </span>
+    </li>
+  )
+}
+
+/** Cartão da coluna lateral da aba. O título é `h2`, como no protótipo (o `CardTitle` é `h3`). */
+const SideCard = ({ title, children }: { title: string; children: ReactNode }) => (
+  <Card className="rounded-2xl">
+    <section aria-label={title}>
+      <CardHeader>
+        <h2 className="font-heading text-lg font-semibold leading-none tracking-tight">{title}</h2>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">{children}</CardContent>
+    </section>
+  </Card>
+)
+
 const BuyTogetherTab = ({ mainProductId, addons, onChange, mainVariants }: Props) => {
   const { listas } = useBuyTogetherLists()
   const [tentouAcrescentar, setTentouAcrescentar] = useState(false)
@@ -403,10 +488,11 @@ const BuyTogetherTab = ({ mainProductId, addons, onChange, mainVariants }: Props
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]">
       <FormCard
+        className="min-w-0"
         title="Compre junto"
-        description="O que a cliente pode levar junto desta joia. Cada adicional é uma peça só ou uma peça de uma lista."
+        description="Até três peças que a cliente pode levar junto com esta joia, na ordem em que aparecem na loja. Nada vem marcado: ela escolhe o que quer."
         action={
           <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {addons.length} de {BUY_TOGETHER_ADDONS_MAX} adicionais
@@ -455,12 +541,26 @@ const BuyTogetherTab = ({ mainProductId, addons, onChange, mainVariants }: Props
         </div>
       </FormCard>
 
-      <FormCard title="Quando a peça sai do ar">
-        <p className="text-sm text-muted-foreground">
-          A loja pula o adicional sem quebrar a página, e o painel o marca. Se todas as variações escolhidas deixarem
-          de existir, ele também sai: nunca passa a oferecer todas.
-        </p>
-      </FormCard>
+      <aside className="min-w-0 space-y-4">
+        <SideCard title="Na loja">
+          <p className="text-muted-foreground">O bloco fica entre a escolha da variação e o botão de compra, nesta ordem:</p>
+          {addons.length === 0 ? (
+            <p className="text-muted-foreground">Nenhum adicional.</p>
+          ) : (
+            <ol className="list-decimal space-y-2 pl-5">
+              {addons.map(a => (
+                <NaLojaItem key={a.key} addon={a} listas={listas} mainVariants={mainVariants} />
+              ))}
+            </ol>
+          )}
+        </SideCard>
+        <SideCard title="Quando a peça sai do ar">
+          <p className="text-muted-foreground">
+            A loja pula o adicional sem quebrar a página, e ele aparece marcado aqui. Se todas as variações que você
+            escolheu deixarem de existir, ele também sai — nunca passa a oferecer todas.
+          </p>
+        </SideCard>
+      </aside>
     </div>
   )
 }

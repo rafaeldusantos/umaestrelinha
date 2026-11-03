@@ -19,7 +19,7 @@ const NAMES_SHOWN = 3
 
 export const addonCountRefusal = (count: number): string | null =>
   count > BUY_TOGETHER_ADDONS_MAX
-    ? `Uma joia leva até ${BUY_TOGETHER_ADDONS_MAX} adicionais. Tire um para acrescentar outro.`
+    ? `Cada joia leva até ${BUY_TOGETHER_ADDONS_MAX} adicionais. Tire um para acrescentar outro.`
     : null
 
 export const listItemCountRefusal = (count: number): string | null =>

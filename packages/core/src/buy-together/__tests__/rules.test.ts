@@ -26,7 +26,7 @@ describe('os tetos', () => {
 describe('addonCountRefusal', () => {
   it('três adicionais passam; o quarto é recusado com o motivo', () => {
     expect(addonCountRefusal(3)).toBeNull()
-    expect(addonCountRefusal(4)).toBe('Uma joia leva até 3 adicionais. Tire um para acrescentar outro.')
+    expect(addonCountRefusal(4)).toBe('Cada joia leva até 3 adicionais. Tire um para acrescentar outro.')
   })
 })
 

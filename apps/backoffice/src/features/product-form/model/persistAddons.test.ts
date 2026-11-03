@@ -153,7 +153,7 @@ describe('persistAddons', () => {
   it('a recusa vem antes de qualquer escrita: a 4ª, a própria joia e a peça repetida', async () => {
     const { client, chamadas } = dublê()
     const quatro = [lista('a', '1'), lista('b', '2'), lista('c', '3'), lista('d', '4')]
-    expect(await persistAddons(client, 'p1', quatro, [])).toBe('Uma joia leva até 3 adicionais. Tire um para acrescentar outro.')
+    expect(await persistAddons(client, 'p1', quatro, [])).toBe('Cada joia leva até 3 adicionais. Tire um para acrescentar outro.')
     expect(await persistAddons(client, 'p1', [produto('a', 'p1')], [])).toBe('Uma joia não pode ser adicional dela mesma.')
     expect(await persistAddons(client, 'p1', [produto('a', 'x'), produto('b', 'x')], [])).toBe(
       'Esta peça já é outro adicional desta joia.',
