@@ -7,6 +7,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { formatOrderNumber, itemPhoto } from '@estrelinha/core/orders'
 import { queueAgeLabel } from '@estrelinha/core/material'
 import { isPickupOrder, PICKUP_METHOD_NAME } from '@estrelinha/core/shipping'
+import { companionPhrase, orderItemCompanionNames } from '@estrelinha/core/buy-together'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 
@@ -496,6 +497,9 @@ const AdminOrderPage = () => {
                 // ele — e não `item.product_id` — que decide se há link: um `/admin/produtos/<id
                 // órfão>/editar` abriria a tela de edição em cima de um produto que não existe.
                 const adminHref = produto ? `/admin/produtos/${produto.id}/editar` : null
+                // Compre Junto: a peça levada junto diz qual joia acompanha — a mesma frase da sacola
+                // e da confirmação, com o nome do principal tirado deste pedido (snapshot).
+                const acompanha = companionPhrase(orderItemCompanionNames(item, items))
 
                 return (
                 <li key={item.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-1 py-3.5">
@@ -538,6 +542,9 @@ const AdminOrderPage = () => {
                       </Link>
                     ) : (
                       <p className="text-sm font-semibold">{item.product_name}</p>
+                    )}
+                    {acompanha && (
+                      <p className="text-xs text-estrelinha-admin-text-secondary">{acompanha}</p>
                     )}
                     <p className="text-xs text-estrelinha-admin-text-secondary">
                       {[item.variant_label, item.engraving_text ? null : 'sem gravação']

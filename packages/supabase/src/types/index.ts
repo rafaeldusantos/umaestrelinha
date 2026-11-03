@@ -515,6 +515,13 @@ export interface DbOrderItem {
   material_kinds?: string[]
   /** O texto pedido para gravar. Sobrevive a uma mudança do limite no cadastro. */
   engraving_text?: string | null
+  /**
+   * Compre Junto — **snapshot** de quais joias principais esta peça acompanhava na compra (texto, como
+   * `product_id`) e da lista de origem de cada uma, alinhadas por posição (elemento `null` na peça
+   * escolhida direto no produto). Nulos na peça comum. Informativos: o pagamento não os lê.
+   */
+  accompanies_product_ids?: string[] | null
+  accompanies_list_ids?: (string | null)[] | null
 }
 
 // === Frontend types (used by storefront components) ===
@@ -736,3 +743,7 @@ export * from './home'
 // === Filtros de produto (feature 66) ===
 
 export * from './filters'
+
+// === Compre Junto (listas de peças e adicionais de cada joia) ===
+
+export * from './buyTogether'

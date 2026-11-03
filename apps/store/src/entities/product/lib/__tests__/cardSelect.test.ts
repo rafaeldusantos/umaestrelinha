@@ -54,7 +54,6 @@ const LINHA_COMPLETA: Record<string, unknown> = {
   video_url: 'https://exemplo.invalid/video',
   scheduled_at: null,
   related_product_ids: ['prod-9'],
-  buy_together_ids: ['prod-8'],
   production_lead_days: 15,
   is_promo: false,
   sort_order: 3,

@@ -1383,6 +1383,94 @@ uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {m
   subtítulo empurrava a página de lado a 390/200 %).
 - Prova: `.specs/features/89-pedido-montado-pelo-painel/prova-navegador.md`. Sem Verifier nem QA ainda.
 
+## Compre Junto › Listas (`/admin/compre-junto`)
+
+Catálogo › **Compre Junto**, entre Filtros da loja e a Biblioteca. Três rotas das listas: o índice
+(`/admin/compre-junto`, o único destino da sidebar) e o editor (`/listas/nova` e `/listas/:id`, irmãs
+auto-fechadas com o mesmo `element`). A lista **não é vitrine** nem página: o painel não desenha como o
+bloco fica (`AD-019`); a loja é quem mostra.
+
+- `features/buy-together-lists`: `model/draft.ts` (as contas puras — acrescentar, mover, arrastar,
+  liberar variação, as linhas a gravar), `api/useBuyTogetherLists.ts` (leitura com peças e uso; `save`
+  tira as peças que saíram ANTES de gravar as novas, porque a posição é única na lista; `remove` recusa
+  a lista em uso nomeando as joias e traduz o `23503` do banco) e `ui/` (índice, editor, linha de peça).
+- Toda frase de recusa vem de `@estrelinha/core/buy-together`. A busca é o `ProductSearchField`, que
+  ganhou `bloquearForaDoAr` (a peça fora do ar vira linha desabilitada "Fora do ar"); a peça é lida por
+  id (`useProductVariants`), nunca por nome (`buscaDeProdutoComDonoUnico`).
+- Peça fora do ar aparece marcada "saiu do ar" e sem marcadores de variação; as variações liberadas que
+  deixaram de existir avisam que a loja pula a peça (nunca passa a valer todas).
+- Teste: `pages/admin/AdminBuyTogether.test.tsx` (páginas reais sobre um banco em memória).
+- **A forma do bloco na loja** mora no índice, no cartão `BuyTogetherFormCard` (prop `aside` do índice):
+  três opções ("Na linha", "Em folha", "Com fórmula"), uma configuração para a loja inteira, gravada em
+  `store_settings` na chave `buy_together` (`{ form }`, sem migration; sem linha vale "Na linha"). O
+  vocabulário, os nomes e a normalização são de `@estrelinha/core/buy-together` (`settings.ts`); a leitura
+  é `useBuyTogetherForm` (`core/hooks`) e a gravação, `useUpdateSettings`. Só muda a apresentação: preço,
+  total e o que vai à sacola são os mesmos. Teste: `pages/admin/AdminBuyTogetherForm.test.tsx`.
+
+## Compre Junto › Adesão (`/admin/compre-junto/adesao`)
+
+A segunda aba do menu Compre Junto (`BuyTogetherTabs`, em `features/buy-together-lists`: Listas |
+Adesão são **rotas**, como "Montados" em Pedidos; a sidebar continua com o índice só, e `isNavActive`
+acende Compre Junto pelo segmento). A rota é irmã auto-fechada das outras três, dentro do `RequireAdmin`.
+
+- **UMA leitura**: `useBuyTogetherAdoption(dias)` (`features/buy-together-adoption`) chama
+  `rpc('buy_together_adoption', { p_dias })`. O banco decide o dia (Brasília) e o que é venda (a régua
+  do Dashboard, `AD-055`), conta e devolve a parte e a média já calculadas (`null` quando o divisor é
+  zero); `model/adoption.ts` só **escreve** o que veio. Período 7 · 30 · 90 dias (padrão 30), num
+  `Tabs` como o do bloco "Movimento da loja".
+- **Tela**: três indicadores (`StatCard` com `loading` — esqueleto no lugar do número, nenhum zero
+  antes da resposta), a regra por escrito (`RULE_NOTE`) e o cartão "Por joia principal" / "Por lista":
+  **tabela a partir de `md`, cartões abaixo**, com a barra de valor proporcional ao maior valor do
+  recorte. Por lista não tem coluna Pedidos, traz a linha "Peça escolhida direto no produto" e as
+  listas sem venda com 0 e "—"; a lista apagada aparece como "Lista apagada".
+- **Vazio** (nenhum pedido com Compre Junto no período) é frase escrita no lugar do cartão; **erro**
+  sem dado é "Não foi possível ler o relatório." com "Tentar de novo". O número é de pedidos e peças,
+  nunca de "pessoas".
+- ⚠️ A RPC entrou na lista literal de `marcacaoSoPorAcao.test.ts` (suíte da LOJA).
+- Teste: `pages/admin/AdminBuyTogetherAdoption.test.tsx` (página real, só o client dublado). O que o
+  SQL conta é do probe `05-adesao.sh`; o guarda da migration é `compreJuntoAdesaoSchema.test.ts`.
+
+## Compre Junto › a aba "Compre junto" do produto
+
+Sexta aba do formulário do produto (`TabId` `compre-junto`, depois de Relacionados). O card "Compre
+junto" que morava em Relacionados **saiu**: a aba monta até **3 adicionais** por joia, cada um uma
+**peça só** ou **uma lista** do Compre Junto (as listas são as de `/admin/compre-junto`).
+
+- **O rascunho** é `form.buy_together_addons` (`AddonDraft`, em `features/product-form/model/addons.ts`:
+  as contas puras — acrescentar, mover, escolher, liberar variação, "some quando"). A ordem do array É
+  a posição gravada. Cada adicional guarda: o tipo, a peça ou a lista, as **variações liberadas** da
+  peça (vazio = todas as ativas) e as **variações do principal em que ele some**. Só variação já
+  gravada do principal (id que não é provisório) pode ser marcada em "Some quando".
+- **Recusas** vêm de `@estrelinha/core/buy-together`: o 4º adicional (`addonCountRefusal`, mostrado
+  como frase ao tentar acrescentar — o botão não é apagado), a joia como adicional de si mesma e a
+  peça repetida. A busca é o `ProductSearchField` (`bloqueados` o principal — ele aparece desabilitado com "É esta joia" e conta no catálogo, em vez de sumir e fazer a busca dizer "Nenhuma peça com…" —, `selecionados` os outros
+  adicionais — "Já está em outro adicional" —, `bloquearForaDoAr`). A peça é lida por id
+  (`useProductVariants`). O que nasce no painel é só o incompleto: `incompleteNote` ("1 adicional está
+  sem lista ou peça.") vai à barra do topo (`ProductFormHeader.blockedNote`) e **desabilita o Salvar**.
+- **"Saiu do ar"** em adicional de produto é a peça inativa; o painel a marca e avisa que a loja pula
+  o adicional. Variações liberadas que deixaram de existir (a leitura da peça só traz as ativas)
+  avisam que a loja pula o adicional — **nunca passa a valer todas**.
+- **A carga** é o embed `product_buy_together!product_buy_together_product_id_fkey(...)` em
+  `PRODUCT_FORM_SELECT`: a tabela tem **duas** FKs para `products`, e sem a dica o PostgREST responde
+  `300`. O snapshot (`savedSnapshot.addons`) é a base do diff. **Duplicar** um produto traz os
+  adicionais SEM id (gravar com o id do original atualizaria as linhas dele).
+- **A gravação** é `persistAddons` (`model/persistAddons.ts`), depois do produto e dos fornecedores, só
+  quando algo mudou. Recusa de `core` antes de qualquer escrita; depois **apaga só o que a dona tirou**
+  (recortado por `product_id` e `id`), atualiza o que ficou por `upsert` **por id** e insere o novo.
+  É por id, e não por `(product_id, position)`, porque a posição é única mas `deferrable` e o Postgres
+  não aceita chave adiada como alvo de `on conflict`; a adiada é o que deixa reordenar numa gravação só.
+  Uma falha no meio nunca deixa a joia sem nenhum adicional, e gravar uma joia nunca toca a de outra.
+- **A coluna antiga `products.buy_together_ids` saiu do painel** (nenhum `insert`/`update` a manda;
+  `compreJuntoSemColunaAntiga.test.ts` varre o painel inteiro, testes inclusos). Ela continua no
+  banco até uma migration futura, depois do deploy do painel; a migration
+  `20261105130000_compre-junto-conversao` converteu o que havia (até 3, na ordem do array, só tipo
+  produto, id inexistente/a própria joia/repetido descartados, só joia sem adicional — idempotente).
+- Os links "Editar a lista" e "Criar uma lista nova" abrem em **outra aba**, para não perder o que
+  está por salvar no produto.
+- Testes: `pages/admin/AdminProductFormPage.compreJunto.test.tsx` (página real sobre banco em memória),
+  `persistAddons.test.ts`, `addons.test.ts`. Probes: `.specs/work-items/WI-01-compre-junto/probes/`
+  (`02-conversao.sh` no psql, `03-adicionais-no-produto.sh` por HTTP em `:54441`).
+
 ## Dívidas conhecidas deste app
 
 - **A baseline de testes do painel é 3915 em 225 arquivos** na `master` mesclada com `feature/mobile-adm`, todos

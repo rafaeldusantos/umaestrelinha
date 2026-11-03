@@ -51,6 +51,9 @@ describe('isFocusRoute — FOCO-07: fora dessas três, a sidebar é a de sempre'
   it('as telas de listagem não pedem foco', () => {
     expect(isFocusRoute('/admin/produtos')).toBe(false)
     expect(isFocusRoute('/admin/pedidos')).toBe(false)
+    // O Compre Junto, nas duas abas (Listas e o relatório de Adesão), é tela de listagem.
+    expect(isFocusRoute('/admin/compre-junto')).toBe(false)
+    expect(isFocusRoute('/admin/compre-junto/adesao')).toBe(false)
   })
 
   it('Minha conta e o endereço antigo de Usuários continuam FORA', () => {

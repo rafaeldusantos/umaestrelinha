@@ -15,6 +15,9 @@ import { useCategories } from '@/entities/category/api/useCategories'
 import { displayCategory } from '@/entities/product/lib/displayCategory'
 import { findVariantByPublicId } from '@/entities/product/lib/variantSelection'
 import { useProductPurchase } from '@/entities/product/model/useProductPurchase'
+import { useBuyTogether } from '@/entities/product/model/useBuyTogether'
+import { useBuyTogetherData } from '@/entities/product/api/useBuyTogetherData'
+import { useBuyAction } from '@/entities/product'
 import ProductGallery from '@/entities/product/ui/ProductGallery'
 import ProductInfo from '@/entities/product/ui/ProductInfo'
 import ProductDetailsAccordion from '@/entities/product/ui/ProductDetailsAccordion'
@@ -63,6 +66,15 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
   const [searchParams] = useSearchParams()
   const variantParam = searchParams.get('variant')
   const { data: product, isFetching } = useProduct(slug || '')
+  /*
+   * O Compre Junto sai AQUI, pelo slug da URL, junto com a consulta do produto — e não depois dela.
+   * O corpo (`useBuyTogether`) lê a mesma chave e acha a resposta no cache. Enquanto a primeira
+   * resposta não chega, a página segura a coluna (logo abaixo): assim ela nasce com o bloco já no
+   * tamanho real, e o botão de compra e a linha de estoque não andam quando o bloco chega. Joia sem
+   * adicional não ganha espera a mais — as duas consultas correm em paralelo. Falha não segura: a
+   * primeira já solta a página.
+   */
+  const { status: buyTogetherStatus } = useBuyTogetherData(slug || '')
   // PMD-06 AC 3: o seletor vive no `ProductInfo` e a galeria é irmã dele — o estado da linha
   // escolhida precisa estar no pai comum para a imagem em destaque acompanhar a escolha.
   const [variantImage, setVariantImage] = useState<string | null>(null)
@@ -124,6 +136,8 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
     // mesma situação era a divergência que esta feature existe para fechar.
     return <NotFound />
   }
+
+  if (buyTogetherStatus === 'loading') return <div className="container py-20" aria-busy="true" />
 
   return (
     <ProductPageBody
@@ -196,6 +210,14 @@ const ProductPageBody = ({
     v => onVariantImage(v?.image_url ?? null),
     variantFromUrl,
   )
+  /**
+   * O Compre Junto, lido AQUI (e não no bloco): a sacola e a barra fixa leem o mesmo
+   * estado. Leitura que falha ou joia sem adicional: o bloco some e
+   * a página continua como era.
+   */
+  const buyTogether = useBuyTogether(product, purchase)
+  /** O botão único: a coluna de informação e a barra fixa leem o mesmo rótulo, aviso e toque. */
+  const buyAction = useBuyAction(purchase, buyTogether)
   /**
    * `FAQ-01`/`FAQ-09` — as perguntas do produto, lidas AQUI e passadas por prop.
    *
@@ -317,6 +339,8 @@ const ProductPageBody = ({
             product={product}
             categoryName={category?.name}
             purchase={purchase}
+            buyTogether={buyTogether}
+            action={buyAction}
           />
         </motion.div>
       </div>
@@ -329,7 +353,13 @@ const ProductPageBody = ({
 
       {/* A folga do rodapé fixo é do `StoreLayout`, depois do `Footer` — que é o fim real do
           documento. Um espaçador aqui reservaria espaço antes do rodapé, não depois dele. */}
-      <ProductBuyBar product={product} purchase={purchase} revealAfter={fotoPrincipal} />
+      <ProductBuyBar
+        product={product}
+        purchase={purchase}
+        buyTogether={buyTogether}
+        action={buyAction}
+        revealAfter={fotoPrincipal}
+      />
 
       {/* GAV-04 — a gaveta de "como enviar o material", montada UMA vez por página.
 

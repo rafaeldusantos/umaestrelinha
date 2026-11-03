@@ -23,8 +23,11 @@ import { ACOES_DO_CABECALHO } from './acoesDoCabecalho'
  * depois do que ela deveria qualificar.
  */
 interface Props {
-  /** Primeiro nível da trilha — o grupo da sidebar. Não é link: grupo não tem tela. */
-  group: string
+  /**
+   * Primeiro nível da trilha — o grupo da sidebar. Não é link: grupo não tem tela. Sem ele, a trilha
+   * começa pela listagem.
+   */
+  group?: string
   /** Segundo nível: a listagem de onde se veio. É o link de volta. */
   parentLabel: string
   /** Terceiro nível da trilha. Costuma ser mais curto que o título (`#1042`). */
@@ -48,8 +51,12 @@ const RecordPageHeader = ({
       className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex"
       aria-label="Trilha"
     >
-      <span>{group}</span>
-      <ChevronRight className="h-3 w-3 opacity-50" aria-hidden="true" />
+      {group && (
+        <>
+          <span>{group}</span>
+          <ChevronRight className="h-3 w-3 opacity-50" aria-hidden="true" />
+        </>
+      )}
       <button type="button" onClick={onBack} className="text-primary hover:underline">
         {parentLabel}
       </button>

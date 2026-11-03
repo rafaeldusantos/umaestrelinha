@@ -52,6 +52,8 @@ interface Props {
   selected: OptionValues
   onChange: (values: OptionValues) => void
   surface?: Surface
+  /** Prefixo dos `id` dos eixos, para dois seletores na mesma página (o do Compre Junto) não repetirem. */
+  idPrefix?: string
 }
 
 const SURFACE = {
@@ -143,7 +145,14 @@ const VagaFoto = ({
   </button>
 )
 
-const VariantPicker = ({ product, max, selected, onChange, surface = 'card' }: Props) => {
+const VariantPicker = ({
+  product,
+  max,
+  selected,
+  onChange,
+  surface = 'card',
+  idPrefix = '',
+}: Props) => {
   const axes = visibleOptions(product.options, max)
   if (axes.length === 0) return null
 
@@ -160,7 +169,7 @@ const VariantPicker = ({ product, max, selected, onChange, surface = 'card' }: P
 
         return (
           <div key={axis.name} className={`flex flex-col ${s.group}`}>
-            <span className={`font-body ${s.label}`} id={`axis-${axis.name}`}>
+            <span className={`font-body ${s.label}`} id={`${idPrefix}axis-${axis.name}`}>
               {fotos && escolhido ? (
                 <>
                   <span className="font-normal text-estrelinha-ink-soft">{axis.name}:</span>{' '}
@@ -170,7 +179,7 @@ const VariantPicker = ({ product, max, selected, onChange, surface = 'card' }: P
                 axis.name
               )}
             </span>
-            <div role="radiogroup" aria-labelledby={`axis-${axis.name}`} className={`flex ${s.row}`}>
+            <div role="radiogroup" aria-labelledby={`${idPrefix}axis-${axis.name}`} className={`flex ${s.row}`}>
               {fotos
                 ? fotos.map(foto => (
                     <VagaFoto

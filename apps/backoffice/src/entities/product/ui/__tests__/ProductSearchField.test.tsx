@@ -224,6 +224,38 @@ describe('ProductSearchField — o modo MÚLTIPLO (BUS-08, BUS-14)', () => {
   })
 })
 
+describe('ProductSearchField — `bloqueados`: a peça APARECE, desabilitada, com o motivo de quem chama', () => {
+  it('a peça bloqueada que casa o termo aparece, desabilitada, com o motivo escrito na linha', async () => {
+    await montar({ bloqueados: { p1: 'É esta joia' } })
+    buscar('cinzas')
+    expect(screen.getByTestId('peca-p1')).toBeDisabled()
+    expect(screen.getByTestId('ja-escolhida-p1')).toHaveTextContent('É esta joia')
+    expect(screen.queryByTestId('busca-sem-resultado')).toBeNull()
+  })
+
+  it('a bloqueada não ganha o ícone de acrescentar', async () => {
+    await montar({ bloqueados: { p1: 'É esta joia' } })
+    expect(screen.getByTestId('peca-p1').querySelector('svg')).toBeNull()
+    expect(screen.getByTestId('peca-p2').querySelector('svg')).not.toBeNull()
+  })
+
+  it('clicar na bloqueada não emite nada; as outras seguem escolhíveis', async () => {
+    const { onEscolher } = await montar({ bloqueados: { p1: 'É esta joia' } })
+    fireEvent.click(screen.getByTestId('peca-p1'))
+    expect(onEscolher).not.toHaveBeenCalled()
+    expect(screen.getByTestId('peca-p2')).not.toBeDisabled()
+    fireEvent.click(screen.getByTestId('peca-p2'))
+    expect(onEscolher).toHaveBeenCalledTimes(1)
+  })
+
+  it('a bloqueada entra no total do catálogo — o contador não cai em um', async () => {
+    await montar({ bloqueados: { p1: 'É esta joia' } })
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('5 no catálogo')
+    buscar('colar')
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('2 de 5')
+  })
+})
+
 describe('ProductSearchField — o modo ÚNICO (BUS-09)', () => {
   it('a peça escolhida aparece NOMEADA no campo', async () => {
     await montar({ modo: 'unico', escolhido: 'p1' })
@@ -520,5 +552,52 @@ describe('ProductSearchField — mostrarFoto (montagem do pedido, ajuste de 2026
     expect(within(screen.getByTestId(`peca-${UUID_B}`)).getByTestId('peca-foto-vazia')).toBeInTheDocument()
     // Só os ids das linhas na tela, nunca o catálogo inteiro.
     expect(pedidos.at(-1)?.slice().sort()).toEqual([UUID_A, UUID_B].sort())
+  })
+})
+
+describe('ProductSearchField — `minimoDeLetras` e `teto`', () => {
+  const muitos = Array.from({ length: 30 }, (_, i) =>
+    peca(`x${String(i).padStart(2, '0')}`, `Peça ${String(i).padStart(2, '0')}`),
+  )
+
+  it('sem digitar, com o mínimo de 2, nenhuma lista, vazio nem aviso aparece — o contador do topo continua', async () => {
+    await montar({ minimoDeLetras: 2 })
+    expect(screen.queryByTestId('pecas-encontradas')).toBeNull()
+    expect(screen.queryByTestId('busca-sem-resultado')).toBeNull()
+    expect(screen.queryByTestId('mais-resultados')).toBeNull()
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('5 no catálogo')
+  })
+
+  it('com 1 letra, nada é listado', async () => {
+    await montar({ minimoDeLetras: 2 })
+    buscar('c')
+    expect(screen.queryByTestId('pecas-encontradas')).toBeNull()
+    expect(screen.queryByTestId('busca-sem-resultado')).toBeNull()
+  })
+
+  it('espaço em volta não conta como letra', async () => {
+    await montar({ minimoDeLetras: 2 })
+    buscar('  c  ')
+    expect(screen.queryByTestId('pecas-encontradas')).toBeNull()
+    expect(screen.queryByTestId('busca-sem-resultado')).toBeNull()
+  })
+
+  it('a partir do mínimo, a lista aparece', async () => {
+    await montar({ minimoDeLetras: 2 })
+    buscar('co')
+    expect(nomesNaLista()).toEqual(['Colar de Cinzas', 'Colar Memória', 'Anel Coração'])
+  })
+
+  it('`teto` corta a lista no número pedido, e diz quantas ficaram de fora', async () => {
+    encena(muitos)
+    await montar({ teto: 8 })
+    expect(nomesNaLista()).toHaveLength(8)
+    expect(screen.getByTestId('mais-resultados')).toHaveTextContent('Mostrando 8 de 30')
+  })
+
+  it('sem as duas props, o comportamento antigo: lista sem digitar, até 20', async () => {
+    encena(muitos)
+    await montar()
+    expect(nomesNaLista()).toHaveLength(20)
   })
 })

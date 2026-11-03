@@ -1,0 +1,176 @@
+## 10 · [packages/core, apps/store] BUG-003 — [Bloco Compre junto] A frase do que falta sai com o eixo em maiúscula: “Escolha o Cor da QA.”
+
+**Status:** done
+
+`CA-03.6` — WI-01
+
+**Objetivo.** A frase do que falta num adicional marcado sai no molde do protótipo, com o eixo e a primeira palavra do nome da peça em minúscula ("Escolha o cor da pingente."), nas três formas do bloco (na linha, em folha e no diálogo), porque as três leem a mesma regra.
+
+**Antes de tocar em qualquer arquivo**, leia por inteiro: `CLAUDE.md` da raiz › O "defeito 01", › Os guardas, › Convenções, › Baselines; `packages/core/CLAUDE.md`; `apps/store/CLAUDE.md` › Página do produto. Divergindo desta tarefa sobre COMO fazer, o arquivo de instruções manda, e a divergência vai no retorno.
+
+**Depende de.** as tarefas 01, 03 e 07 (a regra em `core/buy-together`, o bloco e a forma do bloco). Confira que existem.
+
+### Critérios de aceite
+
+### BUG-003 — [Bloco Compre junto] A frase do que falta sai com o eixo em maiúscula: “Escolha o Cor da QA.”
+
+# BUG-003 · [Bloco Compre junto] A frase do que falta sai com o eixo em maiúscula: “Escolha o Cor da QA.”
+
+## Resumo
+
+A cliente marca um adicional que tem variação e ainda não escolheu nada. O bloco diz "Escolha o Cor da
+QA." (e, na corrente, "Escolha o Comprimento da QA."). O nome do eixo sai com a inicial maiúscula no meio
+da frase, e com o eixo "Cor" o artigo fica "o Cor". Ela esperava a frase do protótipo, com o eixo em
+minúscula. É texto ao lado do botão de compra numa loja de registro memorial, e soa como descuido.
+
+**Origem:** sessões CH-01, CH-06, CH-07 e CH-08 · ambiente local (dev server, Supabase local)
+
+## Impacto
+
+- **Nível:** Cosmético, subido um degrau por estar na página do produto. Para esta loja a página do
+  produto é a de primeira impressão, onde a cliente chega pelo Google e pelo Instagram
+- **Persona mais atingida:** PER-01 Marina — outras: PER-03 Helena (ouve a frase no status)
+- **Jornada e passo:** J-01, passo 4 (escolhe a peça e o comprimento), ramo J-01a
+- **Frequência:** sempre que um adicional marcado tem eixo sem escolha, nas três formas do bloco
+- **Contorno:** nenhum necessário; a cliente entende o que falta
+- **Gravidade proposta na sessão:** low. Subi para medium pela regra de primeira impressão. A sessão
+  CH-01 já tinha apontado que a triagem podia subir
+
+## Ambiente
+
+- **URL:** http://localhost:8082/produtos/qa-pingente-estrela
+- **Tela:** página do produto · **Componente:** bloco Compre junto (mensagem de falta da linha), folha e diálogo de escolhas
+- **Branch / build:** feature/WI-01 (HEAD 415af2b5) · dev server Vite
+- **Browser:** Chromium headless (Playwright MCP), versão não registrada · **Viewport:** 390 × 844 (também 720 × 450 e 1440 × 900)
+- **Rede:** local · **Idioma:** pt-BR
+
+## Passos
+
+1. Anônima, sacola vazia, abrir http://localhost:8082/produtos/qa-pingente-estrela em 390 × 844
+2. Marcar "QA Berloque Coração" sem escolher a cor
+3. Ler a mensagem sob o grupo "Cor"
+
+## Esperado
+
+A frase do protótipo, com o eixo em minúscula: "Escolha o cor da qa." no molde
+"Escolha o <eixo> da <primeira palavra do nome da peça>."
+
+**Fonte:** costura › Loja › Campos (molde "Escolha o <eixo> da <primeira palavra do nome da peça>.");
+protótipo da loja `cj-loja-bloco.jsx`, que passa o eixo e a palavra para minúscula (CH-08, D12);
+TC-FUNC-005 passo 2
+
+## Observado
+
+"Escolha o Cor da QA." e, na Veneziana, "Escolha o Comprimento da QA."; em M-06, "Escolha o Tamanho da
+QA.". O eixo sai com a inicial maiúscula. Na forma "Em folha" a frase aparece duas vezes (ver BUG-006).
+
+O artigo fixo "o … da …" ("o cor", e "da Berloque" com nomes reais) vem do próprio molde da costura e do
+protótipo. Não é parte deste bug: está nas Sugestões de backlog do `qa-result.md`. O corte na primeira
+palavra ("da QA") segue a costura.
+
+## Evidência
+
+- `screenshots/CH-08-02-bloco-390-falta.png` — "Escolha o Cor da QA." na linha do Berloque, em 390
+- `screenshots/CH-08-21-dialogo-1440.png` — a mesma frase no diálogo da forma "Em folha", em 1440
+
+## Ocorrências
+
+| Sessão | Persona       | Passo                                                  | Evidência                                 |
+| ------ | ------------- | ------------------------------------------------------ | ----------------------------------------- |
+| CH-01  | PER-01 Marina | 04 e 06 ("Escolha o Comprimento da QA.", "Escolha o Cor da QA.") | snapshot de acessibilidade do log  |
+| CH-06  | PER-03 Helena | 03 e 09 (Na linha e Em folha)                          | snapshot do log                           |
+| CH-07  | PER-03 Helena | 02 e 17 (M-06: "Escolha o Tamanho da QA.")             | snapshot do log                           |
+| CH-08  | PER-02 Adri   | 03 e 19 (D12)                                          | `screenshots/CH-08-02-bloco-390-falta.png`, `screenshots/CH-08-21-dialogo-1440.png` |
+
+## Relacionados
+
+- **TC:** TC-FUNC-005 (também TC-UI-001)
+- **Charter:** CH-01 (CH-06, CH-07, CH-08)
+- **Critério:** CA-03.6
+- **Protótipo:** loja, `Produto - Compre Junto.html`, `cj-loja-bloco.jsx`
+- **Bugs:** BUG-005 (o mesmo bloco fora do protótipo), BUG-006 (a frase em dobro na folha)
+
+### Contrato
+
+| Item | Dono | Entra | Sai |
+| ---- | ---- | ----- | --- |
+| `addonMissingChoice` (`packages/core/src/buy-together/total.ts`) | JÁ EXISTE. Dono único da frase; é aqui que o caso muda | `{ kind, pieceChosen, missingAxis, pieceName }` (sem mudança) | a mesma frase, com o eixo e a primeira palavra do nome em minúscula (`pt-BR`) |
+| `useBuyTogether` (`apps/store/src/entities/product/model/useBuyTogether.ts`) | JÁ EXISTE. Consome a frase; não altere | | |
+
+### Decisões já tomadas
+
+- **Classificação**: qa-issue
+- **Bug**: BUG-003 · [Bloco Compre junto] A frase do que falta sai com o eixo em maiúscula: “Escolha o Cor da QA.” · medium
+- **Fechamento**: a tarefa fecha com o fix do bug; ele segue `open` até o reteste do QA
+- **Causa raiz (a conferir)**: `addonMissingChoice` (`packages/core/src/buy-together/total.ts:40-52`) interpola `missingAxis` e a primeira palavra do nome exatamente como vêm do cadastro ("Cor", "Pingente"), e os testes existentes (`total.test.ts:79`, `ProductPageBuyTogether.test.tsx:284,338`, `ProductPageBuyTogetherForma.test.tsx:256,396`) cravaram a forma com maiúscula.
+- **Direção escolhida (premissa do orquestrador, sem humano)**: passar o eixo e a primeira palavra a minúscula com `toLocaleLowerCase('pt-BR')` dentro de `addonMissingChoice`, como o protótipo `cj-loja-bloco.jsx` faz. O artigo fixo "o … da …" fica como está (o bug o declara fora; está nas Sugestões de backlog). Os testes que cravavam a maiúscula são reescritos para a forma esperada (são `test-wrong` deste bug, não afrouxamento): a régua continua sendo a string inteira.
+
+### Testes
+
+- `addonMissingChoice` com `missingAxis: 'Cor'` e nome `'Pingente Estrela do Mar'` devolve `'Escolha o cor da pingente.'`
+- eixo com várias palavras ou acento ("Comprimento", "Acabamento Ouro") sai inteiro em minúscula, sem perder o acento
+- a página do produto real (`ProductPageBuyTogether` e `ProductPageBuyTogetherForma`) mostra a frase em minúscula na linha, na folha e no diálogo
+- "Escolha a peça." não muda
+
+### Não faça
+
+- Não mude o artigo "o … da …" nem o corte na primeira palavra
+- Não mexa nos outros bugs da QA (BUG-004..013) — em especial BUG-006 (a frase em dobro na folha) e BUG-005
+- Não escreva a frase em outro lugar além de `addonMissingChoice`
+
+### Pronto quando
+
+- [ ] a frase sai com o eixo e a primeira palavra do nome em minúscula, nas três formas do bloco
+- [ ] cada comportamento do bloco `Testes` coberto por um teste que você escreveu
+- [ ] testes dos arquivos que você alterou, passando — só deles
+- [ ] a verificação mínima de fechar unidade de trabalho do arquivo de instruções de cada repositório
+
+---
+
+### Confira cada citação desta tarefa quando for usá-la
+
+Todo `caminho:linha` daqui — `Siga a forma de`, `Contrato`, `Obrigações`, `Design` — foi
+escrito antes de qualquer tarefa rodar, e as tarefas anteriores mexeram na mesma árvore. Abra
+cada um no momento em que ele é usado — o exemplar antes de escrever o artefato, o contrato
+quando a fatia o consome —, e nenhuma linha se escreve apoiada em citação não conferida: a
+linha deslocou, relocalize pelo alvo que a citação nomeia e siga, registrando no retorno; o
+arquivo não está mais lá, é `citação morta` — a regra abaixo manda concluir e propagar sempre
+que dê para concluir, e o histórico do Git ainda serve de exemplar.
+
+### Se algo aqui não bater com o repositório
+
+A rota `JÁ EXISTE` não está lá, o exemplar sumiu, a tabela tem outra forma. Dá para concluir
+mesmo assim: siga, feche e propague. Não dá: pare e relate até onde chegou. Não conserte
+contrato por conta, não improvise, não crie o que era de outra tarefa.
+
+**Propagar** é corrigir, nos arquivos seguintes de `tasks/`, cada afirmação que a sua descoberta
+tornou falsa — só a afirmação, e nada mais do arquivo. Feito isso, a divergência está resolvida:
+ela vai no seu retorno como registro, não como pendência para alguém decidir.
+
+**Propagar é só para frente.** Afirmação de tarefa de número MENOR, já fechada, que a sua
+mudança tornou falsa **não se reescreve**: reescrever o `Pronto quando` de tarefa encerrada
+apaga o registro do que de fato foi verificado quando ela fechou. Registre a caducidade na
+linha `Caducou` do seu retorno — a tarefa, a afirmação e o que a tornou falsa — e siga.
+
+### Se a verificação não fechar
+
+Leia o erro, corrija, rode de novo. Continuando sem passar, não declare pronto: relate o que
+falha, com a saída. Nunca desative teste, marque skip, afrouxe asserção, ignore lint ou
+silencie erro de tipo.
+
+### O que devolver no fim
+
+```
+Tarefa: <nn>
+Caso: fechou limpo | fechou com divergência | parou
+Instruções lidas: <os caminhos, raiz e módulos>
+Testes escritos: <um por comportamento do bloco `Testes`, com o arquivo; o que ficou sem
+  cobertura, e por quê>
+Verificações: <o que rodou, e o resultado>
+Árvore de trabalho: <o que você alterou; nada é commitado por você>
+Citações conferidas: <quantas você abriu ao usá-las; a que deslocou, e a que estava morta>
+Propagado: <a tarefa, e o que você corrigiu no arquivo dela>   (só se houve divergência)
+Caducou: <tarefa já fechada · a afirmação dela que ficou falsa · o que a tornou falsa>
+                                                               (só se houve; não se reescreve)
+Bloqueio: <motivo · até onde você chegou>                      (só se parou)
+```

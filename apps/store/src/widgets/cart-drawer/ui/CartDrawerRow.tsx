@@ -3,13 +3,13 @@ import { Heart, Minus, Plus, Trash2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
 import { renditionUrl } from '@estrelinha/core/media'
-import { useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
+import { companionsOf, useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
 import { removeFromCartEvent } from '@estrelinha/core/analytics'
 import { cartLineItem, track } from '@/shared/lib/analytics'
 import { TAP_44 } from '@/shared/lib/touchTarget'
-import { lowStockLabel, variantChips } from '../model/drawerFacts'
+import { companionPhrase, lowStockLabel, variantChips } from '../model/drawerFacts'
 
 /**
  * Uma linha da gaveta. Não é card: no board as linhas são de borda a borda, separadas só por um
@@ -29,11 +29,14 @@ interface Props {
 const CartDrawerRow = ({ item, onNavigate }: Props) => {
   const removeItem = useCartStore((s) => s.removeItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const cartItems = useCartStore((s) => s.items)
   const wishlisted = useWishlistStore((s) => s.items.includes(item.product.id))
 
   const { product, size, finish, variantId, quantity, engravingText } = item
   const scarcity = lowStockLabel(item)
   const chips = variantChips(item)
+  // Derivada a cada render: removido o principal da sacola, a frase some sem ninguém gravar nada.
+  const acompanha = companionPhrase(companionsOf(item, cartItems).map((p) => p.name))
 
   // O `variantId` faz parte da identidade da linha (`cartStore.itemKey`). Omiti-lo — como as duas
   // telas antigas faziam — monta a chave legada `p:id-size-finish` e a remoção não casa com nada:
@@ -88,6 +91,13 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
             {formatPrice(item.unitPrice * quantity)}
           </span>
         </div>
+
+        {acompanha && (
+          <p data-testid="acompanha" className="break-words text-[12.5px] leading-4 text-estrelinha-ink-soft">
+            <span aria-hidden="true" className="mr-1.5 inline-block h-px w-2.5 align-middle bg-estrelinha-accent" />
+            {acompanha}
+          </p>
+        )}
 
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

@@ -33,7 +33,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { useProductPool } from '../api/useProductPool'
 import { useProductCovers } from '../api/useProductCovers'
 import PecaFoto from './PecaFoto'
-import { buscarProdutos, type ProdutoDoPool } from '../lib/buscarProdutos'
+import { buscarProdutos, RESULTADOS_VISIVEIS, type ProdutoDoPool } from '../lib/buscarProdutos'
 
 export interface ProductSearchFieldProps {
   /** O texto do `<label>`, e o nome acessível do campo. */
@@ -73,6 +73,14 @@ export interface ProductSearchFieldProps {
    * (`A-06`).
    */
   rotuloJaEscolhida?: string
+  /**
+   * Ids que APARECEM desabilitados, cada um com o motivo de quem chama (id → motivo).
+   *
+   * É o meio-termo entre `selecionados` e `excluir`: a peça é uma opção que a dona pode procurar —
+   * a própria joia, na aba Compre junto — e sumir com ela faria o campo dizer "Nenhuma peça com…"
+   * sobre uma peça que existe. Ela entra no resultado e na contagem como as demais.
+   */
+  bloqueados?: Readonly<Record<string, string>>
   onEscolher: (produto: ProdutoDoPool) => void
   /** Modo único: desescolher. Sem ele não há caminho de volta (`BUS-09`). */
   onLimpar?: () => void
@@ -88,6 +96,19 @@ export interface ProductSearchFieldProps {
   mostrarFoto?: boolean
   /** Foca o campo ao montar (a caixa "Acrescentar peça" abre já pronta para digitar). */
   autoFocus?: boolean
+  /**
+   * Padrão desligado. Ligado, a peça fora do ar vira linha desabilitada dizendo "Fora do ar", como a
+   * já escolhida: a lista do Compre Junto não aceita peça que a loja pularia. Nas outras superfícies
+   * escolher peça despublicada é estado legítimo, e continua sendo.
+   */
+  bloquearForaDoAr?: boolean
+  /**
+   * Padrão 0 (lista sem digitar). Com o termo aparado abaixo dele, o campo não lista nada — nem
+   * lista, nem vazio, nem "Mostrando…"; o contador do topo continua.
+   */
+  minimoDeLetras?: number
+  /** Quantas linhas a lista desenha. Padrão `RESULTADOS_VISIVEIS` (20). */
+  teto?: number
 }
 
 const ProductSearchField = ({
@@ -98,6 +119,7 @@ const ProductSearchField = ({
   selecionados,
   excluir,
   rotuloJaEscolhida = 'já está no bloco',
+  bloqueados,
   onEscolher,
   onLimpar,
   placeholder = 'procure pelo nome da peça',
@@ -105,6 +127,9 @@ const ProductSearchField = ({
   id = 'busca-de-produto',
   mostrarFoto = false,
   autoFocus = false,
+  bloquearForaDoAr = false,
+  minimoDeLetras = 0,
+  teto = RESULTADOS_VISIVEIS,
 }: ProductSearchFieldProps) => {
   const { produtos, carregando, erro, recarregar } = useProductPool()
   const [busca, setBusca] = useState('')
@@ -115,9 +140,9 @@ const ProductSearchField = ({
   const chaveSelecionados = (selecionados ?? []).join(',')
 
   const resultado = useMemo(
-    () => buscarProdutos(produtos, busca, { excluir }),
+    () => buscarProdutos(produtos, busca, { excluir, teto }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [produtos, busca, chaveExcluir],
+    [produtos, busca, chaveExcluir, teto],
   )
 
   /**
@@ -225,6 +250,10 @@ const ProductSearchField = ({
         <p data-testid="busca-carregando" className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
           Carregando o catálogo…
         </p>
+      ) : termo.length < minimoDeLetras ? (
+        // Abaixo do mínimo de letras não há o que listar: nem lista, nem vazio, nem aviso. A carga e o
+        // erro continuam acima, porque falam do catálogo e não do termo.
+        null
       ) : resultado.total === 0 ? (
         // Lista em branco se lê como tela quebrada, e a dona iria procurar o defeito noutro lugar.
         // Dizer o que aconteceu **e** o que fazer é o que separa um vazio de um erro.
@@ -236,18 +265,22 @@ const ProductSearchField = ({
         <>
           <ul data-testid="pecas-encontradas" className="max-h-60 space-y-1 overflow-y-auto">
             {resultado.itens.map(produto => {
-              const jaEscolhida = jaEscolhidos.has(produto.id)
+              const motivoDoBloqueio = bloqueados?.[produto.id] ?? null
+              const jaEscolhida = motivoDoBloqueio === null && jaEscolhidos.has(produto.id)
+              const foraDoArBloqueada =
+                bloquearForaDoAr && motivoDoBloqueio === null && !jaEscolhida && !produto.is_active
+              const desabilitada = motivoDoBloqueio !== null || jaEscolhida || foraDoArBloqueada
 
               return (
                 <li key={produto.id}>
                   <button
                     type="button"
                     data-testid={`peca-${produto.id}`}
-                    disabled={jaEscolhida}
+                    disabled={desabilitada}
                     onClick={() => onEscolher(produto)}
                     className={cn(
                       'flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors motion-reduce:transition-none',
-                      jaEscolhida
+                      desabilitada
                         ? 'cursor-not-allowed border-border bg-muted/40 text-muted-foreground'
                         : 'border-input bg-card text-foreground hover:bg-muted/50',
                     )}
@@ -255,7 +288,7 @@ const ProductSearchField = ({
                     {mostrarFoto ? (
                       <PecaFoto url={capas[produto.id]} tamanho={40} />
                     ) : (
-                      !jaEscolhida && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                      !desabilitada && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                     )}
                     <span className={cn('min-w-0 flex-1', mostrarFoto ? 'break-words text-sm font-medium' : 'truncate')}>
                       {produto.name}
@@ -277,7 +310,19 @@ const ProductSearchField = ({
                       </span>
                     )}
 
-                    {!jaEscolhida && !produto.is_active && (
+                    {motivoDoBloqueio !== null && (
+                      <span data-testid={`ja-escolhida-${produto.id}`} className="shrink-0 text-[11px]">
+                        {motivoDoBloqueio}
+                      </span>
+                    )}
+
+                    {foraDoArBloqueada && (
+                      <span data-testid={`ja-escolhida-${produto.id}`} className="shrink-0 text-[11px]">
+                        Fora do ar
+                      </span>
+                    )}
+
+                    {!desabilitada && !produto.is_active && (
                       // Não é recusa: escolher uma peça despublicada é estado legítimo — ela pode
                       // voltar ao ar amanhã. Mas escolhê-la **sem saber** faria o painel dizer "1
                       // escolhida saiu do ar" um segundo depois, sem a dona entender por quê.

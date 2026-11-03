@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { initialMaterialStatus } from '@estrelinha/core/material'
 import { buildOrderItems, buildOrderPayload, type OrderPayloadInput } from '../buildOrderPayload'
 
 /**
@@ -154,6 +155,100 @@ describe('buildOrderItems — o order bump (BMP-03)', () => {
 
   it('sem bump marcado, nenhuma linha extra aparece', () => {
     expect(buildOrderItems(entrada())).toHaveLength(1)
+  })
+})
+
+describe('buildOrderItems — a marca "acompanha" do Compre Junto', () => {
+  const LISTA = '7f1c2a9e-3b4d-4e5f-8a6b-1c2d3e4f5a6b'
+  const principal = item({ product: produto({ id: 'joia', name: 'Pingente', requires_material: false, material_kinds: [] }) })
+  const adicional = (accompanies: unknown, over: Record<string, unknown> = {}) =>
+    item({
+      product: produto({ id: 'corrente', name: 'Corrente', requires_material: false, material_kinds: [] }),
+      accompanies,
+      ...over,
+    })
+  const conjunto = (items: unknown[]) =>
+    entrada({
+      items: items as never,
+      pricingItems: items.map(() => ({ product_id: 'x', unit_price: 100, quantity: 1 })),
+    })
+
+  it('leva o principal e a lista da linha adicional ao payload; o principal vai sem marca', () => {
+    const [p, a] = buildOrderItems(conjunto([principal, adicional([{ mainProductId: 'joia', listId: LISTA }])]))
+
+    expect(a.accompanies_product_ids).toEqual(['joia'])
+    expect(a.accompanies_list_ids).toEqual([LISTA])
+    expect(p.accompanies_product_ids).toBeNull()
+    expect(p.accompanies_list_ids).toBeNull()
+  })
+
+  it('a linha que acompanha dois principais leva os dois, alinhados com as listas', () => {
+    const anel = item({ product: produto({ id: 'anel', name: 'Anel', requires_material: false, material_kinds: [] }) })
+    const [, , a] = buildOrderItems(
+      conjunto([
+        principal,
+        anel,
+        adicional([
+          { mainProductId: 'joia', listId: LISTA },
+          { mainProductId: 'anel', listId: null },
+        ]),
+      ]),
+    )
+
+    expect(a.accompanies_product_ids).toEqual(['joia', 'anel'])
+    expect(a.accompanies_list_ids).toEqual([LISTA, null])
+  })
+
+  it('a peça avulsa leva a lista nula', () => {
+    const [, a] = buildOrderItems(conjunto([principal, adicional([{ mainProductId: 'joia', listId: null }])]))
+
+    expect(a.accompanies_product_ids).toEqual(['joia'])
+    expect(a.accompanies_list_ids).toEqual([null])
+  })
+
+  it('o principal que saiu da sacola não vai: a linha segue como peça comum', () => {
+    const [a] = buildOrderItems(conjunto([adicional([{ mainProductId: 'joia', listId: LISTA }])]))
+
+    expect(a.accompanies_product_ids).toBeNull()
+    expect(a.accompanies_list_ids).toBeNull()
+  })
+
+  it('a marca não muda o preço da linha', () => {
+    const semMarca = buildOrderItems(conjunto([principal, adicional(undefined)]))
+    const comMarca = buildOrderItems(conjunto([principal, adicional([{ mainProductId: 'joia', listId: LISTA }])]))
+
+    expect(comMarca[1].unit_price).toBe(semMarca[1].unit_price)
+    expect(comMarca[1].price_source).toBe(semMarca[1].price_source)
+  })
+
+  it('o item do bump vai sem marca', () => {
+    const linhas = buildOrderItems(
+      entrada({
+        items: [principal, adicional([{ mainProductId: 'joia', listId: LISTA }])] as never,
+        bumpProduct: produto({ id: 'bump-1', name: 'Porta-joias', images: [] }) as never,
+        pricingItems: [
+          { product_id: 'joia', unit_price: 100, quantity: 1 },
+          { product_id: 'corrente', unit_price: 50, quantity: 1 },
+          { product_id: 'bump-1', unit_price: 40, quantity: 1 },
+        ],
+        bump: { enabled: true, product_id: 'bump-1', discount_percent: 50 } as never,
+      }),
+    )
+
+    expect(linhas[2].product_id).toBe('bump-1')
+    expect(linhas[2].accompanies_product_ids).toBeNull()
+    expect(linhas[2].accompanies_list_ids).toBeNull()
+  })
+
+  it('o pedido do conjunto entra na fila de material se QUALQUER peça exige material — inclusive só o adicional', () => {
+    const exige = item({
+      product: produto({ id: 'pingente-cinzas', requires_material: true, material_kinds: ['cinzas'] }),
+      accompanies: [{ mainProductId: 'joia', listId: null }],
+    })
+    const linhas = buildOrderItems(conjunto([principal, exige]))
+
+    expect(initialMaterialStatus(linhas)).toBe('aguardando_material')
+    expect(initialMaterialStatus(buildOrderItems(conjunto([principal, adicional(undefined)])))).toBe('nao_aplicavel')
   })
 })
 

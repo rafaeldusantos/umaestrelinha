@@ -184,3 +184,58 @@ describe('OrderItemsSummary — o resumo SOMA (DET-10, L-014)', () => {
     expect(container.innerHTML).not.toMatch(/\b(bg|text|border)-(yellow|blue|purple|green|red)-\d/)
   })
 })
+
+describe('OrderItemsSummary — a peça que acompanha (Compre Junto)', () => {
+  const principal = item({ id: 'i-p', product_id: 'joia', product_name: 'Pingente Estrela' })
+  const corrente = item({
+    id: 'i-c',
+    product_id: 'corrente',
+    product_name: 'Corrente Veneziana',
+    accompanies_product_ids: ['joia'],
+  })
+
+  it('a linha adicional diz "Acompanha o <principal>", com o nome do principal tirado do próprio pedido', () => {
+    render(<OrderItemsSummary order={pedido({ order_items: [principal, corrente] })} />)
+    const linha = screen.getByText('Corrente Veneziana').closest('li') as HTMLElement
+
+    expect(within(linha).getByText('Acompanha o Pingente Estrela', { normalizer: (t) => t })).toBeInTheDocument()
+  })
+
+  it('o principal não ganha frase', () => {
+    render(<OrderItemsSummary order={pedido({ order_items: [principal, corrente] })} />)
+    const linha = screen.getByText('Pingente Estrela').closest('li') as HTMLElement
+
+    expect(within(linha).queryByText(/Acompanha/)).not.toBeInTheDocument()
+  })
+
+  it('cada adicional nomeia o próprio principal — "o X" numa linha e "o Y" na outra', () => {
+    const anel = item({ id: 'i-a', product_id: 'anel', product_name: 'Anel Lua' })
+    const brinco = item({ id: 'i-b', product_id: 'brinco', product_name: 'Brinco', accompanies_product_ids: ['anel'] })
+    render(<OrderItemsSummary order={pedido({ order_items: [principal, anel, corrente, brinco] })} />)
+
+    expect(within(screen.getByText('Corrente Veneziana').closest('li') as HTMLElement).getByText('Acompanha o Pingente Estrela')).toBeInTheDocument()
+    expect(within(screen.getByText('Brinco').closest('li') as HTMLElement).getByText('Acompanha o Anel Lua')).toBeInTheDocument()
+  })
+
+  it('a MESMA linha que acompanha dois principais diz "Acompanha o X e o Y"', () => {
+    const anel = item({ id: 'i-a', product_id: 'anel', product_name: 'Anel Lua' })
+    const dupla = item({ id: 'i-d', product_id: 'corrente', product_name: 'Corrente Veneziana', accompanies_product_ids: ['joia', 'anel'] })
+    render(<OrderItemsSummary order={pedido({ order_items: [principal, anel, dupla] })} />)
+    const linha = screen.getByText('Corrente Veneziana').closest('li') as HTMLElement
+
+    expect(
+      within(linha).getByText('Acompanha o Pingente Estrela e o Anel Lua', { normalizer: (t) => t }),
+    ).toBeInTheDocument()
+  })
+
+  it('o pedido de quem não usou o Compre Junto fica igual: nenhuma frase, mesmo texto em cada linha', () => {
+    render(<OrderItemsSummary order={pedido({ order_items: [item({ id: 'a' }), item({ id: 'b', product_name: 'Anel' })] })} />)
+
+    expect(screen.queryByText(/Acompanha/)).not.toBeInTheDocument()
+    const linhas = screen.getAllByRole('listitem')
+    expect(linhas.map((l) => l.textContent)).toEqual([
+      `Pingente gota com leite maternoQtd: 1${formatPrice(189.9)}`,
+      `AnelQtd: 1${formatPrice(189.9)}`,
+    ])
+  })
+})

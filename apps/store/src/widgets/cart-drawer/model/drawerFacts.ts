@@ -80,3 +80,10 @@ export const variantChips = (item: CartItem): string[] =>
     .split('·')
     .map((s) => s.trim())
     .filter(Boolean)
+
+/**
+ * A frase da linha de um adicional do Compre Junto: `Acompanha o A e o B`. Mora em
+ * `core/buy-together`, porque a confirmação do pedido e o painel dizem a mesma frase; aqui ela é
+ * reexportada (a mesma referência), para a gaveta continuar lendo do próprio modelo.
+ */
+export { companionPhrase } from '@estrelinha/core/buy-together'

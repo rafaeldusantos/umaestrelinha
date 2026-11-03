@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { useCartStore, type CartVariantInput } from '../cartStore'
+import { companionsOf, useCartStore, type CartVariantInput } from '../cartStore'
 import { setRuntimeShippingSettings } from '@estrelinha/core/constants'
 import type { Product } from '@estrelinha/supabase/types'
 
@@ -196,8 +196,107 @@ describe('migração do storage', () => {
     expect(migrate(v3, 3)).toEqual(v3)
   })
 
-  it('a versão declarada é 3', () => {
-    expect(useCartStore.persist.getOptions().version).toBe(3)
+  it('storage v3 chega à v4 intacto: a marca "acompanha" é opcional, ausente = peça comum', () => {
+    const v3 = {
+      items: [{
+        product: product(), size: '', finish: '', quantity: 2,
+        variantId: 'v1', variantLabel: '4,5 cm · Fosco', optionValues: {}, unitPrice: 7.9,
+        engravingText: null,
+      }],
+    }
+    const migrado = migrate(v3, 3) as { items: { accompanies?: unknown }[] }
+    expect(migrado).toEqual(v3)
+    expect(migrado.items[0].accompanies).toBeUndefined()
+  })
+
+  it('a versão declarada é 4 e a chave segue estrelinha-cart', () => {
+    expect(useCartStore.persist.getOptions().version).toBe(4)
+    expect(useCartStore.persist.getOptions().name).toBe('estrelinha-cart')
+  })
+})
+
+// O Compre Junto leva várias linhas num gesto, e a marca "acompanha" não entra na identidade.
+describe('addItems e a marca "acompanha"', () => {
+  const principal = product({ id: 'main', name: 'Pingente Estrela' })
+  const outro = product({ id: 'main2', name: 'Pingente Lua' })
+  const corrente = product({ id: 'corr', name: 'Corrente Prata' })
+  const marca = (id: string) => ({ mainProductId: id, listId: 'lista-1' })
+
+  it('cada peça entra como linha própria, o adicional com quantidade 1 e o principal com a dele', () => {
+    useCartStore.getState().addItems([
+      { product: principal, variant: variant({ variantId: 'va' }), quantity: 3, engravingText: 'Ana' },
+      { product: corrente, variant: variant({ variantId: 'vb', unitPrice: 20 }), accompanies: marca('main') },
+    ])
+    expect(items()).toHaveLength(2)
+    expect(items()[0]).toMatchObject({ quantity: 3, engravingText: 'Ana', variantId: 'va' })
+    expect(items()[0].accompanies).toBeUndefined()
+    expect(items()[1]).toMatchObject({ quantity: 1, variantId: 'vb', unitPrice: 20, accompanies: [marca('main')] })
+  })
+
+  it('peça já na sacola, mesma variação e gravação, soma e ganha a marca', () => {
+    useCartStore.getState().addItem(corrente, '', '', variant({ variantId: 'vb' }))
+    useCartStore.getState().addItems([{ product: corrente, variant: variant({ variantId: 'vb' }), accompanies: marca('main') }])
+    expect(items()).toHaveLength(1)
+    expect(items()[0].quantity).toBe(2)
+    expect(items()[0].accompanies).toEqual([marca('main')])
+  })
+
+  it('a mesma peça levada por dois principais acumula as marcas, sem repetir a mesma', () => {
+    const entry = (id: string) => ({ product: corrente, variant: variant({ variantId: 'vb' }), accompanies: marca(id) })
+    useCartStore.getState().addItems([entry('main')])
+    useCartStore.getState().addItems([entry('main2')])
+    useCartStore.getState().addItems([entry('main2')])
+    expect(items()).toHaveLength(1)
+    expect(items()[0].quantity).toBe(3)
+    expect(items()[0].accompanies).toEqual([marca('main'), marca('main2')])
+  })
+
+  it('gravação diferente é outra linha, mesmo sendo a mesma peça do conjunto', () => {
+    useCartStore.getState().addItems([
+      { product: corrente, variant: variant(), engravingText: 'Ana', accompanies: marca('main') },
+      { product: corrente, variant: variant(), engravingText: 'Léo', accompanies: marca('main') },
+    ])
+    expect(items()).toHaveLength(2)
+  })
+
+  it('companionsOf: nomeia só os principais que ainda estão na sacola; removido o principal, some', () => {
+    useCartStore.getState().addItems([
+      { product: principal, variant: variant({ variantId: 'va' }) },
+      { product: outro, variant: variant({ variantId: 'vc' }) },
+      { product: corrente, variant: variant({ variantId: 'vb' }), accompanies: marca('main') },
+    ])
+    useCartStore.getState().addItems([{ product: corrente, variant: variant({ variantId: 'vb' }), accompanies: marca('main2') }])
+    const linha = () => items().find((i) => i.product.id === 'corr')!
+    expect(companionsOf(linha(), items()).map((p) => p.name)).toEqual(['Pingente Estrela', 'Pingente Lua'])
+    useCartStore.getState().removeItem('main', '', '', 'va')
+    expect(companionsOf(linha(), items()).map((p) => p.name)).toEqual(['Pingente Lua'])
+    useCartStore.getState().removeItem('main2', '', '', 'vc')
+    expect(companionsOf(linha(), items())).toEqual([])
+    expect(items()).toHaveLength(1)
+  })
+
+  it('companionsOf: o mesmo principal por duas listas é nomeado uma vez, e uma peça não acompanha a si mesma', () => {
+    useCartStore.getState().addItems([
+      { product: principal, variant: variant({ variantId: 'va' }) },
+      { product: corrente, variant: variant({ variantId: 'vb' }), accompanies: { mainProductId: 'main', listId: 'L1' } },
+    ])
+    useCartStore.getState().addItems([
+      { product: corrente, variant: variant({ variantId: 'vb' }), accompanies: { mainProductId: 'main', listId: 'L2' } },
+      { product: corrente, variant: variant({ variantId: 'vb' }), accompanies: { mainProductId: 'corr', listId: null } },
+    ])
+    const linha = items().find((i) => i.product.id === 'corr')!
+    expect(linha.accompanies).toHaveLength(3)
+    expect(companionsOf(linha, items()).map((p) => p.name)).toEqual(['Pingente Estrela'])
+  })
+
+  it('remover um adicional não remove as outras linhas', () => {
+    useCartStore.getState().addItems([
+      { product: principal, variant: variant({ variantId: 'va' }) },
+      { product: corrente, variant: variant({ variantId: 'vb' }), accompanies: marca('main') },
+      { product: outro, variant: variant({ variantId: 'vc' }), accompanies: marca('main') },
+    ])
+    useCartStore.getState().removeItem('corr', '', '', 'vb')
+    expect(items().map((i) => i.product.id)).toEqual(['main', 'main2'])
   })
 })
 

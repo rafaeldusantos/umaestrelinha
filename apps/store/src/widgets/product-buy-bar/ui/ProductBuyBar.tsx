@@ -5,8 +5,12 @@ import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { pixPrice } from '@estrelinha/core/payment/pix'
 import type { Product } from '@estrelinha/supabase/types'
 import { PixIcon, SacolaIcon } from '@estrelinha/ui/icons'
-import type { ProductPurchase } from '@/entities/product'
-import { ENGRAVING_FIELD_ID } from '@/entities/product/ui/EngravingField'
+import {
+  useBuyAction,
+  type BuyAction,
+  type BuyTogether,
+  type ProductPurchase,
+} from '@/entities/product'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
 import { BUY_BAR_H } from '@/shared/lib/storeChrome'
@@ -15,6 +19,10 @@ import { useScrolledPast } from '@/shared/lib/useScrolledPast'
 interface Props {
   product: Product
   purchase: ProductPurchase
+  /** O Compre Junto da página: com adicional marcado a barra mostra o total do conjunto. */
+  buyTogether?: BuyTogether
+  /** O botão único, montado pela página e dividido com a coluna. Ausente = a barra monta o seu. */
+  action?: BuyAction
   /**
    * A foto principal. A barra fica fora da tela enquanto ela estiver visível e entra quando a
    * cliente rola além dela.
@@ -64,8 +72,11 @@ interface Props {
  * escolhe qual barra monta (`bottomBarReserve`). Medir a reserva por fora daqui seria a segunda
  * cópia da regra, e uma discordância entre as duas esconde a última faixa do rodapé atrás da barra.
  */
-const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
-  const { price, savings, canAdd, add, engravingRefusal } = purchase
+const ProductBuyBar = ({ product, purchase, buyTogether, action, revealAfter }: Props) => {
+  const { price, savings, canAdd, engravingRefusal } = purchase
+  const ownAction = useBuyAction(purchase, buyTogether)
+  const buy = action ?? ownAction
+  const conjunto = buy.bundleTotal !== null
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
   const visivel = useScrolledPast(revealAfter)
@@ -81,19 +92,6 @@ const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
    * `price` é o da variação escolhida (`purchase.price`), nunca `product.price`.
    */
   const pix = pix_enabled ? pixPrice(price, pix_discount_percent) : null
-
-  /**
-   * MAT-03: com a gravação inválida, o CTA está bloqueado — e o campo que a bloqueia está a uma tela
-   * de distância, na coluna de informação. Dizer só "não dá" mandaria a cliente procurar sozinha.
-   */
-  const aoTocar = () => {
-    if (engravingRefusal) {
-      const campo = document.getElementById(ENGRAVING_FIELD_ID)
-      campo?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      campo?.focus()
-    }
-    add()
-  }
 
   return (
     <div
@@ -125,15 +123,20 @@ const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
             pelo topo, os dois flutuariam um em relação ao outro. */}
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 font-display text-[19px] font-semibold leading-[22px] tracking-[-0.02em] text-estrelinha-primary">
-            {formatPrice(price)}
+            {formatPrice(conjunto ? buy.bundleTotal! : price)}
           </span>
-          {savings && (
+          {conjunto && (
+            <span className="min-w-0 truncate text-[13px] leading-4 text-estrelinha-ink-soft">
+              Conjunto · {buy.pieces} peças
+            </span>
+          )}
+          {!conjunto && savings && (
             <span className="shrink-0 text-[13px] leading-4 text-estrelinha-ink-soft line-through">
               {formatPrice(savings.compareAt)}
             </span>
           )}
           <span className="grow" aria-hidden />
-          {pix !== null && (
+          {!conjunto && pix !== null && (
             <span className="flex shrink-0 items-center gap-1.5">
               <PixIcon className="h-[14px] w-[14px] shrink-0 text-estrelinha-primary" aria-hidden />
               <span className="text-[13px] font-semibold leading-4 text-estrelinha-ink">
@@ -148,7 +151,7 @@ const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={aoTocar}
+            onClick={buy.tap}
             /* NÃO `disabled` quando o bloqueio é a gravação: um botão desabilitado não recebe toque,
                e a cliente ficaria sem o caminho até o campo que a está bloqueando. Ele muda de cara
                e leva ao campo. Esgotado continua sendo `disabled` — ali não há o que fazer na
@@ -175,7 +178,7 @@ const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
             {canAdd && (
               <SacolaIcon className="h-5 w-5 shrink-0" aria-hidden />
             )}
-            {canAdd ? 'Adicionar à sacola' : engravingRefusal ? 'Revisar a gravação' : 'Esgotado'}
+            {canAdd ? buy.label : engravingRefusal ? 'Revisar a gravação' : 'Esgotado'}
           </button>
 
           <button

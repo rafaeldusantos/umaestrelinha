@@ -27,6 +27,7 @@ import type {
 import type { OptionMark } from '@estrelinha/core/filters'
 import type { ProductFaqSelection } from './planFaqLinks'
 import { EMPTY_SUPPLIER_ROW, supplierRowsToSave, type SupplierDraft } from './persistSupplier'
+import { addonsFromRow, addonsToSave, type AddonDraft } from './addons'
 import { supplierLinksOfRow } from '@/entities/supplier'
 
 /**
@@ -90,7 +91,12 @@ export interface ProductFormState {
   identifier_exists: boolean | null
   scheduled_at: string
   related_product_ids: string[]
-  buy_together_ids: string[]
+  /**
+   * O Compre Junto da joia: até três adicionais, cada um uma peça ou uma lista. Moram em
+   * `product_buy_together` e são gravados depois do produto (`persistAddons`); a coluna antiga
+   * `products.buy_together_ids` continua no banco, mas nenhum envio do painel a manda.
+   */
+  buy_together_addons: AddonDraft[]
   /**
    * Feature 22 — o material afetivo é propriedade do PRODUTO.
    *
@@ -142,6 +148,8 @@ export interface ProductFormSnapshot {
   options: ProductOption[]
   /** Feature 80: o fornecedor como está no banco — o que a coluna lateral mostra (FOR-16) e a base do FOR-13. */
   suppliers?: SupplierDraft[]
+  /** O Compre Junto como está no banco — a base do diff de `persistAddons`. */
+  addons?: AddonDraft[]
 }
 
 const SNAPSHOT_VAZIO: ProductFormSnapshot = {
@@ -153,6 +161,7 @@ const SNAPSHOT_VAZIO: ProductFormSnapshot = {
   optionMarks: [],
   options: [],
   suppliers: [],
+  addons: [],
 }
 
 /**
@@ -197,7 +206,7 @@ export const emptyProductForm = (): ProductFormState => ({
   identifier_exists: null,
   scheduled_at: '',
   related_product_ids: [],
-  buy_together_ids: [],
+  buy_together_addons: [],
   // Produto NOVO nasce com `null`, não `false`: quem acabou de abrir o formulário ainda não decidiu
   // nada, e é o save que registra a decisão. Nascer `false` faria o importador nunca semear a linha.
   requires_material: null,
@@ -210,7 +219,7 @@ export const emptyProductForm = (): ProductFormState => ({
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, position, suppliers(name))'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, position, suppliers(name)), product_buy_together!product_buy_together_product_id_fkey(id, position, kind, target_product_id, list_id, target_variant_ids, hidden_on_variant_ids)'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Os fornecedores do embed, na ordem; sem nenhum, a linha vazia onde a dona digita. */
@@ -269,7 +278,11 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
     typeof row.identifier_exists === 'boolean' ? row.identifier_exists : null,
   scheduled_at: row.scheduled_at ? String(row.scheduled_at).slice(0, 16) : '',
   related_product_ids: row.related_product_ids ?? [],
-  buy_together_ids: row.buy_together_ids ?? [],
+  // A cópia traz o Compre Junto do original como adicionais NOVOS (sem id): gravar com o id do
+  // original atualizaria as linhas dele.
+  buy_together_addons: opts.asCopy
+    ? addonsFromRow(row).map((a, i) => ({ ...a, id: null, key: `copia-${i}` }))
+    : addonsFromRow(row),
   // SEM `?? false`: `null` é informação, não ausência de valor. Coalescer aqui apagaria o marcador
   // de "nunca decidido" na primeira abertura do formulário, e o importador pararia de semear.
   requires_material: typeof row.requires_material === 'boolean' ? row.requires_material : null,
@@ -410,6 +423,7 @@ export const useProductForm = (
           optionMarks: loaded.option_marks,
           options: loaded.options,
           suppliers: supplierRowsToSave(loaded.supplier_rows),
+          addons: addonsToSave(loaded.buy_together_addons),
         })
       }
     },

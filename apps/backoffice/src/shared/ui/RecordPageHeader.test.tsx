@@ -66,3 +66,22 @@ describe('RecordPageHeader — título e subtítulo quebram em vez de estourar',
     expect(tokens(screen.getByText('Helena · helena.prova89@exemplo.invalid'))).toContain('[overflow-wrap:anywhere]')
   })
 })
+
+describe('RecordPageHeader — a trilha sem o grupo', () => {
+  const textoDaTrilha = () => screen.getByRole('navigation', { name: 'Trilha' }).textContent
+
+  it('com `group`, a trilha tem os três níveis, como antes', () => {
+    render(<RecordPageHeader group="Vendas" parentLabel="Pedidos" crumb="#0244" title="Pedido #0244" onBack={vi.fn()} />)
+    const trilha = screen.getByRole('navigation', { name: 'Trilha' })
+    expect(textoDaTrilha()).toBe('VendasPedidos#0244')
+    expect(trilha.querySelectorAll('svg')).toHaveLength(2)
+  })
+
+  it('sem `group`, a trilha começa pela listagem, sem o primeiro nível nem o chevron dele', () => {
+    render(<RecordPageHeader parentLabel="Compre Junto" crumb="Correntes" title="Correntes" onBack={vi.fn()} />)
+    const trilha = screen.getByRole('navigation', { name: 'Trilha' })
+    expect(textoDaTrilha()).toBe('Compre JuntoCorrentes')
+    expect(trilha.firstElementChild).toBe(screen.getByRole('button', { name: 'Compre Junto' }))
+    expect(trilha.querySelectorAll('svg')).toHaveLength(1)
+  })
+})

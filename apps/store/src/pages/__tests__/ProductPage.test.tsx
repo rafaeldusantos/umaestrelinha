@@ -33,6 +33,10 @@ vi.mock('@/entities/product/api/useProductFaqs', () => ({
     ],
   }),
 }))
+// O Compre Junto lê duas consultas; este arquivo dubla os hooks de dados, e a joia aqui não tem adicional.
+vi.mock('@/entities/product/api/useBuyTogetherData', () => ({
+  useBuyTogetherData: () => ({ status: 'off', addons: [], lists: [], products: [] }),
+}))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
 vi.mock('@/entities/product/ui/ProductGallery', () => ({ default: () => <div>galeria</div> }))
 vi.mock('@/entities/product/ui/ProductInfo', () => ({ default: () => <div>info</div> }))

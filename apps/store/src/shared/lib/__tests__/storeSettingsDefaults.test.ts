@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_ANALYTICS,
+  DEFAULT_BUY_TOGETHER,
   DEFAULT_GENERAL,
   DEFAULT_GOOGLE_SHOPPING,
   DEFAULT_NOTIFICATIONS,
@@ -11,6 +12,8 @@ import {
   DEFAULT_SEO,
   DEFAULT_SHIPPING,
 } from '@estrelinha/supabase/types/settings'
+import { DEFAULT_BUY_TOGETHER_FORM } from '@estrelinha/core/buy-together'
+import { readdirSync } from 'node:fs'
 import { LEGACY_ENABLED_EVENTS, NOTIFICATION_EVENTS } from '@estrelinha/core/notifications'
 
 /**
@@ -551,5 +554,27 @@ describe('pickup_enabled — o interruptor da retirada diz o mesmo nos dois lado
     expect(sem).not.toContain('delete from')
     expect(sem).not.toContain('create policy')
     expect(sem).not.toContain('grant ')
+  })
+})
+
+/**
+ * A forma do bloco Compre Junto não tem migration: a ausência da linha `buy_together` É o padrão.
+ * O que o banco "grava" é nada, então o guarda confere o outro lado — o default do TypeScript é a
+ * forma padrão de `core`, e nenhuma migration semeia a chave (semear fixaria uma escolha que a dona
+ * nunca fez).
+ */
+describe('a forma do bloco Compre Junto', () => {
+  it('o default do TypeScript é a forma padrão de core', () => {
+    expect(DEFAULT_BUY_TOGETHER.form).toBe(DEFAULT_BUY_TOGETHER_FORM)
+    expect(DEFAULT_BUY_TOGETHER_FORM).toBe('inline')
+  })
+
+  it('nenhuma migration grava a chave `buy_together`', () => {
+    const nomes = readdirSync(MIGRATIONS).filter(n => n.endsWith('.sql'))
+    expect(nomes.length).toBeGreaterThan(50)
+    const quem = nomes.filter(n =>
+      semComentarioSql(readFileSync(`${MIGRATIONS}/${n}`, 'utf8')).includes("'buy_together'"),
+    )
+    expect(quem).toEqual([])
   })
 })

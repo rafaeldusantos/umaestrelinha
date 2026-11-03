@@ -10,6 +10,7 @@
 import { applyOrderBump, type OrderBumpConfig, type PricingItem } from '@estrelinha/core/payment/pricing'
 import { primaryImage } from '@estrelinha/core/media'
 import { materialKindsOf, requiresMaterial } from '@estrelinha/core/material'
+import { markColumns, orderItemMarks } from '@estrelinha/core/buy-together'
 import { stripCep, stripPhone } from '@estrelinha/core/validators'
 import type { CartItem } from '@/entities/cart'
 import type { Product } from '@estrelinha/supabase/types'
@@ -65,33 +66,44 @@ export function buildOrderItems(
 ): CreateOrderInput['items'] {
   const { items, pricingItems, bump, bumpProduct } = input
   const priced = applyOrderBump(pricingItems, bump)
+  // Os principais da sacola: a marca "acompanha" só vai quando o principal dela está no pedido. A
+  // regra é a de `core/buy-together`, a MESMA que a function `checkout` chama ao gravar.
+  const idsDoPedido = items.map((i) => i.product.id)
 
   return [
-    ...items.map((item, index) => ({
-      product_id: item.product.id,
-      product_name: item.product.name,
-      product_image: primaryImage(item.product.images)?.url ?? null,
-      size: item.size || null,
-      finish: item.finish || null,
-      quantity: item.quantity,
-      unit_price: priced[index].unit_price,
-      // 07/T16 (PST-03): a variação escolhida vai para o pedido, e o caminho de preço é CONGELADO
-      // aqui. O servidor obedece este `price_source` e não reavalia se o produto tem grade — sem
-      // isso, criar ou pausar uma variação entre o pedido e o pagamento mudaria o valor de um
-      // pedido já fechado (A8).
-      variant_id: item.variantId,
-      price_source: (item.variantId ? 'variant' : 'base') as 'base' | 'variant',
-      // Snapshot: o histórico do pedido tem de ser legível sem join em `product_variants`, que
-      // pode ter sido pausada ou reeditada depois da compra.
-      variant_label: item.variantLabel || null,
-      variant_options: Object.keys(item.optionValues ?? {}).length ? item.optionValues : null,
-      // MAT-05: o material exigido e o texto gravado, congelados NO PEDIDO. Saem do snapshot do
-      // produto que está no carrinho, não de uma releitura do catálogo — mudar a exigência no
-      // cadastro depois não pode alterar pedido já criado.
-      requires_material: requiresMaterial(item.product),
-      material_kinds: materialKindsOf(item.product),
-      engraving_text: item.engravingText ?? null,
-    })),
+    ...items.map((item, index) => {
+      const marcas = orderItemMarks(item.accompanies, idsDoPedido, item.product.id)
+      return {
+        product_id: item.product.id,
+        product_name: item.product.name,
+        product_image: primaryImage(item.product.images)?.url ?? null,
+        size: item.size || null,
+        finish: item.finish || null,
+        quantity: item.quantity,
+        unit_price: priced[index].unit_price,
+        // 07/T16 (PST-03): a variação escolhida vai para o pedido, e o caminho de preço é CONGELADO
+        // aqui. O servidor obedece este `price_source` e não reavalia se o produto tem grade — sem
+        // isso, criar ou pausar uma variação entre o pedido e o pagamento mudaria o valor de um
+        // pedido já fechado (A8).
+        variant_id: item.variantId,
+        price_source: (item.variantId ? 'variant' : 'base') as 'base' | 'variant',
+        // Snapshot: o histórico do pedido tem de ser legível sem join em `product_variants`, que
+        // pode ter sido pausada ou reeditada depois da compra.
+        variant_label: item.variantLabel || null,
+        variant_options: Object.keys(item.optionValues ?? {}).length ? item.optionValues : null,
+        // MAT-05: o material exigido e o texto gravado, congelados NO PEDIDO. Saem do snapshot do
+        // produto que está no carrinho, não de uma releitura do catálogo — mudar a exigência no
+        // cadastro depois não pode alterar pedido já criado.
+        requires_material: requiresMaterial(item.product),
+        material_kinds: materialKindsOf(item.product),
+        engraving_text: item.engravingText ?? null,
+        // Compre Junto: de quais principais e de quais listas a peça veio (todos os que ainda estão
+        // na sacola, alinhados por posição). Informativa — o servidor recalcula o preço sem ler
+        // isto. As chaves batem com as colunas que o `create-order` aceita
+        // (`chavesDoItemDoPedido.test.ts`).
+        ...markColumns(marcas),
+      }
+    }),
     ...(bumpProduct
       ? [
           {
@@ -114,6 +126,9 @@ export function buildOrderItems(
             requires_material: false,
             material_kinds: [],
             engraving_text: null,
+            // O bump é oferta do checkout, nunca peça levada pelo Compre Junto.
+            accompanies_product_ids: null,
+            accompanies_list_ids: null,
           },
         ]
       : []),

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { accountNavItem, navGroups } from './navItems'
+import { isNavActive } from '../lib/isNavActive'
 
 // A estrutura da sidebar não tinha teste nenhum, e ela é um contrato com duas coisas: as rotas de
 // `app/App.tsx` e o hábito de quem usa o admin todo dia. Mover um item de grupo é fácil; mover sem
@@ -110,6 +111,9 @@ describe('navGroups — os quatro eixos', () => {
       '/admin/produtos',
       '/admin/categorias',
       '/admin/filtros',
+      // O Compre Junto: o grupo foi de quatro para CINCO — a lista foi reescrita para o conteúdo
+      // novo, e ganhou vizinha (o caso abaixo) em vez de virar `toContain`.
+      '/admin/compre-junto',
       '/admin/perguntas',
     ])
     // A afirmação que importa aqui, e que a lista acima só ilustra.
@@ -132,6 +136,25 @@ describe('navGroups — os quatro eixos', () => {
         '/admin/filtros/:groupId/valores/:valueId',
       ]),
     )
+  })
+
+  it('`Compre Junto` entra em Catálogo entre Filtros da loja e a Biblioteca, só com o índice', () => {
+    const catalogo = navGroups.find(g => g.label === 'Catálogo')!
+    const rotas = catalogo.items.map(i => i.to)
+    expect(rotas.indexOf('/admin/compre-junto')).toBe(rotas.indexOf('/admin/filtros') + 1)
+    expect(catalogo.items.find(i => i.to === '/admin/compre-junto')?.label).toBe('Compre Junto')
+    // As telas das listas são alcançadas de dentro do índice, e não são destino da sidebar.
+    expect(allItems.map(i => i.to).some(to => to.startsWith('/admin/compre-junto/'))).toBe(false)
+    expect(
+      appRoutePaths().filter(p => p.startsWith('/admin/compre-junto')),
+    ).toEqual([
+      '/admin/compre-junto',
+      '/admin/compre-junto/adesao',
+      '/admin/compre-junto/listas/nova',
+      '/admin/compre-junto/listas/:id',
+    ])
+    // A aba Adesão não é destino da sidebar, mas acende o item Compre Junto (casamento por segmento).
+    expect(isNavActive('/admin/compre-junto/adesao', '/admin/compre-junto')).toBe(true)
   })
 
   it('`Biblioteca de perguntas` entra em Catálogo, por último (features 28 e 46)', () => {

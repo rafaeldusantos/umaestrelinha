@@ -12,6 +12,8 @@ const PEÇA = {
   price: 189.9,
   quantity: 2,
   index: 3,
+  list_id: 'compre-junto',
+  list_name: 'Compre Junto',
 }
 
 describe('toAnalyticsItem — EVT-13', () => {
@@ -34,6 +36,8 @@ describe('toAnalyticsItem — EVT-13', () => {
       price: 189.9,
       quantity: 2,
       index: 3,
+      item_list_id: 'compre-junto',
+      item_list_name: 'Compre Junto',
     })
   })
 

@@ -871,3 +871,65 @@ describe('OrderConfirmationPage — pedido de retirada no escritório (RET-19, f
     expect(screen.getByText('A caminho')).toBeInTheDocument()
   })
 })
+
+describe('OrderConfirmationPage — a peça levada pelo Compre Junto', () => {
+  const linha = (o: Record<string, unknown>) => ({
+    id: String(o.product_id),
+    product_name: 'X',
+    product_image: null,
+    size: null,
+    finish: null,
+    quantity: 1,
+    unit_price: 50,
+    ...o,
+  })
+
+  it('a confirmação diz que a corrente acompanha o pingente', () => {
+    mockOrder({
+      data: order({
+        order_items: [
+          linha({ product_id: 'joia', product_name: 'Pingente Estrela' }),
+          linha({ product_id: 'corrente', product_name: 'Corrente Veneziana', accompanies_product_ids: ['joia'] }),
+        ] as any,
+      }),
+    })
+    renderPage()
+    const peca = screen.getByText('Corrente Veneziana').closest('li') as HTMLElement
+
+    expect(within(peca).getByText('Acompanha o Pingente Estrela')).toBeInTheDocument()
+  })
+
+  it('a corrente que acompanha dois principais diz "Acompanha o X e o Y"', () => {
+    mockOrder({
+      data: order({
+        order_items: [
+          linha({ product_id: 'joia', product_name: 'Pingente Estrela' }),
+          linha({ product_id: 'anel', product_name: 'Anel Lua' }),
+          linha({ product_id: 'corrente', product_name: 'Corrente Veneziana', accompanies_product_ids: ['joia', 'anel'] }),
+        ] as any,
+      }),
+    })
+    renderPage()
+    const peca = screen.getByText('Corrente Veneziana').closest('li') as HTMLElement
+
+    expect(within(peca).getByText('Acompanha o Pingente Estrela e o Anel Lua')).toBeInTheDocument()
+  })
+
+  it('o pedido sem Compre Junto não ganha frase nenhuma', () => {
+    // Duas peças: com uma só, nenhuma frase apareceria nem com a regra quebrada (não haveria
+    // "outra linha" para nomear).
+    mockOrder({
+      data: order({
+        order_items: [
+          linha({ product_id: 'joia', product_name: 'Pingente Estrela' }),
+          linha({ product_id: 'corrente', product_name: 'Corrente Veneziana', accompanies_product_ids: null }),
+        ] as any,
+      }),
+    })
+    renderPage()
+
+    // `Acompanha o ` e não `Acompanha`: a ação "Acompanhar pedido" da página casaria a forma curta.
+    expect(screen.getByText('Pingente Estrela')).toBeInTheDocument()
+    expect(screen.queryByText(/Acompanha o /)).not.toBeInTheDocument()
+  })
+})

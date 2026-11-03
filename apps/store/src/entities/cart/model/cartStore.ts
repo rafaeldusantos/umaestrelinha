@@ -14,6 +14,32 @@ export interface CartVariantInput {
   unitPrice: number
 }
 
+/**
+ * A marca "acompanha": esta linha foi levada junto de um principal pelo Compre Junto.
+ *
+ * Guarda o **id** do principal (e a lista de onde veio o adicional, quando veio de uma), nunca o
+ * nome: a frase "acompanha o X" é derivada na renderização a partir do que ainda está na sacola
+ * (`companionsOf`), então removido o principal ela some sozinha. A marca não decide preço — o
+ * servidor recalcula — e **não entra** na identidade da linha (`itemKey`).
+ */
+export interface CompanionMark {
+  /** O produto principal que o conjunto acompanhava. */
+  mainProductId: string
+  /** A lista de origem do adicional, ou `null` quando o adicional era uma peça avulsa. */
+  listId: string | null
+}
+
+/** Uma linha a entrar na sacola num gesto só (`addItems`). */
+export interface CartEntry {
+  product: Product
+  variant?: CartVariantInput
+  engravingText?: string | null
+  /** Padrão 1. */
+  quantity?: number
+  /** Presente nos adicionais do Compre Junto. */
+  accompanies?: CompanionMark
+}
+
 export interface CartItem {
   product: Product
   /** @deprecated Eixo fixo do modelo antigo. T18 substitui por `optionValues`. */
@@ -44,10 +70,17 @@ export interface CartItem {
    * único, e o parâmetro tem default.
    */
   engravingText?: string | null
+  /**
+   * Os principais que esta linha acompanha. Ausente = peça comum. Fora de `itemKey`: a peça avulsa
+   * e a do conjunto são a mesma linha, e uma peça levada por dois principais acumula as duas marcas.
+   */
+  accompanies?: CompanionMark[]
 }
 
 interface CartState {
   items: CartItem[]
+  /** Várias linhas num gesto: cada uma soma à existente de mesma identidade, ou nasce. */
+  addItems: (entries: CartEntry[]) => void
   addItem: (
     product: Product,
     size?: string,
@@ -97,6 +130,23 @@ const itemKey = (
 const keyOf = (i: CartItem) =>
   itemKey(i.product.id, i.size, i.finish, i.variantId, i.engravingText)
 
+const sameMark = (a: CompanionMark, b: CompanionMark) =>
+  a.mainProductId === b.mainProductId && a.listId === b.listId
+
+/**
+ * Os principais que a linha acompanha **e que ainda estão na sacola**, na ordem das marcas. A frase
+ * "acompanha o X e o Y" sai daqui: quem remove o principal tira a frase, sem escrever nada.
+ */
+export const companionsOf = (item: CartItem, items: CartItem[]): Product[] => {
+  const out: Product[] = []
+  for (const mark of item.accompanies ?? []) {
+    if (mark.mainProductId === item.product.id) continue
+    const main = items.find((i) => i.product.id === mark.mainProductId)
+    if (main && !out.some((p) => p.id === main.product.id)) out.push(main.product)
+  }
+  return out
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
@@ -131,6 +181,49 @@ export const useCartStore = create<CartState>()(
               },
             ],
           }
+        }),
+      addItems: (entries) =>
+        set((state) => {
+          let items = state.items
+          for (const entry of entries) {
+            const { product, variant, accompanies } = entry
+            const engravingText = entry.engravingText ?? null
+            const quantity = Math.max(1, entry.quantity ?? 1)
+            const key = itemKey(product.id, '', '', variant?.variantId, engravingText)
+            const existing = items.find((i) => keyOf(i) === key)
+            if (existing) {
+              items = items.map((i) => {
+                if (keyOf(i) !== key) return i
+                const marks = i.accompanies ?? []
+                const next =
+                  accompanies && !marks.some((m) => sameMark(m, accompanies))
+                    ? [...marks, accompanies]
+                    : marks
+                return {
+                  ...i,
+                  quantity: i.quantity + quantity,
+                  ...(next.length > 0 ? { accompanies: next } : {}),
+                }
+              })
+              continue
+            }
+            items = [
+              ...items,
+              {
+                product,
+                size: '',
+                finish: '',
+                quantity,
+                variantId: variant?.variantId ?? null,
+                variantLabel: variant?.variantLabel ?? '',
+                optionValues: variant?.optionValues ?? {},
+                unitPrice: variant?.unitPrice ?? product.price,
+                engravingText: engravingText || null,
+                ...(accompanies ? { accompanies: [accompanies] } : {}),
+              },
+            ]
+          }
+          return { items }
         }),
       removeItem: (productId, size = '', finish = '', variantId = null, engravingText = null) =>
         set((state) => ({
@@ -167,7 +260,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'estrelinha-cart',
-      version: 3,
+      version: 4,
       /**
        * O storage v1 é **descartado**, não convertido.
        *
@@ -186,6 +279,8 @@ export const useCartStore = create<CartState>()(
           const items = (persisted as { items?: CartItem[] })?.items ?? []
           return { items: items.map((i) => ({ ...i, engravingText: i.engravingText ?? null })) }
         }
+        // v3 → v4 **preserva**: só ganha o campo opcional `accompanies`, que ausente significa "peça
+        // comum". Nada a converter — o estado persistido segue válido como está.
         return persisted as { items: CartItem[] }
       },
     },

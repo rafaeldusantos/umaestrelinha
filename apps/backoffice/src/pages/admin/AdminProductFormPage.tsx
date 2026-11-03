@@ -27,6 +27,9 @@ import { isPersistFailure, isTempVariantId, persistProductRelations, type Persis
 import { marcacoesVigentes } from '@/features/product-form/model/optionMarks'
 import PublishChecklist from '@/features/product-form/ui/PublishChecklist'
 import PricingTab from '@/features/product-form/ui/tabs/PricingTab'
+import BuyTogetherTab from '@/features/product-form/ui/BuyTogetherTab'
+import { incompleteNote, addonsToSave, type AddonDraft } from '@/features/product-form/model/addons'
+import { persistAddons, addonsRefusal, type AddonsClient } from '@/features/product-form/model/persistAddons'
 import SupplierCard from '@/features/product-form/ui/SupplierCard'
 import SupplierSummaryCard from '@/features/product-form/ui/SupplierSummaryCard'
 import {
@@ -96,6 +99,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'precos', label: 'Preços & variações' },
   { id: 'seo', label: 'SEO' },
   { id: 'relacionados', label: 'Relacionados' },
+  { id: 'compre-junto', label: 'Compre junto' },
 ]
 
 const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -205,9 +209,16 @@ const AdminProductFormPage = () => {
     savedSlugRef.current = savedSnapshot.slug
   }
   const relatedIds = form.related_product_ids
-  const buyTogetherIds = form.buy_together_ids
   const setRelatedIds = (ids: string[]) => setField('related_product_ids', ids)
-  const setBuyTogetherIds = (ids: string[]) => setField('buy_together_ids', ids)
+  // Rascunhos antigos (de antes dos adicionais) não têm o campo.
+  const addons = form.buy_together_addons ?? []
+  const setAddons = (next: AddonDraft[]) => setField('buy_together_addons', next)
+  const addonsBlockedNote = incompleteNote(addons)
+  // Só as variações JÁ gravadas podem ser marcadas em "Some quando": a linha do adicional guarda o
+  // id, e a variação nova ainda tem id provisório.
+  const mainVariantOptions = form.variants
+    .filter(v => !isTempVariantId(v.id))
+    .map(v => ({ id: v.id, label: variantLabel(form.options, v.option_values) || v.name || 'Variação sem nome' }))
   // PFM-12: `computeMargin` exige `price > 0` **e** `cost > 0`. A conta anterior guardava só o
   // custo e, com preço 0, mandava `-Infinity` para a tela (defeito 11).
   const margin = computeMargin(form.price, form.cost_price)
@@ -340,6 +351,14 @@ const AdminProductFormPage = () => {
     // rascunho, ativo continua ativo. Havia um "Salvar e publicar" que gravava `is_active = true` e
     // punha na loja o produto desativado. Quem muda a visibilidade é o `ProductActiveControl`.
     const active = form.is_active
+    // Compre Junto: adicional sem lista ou peça não se grava, e a recusa de regra (teto, a própria
+    // joia, a peça repetida) vem de `core` — antes de qualquer escrita.
+    const adicionalRecusado = addonsBlockedNote ?? addonsRefusal(id ?? null, addons)
+    if (adicionalRecusado) {
+      toast({ title: adicionalRecusado, variant: 'destructive' })
+      focusField('compre-junto', 'compre-junto')
+      return
+    }
     // FOR-09/FOR-10: antes de qualquer gravação, e antes do bloqueio por erro — senão esta recusa
     // nunca seria alcançada. O `check` do banco recusaria o link depois de o produto já gravado.
     const fornecedorRecusado = supplierRowsRefusal(form.supplier_rows)
@@ -396,7 +415,6 @@ const AdminProductFormPage = () => {
       identifier_exists: form.identifier_exists,
       scheduled_at: form.scheduled_at || null,
       related_product_ids: relatedIds,
-      buy_together_ids: buyTogetherIds,
       // T21b: o modelo novo passa a ser gravado. `options` leva o `position` de cada eixo
       // (PFM-07 AC 5); `stock_policy` e `production_lead_days` são colunas da 07/T1.
       options: form.options,
@@ -492,6 +510,21 @@ const AdminProductFormPage = () => {
       void invalidateSuppliers(queryClient)
     }
 
+    // Compre Junto: depois do produto e dos fornecedores, só os adicionais DESTA joia.
+    if (savedId) {
+      const addonsError = await persistAddons(
+        supabase as unknown as AddonsClient,
+        savedId,
+        addons,
+        savedSnapshot.addons ?? [],
+      )
+      if (addonsError) {
+        toast({ title: 'O produto foi salvo, mas o Compre Junto não', description: addonsError, variant: 'destructive' })
+        setSaving(false)
+        return
+      }
+    }
+
     // P1.7 AC 8: o rascunho existe para sobreviver a um F5, não a um save. Mantê-lo depois do
     // save faria a próxima abertura oferecer de volta um estado que já é o do banco.
     draft.discard()
@@ -507,6 +540,7 @@ const AdminProductFormPage = () => {
       optionMarks: optionMarksVigentes,
       options: form.options,
       suppliers: supplierRowsToSave(fornecedores),
+      addons: addonsToSave(addons),
     })
 
     // Salvar mantém a página aberta. A releitura não é enfeite: as variações novas nasceram com id
@@ -570,6 +604,7 @@ const AdminProductFormPage = () => {
         isDirty={isDirty}
         draftSavedAt={draft.savedAt}
         saving={saving || uploading}
+        blockedNote={addonsBlockedNote}
         onBack={() => { if (draft.confirmLeave()) navigate(voltarPara) }}
         onDiscard={() => setDiscardOpen(true)}
         onSave={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
@@ -1049,9 +1084,16 @@ const AdminProductFormPage = () => {
               <FormCard title="Produtos relacionados">
                 <RelatedProductsSelect label="Produtos relacionados" selected={relatedIds} onChange={setRelatedIds} excludeId={id} />
               </FormCard>
-              <FormCard title="Compre junto">
-                <RelatedProductsSelect label="Compre junto" selected={buyTogetherIds} onChange={setBuyTogetherIds} excludeId={id} />
-              </FormCard>
+            </TabsContent>
+
+            {/* COMPRE JUNTO */}
+            <TabsContent value="compre-junto">
+              <BuyTogetherTab
+                mainProductId={isEdit ? id ?? null : null}
+                addons={addons}
+                onChange={setAddons}
+                mainVariants={mainVariantOptions}
+              />
             </TabsContent>
           </Tabs>
         </div>

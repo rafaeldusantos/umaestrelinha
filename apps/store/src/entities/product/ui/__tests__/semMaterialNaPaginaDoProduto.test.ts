@@ -52,6 +52,10 @@ const ESCOPO = [
   'entities/material/ui',
   'widgets/product-buy-bar',
   'pages/ProductPage.tsx',
+  // O Compre Junto: o estado e a leitura do bloco moram fora de `ui`, e o texto do bloco também
+  // nunca diz qual material uma peça exige (CA-03.13). O bloco em si está em `entities/product/ui`.
+  'entities/product/model/useBuyTogether.ts',
+  'entities/product/api/useBuyTogetherData.ts',
 ]
 
 const EXTENSOES = ['.ts', '.tsx']
@@ -156,6 +160,18 @@ describe('página do produto sem material afetivo — âncoras', () => {
     expect(nomes).toContain('entities/product/ui/ProductInfo.tsx')
     expect(nomes).toContain('widgets/product-buy-bar/ui/ProductBuyBar.tsx')
     expect(nomes).toContain('pages/ProductPage.tsx')
+  })
+
+  it('o escopo ALCANÇA o bloco Compre Junto — a peça adicional que exige material não é nomeada nele', () => {
+    const nomes = producao.map(a => a.rel)
+    expect(nomes).toContain('entities/product/ui/buy-together/BuyTogetherBlock.tsx')
+    expect(nomes).toContain('entities/product/ui/buy-together/AddonRow.tsx')
+    // As formas "Em folha" e "Com fórmula" (a escolha da dona no painel) estão no mesmo escopo.
+    expect(nomes).toContain('entities/product/ui/buy-together/AddonPanel.tsx')
+    expect(nomes).toContain('entities/product/ui/buy-together/AddonSheet.tsx')
+    expect(nomes).toContain('entities/product/ui/buy-together/FormulaStrip.tsx')
+    expect(nomes).toContain('entities/product/model/useBuyTogether.ts')
+    expect(nomes).toContain('entities/product/api/useBuyTogetherData.ts')
   })
 
   it('a régua ACUSA as SETE formas que nomeiam material — uma asserção por forma', () => {

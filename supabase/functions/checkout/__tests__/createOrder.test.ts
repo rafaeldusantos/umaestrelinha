@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
 import { createFakeSupabase, type FakeSupabaseOptions } from '../../_shared/testing/fakes.ts'
@@ -1088,5 +1092,148 @@ describe('create-order — retirada no escritório (RET-12)', () => {
     expect(corpo.reused).toBe(true)
     expect(supabase.inserts).toEqual([])
     expect(lidas).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+
+describe('create-order — a marca "acompanha" do Compre Junto', () => {
+  const LISTA = '7f1c2a9e-3b4d-4e5f-8a6b-1c2d3e4f5a6b'
+  const PRINCIPAL = {
+    product_id: 'joia',
+    product_name: 'Pingente Estrela',
+    quantity: 1,
+    unit_price: 200,
+    accompanies_product_ids: null,
+    accompanies_list_ids: null,
+  }
+  const ANEL = { ...PRINCIPAL, product_id: 'anel', product_name: 'Anel Lua' }
+  const ADICIONAL = {
+    product_id: 'corrente',
+    product_name: 'Corrente Veneziana',
+    quantity: 1,
+    unit_price: 80,
+    variant_id: 'var-45',
+    price_source: 'variant',
+    accompanies_product_ids: ['joia'],
+    accompanies_list_ids: [LISTA],
+  }
+
+  const itensGravados = (supabase: ReturnType<typeof createFakeSupabase>) =>
+    supabase.inserts.find((i) => i.table === 'order_items')?.values as unknown as Array<Record<string, unknown>>
+
+  const gravar = async (items: unknown[]) => {
+    const supabase = cenario()
+    const res = await route(criarDeps(supabase), pedir({ ...PEDIDO, items }))
+    expect(res.status).toBe(200)
+    return itensGravados(supabase)
+  }
+
+  it('grava o principal e a lista na linha adicional, e o principal fica sem marca', async () => {
+    const [principal, adicional] = await gravar([PRINCIPAL, ADICIONAL])
+
+    expect(adicional.accompanies_product_ids).toEqual(['joia'])
+    expect(adicional.accompanies_list_ids).toEqual([LISTA])
+    expect(principal).not.toHaveProperty('accompanies_product_ids')
+    expect(principal).not.toHaveProperty('accompanies_list_ids')
+  })
+
+  it('a linha que acompanha DOIS principais grava os dois, alinhados com as listas', async () => {
+    const [, , adicional] = await gravar([
+      PRINCIPAL,
+      ANEL,
+      { ...ADICIONAL, accompanies_product_ids: ['joia', 'anel'], accompanies_list_ids: [LISTA, null] },
+    ])
+
+    expect(adicional.accompanies_product_ids).toEqual(['joia', 'anel'])
+    expect(adicional.accompanies_list_ids).toEqual([LISTA, null])
+  })
+
+  it('a peça avulsa grava o principal com a lista nula', async () => {
+    const [, adicional] = await gravar([PRINCIPAL, { ...ADICIONAL, accompanies_list_ids: [null] }])
+
+    expect(adicional.accompanies_product_ids).toEqual(['joia'])
+    expect(adicional.accompanies_list_ids).toEqual([null])
+  })
+
+  it('descarta a marca cujo principal não está nos itens do pedido — sem nenhuma, a linha entra como peça comum', async () => {
+    const [, sem, parcial] = await gravar([
+      PRINCIPAL,
+      { ...ADICIONAL, accompanies_product_ids: ['outra-joia'] },
+      { ...ADICIONAL, product_id: 'brinco', accompanies_product_ids: ['outra-joia', 'joia'], accompanies_list_ids: [LISTA, null] },
+    ])
+
+    expect(sem).not.toHaveProperty('accompanies_product_ids')
+    expect(sem).not.toHaveProperty('accompanies_list_ids')
+    expect(sem.product_id).toBe('corrente')
+    // Só a marca de fora cai; a lista que ia com ela cai junto, e o alinhamento se mantém.
+    expect(parcial.accompanies_product_ids).toEqual(['joia'])
+    expect(parcial.accompanies_list_ids).toEqual([null])
+  })
+
+  it('descarta a marca forjada: lista que não é id, principal que não é texto, a própria peça, coluna que não é array', async () => {
+    const itens = await gravar([
+      PRINCIPAL,
+      { ...ADICIONAL, accompanies_list_ids: ["x'); drop table orders; --"] },
+      { ...ADICIONAL, product_id: 'brinco', accompanies_product_ids: [{ $ne: null }] },
+      { ...ADICIONAL, product_id: 'anel', accompanies_product_ids: ['anel'] },
+      { ...ADICIONAL, product_id: 'colar', accompanies_product_ids: 'joia' },
+    ])
+
+    for (const linha of itens.slice(1)) {
+      expect(linha).not.toHaveProperty('accompanies_product_ids')
+      expect(linha).not.toHaveProperty('accompanies_list_ids')
+    }
+    expect(itens).toHaveLength(5) // âncora: a venda segue, só a marca cai
+  })
+
+  it('não grava coluna fora da lista — nem `order_id` nem `id` vindos do navegador', async () => {
+    const [linha] = await gravar([
+      { ...ADICIONAL, accompanies_product_ids: null, order_id: 'pedido-de-outra', id: 'id-forjado', desconto_extra: 50 },
+    ])
+
+    expect(linha.order_id).toBe('ord-1')
+    expect(linha).not.toHaveProperty('id')
+    expect(linha).not.toHaveProperty('desconto_extra')
+    expect(Object.keys(linha).sort()).toEqual(
+      ['order_id', 'price_source', 'product_id', 'product_name', 'quantity', 'unit_price', 'variant_id'].sort(),
+    )
+  })
+
+  it('leva TODAS as colunas de hoje do item ao banco', async () => {
+    const completo = {
+      product_id: 'joia',
+      product_name: 'Pingente',
+      product_image: 'https://img/x.webp',
+      size: 'P',
+      finish: 'Fosco',
+      quantity: 2,
+      unit_price: 150,
+      variant_id: 'v1',
+      price_source: 'variant',
+      variant_label: 'P · Fosco',
+      variant_options: { Tamanho: 'P' },
+      requires_material: true,
+      material_kinds: ['cinzas'],
+      engraving_text: 'Ana',
+    }
+    const [linha] = await gravar([completo])
+
+    expect(linha).toEqual({ ...completo, order_id: 'ord-1' })
+  })
+
+  it('a marca não mexe no preço: o valor da linha é o que veio, e o `create-payment` não lê a marca', async () => {
+    const [, adicional] = await gravar([PRINCIPAL, ADICIONAL])
+    expect(adicional.unit_price).toBe(80)
+    expect(adicional.price_source).toBe('variant')
+    expect(adicional.variant_id).toBe('var-45')
+
+    // O recálculo do pagamento lê `order_items` por colunas explícitas de preço; a marca não entra.
+    const fonte = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../mercado-pago/handlers.ts'),
+      'utf8',
+    )
+    expect(fonte).toContain('.select("id, product_id, quantity, unit_price, variant_id, price_source")')
+    expect(fonte).not.toMatch(/accompanies/)
   })
 })

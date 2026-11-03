@@ -214,7 +214,7 @@ describe('errorsByTab — badge de pendência (PFM-11 AC 2)', () => {
   it('conta erros por aba e deixa as abas sem erro em 0', () => {
     const counts = errorsByTab(validateProduct(form({ name: '', price: 0 })))
     // Feature 85 (MOD-01): a aba `midia` saiu da lista, e com ela a chave do mapa de contagens.
-    expect(counts).toEqual({ geral: 1, perguntas: 0, precos: 1, seo: 0, relacionados: 0 })
+    expect(counts).toEqual({ geral: 1, perguntas: 0, precos: 1, seo: 0, relacionados: 0, 'compre-junto': 0 })
   })
 
   it('formulário válido deixa todas as abas em 0', () => {
@@ -225,6 +225,7 @@ describe('errorsByTab — badge de pendência (PFM-11 AC 2)', () => {
       precos: 0,
       seo: 0,
       relacionados: 0,
+      'compre-junto': 0,
     })
   })
 
