@@ -42,6 +42,7 @@ const produto = (key: string, alvo: string, extra: Partial<AddonDraft> = {}, id:
   listId: null,
   targetVariantIds: [],
   hiddenOnVariantIds: [],
+  discountPercent: null,
   ...extra,
 })
 const lista = (key: string, listId: string, extra: Partial<AddonDraft> = {}, id: string | null = null): AddonDraft => ({
@@ -52,6 +53,7 @@ const lista = (key: string, listId: string, extra: Partial<AddonDraft> = {}, id:
   listId,
   targetVariantIds: [],
   hiddenOnVariantIds: [],
+  discountPercent: null,
   ...extra,
 })
 
@@ -86,6 +88,7 @@ describe('persistAddons', () => {
             list_id: null,
             target_variant_ids: [],
             hidden_on_variant_ids: ['v1'],
+            discount_percent: null,
           },
         ],
       },
@@ -101,6 +104,7 @@ describe('persistAddons', () => {
             list_id: 'L1',
             target_variant_ids: [],
             hidden_on_variant_ids: [],
+            discount_percent: null,
           },
         ],
       },
@@ -162,6 +166,49 @@ describe('persistAddons', () => {
   })
 })
 
+describe('o desconto ao levar junto na gravação', () => {
+  it('mudar só o percentual grava, e o corpo leva discount_percent (igualdade exata)', async () => {
+    const { client, chamadas } = dublê()
+    const salvo = [lista('a', 'L1', {}, 'ad1')]
+    expect(await persistAddons(client, 'p1', [lista('a', 'L1', { discountPercent: 10 }, 'ad1')], salvo)).toBeNull()
+    expect(chamadas).toEqual([
+      {
+        table: 'product_buy_together',
+        op: 'upsert',
+        onConflict: 'id',
+        payload: [
+          {
+            id: 'ad1',
+            product_id: 'p1',
+            position: 0,
+            kind: 'list',
+            target_product_id: null,
+            list_id: 'L1',
+            target_variant_ids: [],
+            hidden_on_variant_ids: [],
+            discount_percent: 10,
+          },
+        ],
+      },
+    ])
+  })
+
+  it('o adicional novo leva o percentual no insert; vazio vai como null', async () => {
+    const { client, chamadas } = dublê()
+    await persistAddons(client, 'p1', [produto('a', 'x', { discountPercent: 50 }), lista('b', 'L1')], [])
+    expect((chamadas[0].payload as Array<{ discount_percent: unknown }>).map(r => r.discount_percent)).toEqual([50, null])
+  })
+
+  it('percentual fora de 1% a 50%, ou não inteiro, é recusado antes de qualquer escrita', async () => {
+    const { client, chamadas } = dublê()
+    const frase = 'O desconto ao levar junto é um número inteiro de 1% a 50%.'
+    for (const p of [0, 51, 10.5]) {
+      expect(await persistAddons(client, 'p1', [lista('a', 'L1', { discountPercent: p })], [])).toBe(frase)
+    }
+    expect(chamadas).toEqual([])
+  })
+})
+
 describe('addonsRefusal', () => {
   it('produto novo (sem id) não tem "a própria joia" para recusar', () => {
     expect(addonsRefusal(null, [produto('a', 'x')])).toBeNull()
@@ -191,6 +238,11 @@ describe('a carga', () => {
     const row = { id: 'p1', name: 'Anel', product_buy_together: [linha('a', 0)] }
     expect(productRowToForm(row).buy_together_addons[0].id).toBe('a')
     expect(productRowToForm(row, { asCopy: true }).buy_together_addons.map(a => a.id)).toEqual([null])
+  })
+
+  it('carrega o percentual gravado; a linha sem ele abre sem desconto', () => {
+    const r = addonsFromRow({ product_buy_together: [linha('a', 0, { discount_percent: 15 }), linha('b', 1)] })
+    expect(r.map(a => a.discountPercent)).toEqual([15, null])
   })
 
   it('sem o embed, o formulário abre sem adicionais', () => {

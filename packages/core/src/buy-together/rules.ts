@@ -14,6 +14,10 @@ export const BUY_TOGETHER_LIST_ITEMS_MAX = 12
 /** O teto do nome da lista, igual ao `check` do nome na migration. */
 export const BUY_TOGETHER_LIST_NAME_MAX = 40
 
+/** O desconto ao levar junto: percentual inteiro desta faixa. É o `check` de `discount_percent`. */
+export const BUY_TOGETHER_DISCOUNT_MIN = 1
+export const BUY_TOGETHER_DISCOUNT_MAX = 50
+
 /** Quantos nomes a recusa de apagar cita antes de dizer "e outras". */
 const NAMES_SHOWN = 3
 
@@ -50,6 +54,17 @@ export const listDeleteRefusal = (productNames: readonly string[]): string | nul
   return n === 1
     ? `Esta lista está em uso em 1 joia (${lista}). Tire-a dela antes de excluir.`
     : `Esta lista está em uso em ${n} joias (${lista}). Tire-a delas antes de excluir.`
+}
+
+/**
+ * O desconto do adicional. Vazio (`null`) é "sem desconto" e passa; fora de 1..50, ou não inteiro,
+ * é recusado — o banco recusa também (`check`).
+ */
+export const addonDiscountRefusal = (percent: number | null | undefined): string | null => {
+  if (percent === null || percent === undefined) return null
+  return Number.isInteger(percent) && percent >= BUY_TOGETHER_DISCOUNT_MIN && percent <= BUY_TOGETHER_DISCOUNT_MAX
+    ? null
+    : `O desconto ao levar junto é um número inteiro de ${BUY_TOGETHER_DISCOUNT_MIN}% a ${BUY_TOGETHER_DISCOUNT_MAX}%.`
 }
 
 export const addonIsMainRefusal = (mainProductId: string, targetProductId: string): string | null =>

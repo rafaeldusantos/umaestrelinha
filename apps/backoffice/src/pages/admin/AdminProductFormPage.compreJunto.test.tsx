@@ -49,7 +49,10 @@ vi.mock('@estrelinha/supabase/client', async () => {
     if (r.table === 'buy_together_lists') return { data: banco.listas }
     if (r.table === 'buy_together_list_items') {
       return {
-        data: banco.itens.map(i => ({ ...i, product: banco.produtos.find(p => p.id === i.product_id) ?? null })),
+        data: banco.itens.map(i => {
+          const p = banco.produtos.find(x => x.id === i.product_id)
+          return { ...i, product: p ? { ...p, product_variants: banco.variacoes.filter(v => v.product_id === p.id) } : null }
+        }),
       }
     }
     if (r.table === 'buy_together_list_usage') return { data: banco.usos }
@@ -432,6 +435,7 @@ describe('o salvar', () => {
         list_id: 'l1',
         target_variant_ids: [],
         hidden_on_variant_ids: [V_CHAVEIRO],
+        discount_percent: null,
       },
     ])
   })
@@ -581,5 +585,108 @@ describe('as variações oferecidas', () => {
     expect(await within(a).findByTestId('resumo-variacoes-0')).toHaveTextContent('Variações oferecidas: 1 de 2')
     expect(within(a).getByRole('button', { name: 'Esconder' })).toHaveAttribute('aria-expanded', 'true')
     expect(within(a).getByRole('button', { name: /Ouro/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+describe('o desconto ao levar junto', () => {
+  const campo = (n: number) => within(adicionalN(n)).getByRole('spinbutton', { name: 'Desconto em percentual' })
+  const digitar = (n: number, valor: string) => fireEvent.change(campo(n), { target: { value: valor } })
+  /** O texto cru, sem a normalização da Testing Library: o espaço do `R$` é o não separável do Intl. */
+  const previa = (n: number) => screen.getByTestId(`previa-desconto-${n}`).textContent?.replace(/\u00a0/g, ' ')
+
+  it('vazio quer dizer sem desconto: nenhum percentual, nenhuma prévia, e a ajuda não fala em concorrer com o cupom', async () => {
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: FITA })]
+    montar()
+    await abrirAba()
+    expect(campo(0)).toHaveValue(null)
+    expect(screen.queryByTestId('previa-desconto-0')).toBeNull()
+    const bloco = screen.getByTestId('desconto-0')
+    expect(within(bloco).getByText('Desconto ao levar junto')).toBeInTheDocument()
+    expect(bloco).toHaveTextContent(
+      'Percentual sobre esta peça quando a joia principal estiver no mesmo pedido. Vale o menor preço se a peça também estiver em promoção.',
+    )
+    expect(bloco.textContent).not.toMatch(/cupom|economiz|!/i)
+  })
+
+  it('51 é recusado no campo com a frase de core, e o salvar não escreve nada no Compre Junto', async () => {
+    const { toast } = await import('@estrelinha/ui/hooks/use-toast')
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: FITA })]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(screen.getByTestId('peca-escolhida-0')).toHaveTextContent('Fita de Cetim'))
+    digitar(0, '51')
+    const frase = 'O desconto ao levar junto é um número inteiro de 1% a 50%.'
+    expect(within(adicionalN(0)).getByRole('alert')).toHaveTextContent(frase)
+    expect(campo(0)).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.queryByTestId('previa-desconto-0')).toBeNull()
+    await salvar()
+    expect(vi.mocked(toast)).toHaveBeenCalledWith(expect.objectContaining({ title: frase }))
+    expect(banco.produtosPayload).toEqual([])
+    expect(escritasDeAdicionais()).toEqual([])
+  })
+
+  it('a prévia diz por quanto a peça sai com esta joia, pela conta de core', async () => {
+    banco.produtos = banco.produtos.map(p => (p.id === FITA ? { ...p, base_price: 79 } : p))
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: FITA })]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(screen.getByTestId('peca-escolhida-0')).toHaveTextContent('Fita de Cetim'))
+    digitar(0, '10')
+    expect(previa(0)).toBe('Fita de Cetim sai a R$ 71,10 com esta joia.')
+  })
+
+  it('com variações liberadas de preços diferentes, a prévia fala da faixa', async () => {
+    banco.variacoes = [
+      variacao(V_PRATA, PINGENTE, 'Prata', 0),
+      { ...variacao(V_OURO, PINGENTE, 'Ouro', 1), price: 70 },
+    ]
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: PINGENTE })]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(screen.getByTestId('peca-escolhida-0')).toHaveTextContent('Pingente Estrela'))
+    digitar(0, '10')
+    expect(previa(0)).toBe('Pingente Estrela sai de R$ 45,00 a R$ 63,00 com esta joia.')
+  })
+
+  it('numa lista, a faixa vai do menor ao maior preço das peças dela', async () => {
+    banco.itens = [
+      { list_id: 'l1', product_id: FITA, position: 0, variant_ids: [] },
+      { list_id: 'l1', product_id: PINGENTE, position: 1, variant_ids: [] },
+    ]
+    banco.produtos = banco.produtos.map(p => (p.id === FITA ? { ...p, base_price: 25 } : p))
+    banco.variacoes = [
+      variacao(V_PRATA, PINGENTE, 'Prata', 0),
+      { ...variacao(V_OURO, PINGENTE, 'Ouro', 1), price: 70 },
+    ]
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { kind: 'list', target_product_id: null, list_id: 'l1' })]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(within(adicionalN(0)).getByText('Correntes', { selector: 'p' })).toBeInTheDocument())
+    digitar(0, '15')
+    expect(previa(0)).toBe('As peças de Correntes saem de R$ 21,25 a R$ 59,50 com esta joia.')
+  })
+
+  it('mudar só o percentual grava, e o corpo leva discount_percent', async () => {
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: FITA, discount_percent: 10 })]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(campo(0)).toHaveValue(10))
+    digitar(0, '15')
+    await salvar()
+    const escritas = escritasDeAdicionais()
+    expect(escritas).toHaveLength(1)
+    expect(escritas[0].upsert!.rows).toEqual([
+      {
+        id: 'ad1',
+        product_id: PRINCIPAL,
+        position: 0,
+        kind: 'product',
+        target_product_id: FITA,
+        list_id: null,
+        target_variant_ids: [],
+        hidden_on_variant_ids: [],
+        discount_percent: 15,
+      },
+    ])
   })
 })

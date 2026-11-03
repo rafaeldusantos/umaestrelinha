@@ -13,7 +13,7 @@ import { toRows, type DraftItem } from '../model/draft'
 
 export const LIST_COLUMNS = 'id, name, updated_at'
 export const LIST_ITEM_COLUMNS =
-  'list_id, product_id, position, variant_ids, product:products(id, name, is_active, base_price, image_url, capa:images->0->>url)'
+  'list_id, product_id, position, variant_ids, product:products(id, name, is_active, base_price, image_url, capa:images->0->>url, product_variants(id, price, is_active))'
 export const USAGE_COLUMNS = 'list_id, product_id, product_name'
 
 export const BUY_TOGETHER_LISTS_KEY = ['buy-together', 'lists'] as const
@@ -24,6 +24,10 @@ export interface PecaDaLista {
   ativa: boolean
   imagem: string | null
   variantIds: string[]
+  /** O preço da peça sem grade. */
+  precoBase: number
+  /** As variações ATIVAS, com o preço — a faixa da prévia do desconto no produto. */
+  variacoes: { id: string; preco: number | null }[]
 }
 
 export interface ListaDoCompreJunto {
@@ -43,8 +47,10 @@ interface LinhaDeItem {
   product: {
     name: string
     is_active: boolean
+    base_price: number | string | null
     image_url: string | null
     capa: string | null
+    product_variants?: Array<{ id: string; price: number | string | null; is_active: boolean }> | null
   } | null
 }
 
@@ -74,6 +80,10 @@ export const lerListas = async (): Promise<ListaDoCompreJunto[]> => {
       ativa: l.product?.is_active === true,
       imagem: l.product ? capaDaLinha(l.product) : null,
       variantIds: l.variant_ids ?? [],
+      precoBase: Number(l.product?.base_price ?? 0) || 0,
+      variacoes: (l.product?.product_variants ?? [])
+        .filter(v => v.is_active === true)
+        .map(v => ({ id: String(v.id), preco: v.price === null || v.price === undefined || v.price === '' ? null : Number(v.price) })),
     }
     pecasPorLista.set(l.list_id, [...(pecasPorLista.get(l.list_id) ?? []), peca])
   }

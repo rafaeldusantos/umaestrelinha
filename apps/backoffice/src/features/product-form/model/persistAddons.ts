@@ -12,6 +12,7 @@
 
 import {
   addonCountRefusal,
+  addonDiscountRefusal,
   addonIsMainRefusal,
   addonRepeatedRefusal,
 } from '@estrelinha/core/buy-together'
@@ -36,13 +37,18 @@ export interface AddonsClient {
 const TABELA = 'product_buy_together'
 
 /**
- * A recusa dos adicionais, antes de qualquer gravação: o teto, a joia como adicional de si mesma e
- * a mesma peça em dois adicionais — as réguas de `core`. `null` = pode gravar.
+ * A recusa dos adicionais, antes de qualquer gravação: o teto, o desconto fora de 1% a 50%, a joia
+ * como adicional de si mesma e a mesma peça em dois adicionais — as réguas de `core`. `null` = pode
+ * gravar.
  */
 export const addonsRefusal = (mainProductId: string | null, addons: readonly AddonDraft[]): string | null => {
   const completos = addonsToSave(addons)
   const teto = addonCountRefusal(completos.length)
   if (teto) return teto
+  for (const a of completos) {
+    const desconto = addonDiscountRefusal(a.discountPercent)
+    if (desconto) return desconto
+  }
   const vistos: string[] = []
   for (const a of completos) {
     if (a.kind !== 'product' || a.targetProductId === null) continue
@@ -63,6 +69,7 @@ const linha = (productId: string, a: AddonDraft, position: number) => ({
   list_id: a.kind === 'list' ? a.listId : null,
   target_variant_ids: a.kind === 'product' ? a.targetVariantIds : [],
   hidden_on_variant_ids: a.hiddenOnVariantIds,
+  discount_percent: a.discountPercent ?? null,
 })
 
 /**

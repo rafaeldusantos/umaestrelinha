@@ -43,6 +43,11 @@ export interface AddonConfig {
   targetVariantIds: readonly string[]
   /** O adicional some quando a variação escolhida do principal está aqui. */
   hiddenOnVariantIds: readonly string[]
+  /**
+   * O desconto ao levar junto, em percentual inteiro de 1 a 50 (`discount_percent`). `null` ou
+   * ausente = sem desconto. O preço com desconto é `buyTogetherDiscountedPrice` (`discount.ts`).
+   */
+  discountPercent?: number | null
 }
 
 export interface AddonList {

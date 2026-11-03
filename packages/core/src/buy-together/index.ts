@@ -1,4 +1,5 @@
 export * from './availability.ts'
+export * from './discount.ts'
 export * from './marks.ts'
 export * from './rules.ts'
 export * from './settings.ts'

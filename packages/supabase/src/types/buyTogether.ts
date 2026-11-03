@@ -28,6 +28,8 @@ export interface DbProductBuyTogether {
   list_id: string | null
   target_variant_ids: string[]
   hidden_on_variant_ids: string[]
+  /** O desconto ao levar junto, inteiro de 1 a 50 (`check`); `null` = sem desconto. */
+  discount_percent: number | null
   created_at: string
 }
 

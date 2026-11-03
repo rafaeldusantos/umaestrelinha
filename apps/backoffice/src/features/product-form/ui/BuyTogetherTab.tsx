@@ -1,6 +1,8 @@
-// A aba "Compre junto" do formulário do produto: até três adicionais, cada um uma peça ou uma lista.
+// A aba "Compre junto" do formulário do produto: até três adicionais, cada um uma peça ou uma lista,
+// e o desconto ao levar junto de cada um.
 //
-// Nenhuma regra é redigida aqui. O teto, a joia como adicional de si mesma e a peça repetida vêm de
+// Nenhuma regra é redigida aqui. O teto, o desconto de 1% a 50%, a joia como adicional de si mesma,
+// a peça repetida e o preço com desconto (a prévia) vêm de
 // `@estrelinha/core/buy-together` (via `../model/addons`), e a busca é o `ProductSearchField` — o
 // painel não desenha vitrine (`AD-019`). A peça é lida por id (`useProductVariants`), nunca por nome.
 // O rascunho vive no formulário do produto e é gravado DEPOIS dele (`persistAddons`).
@@ -8,9 +10,16 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
 import { Card, CardContent, CardHeader } from '@estrelinha/ui/card'
 import { cn } from '@estrelinha/ui/lib/utils'
-import { BUY_TOGETHER_ADDONS_MAX, addonCountRefusal } from '@estrelinha/core/buy-together'
+import {
+  BUY_TOGETHER_ADDONS_MAX,
+  BUY_TOGETHER_DISCOUNT_MAX,
+  BUY_TOGETHER_DISCOUNT_MIN,
+  addonCountRefusal,
+  addonDiscountRefusal,
+} from '@estrelinha/core/buy-together'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { PecaFoto, ProductSearchField, useProductVariants } from '@/entities/product'
 import { useBuyTogetherLists, type ListaDoCompreJunto } from '@/features/buy-together-lists'
@@ -24,12 +33,14 @@ import {
   moveAddon,
   releaseAllTargetVariants,
   removeAddon,
+  setDiscount,
   setKind,
   targetsOutside,
   toggleHiddenOn,
   toggleTargetVariant,
   type AddonDraft,
 } from '../model/addons'
+import { discountPreviewLine, precosDaPeca } from '../model/discountPreview'
 
 export interface MainVariantOption {
   id: string
@@ -315,6 +326,73 @@ const ProductChoice = ({
   )
 }
 
+/**
+ * "Desconto ao levar junto": o percentual do adicional e, ao lado, por quanto a peça sai com esta
+ * joia. Vazio = sem desconto. A recusa e a conta são de `core`; a tela só as escreve.
+ */
+const DiscountField = ({
+  index,
+  addon,
+  addons,
+  precos,
+  sujeito,
+  onChange,
+}: Pick<RowProps, 'index' | 'addon' | 'addons' | 'onChange'> & {
+  precos: number[]
+  sujeito: { nome: string; plural: boolean }
+}) => {
+  const id = `desconto-adicional-${index + 1}`
+  const recusa = addonDiscountRefusal(addon.discountPercent)
+  const previa = discountPreviewLine(sujeito, precos, addon.discountPercent, recusa !== null)
+  return (
+    <div data-testid={`desconto-${index}`} className="grid grid-cols-1 gap-2 border-t border-border/60 pt-3 lg:grid-cols-[minmax(0,1fr)_120px] lg:items-start lg:gap-4">
+      <div className="min-w-0 space-y-1">
+        <label htmlFor={id} className="text-xs font-medium text-foreground">
+          Desconto ao levar junto
+        </label>
+        <p className={HINT}>
+          Percentual sobre esta peça quando a joia principal estiver no mesmo pedido. Vale o menor preço se a peça
+          também estiver em promoção.
+        </p>
+      </div>
+      <div className="min-w-0 space-y-1">
+        <div className="relative w-full max-w-[120px]">
+          <Input
+            id={id}
+            type="number"
+            inputMode="numeric"
+            min={BUY_TOGETHER_DISCOUNT_MIN}
+            max={BUY_TOGETHER_DISCOUNT_MAX}
+            step={1}
+            aria-label="Desconto em percentual"
+            aria-invalid={recusa !== null}
+            aria-describedby={recusa ? `${id}-recusa` : previa ? `${id}-previa` : undefined}
+            placeholder="Sem"
+            className="h-11 pr-8"
+            value={addon.discountPercent ?? ''}
+            onChange={e => {
+              const v = e.target.value.trim()
+              onChange(setDiscount(addons, addon.key, v === '' ? null : Number(v.replace(',', '.'))))
+            }}
+          />
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+            %
+          </span>
+        </div>
+      </div>
+      {recusa ? (
+        <p id={`${id}-recusa`} role="alert" className="text-xs text-destructive lg:col-span-2">
+          {recusa}
+        </p>
+      ) : previa ? (
+        <p id={`${id}-previa`} data-testid={`previa-desconto-${index}`} className="min-w-0 break-words text-xs text-muted-foreground lg:col-span-2">
+          {previa}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 const AddonRow = ({ index, total, addon, addons, mainProductId, mainVariants, listas, onChange, onRemove }: RowProps) => {
   const { peca } = useProductVariants(addon.kind === 'product' ? addon.targetProductId : null)
   const lista = listas.find(l => l.id === addon.listId)
@@ -322,6 +400,20 @@ const AddonRow = ({ index, total, addon, addons, mainProductId, mainVariants, li
     addon.kind === 'list' ? lista?.name : peca?.nome
   const titulo = nome ?? `Adicional ${index + 1}`
   const escondidoEm = someCom(addon, mainVariants)
+  // Os preços cheios que o adicional oferece: os da peça (variações liberadas) ou os das peças da
+  // lista que a loja mostraria — as ativas, menos esta joia, que é pulada.
+  const precos =
+    addon.kind === 'list'
+      ? (lista?.pecas ?? [])
+          .filter(p => p.ativa && p.productId !== mainProductId)
+          .flatMap(p => precosDaPeca(p.precoBase, p.variacoes, p.variantIds))
+      : peca && peca.ativa
+        ? precosDaPeca(peca.precoBase, peca.variacoes, addon.targetVariantIds)
+        : []
+  const sujeito =
+    addon.kind === 'list'
+      ? { nome: lista ? `As peças de ${lista.name}` : 'As peças da lista', plural: true }
+      : { nome: peca?.nome || 'A peça', plural: false }
 
   return (
     <li data-testid={`adicional-${index}`} className="space-y-3 rounded-xl border border-border/60 p-3">
@@ -418,6 +510,8 @@ const AddonRow = ({ index, total, addon, addons, mainProductId, mainVariants, li
           </p>
         </div>
       )}
+
+      <DiscountField index={index} addon={addon} addons={addons} precos={precos} sujeito={sujeito} onChange={onChange} />
     </li>
   )
 }
