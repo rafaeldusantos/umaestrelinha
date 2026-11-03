@@ -8,12 +8,13 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { NOTIFICATION_EVENT_NAMES } from '@estrelinha/core/notifications'
 import { buildHistory, type HistoryEvent } from '@estrelinha/core/orders'
 
-import type { Bloco, ItemComFoto, ItemDoPedido } from '@/entities/order'
+import type { Bloco, ItemComFoto, ItemDoPedido, PedidoDoDetalhe } from '@/entities/order'
 import { FALHA_DE_LEITURA, TENTAR_DE_NOVO } from '@/shared/ui/leitura'
 import { COM_CUPOM_E_PIX, DETALHE_DE_RETIRADA, EMAIL_FALHO, ITEM_COM_GRAVACAO, NOTA, detalhe, item, statusRow } from '@/test/pedidos'
 import BlocoEntrega from '../ui/BlocoEntrega'
 import BlocoItens from '../ui/BlocoItens'
 import BlocoValores from '../ui/BlocoValores'
+import { resumoDoPedido } from '../model/resumo'
 import Historico from '../ui/Historico'
 
 const LIDO_EM = '2026-10-23T14:30:00.123456+00:00'
@@ -23,6 +24,12 @@ const FALHOU = { estado: 'falhou' } as const
 const itens = (lista: ItemDoPedido[], foto: string | null = null): Bloco<ItemComFoto[]> =>
   ok(lista.map((i) => ({ ...i, foto })))
 const parte = (nome: string) => document.querySelector(`[data-parte="${nome}"]`)
+/** A linha de um desconto, pela chave de `orderSummary` (`core/orders`). */
+const desconto = (chave: string) => document.querySelector(`[data-parte="desconto"][data-desconto="${chave}"]`)
+/** Os valores como o detalhe os monta: o pedido e o resumo de `orderSummary`, sobre os itens dados. */
+const valores = (pedido: PedidoDoDetalhe, lista: ItemDoPedido[] = [item()]) => (
+  <BlocoValores pedido={pedido} resumo={resumoDoPedido(pedido, ok(lista))} />
+)
 const sem = (s: string | null | undefined) => (s ?? '').replace(/\s/g, ' ')
 
 describe('os itens (MAP-24)', () => {
@@ -94,34 +101,49 @@ describe('os itens (MAP-24)', () => {
 describe('os valores (MAP-25, A15, A30)', () => {
   it('o Total é `orders.total` SEM recalcular — a soma das linhas daria outro número', () => {
     // 400 + 19,90 − 20 = 399,90; o banco diz 389,90. A tela diz o que o banco diz.
-    render(<BlocoValores pedido={detalhe({ subtotal: 400, shipping_cost: 19.9, pix_discount: 20, total: 389.9 })} />)
+    render(valores(detalhe({ subtotal: 400, shipping_cost: 19.9, pix_discount: 20, total: 389.9 })))
     expect(sem(parte('total')?.textContent)).toBe(sem(`Total${formatPrice(389.9)}`))
     expect(sem(parte('total')?.textContent)).not.toContain(sem(formatPrice(399.9)))
   })
 
   it('subtotal e "Frete · <serviço>" com o valor', () => {
-    render(<BlocoValores pedido={detalhe({ subtotal: 400, shipping_cost: 19.9, shipping_method: 'PAC' })} />)
+    render(valores(detalhe({ subtotal: 400, shipping_cost: 19.9, shipping_method: 'PAC' })))
     expect(sem(parte('subtotal')?.textContent)).toBe(sem(`Subtotal${formatPrice(400)}`))
     expect(sem(parte('frete')?.textContent)).toBe(sem(`Frete · PAC${formatPrice(19.9)}`))
   })
 
   it('frete com custo zero diz "grátis"; na retirada, o serviço é "Retirada no escritório"', () => {
-    render(<BlocoValores pedido={DETALHE_DE_RETIRADA} />)
+    render(valores(DETALHE_DE_RETIRADA))
     expect(parte('frete')?.textContent).toBe('Frete · Retirada no escritóriográtis')
   })
 
-  it('cupom com o código e o desconto do Pix, cada um só quando > 0', () => {
-    render(<BlocoValores pedido={COM_CUPOM_E_PIX} />)
-    expect(sem(parte('cupom')?.textContent)).toBe(sem(`Cupom ESTRELA10− ${formatPrice(40)}`))
-    expect(sem(parte('pix')?.textContent)).toBe(sem(`Desconto do Pix− ${formatPrice(18)}`))
-    expect(parte('promocao')).toBeNull()
+  it('cupom com o código e o desconto do PIX, cada um só quando > 0, com os rótulos de `core`', () => {
+    render(valores(COM_CUPOM_E_PIX))
+    expect(sem(desconto('coupon')?.textContent)).toBe(sem(`Cupom ESTRELA10− ${formatPrice(40)}`))
+    expect(sem(desconto('pix')?.textContent)).toBe(sem(`Desconto PIX− ${formatPrice(18)}`))
+    expect(desconto('promotion')).toBeNull()
+    expect(desconto('buy_together')).toBeNull()
   })
 
-  it('promoção > 0 aparece; desconto zero não desenha linha nenhuma', () => {
-    render(<BlocoValores pedido={detalhe({ discount: 0, pix_discount: 0, promotion_discount: 35 })} />)
-    expect(sem(parte('promocao')?.textContent)).toBe(sem(`Promoção− ${formatPrice(35)}`))
-    expect(parte('cupom')).toBeNull()
-    expect(parte('pix')).toBeNull()
+  it('o desconto progressivo do pedido de antes NÃO vira linha ao lado do subtotal já líquido — a conta contaria duas vezes', () => {
+    // Antes, "Promoção − R$ 35" saía abaixo de um Subtotal que já era o cobrado (400 − 35 + 19,90 − 20
+    // = 364,90 para quem lê, contra o Total de 399,90). No pedido sem preço cheio a regra não o mostra.
+    render(valores(detalhe({ subtotal: 400, discount: 0, pix_discount: 20, promotion_discount: 35, total: 399.9 })))
+    expect(desconto('promotion')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/Promoção|progressivo/)
+    expect(sem(parte('subtotal')?.textContent)).toBe(sem(`Subtotal${formatPrice(400)}`))
+  })
+
+  it('no pedido com preço cheio, o progressivo tem a linha dele, abaixo do subtotal cheio', () => {
+    // Cheio 400, cobrado 365 (progressivo 35); PIX 20; frete 19,90 ⇒ 364,90.
+    render(
+      valores(detalhe({ subtotal: 365, discount: 0, pix_discount: 20, promotion_discount: 35, total: 364.9 }), [
+        item({ unit_price: 365, full_unit_price: 400 }),
+      ]),
+    )
+    expect(sem(parte('subtotal')?.textContent)).toBe(sem(`Subtotal${formatPrice(400)}`))
+    expect(sem(desconto('promotion')?.textContent)).toBe(sem(`Desconto progressivo− ${formatPrice(35)}`))
+    expect(desconto('coupon')).toBeNull()
   })
 
   it.each([
@@ -136,7 +158,7 @@ describe('os valores (MAP-25, A15, A30)', () => {
     ['card', 'approved', 'Cartão de crédito', 'Aprovado', 'done'],
     ['wallet_xyz', 'approved', 'Outra forma de pagamento', 'Aprovado', 'done'],
   ] as const)('meio %s com %s: "%s" e o selo "%s" no tom %s (A15)', (payment_method, payment_status, meio, rotulo, tom) => {
-    render(<BlocoValores pedido={detalhe({ payment_method, payment_status })} />)
+    render(valores(detalhe({ payment_method, payment_status })))
     const pagamento = parte('pagamento')!
     expect(pagamento.firstElementChild?.textContent).toBe(meio)
     const selo = pagamento.querySelector('[data-pagamento]')!

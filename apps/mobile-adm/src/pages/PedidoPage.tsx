@@ -25,6 +25,7 @@ import {
   EsqueletoDoBloco,
   Historico,
   ProximoPasso,
+  resumoDoPedido,
   tituloDoPedido,
 } from '@/widgets/order-detail'
 import PullToRefresh from '@/shared/ui/PullToRefresh'
@@ -124,6 +125,8 @@ const PedidoPage = () => {
   const falhou = recusada || (pedido.isError && !pedido.data)
   const p = detalhe?.pedido
   const lidoEm = detalhe?.lido_em
+  // O resumo do pedido (o "de/por" e as linhas de valor) sai UMA vez, de `orderSummary` (`core/orders`).
+  const resumo = p && detalhe ? resumoDoPedido(p, detalhe.itens) : null
 
   return (
     <PullToRefresh onRefresh={() => pedido.refetch()}>
@@ -158,7 +161,12 @@ const PedidoPage = () => {
               producao={<ColocarEmProducao pedido={p} acao={acao} />}
               lembrete={<LembreteDoEnvio pedido={p} lidoEm={lidoEm} />}
             />
-            <BlocoItens itens={detalhe.itens} tentarDeNovo={tentarDeNovo} valores={<BlocoValores pedido={p} />} />
+            <BlocoItens
+              itens={detalhe.itens}
+              tentarDeNovo={tentarDeNovo}
+              precos={resumo?.rows}
+              valores={<BlocoValores pedido={p} resumo={resumo} />}
+            />
             <BlocoEntrega pedido={p} editar={<EditarRastreio pedido={p} acao={acao} avisoDePostagemSaiu={detalhe.avisoDePostagemSaiu} />} />
             <Historico historico={detalhe.historico} lidoEm={lidoEm} tentarDeNovo={tentarDeNovo} />
             <RodapeDaAcao pedido={p} acao={acao} />
