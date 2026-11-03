@@ -32,7 +32,7 @@ interface Props {
 const AddonSheet = ({ addon, open, opener, actions }: Props) => {
   const compact = useCompactViewport()
   const title = useRef<HTMLHeadingElement>(null)
-  // A escolha está completa quando nada falta e a gravação cabe — marcada ou não: pelo "Ver opções" a
+  // A escolha está completa quando nada falta e a gravação cabe — marcada ou não: pelo link da linha a
   // folha abre sem marcar, e é o "Incluir no conjunto" que marca.
   const complete = addon.missing === null && addon.engravingRefusal === null
   // Sem a frase do que falta, a de gravação acima do limite (a única outra razão de não estar completa).
@@ -51,7 +51,8 @@ const AddonSheet = ({ addon, open, opener, actions }: Props) => {
   const content = (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
-        <AddonPanel addon={addon} actions={actions} />
+        {/* A frase do que falta mora só no rodapé, acima de "Incluir no conjunto". */}
+        <AddonPanel addon={addon} actions={actions} showMissing={false} />
       </div>
       <footer className="flex shrink-0 flex-col gap-2 border-t border-estrelinha-line bg-estrelinha-ground px-4 py-3.5 sm:px-6">
         {pending && (
@@ -122,7 +123,7 @@ const AddonSheet = ({ addon, open, opener, actions }: Props) => {
       <DialogContent
         hideClose
         data-testid="addon-sheet"
-        className={`flex max-h-[85vh] max-w-lg flex-col gap-0 bg-estrelinha-surface p-0 ${motion}`}
+        className={`flex max-h-[85vh] w-full max-w-[520px] flex-col gap-0 bg-estrelinha-surface p-0 ${motion}`}
         {...focusProps}
       >
         <div className="flex shrink-0 items-start gap-3 px-6 pt-5">

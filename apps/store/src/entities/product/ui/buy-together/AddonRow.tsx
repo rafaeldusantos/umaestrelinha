@@ -29,7 +29,8 @@ const accessibleName = (a: BuyTogetherAddon): string =>
  * do computador.
  *
  * A linha é uma grade de três células: a caixa de marcar (o alvo de 44px), a foto e o texto. A foto e
- * o texto também marcam, por um `<label>` apontando para a caixa; o link "Ver opções" fica fora deles.
+ * o texto também marcam, por um `<label>` apontando para a caixa; o link ("Ver opções", ou "Escolher"
+ * na forma "Em folha") fica fora deles.
  */
 const AddonRow = ({ addon, form = 'inline', attempted = false, actions }: Props) => {
   const { toggle, toggleOpen } = actions
@@ -116,7 +117,9 @@ const AddonRow = ({ addon, form = 'inline', attempted = false, actions }: Props)
                   ? addon.pieces.length === 1
                     ? 'Ver o modelo'
                     : `Ver os ${addon.pieces.length} modelos`
-                  : 'Ver opções'}
+                  : sheet
+                    ? 'Escolher'
+                    : 'Ver opções'}
             </button>
           )}
         </div>

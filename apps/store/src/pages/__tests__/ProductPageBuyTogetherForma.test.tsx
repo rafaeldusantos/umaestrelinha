@@ -184,6 +184,14 @@ describe('a forma "Na linha" (padrão)', () => {
     expect(screen.queryByTestId('formula-strip')).toBeNull()
   })
 
+  it('o link da mesma peça avulsa segue "Ver opções", e não "Escolher"', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    const linha = within(linhaDo('a1'))
+    expect(linha.getByRole('button', { name: 'Ver opções' })).toBeInTheDocument()
+    expect(linha.queryByRole('button', { name: 'Escolher' })).toBeNull()
+  })
+
   it('um valor desconhecido lido do banco cai em "Na linha" e a página não quebra', async () => {
     const real = await vi.importActual<typeof import('@estrelinha/core/buy-together')>(
       '@estrelinha/core/buy-together',
@@ -296,10 +304,10 @@ describe('a forma "Em folha"', () => {
     expect(caixa(/Levar junto/)).toBeChecked()
   })
 
-  it('"Ver opções" abre a folha sem marcar, e o foco volta ao link ao fechar', async () => {
+  it('"Escolher" abre a folha sem marcar, e o foco volta ao link ao fechar', async () => {
     ofertar([addon('a1', 0, 'ping')], [pingente()])
     renderPage()
-    const link = within(linhaDo('a1')).getByRole('button', { name: 'Ver opções' })
+    const link = within(linhaDo('a1')).getByRole('button', { name: 'Escolher' })
     link.focus()
     fireEvent.click(link)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -308,14 +316,14 @@ describe('a forma "Em folha"', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(caixa(NOME)).not.toBeChecked()
     await waitFor(() =>
-      expect(within(linhaDo('a1')).getByRole('button', { name: 'Ver opções' })).toHaveFocus(),
+      expect(within(linhaDo('a1')).getByRole('button', { name: 'Escolher' })).toHaveFocus(),
     )
   })
 
-  it('pelo "Ver opções", escolher tudo habilita "Incluir no conjunto", que marca o adicional e fecha', async () => {
+  it('pelo "Escolher", escolher tudo habilita "Incluir no conjunto", que marca o adicional e fecha', async () => {
     ofertar([addon('a1', 0, 'ping')], [pingente()])
     renderPage()
-    fireEvent.click(within(linhaDo('a1')).getByRole('button', { name: 'Ver opções' }))
+    fireEvent.click(within(linhaDo('a1')).getByRole('button', { name: 'Escolher' }))
     const dialogo = screen.getByRole('dialog')
     expect(within(dialogo).getByRole('button', { name: 'Incluir no conjunto' })).toBeDisabled()
     fireEvent.click(within(dialogo).getByRole('radio', { name: 'Prata' }))
@@ -328,7 +336,7 @@ describe('a forma "Em folha"', () => {
     const rodape = screen.getByText('Total do conjunto').closest('div')!
     expect(texto(rodape)).toMatch(/R\$\s?135,00/)
     await waitFor(() =>
-      expect(within(linhaDo('a1')).getByRole('button', { name: /opções/ })).toHaveFocus(),
+      expect(within(linhaDo('a1')).getByRole('button', { name: 'Escolher' })).toHaveFocus(),
     )
   })
 
@@ -346,6 +354,40 @@ describe('a forma "Em folha"', () => {
     expect(fechar[0].className).not.toMatch(/transition/)
     fireEvent.click(fechar[0])
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it.each([
+    ['no diálogo do computador', false],
+    ['na folha do celular', true],
+  ])('%s, a frase do que falta aparece uma vez só, no rodapé com "Incluir no conjunto"', (_, compacto) => {
+    matchMedia(compacto)
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    fireEvent.click(caixa(NOME))
+    const dialogo = screen.getByRole('dialog')
+    const frases = within(dialogo).getAllByText('Escolha o cor da pingente.')
+    expect(frases).toHaveLength(1)
+    const rodape = frases[0].closest('footer')
+    expect(rodape).not.toBeNull()
+    expect(within(rodape!).getByRole('button', { name: 'Incluir no conjunto' })).toBeInTheDocument()
+  })
+
+  it('o diálogo do computador tem até 520 px de largura, e não a do primitivo', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    fireEvent.click(caixa(NOME))
+    const classes = screen.getByRole('dialog').className
+    expect(classes).toMatch(/(?:^|\s)max-w-\[520px\](?![-\w])/)
+    expect(classes).toMatch(/(?:^|\s)w-full(?![-\w])/)
+    expect(classes).not.toMatch(/(?:^|\s)max-w-lg(?![-\w])/)
+  })
+
+  it('o link da peça avulsa diz "Escolher" na folha, e nenhum "Ver opções"', () => {
+    ofertar([addon('a1', 0, 'ping')], [pingente()])
+    renderPage()
+    const linha = within(linhaDo('a1'))
+    expect(linha.getByRole('button', { name: 'Escolher' })).toBeInTheDocument()
+    expect(linha.queryByRole('button', { name: 'Ver opções' })).toBeNull()
   })
 
   it('peça sem nada a escolher marca sem abrir folha nenhuma', () => {
