@@ -36,10 +36,12 @@ const BuyTogetherBlock = ({ state, attempted = false, mainPhoto = null }: Props)
 const ReadyBlock = ({ state, attempted, mainPhoto = null }: Props) => {
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
   const form = useBuyTogetherForm()
-  const { addons, markedCount, total } = state
+  const { addons, markedCount, total, discount } = state
+  // O total já vem com o desconto do Compre Junto (`bundleTotal`), e o PIX incide sobre ele.
   // O PIX é o do TOTAL, pela mesma regra de desconto da página — nunca a soma dos PIX das peças.
   const pix = total !== null && pix_enabled ? bundlePix(total, pix_discount_percent) : null
   const temTotal = markedCount > 0 && total !== null
+  const temDesconto = temTotal && discount > 0
   const anuncioPix = pix === null ? '' : `, ${formatPrice(pix)} no Pix`
   const anuncio = temTotal ? `Total do conjunto: ${formatPrice(total)}${anuncioPix}` : ''
 
@@ -76,6 +78,14 @@ const ReadyBlock = ({ state, attempted, mainPhoto = null }: Props) => {
 
       {temTotal && (
         <div className="flex flex-col gap-2.5 border-t border-estrelinha-line pt-3.5">
+          {temDesconto && (
+            <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span className="text-[14px] text-estrelinha-ink-soft">Desconto do Compre Junto</span>
+              <span className="text-[14px] font-medium text-estrelinha-ink">
+                −{formatPrice(discount)}
+              </span>
+            </p>
+          )}
           <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span className="text-[14px] text-estrelinha-ink-soft">Total do conjunto</span>
             <span className="font-display text-[22px] font-bold text-estrelinha-primary">
@@ -92,6 +102,7 @@ const ReadyBlock = ({ state, attempted, mainPhoto = null }: Props) => {
           <p className="text-[13px] leading-[18px] text-estrelinha-ink-soft">
             O botão de compra leva a joia e as peças marcadas. Cada uma entra na sacola como uma linha
             própria, e você pode tirar qualquer uma depois.
+            {temDesconto && ' O desconto vale enquanto a joia estiver no mesmo pedido.'}
           </p>
         </div>
       )}

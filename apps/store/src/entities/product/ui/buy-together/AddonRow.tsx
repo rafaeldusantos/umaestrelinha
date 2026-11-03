@@ -1,9 +1,9 @@
 import { useRef } from 'react'
 import { Check } from 'lucide-react'
-import { formatPrice } from '@estrelinha/core/formatters'
 import type { BuyTogetherForm } from '@estrelinha/core/buy-together'
 import type { BuyTogether, BuyTogetherAddon } from '../../model/useBuyTogether'
 import AddonPanel, { Foto } from './AddonPanel'
+import AddonPrice from './AddonPrice'
 import { addonHasChoice, addonNeedsPanel, panelIdOf } from './panel'
 import AddonSheet from './AddonSheet'
 
@@ -19,9 +19,19 @@ interface Props {
   >
 }
 
-/** A frase do nome acessível da caixa: o nome e o resumo da escolha, separados por vírgula. */
+/** A frase do percentual, na linha e no fim do nome acessível da caixa. */
+const discountPhrase = (percent: number): string => `${percent}% a menos levando junto`
+
+/**
+ * A frase do nome acessível da caixa: o nome, o resumo da escolha e, havendo desconto, o percentual,
+ * separados por vírgula.
+ */
 const accessibleName = (a: BuyTogetherAddon): string =>
-  `Levar junto: ${a.name}${a.summaryParts.length > 0 ? `, ${a.summaryParts.join(', ')}` : ''}`
+  [
+    `Levar junto: ${a.name}`,
+    ...a.summaryParts,
+    ...(a.discountPercent === null ? [] : [discountPhrase(a.discountPercent)]),
+  ].join(', ')
 
 /**
  * Um adicional do bloco. Na forma "Na linha" (e "Com fórmula", que só acrescenta a faixa acima da
@@ -94,8 +104,13 @@ const AddonRow = ({ addon, form = 'inline', attempted = false, actions }: Props)
                 {addon.summaryParts.join(' · ')}
               </span>
             )}
-            <span className="mt-1 font-display text-[15px] font-bold text-estrelinha-primary">
-              {formatPrice(price)}
+            <span className="mt-1 flex min-w-0 flex-col">
+              <AddonPrice price={price} discountPercent={addon.discountPercent} />
+              {addon.discountPercent !== null && (
+                <span className="text-[13px] leading-[18px] text-estrelinha-ink-soft">
+                  {discountPhrase(addon.discountPercent)}
+                </span>
+              )}
             </span>
           </label>
 

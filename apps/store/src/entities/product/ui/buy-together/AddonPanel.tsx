@@ -5,6 +5,7 @@ import type { OptionValues } from '@estrelinha/supabase/types'
 import type { BuyTogether, BuyTogetherAddon } from '../../model/useBuyTogether'
 import { PAGE_MAX_AXES } from '../../lib/variantSelection'
 import EngravingField from '../EngravingField'
+import AddonPrice from './AddonPrice'
 import VariantPicker from '../VariantPicker'
 import { panelIdOf } from './panel'
 
@@ -98,6 +99,13 @@ const AddonPanel = ({ addon, actions, showMissing = true }: Props) => {
                   <span className="break-words text-[13px] font-semibold leading-4 text-estrelinha-ink">
                     {piece.product.name}
                   </span>
+                  {addon.discountPercent !== null && (
+                    <AddonPrice
+                      price={checked && addon.price !== null ? addon.price : piece.product.price}
+                      discountPercent={addon.discountPercent}
+                      size="card"
+                    />
+                  )}
                 </button>
               )
             })}

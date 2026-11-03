@@ -81,6 +81,7 @@ const linhaDeLista = {
   list_id: 'L1',
   target_variant_ids: null,
   hidden_on_variant_ids: ['vm'],
+  discount_percent: null,
   main: { slug: 'pingente' },
   target: null,
   list: {
@@ -101,6 +102,7 @@ const linhaDePeca = {
   list_id: null,
   target_variant_ids: ['v1'],
   hidden_on_variant_ids: null,
+  discount_percent: 10,
   main: { slug: 'pingente' },
   target: produto('x1'),
   list: null,
@@ -121,6 +123,8 @@ describe('useBuyTogetherData', () => {
     expect(p.select).toBe(BUY_TOGETHER_SELECT)
     // O filtro pelo slug só recorta as linhas com o embed `!inner` da FK do principal.
     expect(p.select).toContain('main:products!product_buy_together_product_id_fkey!inner(slug)')
+    // O desconto ao levar junto, que o bloco mostra como "de/por".
+    expect(p.select.split(', ')).toContain('discount_percent')
     expect(p.select).toContain(
       `target:products!product_buy_together_target_product_id_fkey(${PRODUCT_CARD_SELECT})`,
     )
@@ -135,11 +139,11 @@ describe('useBuyTogetherData', () => {
     expect(result.current.addons).toEqual([
       {
         id: 'a1', position: 0, kind: 'product', targetProductId: 'x1', listId: null,
-        targetVariantIds: ['v1'], hiddenOnVariantIds: [],
+        targetVariantIds: ['v1'], hiddenOnVariantIds: [], discountPercent: 10,
       },
       {
         id: 'a2', position: 1, kind: 'list', targetProductId: null, listId: 'L1',
-        targetVariantIds: [], hiddenOnVariantIds: ['vm'],
+        targetVariantIds: [], hiddenOnVariantIds: ['vm'], discountPercent: null,
       },
     ])
     expect(result.current.lists).toEqual([
