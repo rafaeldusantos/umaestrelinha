@@ -18,6 +18,12 @@ import { describe, expect, it } from 'vitest'
  * **A régua de venda é a do Dashboard, comparada por fragmento** com o `store_movement` VIGENTE (a
  * última migration que o recria, colhida do disco): se uma das duas mudar, este guarda reprova.
  *
+ * **O arquivo lido é a migration VIGENTE de `buy_together_adoption`** — a última, por prefixo, que a
+ * recria —, no molde de `pagamentoMarcaPagoSchema.test.ts`: uma migration futura que recriasse a função
+ * a partir de uma cópia velha do corpo apagaria a regra com tudo verde. Desde a recriação que soma o
+ * desconto concedido, a régua `descontoConcedido` cobra `(full_unit_price - unit_price) * quantity` por
+ * linha, com o recuo para `unit_price` (a linha sem preço cheio conta 0), e a chave nos três lugares.
+ *
  * **Uma régua por COMANDO** (`L-033`), cada uma um predicado exercido também contra texto mutado, e
  * `mutar()` **lança** quando a mutação não muda nada.
  */
@@ -25,12 +31,19 @@ import { describe, expect, it } from 'vitest'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '../../../../../..')
 const MIGRATIONS = resolve(ROOT, 'supabase/migrations')
-const CAMINHO = resolve(MIGRATIONS, '20261107120000_compre-junto-adesao.sql')
-
-const sql = readFileSync(CAMINHO, 'utf8').replace(/\r\n/g, '\n')
-
 /** Linha e bloco na MESMA varredura, com `[^\n\r]` fechando antes do `\r` (`L-031`, `BL-027`). */
 const semComentario = (texto: string): string => texto.replace(/\/\*[\s\S]*?\*\/|--[^\n\r]*/g, '')
+
+const CRIA = /create\s+or\s+replace\s+function\s+public\.buy_together_adoption\s*\(/i
+
+/** As migrations que criam a função, por prefixo; a vigente é a última. */
+const queCriam = readdirSync(MIGRATIONS)
+  .filter(f => f.endsWith('.sql'))
+  .sort()
+  .filter(f => CRIA.test(semComentario(readFileSync(resolve(MIGRATIONS, f), 'utf8'))))
+const VIGENTE = queCriam[queCriam.length - 1]
+
+const sql = readFileSync(resolve(MIGRATIONS, VIGENTE), 'utf8').replace(/\r\n/g, '\n')
 
 const mutar = (texto: string, de: string | RegExp, para: string): string => {
   const mutante = texto.replace(de as string, () => para)
@@ -164,6 +177,32 @@ const R = {
     ),
   /** O valor é o preço pago em cada peça, vezes a quantidade da linha. */
   valorPeloPrecoPago: (t: string) => /i\.unit_price\s*\*\s*i\.quantity\s+as\s+valor/i.test(cte(t, 'pares') ?? ''),
+  /**
+   * O desconto concedido: por linha marcada, o preço cheio menos o pago, vezes a quantidade — com o
+   * recuo para `unit_price` (sem preço cheio ⇒ 0) —, levado uma vez por linha em cada recorte e somado
+   * nos indicadores, por joia e por lista, com a chave `desconto_concedido` nos três.
+   */
+  descontoConcedido: (t: string) => {
+    const c = corpo(t) ?? ''
+    return (
+      /\(\s*coalesce\(\s*i\.full_unit_price\s*,\s*i\.unit_price\s*\)\s*-\s*i\.unit_price\s*\)\s*\*\s*i\.quantity\s+as\s+desconto\b/i.test(
+        cte(t, 'pares') ?? '',
+      ) &&
+      /select\s+distinct\s+p\.item_id\s*,\s*p\.order_id\s*,\s*p\.quantity\s*,\s*p\.valor\s*,\s*p\.desconto\s+from\s+pares\b/i.test(
+        cte(t, 'linhas') ?? '',
+      ) &&
+      /coalesce\(\s*sum\(\s*l\.desconto\s*\)\s*,\s*0\s*\)\s+as\s+desconto\b/i.test(cte(t, 'totais') ?? '') &&
+      /\bp\.valor\s*,\s*p\.desconto\s+from\s+pares\b/i.test(cte(t, 'joia_linhas') ?? '') &&
+      /\bsum\(\s*x\.desconto\s*\)\s+as\s+desconto\b/i.test(cte(t, 'por_joia') ?? '') &&
+      /\bp\.valor\s*,\s*p\.desconto\s+from\s+pares\b/i.test(cte(t, 'lista_linhas') ?? '') &&
+      /coalesce\(\s*\(\s*select\s+sum\(\s*x\.desconto\s*\)\s+from\s+lista_linhas\s+x\s+where\s+x\.lista\s+is\s+not\s+distinct\s+from\s+k\.lista\s*\)\s*,\s*0\s*\)\s+as\s+desconto\b/i.test(
+        cte(t, 'por_lista') ?? '',
+      ) &&
+      /'desconto_concedido'\s*,\s*t\.desconto\b/i.test(c) &&
+      /'desconto_concedido'\s*,\s*j\.desconto\b/i.test(c) &&
+      /'desconto_concedido'\s*,\s*l\.desconto\b/i.test(c)
+    )
+  },
   /** Nos indicadores a linha conta UMA vez: `linhas` é distinta por item, e as peças somam a quantidade dela. */
   linhaUmaVez: (t: string) => {
     const l = cte(t, 'linhas') ?? ''
@@ -217,6 +256,14 @@ describe('a migration do relatório de adesão — âncora', () => {
     }
   })
 
+  it('o arquivo lido é a migration VIGENTE da função — a última que a recria, não a primeira pelo nome', () => {
+    expect(queCriam.length).toBeGreaterThanOrEqual(2)
+    expect(queCriam[0]).toBe('20261107120000_compre-junto-adesao.sql')
+    expect(VIGENTE).toBe(queCriam[queCriam.length - 1])
+    expect(VIGENTE).not.toBe('20261107120000_compre-junto-adesao.sql')
+    expect(queCriam).toEqual([...queCriam].sort())
+  })
+
   it('o `store_movement` do Dashboard foi achado no disco, e a régua dele foi lida', () => {
     expect(dashboard.arquivos.length).toBeGreaterThanOrEqual(3)
     expect(dashboard.corpo).not.toBeNull()
@@ -249,6 +296,18 @@ describe('sensores — cada régua reprova a mutação que existe para recusar',
     ['paresAlinhados', 'unnest(i.accompanies_product_ids, i.accompanies_list_ids)', 'unnest(i.accompanies_product_ids)'],
     ['principalNoMesmoPedido', 'and j.product_id = m.principal', ''],
     ['valorPeloPrecoPago', 'i.unit_price * i.quantity as valor', 'i.unit_price as valor'],
+    ['valorPeloPrecoPago', 'i.unit_price * i.quantity as valor', 'coalesce(i.full_unit_price, i.unit_price) * i.quantity as valor'],
+    ['descontoConcedido', 'coalesce(i.full_unit_price, i.unit_price) - i.unit_price', 'i.full_unit_price - i.unit_price'],
+    ['descontoConcedido', '(coalesce(i.full_unit_price, i.unit_price) - i.unit_price) * i.quantity as desconto', '(coalesce(i.full_unit_price, i.unit_price) - i.unit_price) as desconto'],
+    ['descontoConcedido', 'select distinct p.item_id, p.order_id, p.quantity, p.valor, p.desconto', 'select distinct p.item_id, p.order_id, p.quantity, p.valor'],
+    ['descontoConcedido', 'coalesce(sum(l.desconto), 0) as desconto', 'coalesce(sum(l.valor), 0) as desconto'],
+    ['descontoConcedido', 'p.quantity, p.valor, p.desconto\n    from pares p\n  ),\n  joia_pecas', 'p.quantity, p.valor\n    from pares p\n  ),\n  joia_pecas'],
+    ['descontoConcedido', 'p.quantity, p.valor, p.desconto\n    from pares p\n  ),\n  lista_pecas', 'p.quantity, p.valor\n    from pares p\n  ),\n  lista_pecas'],
+    ['descontoConcedido', 'sum(x.desconto) as desconto,', 'sum(x.valor) as desconto,'],
+    ['descontoConcedido', 'select sum(x.desconto) from lista_linhas', 'select sum(x.valor) from lista_linhas'],
+    ['descontoConcedido', "'desconto_concedido', t.desconto", "'desconto_concedido', t.valor"],
+    ['descontoConcedido', "'desconto_concedido', j.desconto, ", ''],
+    ['descontoConcedido', "'desconto_concedido', l.desconto, ", ''],
     ['linhaUmaVez', 'select distinct p.item_id, p.order_id, p.quantity, p.valor', 'select distinct p.item_id, p.order_id, p.principal, p.quantity, p.valor'],
     ['linhaUmaVez', 'coalesce(sum(l.quantity), 0) as pecas', 'count(*) as pecas'],
     ['umaVezPorRecorte', 'select distinct p.item_id, p.lista,', 'select p.item_id, p.lista,'],

@@ -13,6 +13,8 @@ export interface AdoptionByMain {
   pedidos: number
   pecas: number
   valor: number
+  /** O que as peças levadas junto com esta joia deixaram de custar: preço cheio − preço pago. */
+  desconto_concedido: number
   top_nome: string | null
 }
 
@@ -24,6 +26,8 @@ export interface AdoptionByList {
   nome: string | null
   pecas: number
   valor: number
+  /** O que as peças desta lista deixaram de custar: preço cheio − preço pago. */
+  desconto_concedido: number
   top_nome: string | null
 }
 
@@ -35,7 +39,13 @@ export interface BuyTogetherAdoption {
   pedidos_pagos: number
   pedidos_com: number
   pecas: number
+  /** O preço pago nas peças levadas junto, já líquido de qualquer desconto. */
   valor: number
+  /**
+   * Tudo o que as peças levadas junto deixaram de custar (preço cheio − preço pago), qualquer que seja
+   * o desconto que venceu na linha; a linha sem preço cheio (pedido de antes) conta 0. Calculado pelo banco.
+   */
+  desconto_concedido: number
   /** Pedidos com Compre Junto ÷ pedidos pagos; `null` sem pedido pago. */
   parte: number | null
   /** Peças ÷ pedidos com Compre Junto; `null` sem pedido com Compre Junto. */
@@ -50,6 +60,7 @@ export const RULE_NOTE =
 export const DIRECT_PIECE_LABEL = 'Peça escolhida direto no produto'
 export const DELETED_LIST_LABEL = 'Lista apagada'
 export const NO_TOP_PIECE = '—'
+export const DISCOUNT_GIVEN_LABEL = 'Desconto concedido'
 
 export const periodLabel = (dias: number): string => `${dias} dias`
 

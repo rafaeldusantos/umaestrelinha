@@ -1,7 +1,8 @@
 // O relatório de adesão ao Compre Junto: o período, três indicadores, a regra por escrito e o cartão
 // do recorte — título "Por joia principal" / "Por lista" à esquerda e o alternador "Por joia" / "Por lista"
 // à direita (protótipo, `cj-admin-listas.jsx` › `Adesao`) —, tabela no computador, cartões no celular, com a barra de valor
-// proporcional ao maior valor do recorte. O banco conta; aqui só se escreve o que ele devolveu.
+// proporcional ao maior valor do recorte e o desconto concedido em cada linha. O banco conta; aqui só
+// se escreve o que ele devolveu.
 
 import { useId, useState } from 'react'
 import { Coins, Info, Package, ShoppingBag } from 'lucide-react'
@@ -13,6 +14,7 @@ import { useBuyTogetherAdoption } from '../api/useBuyTogetherAdoption'
 import {
   ADOPTION_PERIODS,
   DEFAULT_ADOPTION_PERIOD,
+  DISCOUNT_GIVEN_LABEL,
   NO_TOP_PIECE,
   RULE_NOTE,
   averageLine,
@@ -36,8 +38,14 @@ interface Linha {
   pedidos?: number
   pecas: number
   valor: number
+  /** `null` só quando a resposta não trouxe a chave (banco sem a migration do desconto). */
+  desconto: number | null
   top: string
 }
+
+const descontoDe = (v: number | null | undefined): number | null => (v === null || v === undefined ? null : Number(v))
+
+const escreverDesconto = (v: number | null): string => (v === null ? NO_TOP_PIECE : formatPrice(v))
 
 const linhasDe = (dado: BuyTogetherAdoption, recorte: Recorte): Linha[] =>
   recorte === 'joia'
@@ -47,6 +55,7 @@ const linhasDe = (dado: BuyTogetherAdoption, recorte: Recorte): Linha[] =>
         pedidos: j.pedidos,
         pecas: j.pecas,
         valor: Number(j.valor),
+        desconto: descontoDe(j.desconto_concedido),
         top: j.top_nome ?? NO_TOP_PIECE,
       }))
     : dado.por_lista.map(l => ({
@@ -54,6 +63,7 @@ const linhasDe = (dado: BuyTogetherAdoption, recorte: Recorte): Linha[] =>
         nome: listLabel(l),
         pecas: l.pecas,
         valor: Number(l.valor),
+        desconto: descontoDe(l.desconto_concedido),
         top: l.top_nome ?? NO_TOP_PIECE,
       }))
 
@@ -113,6 +123,7 @@ const Recortes = ({ dado }: { dado: BuyTogetherAdoption }) => {
             {comPedidos && <th className="py-2 text-right font-medium">Pedidos</th>}
             <th className="py-2 text-right font-medium">Peças</th>
             <th className="py-2 pl-6 font-medium">Valor</th>
+            <th className="py-2 pr-4 text-right font-medium">{DISCOUNT_GIVEN_LABEL}</th>
             <th className="py-2 font-medium">Peça que mais sai</th>
           </tr>
         </thead>
@@ -126,6 +137,7 @@ const Recortes = ({ dado }: { dado: BuyTogetherAdoption }) => {
                 <span className="tabular-nums">{formatPrice(l.valor)}</span>
                 <Barra valor={l.valor} maior={maior} />
               </td>
+              <td className="py-3 pr-4 text-right tabular-nums">{escreverDesconto(l.desconto)}</td>
               <td className="py-3 text-muted-foreground">{l.top}</td>
             </tr>
           ))}
@@ -145,7 +157,10 @@ const Recortes = ({ dado }: { dado: BuyTogetherAdoption }) => {
               {l.pecas} {l.pecas === 1 ? 'peça' : 'peças'} · <span className="tabular-nums">{formatPrice(l.valor)}</span>
             </p>
             <Barra valor={l.valor} maior={maior} />
-            <p className="mt-2 break-words text-xs text-muted-foreground">
+            <p className="mt-2 text-xs text-muted-foreground">
+              {DISCOUNT_GIVEN_LABEL}: <span className="tabular-nums text-foreground">{escreverDesconto(l.desconto)}</span>
+            </p>
+            <p className="mt-1 break-words text-xs text-muted-foreground">
               Mais sai: <span className="text-foreground">{l.top}</span>
             </p>
           </li>

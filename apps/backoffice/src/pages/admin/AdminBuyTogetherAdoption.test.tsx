@@ -38,17 +38,18 @@ const relatorio = (extra: Record<string, unknown> = {}) => ({
   pedidos_com: 3,
   pecas: 5,
   valor: 220,
+  desconto_concedido: 37,
   parte: 0.75,
   media: 1.67,
   por_joia: [
-    { principal: 'a', nome: 'Pingente Coração', pedidos: 2, pecas: 4, valor: 170, top_nome: 'Corrente Veneziana em Prata 925 · 45 cm' },
-    { principal: 'b', nome: 'Anel Estrela', pedidos: 1, pecas: 1, valor: 50, top_nome: 'Corrente Veneziana em Prata 925 · 45 cm' },
+    { principal: 'a', nome: 'Pingente Coração', pedidos: 2, pecas: 4, valor: 170, desconto_concedido: 37, top_nome: 'Corrente Veneziana em Prata 925 · 45 cm' },
+    { principal: 'b', nome: 'Anel Estrela', pedidos: 1, pecas: 1, valor: 50, desconto_concedido: 5, top_nome: 'Corrente Veneziana em Prata 925 · 45 cm' },
   ],
   por_lista: [
-    { lista_id: LISTA, direto: false, nome: 'Correntes', pecas: 4, valor: 210, top_nome: 'Corrente Veneziana em Prata 925 · 45 cm' },
-    { lista_id: null, direto: true, nome: null, pecas: 1, valor: 10, top_nome: 'Caixinha de veludo' },
-    { lista_id: APAGADA, direto: false, nome: null, pecas: 0, valor: 0, top_nome: null },
-    { lista_id: VAZIA, direto: false, nome: 'Embalagens', pecas: 0, valor: 0, top_nome: null },
+    { lista_id: LISTA, direto: false, nome: 'Correntes', pecas: 4, valor: 210, desconto_concedido: 35, top_nome: 'Corrente Veneziana em Prata 925 · 45 cm' },
+    { lista_id: null, direto: true, nome: null, pecas: 1, valor: 10, desconto_concedido: 2, top_nome: 'Caixinha de veludo' },
+    { lista_id: APAGADA, direto: false, nome: null, pecas: 0, valor: 0, desconto_concedido: 0, top_nome: null },
+    { lista_id: VAZIA, direto: false, nome: 'Embalagens', pecas: 0, valor: 0, desconto_concedido: 0, top_nome: null },
   ],
   ...extra,
 })
@@ -147,6 +148,7 @@ describe('a aba Adesão — por joia principal e por lista', () => {
       'Pedidos',
       'Peças',
       'Valor',
+      'Desconto concedido',
       'Peça que mais sai',
     ])
     const linha = within(tabela).getByText('Pingente Coração').closest('tr') as HTMLElement
@@ -155,6 +157,7 @@ describe('a aba Adesão — por joia principal e por lista', () => {
       '2',
       '4',
       'R$ 170,00',
+      'R$ 37,00',
       'Corrente Veneziana em Prata 925 · 45 cm',
     ])
     const cartoes = screen.getByTestId('adesao-cartoes')
@@ -178,16 +181,83 @@ describe('a aba Adesão — por joia principal e por lista', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Por lista' }))
     const tabela = await screen.findByTestId('adesao-tabela')
     await waitFor(() =>
-      expect(within(tabela).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['Lista', 'Peças', 'Valor', 'Peça que mais sai']),
+      expect(within(tabela).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['Lista', 'Peças', 'Valor', 'Desconto concedido', 'Peça que mais sai']),
     )
     const celulas = (nome: string) =>
       within(within(tabela).getByText(nome).closest('tr') as HTMLElement)
         .getAllByRole('cell')
         .map(c => c.textContent?.replace(/\s/g, ' '))
-    expect(celulas('Correntes')).toEqual(['Correntes', '4', 'R$ 210,00', 'Corrente Veneziana em Prata 925 · 45 cm'])
-    expect(celulas('Peça escolhida direto no produto')).toEqual(['Peça escolhida direto no produto', '1', 'R$ 10,00', 'Caixinha de veludo'])
-    expect(celulas('Embalagens')).toEqual(['Embalagens', '0', 'R$ 0,00', '—'])
-    expect(celulas('Lista apagada')).toEqual(['Lista apagada', '0', 'R$ 0,00', '—'])
+    expect(celulas('Correntes')).toEqual(['Correntes', '4', 'R$ 210,00', 'R$ 35,00', 'Corrente Veneziana em Prata 925 · 45 cm'])
+    expect(celulas('Peça escolhida direto no produto')).toEqual(['Peça escolhida direto no produto', '1', 'R$ 10,00', 'R$ 2,00', 'Caixinha de veludo'])
+    expect(celulas('Embalagens')).toEqual(['Embalagens', '0', 'R$ 0,00', 'R$ 0,00', '—'])
+    expect(celulas('Lista apagada')).toEqual(['Lista apagada', '0', 'R$ 0,00', 'R$ 0,00', '—'])
+  })
+})
+
+describe('a aba Adesão — o desconto concedido', () => {
+  // Os números da RPC: o valor é o pago (líquido) e o desconto é o cheio − o pago, os dois vindos do banco.
+  // Os dois diferem em toda linha, para que ler um no lugar do outro reprove.
+  const textoDe = (n: Element | null | undefined) => n?.textContent?.replace(/\s/g, ' ')
+
+  it('por joia: a coluna "Desconto concedido" ao lado do valor pago, na tabela e nos cartões', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const tabela = screen.getByTestId('adesao-tabela')
+    const celula = (nome: string, coluna: string) => {
+      const cabecalhos = within(tabela).getAllByRole('columnheader').map(c => c.textContent)
+      const linha = within(tabela).getByText(nome).closest('tr') as HTMLElement
+      return textoDe(within(linha).getAllByRole('cell')[cabecalhos.indexOf(coluna)])
+    }
+    expect(celula('Pingente Coração', 'Desconto concedido')).toBe('R$ 37,00')
+    expect(celula('Pingente Coração', 'Valor')).toBe('R$ 170,00')
+    expect(celula('Anel Estrela', 'Desconto concedido')).toBe('R$ 5,00')
+    const cartao = within(screen.getByTestId('adesao-cartoes')).getByText('Pingente Coração').closest('li') as HTMLElement
+    expect(within(cartao).getByText((_, n) => textoDe(n) === 'Desconto concedido: R$ 37,00' && n?.tagName === 'P')).toBeInTheDocument()
+    const outro = within(screen.getByTestId('adesao-cartoes')).getByText('Anel Estrela').closest('li') as HTMLElement
+    expect(within(outro).getByText((_, n) => textoDe(n) === 'Desconto concedido: R$ 5,00' && n?.tagName === 'P')).toBeInTheDocument()
+  })
+
+  it('por lista: o desconto de cada lista e da peça escolhida direto, na tabela e nos cartões', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Por lista' }))
+    const cartoes = screen.getByTestId('adesao-cartoes')
+    await waitFor(() => expect(within(cartoes).getByText('Correntes')).toBeInTheDocument())
+    const doCartao = (nome: string) =>
+      [...(within(cartoes).getByText(nome).closest('li') as HTMLElement).querySelectorAll('p')].map(textoDe)
+    expect(doCartao('Correntes')).toContain('Desconto concedido: R$ 35,00')
+    expect(doCartao('Peça escolhida direto no produto')).toContain('Desconto concedido: R$ 2,00')
+    expect(doCartao('Embalagens')).toContain('Desconto concedido: R$ 0,00')
+  })
+
+  it('o indicador de valor continua o preço pago, não o cheio', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const valor = indicador('Valor das peças levadas junto')
+    expect(within(valor).getByText((_, n) => textoDe(n) === 'R$ 220,00')).toBeInTheDocument()
+    expect(within(valor).getByText('pelo preço pago em cada peça')).toBeInTheDocument()
+    expect(within(valor).queryByText((_, n) => textoDe(n) === 'R$ 257,00')).not.toBeInTheDocument()
+  })
+
+  it('resposta sem a chave (banco sem a migration) escreve "—", nunca um zero que ninguém contou', async () => {
+    rpc.mockResolvedValue({
+      data: relatorio({
+        por_joia: [{ principal: 'a', nome: 'Pingente Coração', pedidos: 2, pecas: 4, valor: 170, top_nome: null }],
+      }),
+      error: null,
+    })
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const tabela = screen.getByTestId('adesao-tabela')
+    const linha = within(tabela).getByText('Pingente Coração').closest('tr') as HTMLElement
+    expect(within(linha).getAllByRole('cell').map(textoDe)).toEqual(['Pingente Coração', '2', '4', 'R$ 170,00', '—', '—'])
+    expect(document.body.textContent).not.toMatch(/NaN/)
+  })
+
+  it('o tom é memorial: nada de "economize" nem exclamação', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    expect(document.body.textContent).not.toMatch(/econom|!/i)
   })
 })
 
