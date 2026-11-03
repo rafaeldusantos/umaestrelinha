@@ -200,7 +200,7 @@ describe('A aba "Montados" (LNK-04, A-14)', () => {
     montar('/admin/pedidos?visao=montados')
     await screen.findByTestId('lista-de-montados')
     const t = tabelaDeMontados()
-    expect(t.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Número', 'Cliente', 'Total', 'Criada em', 'Estado'])
+    expect(t.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Número', 'Cliente', 'Total', 'Criada em', 'Estado', 'Ações'])
     const linhas = t.getAllByRole('row').slice(1)
     expect(linhas).toHaveLength(5)
     const estados = linhas.map((l) => within(l).getAllByRole('cell')[4].textContent)

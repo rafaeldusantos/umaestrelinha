@@ -2806,6 +2806,12 @@ Três workflows em `.github/workflows/`:
 
 - **`--concurrency=1` no CI é de propósito**: rodar store e backoffice em paralelo satura o runner de
   2 vCPUs (jsdom é pesado) e a suíte do backoffice fica flaky. É a mesma flake que se vê localmente.
+- **Desde 2026-11-01 o teto de 20 s mora no `vitest.config.ts` da loja e do painel** (`testTimeout`), e
+  não só na flag de medição local. Sem ele, o CI rodava com 5 s, e o CI de `master` reprovou três
+  pushes seguidos (30/10 a 01/11) por **um** caso de `AdminOrdersPage.aviso.test.tsx` — o lote de 60
+  selecionados, que grava 50 pedidos um por vez e levou 13,5 s no runner (4 s sozinho, 7 s na suíte
+  local). Esse caso tem teto próprio de 45 s. Os `act(...)` e os *Future Flag Warning* do React Router
+  no log são aviso, não reprovação.
 - **Lint e typecheck NÃO bloqueiam o merge** enquanto a baseline não for zerada. Rodam para dar
   visibilidade. O gate de verdade é *teste + build*.
 - **Remoção em produção se ordena pelo que está PUBLICADO, nunca pelo que está no disco.**
@@ -2849,10 +2855,19 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 - **Desde a `69` a `product-page` saiu do repositório** (`AD-053`): o `<head>` servido vem da função
   `api/page` da Vercel. Ela continua implantada no hospedado até ser apagada depois do deploy.
 - **As TRÊS edge functions estão implantadas** (`google-feed`, `product-page` e, desde 2026-08-29, a
-  `sitemap` da feature `33`), e a loja provisória está no ar em
-  `umaestrelinha-store-five.vercel.app` (o painel, em `umaestrelinha-backoffice.vercel.app`).
-  `STORE_PUBLIC_URL` aponta para a loja provisória — **valor que tem de mudar antes de ligar o
-  feed**, senão os `<g:link>` das 3.233 ofertas nascem apontando para o `.vercel.app`.
+  `sitemap` da feature `33`). **O domínio próprio está no ar** (domínio adicionado à Vercel em
+  2026-10-21): a loja em `umaestrelinha.com.br`, o painel em `backoffice.umaestrelinha.com.br` e o
+  ateliê em `atelie.umaestrelinha.com.br`. `www.umaestrelinha.com.br` responde **308** para o
+  domínio sem `www`, com caminho e query preservados (redirect do domínio no projeto da Vercel,
+  configurado em 2026-11-01 — **não** está no `vercel.json`). O `.vercel.app` provisório continua
+  respondendo 200. `STORE_PUBLIC_URL` aponta para `https://umaestrelinha.com.br` nos **três**
+  lugares que a leem: a env da Vercel (o `robots.txt` e as `<loc>` do sitemap), o secret da
+  Supabase (medido em 2026-11-01: os 2.060 `<link>` do feed estão no domínio próprio) e a
+  **variável do GitHub** que o `Sitemap check` usa como origem.
+  - ⚠️ **A variável do GitHub ficou para trás no cutover, e o `Sitemap check` reprovou todo dia de
+    2026-10-22 a 2026-11-01** — o check buscava o sitemap no `.vercel.app` (o default) e o
+    `robots.txt`, já gerado com o domínio novo, apontava para outro host. A loja estava certa; o
+    sensor media a origem errada. Trocar `STORE_PUBLIC_URL` é trocar nos três lugares.
 - **`/produtos/:slug` FUNCIONA** desde 2026-08-29: 200 com `text/html; charset=utf-8` e o JSON-LD no
   `<head>`, conferido em três produtos. A Supabase reescreve `text/html` para `text/plain` no domínio
   compartilhado (`BUG-20260829`), e quem desfaz isso é um header no `vercel.json` — **comportamento
@@ -2960,10 +2975,15 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 - **A `69` está PROVADA em plataforma** (2026-10-20): preview com `X-Vercel-Cache: HIT` e `pdx1`;
   produção com produto 200 (`MISS` 0,9 s, `HIT` 0,25 s), 404 com `noindex`, 301 de categoria inativa
   e 308 da barra final, por `curl`. A function `product-page` hospedada foi apagada.
-  - **Dia do DNS**: trocar a env `STORE_PUBLIC_URL` da Vercel e o secret `STORE_PUBLIC_URL` da
-    Supabase, e fazer redeploy da loja — desde a `70` o `robots.txt` sai da env no build.
-  - **A `70` espera deploy**: depois dele, apagar a edge function `sitemap` do hospedado e medir
-    `HIT` em `/sitemap.xml`. A env `STORE_PUBLIC_URL` precisa estar disponível no BUILD da Vercel.
+  - **O Dia do DNS está FEITO**: a env da Vercel, o secret da Supabase e a variável do GitHub
+    apontam para `https://umaestrelinha.com.br`, e o `robots.txt` servido anuncia o sitemap no
+    domínio próprio (conferido em 2026-11-01, com o `Sitemap check` verde de novo).
+  - **A `70` está em produção**: `/sitemap.xml` é servido pela função `api/page` (`server: Vercel`,
+    `pdx1`), com `X-Vercel-Cache: HIT` na segunda batida (medido em 2026-11-01). Falta conferir se a
+    edge function `sitemap` foi apagada do hospedado.
+  - **O feed do Google chega como `text/plain`** (medido em 2026-11-01 em
+    `/feeds/google-shopping.xml`): ele ainda passa pelo gateway `*.supabase.co`, que reescreve o tipo
+    (`BUG-20260829`), e o `vercel.json` não tem header para essa rota. O corpo é RSS válido.
   - **Um `seo_title` curado já com a marca dentro sai com a marca duas vezes** ("…| Uma… | Uma
     Estrelinha"), medido na prova local da `69` num produto. É dado, não código da `69`: a régua de
     `core/seo` corta o título curado e acrescenta a marca. Curadoria em `/admin/produtos`.

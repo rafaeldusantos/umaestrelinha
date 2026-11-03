@@ -12,6 +12,14 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}", "server/**/*.{test,spec}.ts", "scripts/**/*.{test,spec}.ts"],
     /**
+     * O teto de 5 s do vitest é baixo para esta suíte, e o CI roda sem `--testTimeout`. Os casos que
+     * varrem disco e as páginas reais com dezenas de linhas cruzam 5 s sob a contenção da suíte
+     * completa — no runner do CI (2 vCPUs) mais ainda — e reprovam por timeout, nunca por asserção,
+     * num arquivo que muda a cada execução. 20 s é o teto que o `CLAUDE.md` já mandava passar à mão
+     * para medir; aqui ele vale também no CI. Teste preso de verdade continua reprovando, só mais tarde.
+     */
+    testTimeout: 20_000,
+    /**
      * O client de `@estrelinha/supabase` LANÇA no carregamento do módulo quando estas duas faltam
      * — de propósito, para que a falta de configuração não vire fallback silencioso. Mas o `.env`
      * de cada app é gitignored, então quem fornecia os valores para o teste era a máquina de quem

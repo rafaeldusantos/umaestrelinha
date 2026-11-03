@@ -12,6 +12,14 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     /**
+     * O teto de 5 s do vitest é baixo para esta suíte, e o CI roda sem `--testTimeout`. Os casos que
+     * varrem disco e as páginas reais com dezenas de linhas cruzam 5 s sob a contenção da suíte
+     * completa — no runner do CI (2 vCPUs) mais ainda — e reprovam por timeout, nunca por asserção,
+     * num arquivo que muda a cada execução. 20 s é o teto que o `CLAUDE.md` já mandava passar à mão
+     * para medir; aqui ele vale também no CI. Teste preso de verdade continua reprovando, só mais tarde.
+     */
+    testTimeout: 20_000,
+    /**
      * Mesma fixação que `apps/store/vitest.config.ts` — aqui **preventiva**, não corretiva.
      *
      * A suíte do backoffice passa hoje no CI porque todo teste que chega perto do banco mocka

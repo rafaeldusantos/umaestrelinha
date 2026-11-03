@@ -614,7 +614,10 @@ describe('lacunas da rodada 3 do Verifier (AVS-21 no cartão, o teto de 50 no di
     await deixarCorrer()
     expect(materiais()).toHaveLength(50)
     expect(materiais().map((r) => r.args.p_order_id)).toEqual(linhas.slice(0, 50).map((l) => l.id))
-  })
+    // Teto próprio: o lote grava UM pedido por vez e redesenha o progresso a cada um (`runBulk`), então
+    // são 50 escritas em sequência sobre uma tabela de 60 linhas — ~4 s numa máquina de dev e 13,5 s
+    // no runner do CI (medido em 2026-11-01). O peso é do gesto, não de espera presa.
+  }, 45_000)
 })
 
 // ---------------------------------------------------------------------------------------------------
