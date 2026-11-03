@@ -39,7 +39,15 @@ import {
   useCheckoutSettings,
   usePaymentSettings,
 } from '@estrelinha/core/hooks/useStoreSettings'
-import { useCartStore, type CartItem } from '@/entities/cart'
+import {
+  cartBuyTogetherIds,
+  cartBuyTogetherInput,
+  cartPricingItem,
+  useCartBuyTogether,
+  useCartStore,
+  type CartBuyTogether,
+  type CartItem,
+} from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useProductById } from '@/entities/product'
 import { useCheckoutStore } from './checkoutStore'
@@ -68,6 +76,15 @@ export interface CheckoutTotals {
   shippingCost: number
   /** PRM-15/PRM-16: desconto das faixas, já embutido em `totals.subtotal`. Zero quando não aplicou. */
   promotionDiscount: number
+  /**
+   * O desconto do Compre Junto (`AD-073`), já embutido em `totals.subtotal`. Zero sem configuração
+   * com desconto ou sem a joia na sacola. Sai de `resolveOrderPricing`, como na gaveta.
+   */
+  buyTogetherDiscount: number
+  /** O desconto casado de cada linha (índice de `pricingItems`), para o "de/por" do resumo. */
+  buyTogetherLines: NonNullable<OrderPricingOutcome['buyTogetherLines']>
+  /** A configuração lida — a mesma entrada da gaveta. */
+  buyTogether: CartBuyTogether
   /**
    * PRM-12: as faixas que de fato alteraram preço no caminho VENCEDOR — é este `applied` que a
    * `CheckoutPage` grava em `orders.promotion_id`, com a mesma regra do servidor (uma só ⇒ o id;
@@ -132,9 +149,13 @@ export function useCheckoutTotals(): CheckoutTotals {
 
   const wantsBump = bumpChecked && bump.enabled ? bump.product_id : null
   const bumpProduct = useProductById(wantsBump).data ?? null
+  // O desconto do Compre Junto: a MESMA leitura e a MESMA entrada que a gaveta passa.
+  const buyTogether = useCartBuyTogether(cartBuyTogetherIds(items))
 
   return useMemo(() => {
+    const buyTogetherInput = cartBuyTogetherInput(items, buyTogether.config)
     const pricingItems: PricingItem[] = items.map((item) => ({
+      ...cartPricingItem(item, buyTogetherInput),
       product_id: item.product.id,
       // `item.unitPrice`, **nunca** `item.product.price`: com grade os dois DIVERGEM
       // (`cartStore.ts:121`). `unitPrice` é o preço que o `cartStore.subtotal()` soma, o que a gaveta
@@ -169,6 +190,7 @@ export function useCheckoutTotals(): CheckoutTotals {
         bump,
         coupon: coupon ? { type: coupon.type, value: coupon.value } : null,
         promotions,
+        buyTogether: buyTogetherInput,
       })
 
     let outcome: OrderPricingOutcome
@@ -215,12 +237,18 @@ export function useCheckoutTotals(): CheckoutTotals {
       bumpProduct,
       cartSubtotal,
       // Reconstituído do outcome, não somado do carrinho: `totals.subtotal` já inclui o bump, e o
-      // carrinho não o conhece. Somar `promotionDiscount` de volta é a única conta que devolve
-      // exatamente o subtotal de antes da faixa, com o bump preservado.
-      subtotalBeforePromotion: round2(outcome.totals.subtotal + outcome.promotionDiscount),
+      // carrinho não o conhece. Somar `promotionDiscount` (e o desconto do Compre Junto) de volta é a
+      // única conta que devolve exatamente o subtotal cheio, com o bump preservado — o "Subtotal" do
+      // resumo é o cheio, com cada desconto na linha própria logo abaixo.
+      subtotalBeforePromotion: round2(
+        outcome.totals.subtotal + outcome.promotionDiscount + (outcome.buyTogetherDiscount ?? 0),
+      ),
       couponDiscount: outcome.totals.couponDiscount,
       shippingCost: outcome.totals.shipping,
       promotionDiscount: outcome.promotionDiscount,
+      buyTogetherDiscount: outcome.buyTogetherDiscount ?? 0,
+      buyTogetherLines: outcome.buyTogetherLines ?? [],
+      buyTogether,
       applied: outcome.applied,
       promotionName,
       winner: outcome.winner,
@@ -240,5 +268,6 @@ export function useCheckoutTotals(): CheckoutTotals {
     bumpProduct,
     pix_discount_percent,
     promotions,
+    buyTogether,
   ])
 }

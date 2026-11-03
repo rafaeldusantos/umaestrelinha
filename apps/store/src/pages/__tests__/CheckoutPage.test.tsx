@@ -27,6 +27,11 @@ import { resetAnalyticsForTests, setAnalyticsSettings } from '@/shared/lib/analy
 // Feature 61 · T18 — o dublê do `track` registra e repassa ao de verdade (que em teste é no-op).
 // Nenhum caso anterior a esta feature olha para ele.
 const { trackSpy } = vi.hoisted(() => ({ trackSpy: vi.fn() }))
+// O Compre Junto da sacola é uma consulta (React Query), e esta tela é montada sem
+// `QueryClientProvider`: sem configuração com desconto, a sacola é a de sempre.
+vi.mock('@/entities/cart/api/useCartBuyTogether', () => ({
+  useCartBuyTogether: () => ({ config: null, mainNames: new Map() }),
+}))
 vi.mock('@/shared/lib/analytics', async importOriginal => {
   const real = await importOriginal<typeof import('@/shared/lib/analytics')>()
   return {

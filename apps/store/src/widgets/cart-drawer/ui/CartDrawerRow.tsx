@@ -4,6 +4,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
 import { renditionUrl } from '@estrelinha/core/media'
 import { companionsOf, useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
+import type { BuyTogetherLineFacts } from '@/entities/cart'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
 import { removeFromCartEvent } from '@estrelinha/core/analytics'
@@ -24,9 +25,11 @@ import { companionPhrase, lowStockLabel, variantChips } from '../model/drawerFac
 interface Props {
   item: CartItem
   onNavigate: () => void
+  /** O desconto do Compre Junto desta linha — calculado por `resolveOrderPricing`, nunca aqui. */
+  buyTogether?: BuyTogetherLineFacts
 }
 
-const CartDrawerRow = ({ item, onNavigate }: Props) => {
+const CartDrawerRow = ({ item, onNavigate, buyTogether }: Props) => {
   const removeItem = useCartStore((s) => s.removeItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const cartItems = useCartStore((s) => s.items)
@@ -36,7 +39,9 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
   const scarcity = lowStockLabel(item)
   const chips = variantChips(item)
   // Derivada a cada render: removido o principal da sacola, a frase some sem ninguém gravar nada.
-  const acompanha = companionPhrase(companionsOf(item, cartItems).map((p) => p.name))
+  const acompanha =
+    buyTogether?.phrase ?? companionPhrase(companionsOf(item, cartItems).map((p) => p.name))
+  const comDesconto = buyTogether?.total != null && buyTogether.fullTotal != null
 
   // O `variantId` faz parte da identidade da linha (`cartStore.itemKey`). Omiti-lo — como as duas
   // telas antigas faziam — monta a chave legada `p:id-size-finish` e a remoção não casa com nada:
@@ -87,15 +92,38 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
           >
             {product.name}
           </Link>
-          <span className="shrink-0 text-sm font-bold leading-5 text-estrelinha-primary">
-            {formatPrice(item.unitPrice * quantity)}
-          </span>
+          {comDesconto ? (
+            <span data-testid="preco-compre-junto" className="flex shrink-0 flex-col items-end">
+              <s className="text-[12px] leading-4 text-estrelinha-ink-soft">
+                {formatPrice(buyTogether.fullTotal)}
+              </s>
+              <span className="text-sm font-bold leading-5 text-estrelinha-primary">
+                {formatPrice(buyTogether.total)}
+              </span>
+            </span>
+          ) : (
+            <span className="shrink-0 text-sm font-bold leading-5 text-estrelinha-primary">
+              {formatPrice(item.unitPrice * quantity)}
+            </span>
+          )}
         </div>
 
         {acompanha && (
           <p data-testid="acompanha" className="break-words text-[12.5px] leading-4 text-estrelinha-ink-soft">
             <span aria-hidden="true" className="mr-1.5 inline-block h-px w-2.5 align-middle bg-estrelinha-accent" />
             {acompanha}
+          </p>
+        )}
+
+        {buyTogether?.mixed && (
+          <p data-testid="compre-junto-misto" className="text-[12px] leading-4 text-estrelinha-ink-soft">
+            {buyTogether.mixed}
+          </p>
+        )}
+
+        {buyTogether?.returns && (
+          <p data-testid="compre-junto-volta" className="break-words text-[12px] leading-4 text-estrelinha-ink-soft">
+            {buyTogether.returns}
           </p>
         )}
 

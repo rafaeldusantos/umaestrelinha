@@ -18,6 +18,11 @@ import { useCheckoutTotals } from '../useCheckoutTotals'
 // PRM-16/PRM-17/PRM-18: o valor do CTA tem de ser, ao centavo, o que a edge function cobra para o
 // mesmo pedido — e a escolha entre promoção e cupom é pelo TOTAL FINAL, não pelo desconto.
 
+// O Compre Junto da sacola é uma consulta (React Query), e esta tela é montada sem
+// `QueryClientProvider`: sem configuração com desconto, a sacola é a de sempre.
+vi.mock('@/entities/cart/api/useCartBuyTogether', () => ({
+  useCartBuyTogether: () => ({ config: null, mainNames: new Map() }),
+}))
 vi.mock('@/entities/product/api/useProducts', () => ({ useProductById: vi.fn() }))
 
 const active: { data: (ProgressivePromotion & { name: string })[] } = { data: [] }

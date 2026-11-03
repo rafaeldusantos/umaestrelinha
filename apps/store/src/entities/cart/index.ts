@@ -1,4 +1,6 @@
 export * from './api/useCart'
+export * from './api/useCartBuyTogether'
+export * from './lib/buyTogetherPricing'
 export * from './lib/toQuotePayload'
 export * from './model/cartStore'
 export * from './model/cartUiStore'

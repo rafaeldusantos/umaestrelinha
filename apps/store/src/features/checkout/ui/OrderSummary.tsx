@@ -23,6 +23,7 @@ import { PICKUP_SERVICE_ID } from '@estrelinha/core/shipping'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { useCouponStore } from '@/entities/coupon'
+import { buyTogetherLineFacts } from '@/entities/cart'
 import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCheckoutTotals } from '../model/useCheckoutTotals'
@@ -40,6 +41,9 @@ const OrderSummary = ({ variant }: Props) => {
     subtotalBeforePromotion,
     pixDiscountPercent,
     promotionDiscount,
+    buyTogetherDiscount,
+    buyTogetherLines,
+    buyTogether,
     promotionName,
     discarded,
     totals,
@@ -95,7 +99,18 @@ const OrderSummary = ({ variant }: Props) => {
 
   const itemLines = (
     <div className="flex flex-col gap-4 px-6 py-5">
-      {items.map((item) => (
+      {items.map((item, index) => {
+        // O "de/por" e as frases do Compre Junto: o valor sai de `resolveOrderPricing` (pelo
+        // `useCheckoutTotals`), a mesma conta da gaveta — nenhuma aqui.
+        const casado = buyTogetherLineFacts(
+          index,
+          items,
+          buyTogetherLines,
+          buyTogether.config,
+          buyTogether.mainNames,
+        )
+        const comDesconto = casado.total != null && casado.fullTotal != null
+        return (
         <div
           key={`${item.product.id}-${item.size}-${item.finish}`}
           className="flex items-center gap-[14px]"
@@ -124,14 +139,37 @@ const OrderSummary = ({ variant }: Props) => {
                 {[item.size, item.finish].filter(Boolean).join(' · ')}
               </span>
             )}
+            {casado.phrase && (
+              <span
+                data-testid="summary-item-compre-junto"
+                className="break-words text-[13px] leading-4 text-estrelinha-ink-soft"
+              >
+                {casado.phrase}
+              </span>
+            )}
+            {casado.mixed && (
+              <span className="text-[13px] leading-4 text-estrelinha-ink-soft">{casado.mixed}</span>
+            )}
           </span>
           {/* `item.unitPrice`, não `product.price` — o mesmo que `CartDrawerRow` mostra: com grade os
               dois divergem, e o base faria as linhas de item não somarem o subtotal exibido. */}
-          <span className="shrink-0 font-heading text-base font-semibold leading-5 text-estrelinha-ink">
-            {formatPrice(item.unitPrice * item.quantity)}
-          </span>
+          {comDesconto ? (
+            <span data-testid="summary-item-price" className="flex shrink-0 flex-col items-end">
+              <s className="text-[13px] leading-4 text-estrelinha-ink-soft">
+                {formatPrice(casado.fullTotal)}
+              </s>
+              <span className="font-heading text-base font-semibold leading-5 text-estrelinha-ink">
+                {formatPrice(casado.total)}
+              </span>
+            </span>
+          ) : (
+            <span className="shrink-0 font-heading text-base font-semibold leading-5 text-estrelinha-ink">
+              {formatPrice(item.unitPrice * item.quantity)}
+            </span>
+          )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 
@@ -209,6 +247,20 @@ const OrderSummary = ({ variant }: Props) => {
           </span>
         )}
       </div>
+      {/* O desconto do Compre Junto: mesma linha da gaveta, mesmo valor (`AD-073`). */}
+      {buyTogetherDiscount > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[15px] leading-[18px] text-estrelinha-ink-soft">
+            Desconto do Compre Junto
+          </span>
+          <span
+            data-testid="summary-buy-together"
+            className="shrink-0 text-[15px] font-medium leading-[18px] text-estrelinha-ink"
+          >
+            −{formatPrice(buyTogetherDiscount)}
+          </span>
+        </div>
+      )}
       {/* PRM-15: mesma linha da gaveta, mesmo valor. Sem faixa alcançada a linha não existe — o
           resumo não anuncia "−R$ 0,00". Com `stacks_with_coupon`, ela e a do cupom aparecem juntas
           (PRM-18); sem ele, só uma das duas, porque os dois não compõem (`AD-015`). */}
@@ -264,6 +316,11 @@ const OrderSummary = ({ variant }: Props) => {
       {showInstallments && (
         <p className="text-right text-[13px] leading-4 text-estrelinha-ink-soft">
           no cartão: {cardInstallments.count}x de {formatPrice(cardInstallments.value)} sem juros
+        </p>
+      )}
+      {buyTogetherDiscount > 0 && (
+        <p data-testid="summary-buy-together-note" className="text-[13px] leading-[18px] text-estrelinha-ink-soft">
+          O desconto do Compre Junto vale enquanto a joia estiver no mesmo pedido.
         </p>
       )}
     </div>

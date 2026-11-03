@@ -54,11 +54,12 @@ const entradas = ARQUIVOS.map((f) => join(DIR, f))
 describe('core/buy-together — puro e alcançável pelo Deno', () => {
   const g = caminhar(entradas, disco)
 
-  it('âncora: os oito arquivos do módulo e as duas folhas que ele importa foram lidos', () => {
-    expect(ARQUIVOS).toEqual(['availability.ts', 'discount.ts', 'index.ts', 'marks.ts', 'rules.ts', 'settings.ts', 'total.ts', 'types.ts'])
-    // Os oito do módulo, mais `material/material.ts` e `payment/pix.ts`, que `total.ts` alcança.
-    expect(g.visitados).toHaveLength(10)
+  it('âncora: os nove arquivos do módulo e as duas folhas que ele importa foram lidos', () => {
+    expect(ARQUIVOS).toEqual(['availability.ts', 'cartDiscount.ts', 'discount.ts', 'index.ts', 'marks.ts', 'rules.ts', 'settings.ts', 'total.ts', 'types.ts'])
+    // Os nove do módulo, mais `material/material.ts` e `payment/pix.ts`, que `total.ts` alcança.
+    expect(g.visitados).toHaveLength(11)
     expect(disco(join(DIR, 'discount.ts'))).toContain('export const buyTogetherDiscountedPrice')
+    expect(disco(join(DIR, 'cartDiscount.ts'))).toContain('export function allocateBuyTogetherDiscount')
     expect(disco(join(DIR, 'rules.ts'))).toContain('export const listDeleteRefusal')
   })
 

@@ -22,7 +22,7 @@ import type {
   ProductOption,
   ProductVariant,
   StockPolicy,
-} from '@estrelinha/supabase/types'
+} from './types.ts'
 
 // --- Resolução de preço do item ----------------------------------------------------------------
 

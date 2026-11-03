@@ -19,6 +19,11 @@ import OrderSummary from '../OrderSummary'
 // RSM-01 … RSM-07: fidelidade ao board `04` (respiro, itens, faixa de cupom, total, parcela) e
 //                  ao board `07` (barra do mobile).
 
+// O Compre Junto da sacola é uma consulta (React Query), e esta tela é montada sem
+// `QueryClientProvider`: sem configuração com desconto, a sacola é a de sempre.
+vi.mock('@/entities/cart/api/useCartBuyTogether', () => ({
+  useCartBuyTogether: () => ({ config: null, mainNames: new Map() }),
+}))
 vi.mock('@/features/apply-coupon/ui/CouponInput', () => ({
   default: () => <div data-testid="coupon-input" />,
 }))

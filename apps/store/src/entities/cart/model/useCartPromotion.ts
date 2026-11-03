@@ -20,6 +20,8 @@ import {
 } from '@estrelinha/core/payment/pricing'
 import { useActivePromotions } from '@estrelinha/core/hooks/usePromotions'
 import { useCouponStore } from '@/entities/coupon'
+import { useCartBuyTogether, type CartBuyTogether } from '../api/useCartBuyTogether'
+import { cartBuyTogetherIds, cartBuyTogetherInput, cartPricingItem } from '../lib/buyTogetherPricing'
 import { useCartStore } from './cartStore'
 
 /** O convite da próxima faixa: quantas unidades faltam e a que preço a unidade sai (PRM-23). */
@@ -28,7 +30,16 @@ export interface NextTier {
   unitPrice: number
 }
 
-export type CartPromotion = OrderPricingOutcome & { nextTier: NextTier | null }
+export type CartPromotion = OrderPricingOutcome & {
+  nextTier: NextTier | null
+  /**
+   * A configuração do Compre Junto lida para esta sacola — a mesma entrada que foi a
+   * `resolveOrderPricing`. A linha da peça a usa para dizer quanto o desconto volta a ser com a joia.
+   */
+  buyTogether: CartBuyTogether
+}
+
+const NO_BUY_TOGETHER: CartBuyTogether = { config: null, mainNames: new Map() }
 
 const NO_PROMOTION: CartPromotion = {
   totals: { subtotal: 0, couponDiscount: 0, pixDiscount: 0, shipping: 0, total: 0 },
@@ -37,6 +48,7 @@ const NO_PROMOTION: CartPromotion = {
   winner: 'none',
   discarded: null,
   nextTier: null,
+  buyTogether: NO_BUY_TOGETHER,
 }
 
 /**
@@ -140,17 +152,16 @@ export function useCartPromotion(): CartPromotion {
   const items = useCartStore((s) => s.items)
   const coupon = useCouponStore((s) => s.applied)
   const { data: promotions } = useActivePromotions()
+  // O desconto do Compre Junto: a MESMA leitura e a MESMA entrada que o checkout passa.
+  const buyTogether = useCartBuyTogether(cartBuyTogetherIds(items))
 
   return useMemo(() => {
     if (items.length === 0) return NO_PROMOTION
 
-    const pricingItems: PricingItem[] = items.map((item) => ({
-      product_id: item.product.id,
-      // `unitPrice`, não `product.price`: com grade os dois divergem e é o primeiro que o
-      // `cartStore.subtotal()` soma — e que o servidor reprecifica.
-      unit_price: item.unitPrice,
-      quantity: item.quantity,
-    }))
+    // `unitPrice`, não `product.price`: com grade os dois divergem e é o primeiro que o
+    // `cartStore.subtotal()` soma — e que o servidor reprecifica.
+    const buyTogetherInput = cartBuyTogetherInput(items, buyTogether.config)
+    const pricingItems: PricingItem[] = items.map(item => cartPricingItem(item, buyTogetherInput))
 
     let outcome: OrderPricingOutcome
     try {
@@ -161,14 +172,15 @@ export function useCartPromotion(): CartPromotion {
         method: 'card',
         coupon: coupon ? { type: coupon.type, value: coupon.value } : null,
         promotions,
+        buyTogether: buyTogetherInput,
       })
     } catch {
       // Total abaixo de R$ 0,01 (cupom fixo que come o subtotal inteiro): `calculateOrderTotals`
       // lança, como já lançava. A gaveta não pode quebrar por isso — o bloqueio de verdade é
       // server-side, no `create-payment`.
-      return NO_PROMOTION
+      return { ...NO_PROMOTION, buyTogether }
     }
 
-    return { ...outcome, nextTier: resolveNextTier(pricingItems, promotions, outcome) }
-  }, [items, coupon, promotions])
+    return { ...outcome, nextTier: resolveNextTier(pricingItems, promotions, outcome), buyTogether }
+  }, [items, coupon, promotions, buyTogether])
 }

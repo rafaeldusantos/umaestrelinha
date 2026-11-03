@@ -2,11 +2,31 @@
 // PAY-03: total cobrado é recalculado server-side a partir do pedido persistido.
 // PAY-14: desconto PIX = pix_discount_percent% sobre (subtotal − cupom); frete fora da base.
 
+import {
+  allocateBuyTogetherDiscount,
+  type BuyTogetherDiscountConfig,
+  type BuyTogetherSegment,
+} from '../buy-together/cartDiscount.ts'
+
 export interface PricingItem {
   unit_price: number
   quantity: number
   /** Opcional: só o order bump precisa casar item por produto (BMP-04). */
   product_id?: string
+  /**
+   * Opcional: só o desconto do Compre Junto lê — a variação do principal pode esconder o adicional, e
+   * a da peça pode não ter sido liberada. `null`/ausente = produto sem grade.
+   */
+  variant_id?: string | null
+}
+
+/**
+ * O desconto da compra casada (Compre Junto): os adicionais das joias que podem estar no pedido, com
+ * o percentual de cada um, e as listas que eles citam. `marks[i]` são os principais que a linha `i`
+ * acompanha (na loja, a marca da sacola; no servidor, a validada) — só decidem o par recíproco.
+ */
+export interface BuyTogetherPricingInput extends BuyTogetherDiscountConfig {
+  marks?: readonly (readonly string[] | null | undefined)[]
 }
 
 /** Oferta do order bump, lida de `store_settings.checkout` (BMP-01). */
@@ -43,6 +63,15 @@ export interface CalculateOrderTotalsInput {
    * chamadores e os testes que comparam o objeto inteiro.
    */
   manualDiscount?: ManualDiscount | null
+  /**
+   * Opcional (WI 92, `AD-073`): o desconto da compra casada. Por item, ao lado do order bump: a base
+   * dos dois caminhos passa a ser o menor preço entre o bump e o casado, unidade a unidade, e a
+   * promoção e o cupom incidem sobre ela.
+   *
+   * **Ausente ou nulo deixa o resultado idêntico ao de antes** — inclusive a forma do objeto: os
+   * campos `buyTogether*` da saída de `resolveOrderPricing` só existem quando a entrada o trouxe.
+   */
+  buyTogether?: BuyTogetherPricingInput | null
 }
 
 /** O desconto avulso como a Adri o escreve: em reais ou em percentual. */
@@ -358,6 +387,7 @@ export function perItemMin(a: PricingItem[], b: PricingItem[]): PricingItem[] {
  * fá-las compor, e composição de desconto por item é justamente o que a `AD-015` proíbe.
  */
 function resolveChargedItems(input: CalculateOrderTotalsInput): PricingItem[] {
+  if (input.buyTogether) return buyTogetherParts(input).charged
   const bumped = applyOrderBump(input.items, input.bump)
   if (!input.promotions || input.promotions.length === 0) return bumped
 
@@ -367,6 +397,135 @@ function resolveChargedItems(input: CalculateOrderTotalsInput): PricingItem[] {
 
 const sumItems = (items: PricingItem[]) =>
   round2(items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0))
+
+// =====================================================================
+// Desconto da compra casada (WI 92, `AD-073`)
+// =====================================================================
+//
+// D-02/D-18: as regras rodam sobre as linhas da SACOLA — o bump decide pela linha inteira, a faixa
+// conta unidades da linha —, e a partição em "unidades com desconto" e "a preço cheio" acontece
+// depois, só para somar. Cada parte leva, por unidade, o menor entre o bump e o casado (a base) e,
+// por cima, o menor entre a base e a faixa (o cobrado): nenhum desconto por item compõe (`AD-015`).
+
+/** As partes de cada linha: as unidades com o desconto casado, depois o resto a preço cheio. */
+interface BuyTogetherParts {
+  /** `owner[k]` é o índice da linha de onde a parte `k` saiu. */
+  owner: number[]
+  bumped: PricingItem[]
+  /** Por unidade, o menor entre o bump e o casado. */
+  base: PricingItem[]
+  /** Por unidade, o menor entre a base e a faixa. */
+  charged: PricingItem[]
+  segments: Map<number, BuyTogetherSegment[]>
+}
+
+function buyTogetherParts(input: CalculateOrderTotalsInput): BuyTogetherParts {
+  const config = input.buyTogether as BuyTogetherPricingInput
+  const bumpedLines = applyOrderBump(input.items, input.bump)
+  const promotions = input.promotions || []
+  const progressiveLines =
+    promotions.length > 0 ? applyProgressiveDiscount(input.items, promotions).items : input.items
+  const allocation = allocateBuyTogetherDiscount(input.items, config, config.marks ?? [])
+  const segments = new Map(allocation.map(a => [a.index, a.segments]))
+
+  const owner: number[] = []
+  const bumped: PricingItem[] = []
+  const casado: PricingItem[] = []
+  const progressive: PricingItem[] = []
+  input.items.forEach((item, index) => {
+    const push = (quantity: number, price: number) => {
+      if (quantity <= 0) return
+      owner.push(index)
+      bumped.push({ ...bumpedLines[index], quantity })
+      casado.push({ ...item, unit_price: price, quantity })
+      progressive.push({ ...progressiveLines[index], quantity })
+    }
+    let used = 0
+    for (const seg of segments.get(index) ?? []) {
+      push(seg.units, seg.unitPrice)
+      used += seg.units
+    }
+    push(item.quantity - used, item.unit_price)
+  })
+
+  const base = perItemMin(bumped, casado)
+  return { owner, bumped, base, charged: perItemMin(base, progressive), segments }
+}
+
+/** O desconto casado de uma linha, como a sacola e o checkout o mostram. */
+export interface BuyTogetherLinePricing {
+  /** A posição da linha em `items`. */
+  index: number
+  /** Unidades que saem com o desconto casado (o resto sai a preço cheio). */
+  discountedUnits: number
+  /** Por joia e percentual — no pedido, a linha vira uma por parte, mais a do preço cheio. */
+  segments: BuyTogetherSegment[]
+  /** O total da linha antes do casado (com o bump, se houver). */
+  fullTotal: number
+  /** O total da linha com o casado (o menor por unidade entre o bump e o casado). */
+  total: number
+  /** `fullTotal − total`. Zero quando o bump já era menor. */
+  discount: number
+}
+
+/**
+ * As promoções que de fato vencem algum item contra a base com o desconto casado (D-06). Uma faixa
+ * que baixa o preço cheio mas não chega abaixo da peça já descontada não desconta nada, e anunciá-la
+ * seria uma linha de "−R$ 0,00" — e tiraria o cupom da conta à toa.
+ */
+function appliedAgainstBase(
+  input: Pick<CalculateOrderTotalsInput, 'items'>,
+  promotions: readonly ProgressivePromotion[],
+  parts: BuyTogetherParts,
+): AppliedProgressive[] {
+  const all = applyProgressiveDiscount(input.items, promotions)
+  if (all.applied.length === 0) return []
+  const single = new Map(
+    promotions.map(p => [p.id, applyProgressiveDiscount(input.items, [p]).items] as const),
+  )
+  const winnerOf = (index: number): string | null => {
+    const price = all.items[index].unit_price
+    let winner: ProgressivePromotion | null = null
+    for (const promo of promotions) {
+      if (single.get(promo.id)[index].unit_price !== price) continue
+      if (price >= input.items[index].unit_price) continue
+      if (!winner || isOlder(promo, winner)) winner = promo
+    }
+    return winner ? winner.id : null
+  }
+  const winners = new Set<string>()
+  parts.base.forEach((part, k) => {
+    const index = parts.owner[k]
+    if (!(all.items[index].unit_price < part.unit_price)) return
+    const id = winnerOf(index)
+    if (id) winners.add(id)
+  })
+  return all.applied.filter(entry => winners.has(entry.promotion_id))
+}
+
+function buyTogetherLines(parts: BuyTogetherParts): BuyTogetherLinePricing[] {
+  const out: BuyTogetherLinePricing[] = []
+  parts.segments.forEach((segments, index) => {
+    let full = 0
+    let total = 0
+    parts.owner.forEach((owner, k) => {
+      if (owner !== index) return
+      full += parts.bumped[k].unit_price * parts.bumped[k].quantity
+      total += parts.base[k].unit_price * parts.base[k].quantity
+    })
+    const fullTotal = round2(full)
+    const lineTotal = round2(total)
+    out.push({
+      index,
+      discountedUnits: segments.reduce((n, s) => n + s.units, 0),
+      segments,
+      fullTotal,
+      total: lineTotal,
+      discount: round2(fullTotal - lineTotal),
+    })
+  })
+  return out.sort((a, b) => a.index - b.index)
+}
 
 export function calculateOrderTotals(input: CalculateOrderTotalsInput): OrderTotals {
   const items = resolveChargedItems(input)
@@ -415,6 +574,13 @@ export interface OrderPricingOutcome {
   winner: 'promotion' | 'coupon' | 'both' | 'none'
   /** Nome do descartado, quando houve escolha. `null` quando não houve. */
   discarded: 'promotion' | 'coupon' | null
+  /**
+   * Só presente quando a entrada trouxe `buyTogether` (`AD-073`): o desconto da compra casada, já
+   * embutido em `totals.subtotal`. Nunca entra em `promotionDiscount`.
+   */
+  buyTogetherDiscount?: number
+  /** Só presente com `buyTogether`: o desconto casado de cada linha que recebeu alguma unidade. */
+  buyTogetherLines?: BuyTogetherLinePricing[]
 }
 
 /**
@@ -430,6 +596,8 @@ function priceOnePath(
   promotions: readonly ProgressivePromotion[],
   coupon: CouponRule | null,
 ): OrderPricingOutcome {
+  if (input.buyTogether) return priceOnePathWithBuyTogether(input, promotions, coupon)
+
   const applied = applyProgressiveDiscount(input.items, promotions).applied
 
   const withoutPromotion = sumItems(applyOrderBump(input.items, input.bump))
@@ -452,6 +620,39 @@ function priceOnePath(
     applied,
     winner: 'none',
     discarded: null,
+  }
+}
+
+/**
+ * `priceOnePath` com o desconto casado (D-06): a base dos dois caminhos é o pedido com o menor entre
+ * o bump e o casado; `promotionDiscount` = base − cobrado; `buyTogetherDiscount` = (com bump) − base.
+ * O cupom incide sobre o cobrado, como com o bump.
+ */
+function priceOnePathWithBuyTogether(
+  input: OrderPricingInput,
+  promotions: readonly ProgressivePromotion[],
+  coupon: CouponRule | null,
+): OrderPricingOutcome {
+  const parts = buyTogetherParts({ ...input, couponDiscount: 0, promotions })
+  const bumpedSubtotal = sumItems(parts.bumped)
+  const baseSubtotal = sumItems(parts.base)
+  const chargedSubtotal = sumItems(parts.charged)
+
+  const totals = calculateOrderTotals({
+    ...input,
+    promotions,
+    couponDiscount: resolveCouponDiscount(chargedSubtotal, coupon),
+    shipping: coupon && coupon.type === 'free_shipping' ? 0 : input.shipping,
+  })
+
+  return {
+    totals,
+    promotionDiscount: round2(baseSubtotal - chargedSubtotal),
+    applied: appliedAgainstBase(input, promotions, parts),
+    winner: 'none',
+    discarded: null,
+    buyTogetherDiscount: round2(bumpedSubtotal - baseSubtotal),
+    buyTogetherLines: buyTogetherLines(parts),
   }
 }
 
@@ -496,7 +697,14 @@ export function resolveOrderPricing(input: OrderPricingInput): OrderPricingOutco
   }
 
   // Empate cai aqui: `<=` dá a vitória à promoção.
-  return withPromotion.totals.total <= withCoupon.totals.total
-    ? { ...withPromotion, winner: 'promotion', discarded: 'coupon' }
-    : { ...withCoupon, winner: 'coupon', discarded: 'promotion' }
+  if (withPromotion.totals.total <= withCoupon.totals.total) {
+    // Com o desconto casado (D-06), o cupom só é nomeado como descartado quando ele de fato desconta
+    // alguma coisa além do casado — no subtotal ou no frete.
+    const couponDiscounts =
+      !input.buyTogether ||
+      withCoupon.totals.couponDiscount > 0 ||
+      withCoupon.totals.shipping < round2(input.shipping)
+    return { ...withPromotion, winner: 'promotion', discarded: couponDiscounts ? 'coupon' : null }
+  }
+  return { ...withCoupon, winner: 'coupon', discarded: 'promotion' }
 }

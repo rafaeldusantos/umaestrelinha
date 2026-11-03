@@ -21,6 +21,7 @@ import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartPromotion } from '@/entities/cart/model/useCartPromotion'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
+import { buyTogetherLineFacts } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'
 import { useAllProducts } from '@/entities/product/api/useProducts'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
@@ -46,7 +47,8 @@ const CartDrawer = () => {
   const count = useCartStore((s) => s.uniqueItemsCount())
   const applied = useCouponStore((s) => s.applied)
   const { default_shipping_cost } = useShippingSettings()
-  const { promotionDiscount, totals, nextTier } = useCartPromotion()
+  const { promotionDiscount, totals, nextTier, buyTogetherDiscount, buyTogetherLines, buyTogether } =
+    useCartPromotion()
 
   /**
    * `FRG-05` — o estado do frete grátis vem de `@estrelinha/core/shipping`, dono único.
@@ -215,7 +217,17 @@ const CartDrawer = () => {
                       exit={{ opacity: 0, x: -24, height: 0, overflow: 'hidden' }}
                       transition={{ duration: 0.22, delay: Math.min(index * 0.04, 0.2) }}
                     >
-                      <CartDrawerRow item={item} onNavigate={closeCart} />
+                      <CartDrawerRow
+                        item={item}
+                        onNavigate={closeCart}
+                        buyTogether={buyTogetherLineFacts(
+                          index,
+                          items,
+                          buyTogetherLines,
+                          buyTogether.config,
+                          buyTogether.mainNames,
+                        )}
+                      />
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -264,6 +276,19 @@ const CartDrawer = () => {
                   </dt>
                   <dd className="font-semibold text-estrelinha-ink">{formatPrice(subtotal)}</dd>
                 </div>
+                {/* O desconto do Compre Junto: o MESMO valor que o resumo do checkout mostra, porque os
+                    dois saem de `resolveOrderPricing` com a mesma entrada. Sem desconto, sem linha. */}
+                {(buyTogetherDiscount ?? 0) > 0 && (
+                  <div className="flex items-center justify-between gap-3 text-[13px]">
+                    <dt className="font-medium text-estrelinha-ink-soft">Desconto do Compre Junto</dt>
+                    <dd
+                      data-testid="drawer-buy-together"
+                      className="shrink-0 font-semibold text-estrelinha-primary"
+                    >
+                      −{formatPrice(buyTogetherDiscount)}
+                    </dd>
+                  </div>
+                )}
                 {/* Sem faixa alcançada a linha simplesmente não existe: a gaveta não anuncia
                     "−R$ 0,00", que é anúncio de desconto nenhum. */}
                 {promotionDiscount > 0 && (
