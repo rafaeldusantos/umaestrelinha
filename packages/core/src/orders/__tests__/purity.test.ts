@@ -83,6 +83,8 @@ describe('core/orders é módulo puro e alcançável pelo Deno', () => {
         'charge.ts',
         // Feature `75`: a ação do app do ateliê, a folha do rastreio e a confirmação.
         'appAction.ts',
+        // O resumo do pedido, que a confirmação, o e-mail, o painel e o app leem.
+        'summary.ts',
       ]),
     )
     expect(arquivos.length).toBeGreaterThanOrEqual(18)

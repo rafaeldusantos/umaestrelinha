@@ -155,15 +155,21 @@ export interface DispatchEventOptions {
  * sairia**, em silêncio, para toda a loja. É o `AD-012` na direção contrária: aqui o tipo não mente,
  * o schema é que ainda não chegou. A `43` acrescenta a coluna na migration dela e o nome nesta
  * lista, no mesmo commit.
+ *
+ * Os descontos por item e o preço cheio das linhas (`buy_together_discount`,
+ * `order_bump_discount`, `full_unit_price`) só existem depois da migration
+ * `20261107140000_compre-junto-desconto-no-pedido.sql` — pelo mesmo motivo, a ordem de publicação
+ * é migration → esta function.
  */
 const ORDER_COLUMNS = `
   id, order_number, customer_name, customer_email, customer_phone,
   status, payment_status, paid_at, mp_order_id,
   tracking_code, shipping_carrier, shipping_service_id, material_status, material_tracking_code,
   subtotal, shipping_cost, discount, pix_discount, total,
+  buy_together_discount, promotion_discount, order_bump_discount,
   address_street, address_number, address_complement, address_neighborhood,
   address_city, address_state, address_zip,
-  order_items ( product_name, size, finish, quantity, unit_price )
+  order_items ( product_id, product_name, variant_id, size, finish, engraving_text, quantity, unit_price, full_unit_price, accompanies_product_ids )
 `
 
 function log(entry: Record<string, unknown>) {

@@ -853,3 +853,97 @@ describe('RET-18 (feature 63) — o e-mail de um pedido de retirada no escritór
     expect(text).toContain('Entrega:')
   })
 })
+
+// =================================================================================================
+// O desconto da compra casada no e-mail do pedido
+// =================================================================================================
+//
+// O pedido como o `create-payment` o grava: o pingente (100), a corrente partida em duas (uma com o
+// casado de 10%, 36; a outra a preço cheio, 40) e o bump (20 → 10). Preço cheio e cobrado divergem em
+// toda linha com desconto. A regra é a de `core/orders/summary.ts` — a mesma da confirmação.
+describe('o e-mail do pedido com o desconto do Compre Junto', () => {
+  const comDesconto = (over: Partial<EmailOrder> = {}) =>
+    orderFixture({
+      order_items: [
+        { product_id: 'pingente', product_name: 'Pingente Gota', size: null, finish: null, quantity: 1, unit_price: 100, full_unit_price: 100 },
+        { product_id: 'corrente', product_name: 'Corrente Veneziana', size: null, finish: null, quantity: 1, unit_price: 36, full_unit_price: 40, accompanies_product_ids: ['pingente'] },
+        { product_id: 'corrente', product_name: 'Corrente Veneziana', size: null, finish: null, quantity: 1, unit_price: 40, full_unit_price: 40, accompanies_product_ids: ['pingente'] },
+        { product_id: 'bump', product_name: 'Cartão de lembrança', size: null, finish: null, quantity: 1, unit_price: 10, full_unit_price: 20 },
+      ],
+      // Cobrado 186 · cupom 10 · PIX 8,80 · frete 12,50 ⇒ 179,70. Cheio 200.
+      subtotal: 186,
+      shipping_cost: 12.5,
+      discount: 10,
+      pix_discount: 8.8,
+      total: 179.7,
+      buy_together_discount: 4,
+      promotion_discount: 0,
+      order_bump_discount: 10,
+      ...over,
+    })
+
+  const reais = (n: number) => `R$${NBSP}${n.toFixed(2).replace('.', ',')}`
+  const emCentavos = (v: string) =>
+    (v.startsWith('−') ? -1 : 1) * Math.round(Number(v.replace(/[^\d,]/g, '').replace(',', '.')) * 100)
+
+  /** As linhas da tabela de totais, na ordem: [rótulo, valor]. */
+  const totais = (html: string) => {
+    const tabela = html.slice(html.lastIndexOf('<table', html.indexOf('>Total</td>')))
+    return [...tabela.matchAll(/<td style="padding:4px 0;[^"]*">([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>/g)].map(
+      (m) => [m[1], m[2]] as const,
+    )
+  }
+
+  it('a linha com o casado diz "Compre Junto · N% a menos" e mostra o cheio riscado acima do cobrado', () => {
+    const { html } = render('order_paid', comDesconto())
+    expect(html.match(/Compre Junto · \d+% a menos/g)).toEqual(['Compre Junto · 10% a menos'])
+    expect(html).toContain(`${reais(40)}</s><br>${reais(36)}`)
+    expect(html).toContain(`${reais(20)}</s><br>${reais(10)}`)
+  })
+
+  it('os totais: Subtotal cheio, uma linha por desconto, e a conta fecha', () => {
+    const { html, text } = render('order_paid', comDesconto())
+    const linhas = totais(html)
+    expect(linhas.map(([r]) => r)).toEqual([
+      'Subtotal',
+      'Frete',
+      'Desconto do Compre Junto',
+      'Desconto da oferta',
+      'Cupom',
+      'Desconto PIX',
+      'Total',
+    ])
+    expect(linhas[0][1]).toBe(reais(200))
+    const acima = linhas.slice(0, -1).reduce((s, [, v]) => s + emCentavos(v), 0)
+    expect(acima).toBe(emCentavos(linhas[linhas.length - 1][1]))
+    expect(linhas[linhas.length - 1][1]).toBe(reais(179.7))
+
+    expect(text).toContain(`Subtotal: ${reais(200)}`)
+    expect(text).toContain(`Desconto do Compre Junto: -${reais(4)}`)
+    expect(text).toContain(`- 1x Corrente Veneziana — ${reais(36)} (de ${reais(40)}; Compre Junto · 10% a menos)`)
+    expect(text).toContain(`- 1x Corrente Veneziana — ${reais(40)}\n`)
+  })
+
+  it('pedido de antes (sem preço cheio) sai como sempre: subtotal gravado, "Desconto", sem riscado', () => {
+    const { html } = render('order_paid', orderFixture({ discount: 5, total: 55.5 }))
+    expect(html).not.toContain('<s ')
+    expect(html).not.toContain('Compre Junto')
+    expect(totais(html).map(([r]) => r)).toEqual(['Subtotal', 'Frete', 'Desconto', 'Total'])
+    expect(totais(html)[0][1]).toBe(reais(48))
+  })
+
+  it('tom memorial: nada de "economize" no e-mail com desconto', () => {
+    const { html, text } = render('order_paid', comDesconto())
+    expect(`${html}${text}`).not.toMatch(/economi/i)
+  })
+
+  it('a prévia do painel (o pedido de exemplo) tem desconto, e a conta dele fecha', () => {
+    const { html } = render('order_paid', SAMPLE_ORDER)
+    expect(html).toContain('Compre Junto · 10% a menos')
+    const linhas = totais(html)
+    expect(linhas.map(([r]) => r)).toContain('Desconto do Compre Junto')
+    const acima = linhas.slice(0, -1).reduce((s, [, v]) => s + emCentavos(v), 0)
+    expect(acima).toBe(emCentavos(linhas[linhas.length - 1][1]))
+    expect(linhas[linhas.length - 1][1]).toBe(reais(SAMPLE_ORDER.total))
+  })
+})

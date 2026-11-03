@@ -239,3 +239,161 @@ describe('OrderItemsSummary — a peça que acompanha (Compre Junto)', () => {
     ])
   })
 })
+
+describe('OrderItemsSummary — o desconto da compra casada no pedido', () => {
+  // O pedido como o `create-payment` o grava: a joia (300), a corrente partida em duas (uma com o
+  // casado de 10%, 71,10; outra a preço cheio, 79), e o bump (40 → 20). PIX 5% sobre 470,10; frete 20.
+  // Preço cheio e cobrado divergem em toda linha com desconto.
+  const novo = (o: Partial<OrderItemsSummaryProps['order']> = {}) =>
+    pedido({
+      order_items: [
+        item({ id: 'p', product_id: 'joia', product_name: 'Pingente Estrela', unit_price: 300, full_unit_price: 300 }),
+        item({
+          id: 'c1',
+          product_id: 'corrente',
+          product_name: 'Corrente Veneziana',
+          unit_price: 71.1,
+          full_unit_price: 79,
+          accompanies_product_ids: ['joia'],
+        }),
+        item({
+          id: 'c2',
+          product_id: 'corrente',
+          product_name: 'Corrente Veneziana',
+          unit_price: 79,
+          full_unit_price: 79,
+          accompanies_product_ids: ['joia'],
+        }),
+        item({ id: 'b', product_id: 'bump', product_name: 'Cartão de lembrança', unit_price: 20, full_unit_price: 40 }),
+      ],
+      subtotal: 470.1,
+      shipping_cost: 20,
+      discount: 0,
+      coupon_code: null,
+      pix_discount: 23.51,
+      total: 466.59,
+      buy_together_discount: 7.9,
+      promotion_discount: 0,
+      order_bump_discount: 20,
+      ...o,
+    })
+
+  const linhas = () => screen.getAllByRole('listitem')
+
+  it('a peça com desconto mostra "de/por": o cheio riscado e o cobrado', () => {
+    render(<OrderItemsSummary order={novo()} />)
+    const [, casada, , bump] = linhas()
+
+    const dePor = within(casada).getByTestId('item-de-por')
+    expect(dePor.querySelector('s')?.textContent).toBe(formatPrice(79))
+    expect(dePor.textContent).toBe(`${formatPrice(79)}${formatPrice(71.1)}`)
+    expect(within(bump).getByTestId('item-de-por').querySelector('s')?.textContent).toBe(formatPrice(40))
+  })
+
+  it('a linha mista partida em duas: uma "Acompanha o X · 10% a menos" com "de/por", outra a preço cheio', () => {
+    render(<OrderItemsSummary order={novo()} />)
+    const [principal, casada, avulsa] = linhas()
+
+    expect(
+      within(casada).getByText('Acompanha o Pingente Estrela · 10% a menos', { normalizer: (t) => t }),
+    ).toBeInTheDocument()
+    expect(within(avulsa).queryByText(/Acompanha/)).not.toBeInTheDocument()
+    expect(within(avulsa).queryByTestId('item-de-por')).not.toBeInTheDocument()
+    expect(within(avulsa).getByText(formatPrice(79).replace(/\s/g, ' '))).toBeInTheDocument()
+    // Cada uma com a sua linha de detalhe: "{variação} · N unidade(s)".
+    expect(within(casada).getByText('1 unidade')).toBeInTheDocument()
+    expect(within(avulsa).getByText('1 unidade')).toBeInTheDocument()
+    expect(within(avulsa).queryByText(/Qtd/)).not.toBeInTheDocument()
+    expect(within(principal).queryByTestId('item-de-por')).not.toBeInTheDocument()
+  })
+
+  it('o resumo: Subtotal cheio, uma linha por desconto, e a conta fecha', () => {
+    render(
+      <OrderItemsSummary
+        order={novo({
+          discount: 10,
+          coupon_code: 'FLOR',
+          promotion_discount: 3.95,
+          // Os números mudam junto, para a conta seguir fechando com os cinco descontos.
+          order_items: [
+            item({ id: 'p', product_id: 'joia', unit_price: 300, full_unit_price: 300 }),
+            item({ id: 'c1', product_id: 'corrente', unit_price: 71.1, full_unit_price: 79, accompanies_product_ids: ['joia'] }),
+            item({ id: 'c2', product_id: 'corrente', unit_price: 75.05, full_unit_price: 79, accompanies_product_ids: ['joia'] }),
+            item({ id: 'b', product_id: 'bump', unit_price: 20, full_unit_price: 40 }),
+          ],
+          subtotal: 466.15,
+          pix_discount: 22.81,
+          total: 453.34,
+        })}
+      />,
+    )
+
+    const rotulos = Array.from(document.querySelectorAll('dt')).map((dt) => dt.textContent)
+    expect(rotulos).toEqual([
+      'Subtotal',
+      'Frete',
+      'Desconto do Compre Junto',
+      'Desconto progressivo',
+      'Desconto da oferta',
+      'Cupom FLOR',
+      'Desconto PIX',
+      'Total',
+    ])
+    expect(valorDa('Subtotal')).toBe(formatPrice(498))
+    expect(valorDa('Desconto do Compre Junto')).toBe(`−${formatPrice(7.9)}`)
+    expect(valorDa('Desconto da oferta')).toBe(`−${formatPrice(20)}`)
+    expect(valorDa('Total')).toBe(formatPrice(453.34))
+
+    const acima = rotulos.slice(0, -1).map((r) => emReais(valorDa(r as string)))
+    expect(Math.round(acima.reduce((a, b) => a + b, 0) * 100) / 100).toBe(emReais(valorDa('Total')))
+  })
+
+  it('pedido de antes (sem preço cheio) continua igual: subtotal gravado, sem "de/por" nem linhas novas', () => {
+    render(
+      <OrderItemsSummary
+        order={pedido({
+          order_items: [item({ quantity: 2, unit_price: 100 })],
+          subtotal: 200,
+          shipping_cost: 21.5,
+          discount: 20,
+          coupon_code: 'SAUDADE10',
+          pix_discount: 9,
+          total: 192.5,
+          // Mesmo com a coluna da promoção preenchida, o pedido de antes não ganha a linha.
+          promotion_discount: 5,
+        })}
+      />,
+    )
+
+    expect(Array.from(document.querySelectorAll('dt')).map((dt) => dt.textContent)).toEqual([
+      'Subtotal',
+      'Frete',
+      'Cupom SAUDADE10',
+      'Desconto PIX',
+      'Total',
+    ])
+    expect(valorDa('Subtotal')).toBe(formatPrice(200))
+    expect(screen.queryByTestId('item-de-por')).not.toBeInTheDocument()
+    expect(screen.getByText('Qtd: 2')).toBeInTheDocument()
+    expect(screen.queryByText(/unidade/)).not.toBeInTheDocument()
+  })
+
+  it('no pedido novo, a variação e "N unidade(s)", no plural quando passa de uma', () => {
+    render(
+      <OrderItemsSummary
+        order={pedido({
+          order_items: [item({ quantity: 2, unit_price: 100, full_unit_price: 100, variant_label: '4,5 cm · Fosco' })],
+          subtotal: 200,
+          shipping_cost: 0,
+          total: 200,
+        })}
+      />,
+    )
+    expect(screen.getByText('4,5 cm · Fosco · 2 unidades', { normalizer: (t) => t })).toBeInTheDocument()
+  })
+
+  it('tom memorial: nenhuma exclamação nem "economize" no bloco', () => {
+    const { container } = render(<OrderItemsSummary order={novo()} />)
+    expect(container.textContent).not.toMatch(/!|economi/i)
+  })
+})

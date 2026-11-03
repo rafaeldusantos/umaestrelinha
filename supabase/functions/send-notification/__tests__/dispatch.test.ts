@@ -646,3 +646,52 @@ describe('feature 63 — o motor com um pedido de retirada (RET-17, RET-18)', ()
     expect(html).toContain('Rua das Acácias')
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * O desconto da compra casada, pelo MOTOR: o `select` precisa pedir o preço cheio das linhas, a
+ * marca e os descontos por item, senão o e-mail sai no formato de antes sem nada acusar. A fixtura
+ * é FUNÇÃO do `select` (molde do caso da retirada): cada coluna só chega se o motor a pediu.
+ */
+describe('o motor com o desconto do Compre Junto', () => {
+  const ITEM_COLS = ['product_id', 'full_unit_price', 'accompanies_product_ids']
+  const ORDER_COLS = ['buy_together_discount', 'promotion_discount', 'order_bump_discount']
+  const pediu = (select: string, coluna: string) => new RegExp(`\\b${coluna}\\b`).test(select)
+
+  const soOQueFoiPedido = (_eq: unknown, select: string) => {
+    const itens = select.match(/order_items\s*\(([^)]*)\)/)?.[1] ?? ''
+    const cabecalho: Record<string, unknown> = {
+      buy_together_discount: 4,
+      promotion_discount: 0,
+      order_bump_discount: 0,
+    }
+    const pedido = Object.fromEntries(
+      Object.entries(cabecalho).filter(([c]) => ORDER_COLS.includes(c) && pediu(select, c)),
+    )
+    const soPedidas = (linha: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(linha).filter(([c]) => !ITEM_COLS.includes(c) || pediu(itens, c)))
+    return baseOrder({
+      subtotal: 285,
+      pix_discount: 0,
+      total: 309.9,
+      ...pedido,
+      order_items: [
+        { product_id: 'p', product_name: 'Pingente Gota', size: null, finish: null, quantity: 1, unit_price: 249, full_unit_price: 249 },
+        { product_id: 'c', product_name: 'Corrente', size: null, finish: null, quantity: 1, unit_price: 36, full_unit_price: 40, accompanies_product_ids: ['p'] },
+      ].map(soPedidas),
+    })
+  }
+
+  it('o e-mail sai com o "de/por", a linha do desconto e o Subtotal cheio', async () => {
+    const { deps, fetchDouble } = setup({ supabase: { rows: { orders: soOQueFoiPedido } } })
+    const r = await dispatchEvent(deps, { orderId: ORDER_ID, event: 'order_paid' })
+
+    expect(r[0]).toMatchObject({ ok: true })
+    const html = fetchDouble.calls[0].body.html as string
+    expect(html).toContain('Compre Junto · 10% a menos')
+    expect(html).toContain('Desconto do Compre Junto')
+    // `formatPrice` separa o símbolo com espaço inseparável.
+    expect(html).toContain('R$\u00a0289,00')
+  })
+})

@@ -15,17 +15,24 @@ import type { EmailOrder } from './layout.ts'
  * desconto de PIX, endereço completo com complemento, rastreio dos dois tipos e material a caminho.
  * Assim qualquer evento que a dona escolher tem o que renderizar — inclusive os de material e o
  * destaque do código de rastreio.
+ *
+ * A corrente acompanha o pingente com 10% do Compre Junto: a prévia mostra o "de/por" na linha e o
+ * Subtotal cheio com a linha do desconto. A conta fecha: 289 − 4 (Compre Junto) − 14,25 (PIX sobre
+ * 285) + 24,90 = 295,65.
  */
 export const SAMPLE_ORDER: EmailOrder = {
   id: '00000000-0000-4000-8000-000000000042',
   order_number: 'UE-0042',
   customer_name: 'Mariana Souza',
   customer_email: 'mariana@exemplo.invalid',
-  subtotal: 289,
+  subtotal: 285,
   shipping_cost: 24.9,
   discount: 0,
-  pix_discount: 14.45,
-  total: 299.45,
+  pix_discount: 14.25,
+  total: 295.65,
+  buy_together_discount: 4,
+  promotion_discount: 0,
+  order_bump_discount: 0,
   tracking_code: 'AA123456789BR',
   shipping_carrier: 'PAC',
   material_status: 'material_enviado',
@@ -38,7 +45,24 @@ export const SAMPLE_ORDER: EmailOrder = {
   address_state: 'RS',
   address_zip: '90000-000',
   order_items: [
-    { product_name: 'Pingente Gota — resina com cinzas', size: 'Único', finish: 'Prata 950', quantity: 1, unit_price: 249 },
-    { product_name: 'Corrente veneziana 45cm', size: null, finish: null, quantity: 1, unit_price: 40 },
+    {
+      product_id: 'exemplo-pingente',
+      product_name: 'Pingente Gota — resina com cinzas',
+      size: 'Único',
+      finish: 'Prata 950',
+      quantity: 1,
+      unit_price: 249,
+      full_unit_price: 249,
+    },
+    {
+      product_id: 'exemplo-corrente',
+      product_name: 'Corrente veneziana 45cm',
+      size: null,
+      finish: null,
+      quantity: 1,
+      unit_price: 36,
+      full_unit_price: 40,
+      accompanies_product_ids: ['exemplo-pingente'],
+    },
   ],
 }

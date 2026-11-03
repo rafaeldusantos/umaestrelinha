@@ -114,7 +114,7 @@ export function renderEmail(
 
   const body = [
     fixedBlock(event, order, vars),
-    itemsTable(order.order_items ?? []),
+    itemsTable(order.order_items ?? [], order),
     totalsTable(order),
     addressBlock(order, pickup),
     ctaButton(href, label),
