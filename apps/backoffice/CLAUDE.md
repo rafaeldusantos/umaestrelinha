@@ -1443,7 +1443,7 @@ junto" que morava em Relacionados **saiu**: a aba monta até **3 adicionais** po
   gravada do principal (id que não é provisório) pode ser marcada em "Some quando".
 - **Recusas** vêm de `@estrelinha/core/buy-together`: o 4º adicional (`addonCountRefusal`, mostrado
   como frase ao tentar acrescentar — o botão não é apagado), a joia como adicional de si mesma e a
-  peça repetida. A busca é o `ProductSearchField` (`excluir` o principal, `selecionados` os outros
+  peça repetida. A busca é o `ProductSearchField` (`bloqueados` o principal — ele aparece desabilitado com "É esta joia" e conta no catálogo, em vez de sumir e fazer a busca dizer "Nenhuma peça com…" —, `selecionados` os outros
   adicionais — "Já está em outro adicional" —, `bloquearForaDoAr`). A peça é lida por id
   (`useProductVariants`). O que nasce no painel é só o incompleto: `incompleteNote` ("1 adicional está
   sem lista ou peça.") vai à barra do topo (`ProductFormHeader.blockedNote`) e **desabilita o Salvar**.

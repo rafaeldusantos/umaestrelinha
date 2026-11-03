@@ -267,15 +267,31 @@ describe('adicional do tipo peça', () => {
     fireEvent.change(busca, { target: { value: 'pingente' } })
   }
 
-  it('o produto principal não aparece como escolha; a peça fora do ar vem desabilitada com o motivo', async () => {
+  it('buscar a própria joia mostra a linha dela desabilitada com "É esta joia", e não o vazio "Nenhuma peça com"', async () => {
     montar()
     await abrirAba()
     acrescentar()
     fireEvent.click(within(adicionalN(0)).getByRole('button', { name: 'Uma peça só' }))
     const busca = await screen.findByRole('textbox', { name: /Peça do adicional 1/ })
-    fireEvent.change(busca, { target: { value: 'anel' } })
-    expect(screen.queryByTestId(`peca-${PRINCIPAL}`)).toBeNull()
+    const contador = within(adicionalN(0)).getByTestId('contador-encontrados')
+    expect(contador).toHaveTextContent('4 no catálogo')
 
+    fireEvent.change(busca, { target: { value: 'anel cora' } })
+    expect(screen.getByTestId(`peca-${PRINCIPAL}`)).toBeDisabled()
+    expect(screen.getByTestId(`peca-${PRINCIPAL}`)).toHaveTextContent('É esta joia')
+    expect(screen.queryByText(/Nenhuma peça com/)).toBeNull()
+    expect(contador).toHaveTextContent('1 de 4')
+
+    fireEvent.click(screen.getByTestId(`peca-${PRINCIPAL}`))
+    expect(within(adicionalN(0)).queryByTestId('peca-escolhida-0')).toBeNull()
+  })
+
+  it('a peça fora do ar vem desabilitada com o motivo', async () => {
+    montar()
+    await abrirAba()
+    acrescentar()
+    fireEvent.click(within(adicionalN(0)).getByRole('button', { name: 'Uma peça só' }))
+    const busca = await screen.findByRole('textbox', { name: /Peça do adicional 1/ })
     fireEvent.change(busca, { target: { value: 'pingente' } })
     expect(screen.getByTestId(`peca-${PINGENTE}`)).toBeEnabled()
     expect(screen.getByTestId(`peca-${ANTIGA}`)).toBeDisabled()

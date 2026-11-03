@@ -168,7 +168,7 @@ const ProductChoice = ({
           rotulo={`Peça do adicional ${index + 1}`}
           modo="multiplo"
           selecionados={targetsOutside(addons, addon.key)}
-          excluir={mainProductId ? [mainProductId] : undefined}
+          bloqueados={mainProductId ? { [mainProductId]: 'É esta joia' } : undefined}
           rotuloJaEscolhida="Já está em outro adicional"
           bloquearForaDoAr
           onEscolher={produto => {

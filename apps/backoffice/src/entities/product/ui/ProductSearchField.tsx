@@ -73,6 +73,14 @@ export interface ProductSearchFieldProps {
    * (`A-06`).
    */
   rotuloJaEscolhida?: string
+  /**
+   * Ids que APARECEM desabilitados, cada um com o motivo de quem chama (id → motivo).
+   *
+   * É o meio-termo entre `selecionados` e `excluir`: a peça é uma opção que a dona pode procurar —
+   * a própria joia, na aba Compre junto — e sumir com ela faria o campo dizer "Nenhuma peça com…"
+   * sobre uma peça que existe. Ela entra no resultado e na contagem como as demais.
+   */
+  bloqueados?: Readonly<Record<string, string>>
   onEscolher: (produto: ProdutoDoPool) => void
   /** Modo único: desescolher. Sem ele não há caminho de volta (`BUS-09`). */
   onLimpar?: () => void
@@ -104,6 +112,7 @@ const ProductSearchField = ({
   selecionados,
   excluir,
   rotuloJaEscolhida = 'já está no bloco',
+  bloqueados,
   onEscolher,
   onLimpar,
   placeholder = 'procure pelo nome da peça',
@@ -243,9 +252,11 @@ const ProductSearchField = ({
         <>
           <ul data-testid="pecas-encontradas" className="max-h-60 space-y-1 overflow-y-auto">
             {resultado.itens.map(produto => {
-              const jaEscolhida = jaEscolhidos.has(produto.id)
-              const foraDoArBloqueada = bloquearForaDoAr && !jaEscolhida && !produto.is_active
-              const desabilitada = jaEscolhida || foraDoArBloqueada
+              const motivoDoBloqueio = bloqueados?.[produto.id] ?? null
+              const jaEscolhida = motivoDoBloqueio === null && jaEscolhidos.has(produto.id)
+              const foraDoArBloqueada =
+                bloquearForaDoAr && motivoDoBloqueio === null && !jaEscolhida && !produto.is_active
+              const desabilitada = motivoDoBloqueio !== null || jaEscolhida || foraDoArBloqueada
 
               return (
                 <li key={produto.id}>
@@ -286,13 +297,19 @@ const ProductSearchField = ({
                       </span>
                     )}
 
+                    {motivoDoBloqueio !== null && (
+                      <span data-testid={`ja-escolhida-${produto.id}`} className="shrink-0 text-[11px]">
+                        {motivoDoBloqueio}
+                      </span>
+                    )}
+
                     {foraDoArBloqueada && (
                       <span data-testid={`ja-escolhida-${produto.id}`} className="shrink-0 text-[11px]">
                         Fora do ar
                       </span>
                     )}
 
-                    {!jaEscolhida && !foraDoArBloqueada && !produto.is_active && (
+                    {!desabilitada && !produto.is_active && (
                       // Não é recusa: escolher uma peça despublicada é estado legítimo — ela pode
                       // voltar ao ar amanhã. Mas escolhê-la **sem saber** faria o painel dizer "1
                       // escolhida saiu do ar" um segundo depois, sem a dona entender por quê.
