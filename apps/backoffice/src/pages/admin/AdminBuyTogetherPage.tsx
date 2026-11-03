@@ -11,7 +11,7 @@ const AdminBuyTogetherPage = () => {
       listas={listas}
       aside={
         <>
-          <BuyTogetherTabs />
+          <BuyTogetherTabs listas={loading || error ? undefined : listas.length} />
           <BuyTogetherFormCard />
         </>
       }

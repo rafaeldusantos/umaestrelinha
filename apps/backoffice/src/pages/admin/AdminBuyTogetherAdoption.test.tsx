@@ -9,15 +9,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { rpc, from } = vi.hoisted(() => {
-  const vazio = () => {
+const { rpc, from, consulta } = vi.hoisted(() => {
+  const consulta = (data: unknown[] = []) => {
     const q: Record<string, unknown> = {}
     for (const m of ['select', 'order', 'eq', 'in', 'limit']) q[m] = () => q
-    q.then = (ok: (r: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(ok)
+    q.then = (ok: (r: unknown) => unknown) => Promise.resolve({ data, error: null }).then(ok)
     q.maybeSingle = () => Promise.resolve({ data: null, error: null })
     return q
   }
-  return { rpc: vi.fn(), from: vi.fn(vazio) }
+  return { rpc: vi.fn(), from: vi.fn((_tabela: string) => consulta()), consulta }
 })
 
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { rpc, from } }))
@@ -70,6 +70,7 @@ const montar = (rota = '/admin/compre-junto/adesao') =>
 const indicador = (rotulo: string) => screen.getByText(rotulo).closest('[data-indicador]') as HTMLElement
 
 beforeEach(() => {
+  from.mockImplementation(() => consulta())
   rpc.mockReset()
   rpc.mockResolvedValue({ data: relatorio(), error: null })
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -233,13 +234,41 @@ describe('as abas Listas e Adesão do Compre Junto', () => {
     await screen.findByText('75% dos 4 pedidos pagos')
     const abas = screen.getByRole('navigation', { name: 'Compre Junto' })
     expect(within(abas).getByRole('link', { name: 'Adesão' })).toHaveAttribute('aria-current', 'page')
-    expect(within(abas).getByRole('link', { name: 'Listas' })).toHaveAttribute('href', '/admin/compre-junto')
+    expect(await within(abas).findByRole('link', { name: 'Listas 0' })).toHaveAttribute('href', '/admin/compre-junto')
+  })
+
+  it('na Adesão, o subtítulo é o mesmo da página (o do protótipo)', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    expect(
+      screen.getByText(
+        'As listas de peças que você oferece junto com outras joias, e como elas estão saindo. O Compre Junto de cada joia se monta na página dela.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Como as peças oferecidas junto com as joias estão saindo.')).not.toBeInTheDocument()
+  })
+
+  it('na Adesão, a aba Listas traz a contagem das listas', async () => {
+    from.mockImplementation((tabela: string) =>
+      consulta(
+        tabela === 'buy_together_lists'
+          ? [
+              { id: LISTA, name: 'Correntes', updated_at: '2026-11-02T10:00:00Z' },
+              { id: VAZIA, name: 'Embalagens', updated_at: '2026-11-02T10:00:00Z' },
+            ]
+          : [],
+      ),
+    )
+    montar()
+    const abas = screen.getByRole('navigation', { name: 'Compre Junto' })
+    expect(within(abas).getByRole('link', { name: 'Listas' })).toBeInTheDocument()
+    expect(await within(abas).findByRole('link', { name: 'Listas 2' })).toHaveAttribute('href', '/admin/compre-junto')
   })
 
   it('nas Listas, a aba Adesão leva ao relatório', async () => {
     montar('/admin/compre-junto')
     const abas = await screen.findByRole('navigation', { name: 'Compre Junto' })
-    expect(within(abas).getByRole('link', { name: 'Listas' })).toHaveAttribute('aria-current', 'page')
+    expect(await within(abas).findByRole('link', { name: 'Listas 0' })).toHaveAttribute('aria-current', 'page')
     fireEvent.click(within(abas).getByRole('link', { name: 'Adesão' }))
     expect(await screen.findByText('Pedidos com Compre Junto')).toBeInTheDocument()
   })

@@ -147,6 +147,12 @@ beforeEach(() => {
   banco.calls.length = 0
 })
 
+const SUBTITULO =
+  'As listas de peças que você oferece junto com outras joias, e como elas estão saindo. O Compre Junto de cada joia se monta na página dela.'
+
+const abaListas = () =>
+  within(screen.getByRole('navigation', { name: 'Compre Junto' })).getByRole('link', { name: /^Listas/ })
+
 const semear = () => {
   banco.listas = [{ id: 'l9', name: 'Correntes', updated_at: '2026-11-02T10:00:00Z' }]
   banco.itens = [item('l9', CORRENTE, 0), item('l9', FITA, 1), item('l9', PINGENTE, 2)]
@@ -157,7 +163,8 @@ describe('índice das listas', () => {
     montar()
     expect(await screen.findByText(/Uma lista junta as peças que você oferece junto com outras joias/)).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Nova lista' }).length).toBeGreaterThan(0)
-    expect(screen.getByTestId('contagem-de-listas')).toHaveTextContent('(0)')
+    expect(abaListas()).toHaveAccessibleName('Listas 0')
+    expect(document.body.textContent).not.toMatch(/Listas \(/)
   })
 
   it('mostra peças, uso em joias e o aviso de peça que saiu do ar', async () => {
@@ -170,7 +177,60 @@ describe('índice das listas', () => {
     expect(within(linha).getByText('4 de 12')).toBeInTheDocument()
     expect(within(linha).getByText('2 joias')).toBeInTheDocument()
     expect(screen.getByTestId('aviso-l9')).toHaveTextContent('1 peça saiu do ar')
-    expect(screen.getByTestId('contagem-de-listas')).toHaveTextContent('(1)')
+    expect(abaListas()).toHaveAccessibleName('Listas 1')
+    expect(document.body.textContent).not.toMatch(/Listas \(/)
+  })
+
+  it('o subtítulo é o do protótipo, e diz que o Compre Junto de cada joia se monta na página dela', async () => {
+    montar()
+    expect(await screen.findByText(SUBTITULO)).toBeInTheDocument()
+  })
+
+  it('enquanto a leitura não terminou, a aba Listas não afirma número nenhum', async () => {
+    semear()
+    montar()
+    expect(abaListas()).toHaveAccessibleName('Listas')
+    expect(screen.getByTestId('cartao-das-listas')).toBeInTheDocument()
+    await screen.findByTestId('lista-l9')
+    expect(abaListas()).toHaveAccessibleName('Listas 1')
+  })
+
+  it('a tabela e os cartões moram no mesmo cartão; "Editar" é botão pequeno com borda e alvo de 44px', async () => {
+    semear()
+    montar()
+    await screen.findByTestId('lista-l9')
+    const cartao = screen.getByTestId('cartao-das-listas')
+    for (const classe of ['rounded-2xl', 'border', 'bg-card']) expect(cartao.className.split(/\s+/)).toContain(classe)
+    expect(within(cartao).getByTestId('tabela-de-listas')).toBeInTheDocument()
+    expect(within(cartao).getByTestId('cartoes-de-listas')).toBeInTheDocument()
+    const editar = screen.getByRole('button', { name: 'Editar Correntes' })
+    const classes = editar.className.split(/\s+/)
+    expect(classes).toContain('border')
+    expect(classes).toContain('border-input')
+    expect(classes).toContain('min-h-11')
+  })
+
+  it('o vazio e o erro também ficam dentro do cartão', async () => {
+    montar()
+    await screen.findByText(/Uma lista junta as peças/)
+    expect(within(screen.getByTestId('cartao-das-listas')).getByText(/Uma lista junta as peças/)).toBeInTheDocument()
+  })
+
+  it('o cartão do celular diz "em nenhuma joia" e "em uso em N joias", no singular e no plural', async () => {
+    semear()
+    banco.listas.push({ id: 'l8', name: 'Fitas', updated_at: '2026-11-02T10:00:00Z' }, { id: 'l7', name: 'Pingentes', updated_at: '2026-11-02T10:00:00Z' })
+    banco.itens.push(item('l8', CORRENTE, 0), item('l8', FITA, 1), item('l8', PINGENTE, 2), item('l8', FORA, 3), item('l7', PINGENTE, 0))
+    banco.usos = [
+      { list_id: 'l8', product_id: 'x', product_name: 'Anel Sol' },
+      { list_id: 'l8', product_id: 'y', product_name: 'Anel Lua' },
+      { list_id: 'l7', product_id: 'x', product_name: 'Anel Sol' },
+    ]
+    montar()
+    expect(await within(await screen.findByTestId('cartao-l9')).findByText('3 peças · em nenhuma joia')).toBeInTheDocument()
+    expect(within(screen.getByTestId('cartao-l8')).getByText('4 peças · em uso em 2 joias')).toBeInTheDocument()
+    expect(within(screen.getByTestId('cartao-l7')).getByText('1 peça · em uso em 1 joia')).toBeInTheDocument()
+    expect(within(screen.getByTestId('lista-l8')).getByText('2 joias')).toBeInTheDocument()
+    expect(within(screen.getByTestId('lista-l9')).getByText('Nenhuma joia')).toBeInTheDocument()
   })
 
   it('lista sem uso diz "Nenhuma joia"', async () => {
@@ -186,10 +246,15 @@ describe('índice das listas', () => {
     ;(supabase as { from: unknown }).from = () => {
       throw new Error('banco fora do ar')
     }
-    montar()
-    expect(await screen.findByText('Não foi possível ler as listas.')).toBeInTheDocument()
-    expect(screen.queryByText(/Uma lista junta as peças/)).not.toBeInTheDocument()
-    ;(supabase as { from: unknown }).from = original
+    try {
+      montar()
+      expect(await screen.findByText('Não foi possível ler as listas.')).toBeInTheDocument()
+      expect(screen.queryByText(/Uma lista junta as peças/)).not.toBeInTheDocument()
+      expect(abaListas()).toHaveAccessibleName('Listas')
+      expect(within(screen.getByTestId('cartao-das-listas')).getByText('Não foi possível ler as listas.')).toBeInTheDocument()
+    } finally {
+      ;(supabase as { from: unknown }).from = original
+    }
   })
 })
 
