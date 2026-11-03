@@ -26,16 +26,63 @@ export const PAYMENT_TIMEOUT_MS = 15_000
 export const PAYMENT_TIMEOUT_MESSAGE =
   'O pagamento demorou demais para responder. Seu pedido está guardado — tente de novo.'
 
-// Erros da edge function chegam como FunctionsHttpError com `context: Response`.
-async function extractErrorMessage(error: unknown): Promise<string> {
+/** O código do 422 de quando o desconto do Compre Junto mudou entre o pedido e o pagamento. */
+export const PRICE_CHANGED_CODE = 'buy_together_price_changed'
+/** O mesmo 422 quando quem caiu foi outro desconto por item (a promoção ou a oferta do checkout). */
+export const DISCOUNT_CHANGED_CODE = 'promotion_no_longer_valid'
+
+/** Qual desconto caiu: o do Compre Junto, ou outro (a frase não diz "Compre Junto" à toa). */
+export type PriceChangedReason = 'buy_together' | 'discount'
+
+/**
+ * O pagamento foi recusado ANTES de cobrar, porque recalculado o pedido sairia mais
+ * caro do que a tela mostrou — um desconto por item caiu (o do Compre Junto, a promoção ou a oferta
+ * do checkout). Carrega o que as duas telas de "o valor mudou" mostram: o total de antes, o de agora
+ * e a peça cujo preço subiu (`null` quando o servidor não soube dizer). Repagar o mesmo pedido daria o
+ * mesmo 422: quem recebe este erro cria um pedido novo com o total novo.
+ */
+export class PriceChangedError extends Error {
+  readonly displayedTotal: number
+  readonly total: number
+  readonly piece: string | null
+  readonly reason: PriceChangedReason
+  constructor(
+    message: string,
+    displayedTotal: number,
+    total: number,
+    piece: string | null,
+    reason: PriceChangedReason,
+  ) {
+    super(message)
+    this.name = 'PriceChangedError'
+    this.displayedTotal = displayedTotal
+    this.total = total
+    this.piece = piece
+    this.reason = reason
+  }
+}
+
+// Erros da edge function chegam como FunctionsHttpError com `context: Response`. O corpo só se lê
+// uma vez: a mensagem e o código saem da MESMA leitura.
+async function extractError(error: unknown): Promise<Error> {
   try {
     const context = (error as { context?: Response })?.context
     const body = await context?.json()
-    if (typeof body?.error === 'string' && body.error) return body.error
+    const message = typeof body?.error === 'string' && body.error ? body.error : PAYMENT_UNAVAILABLE_MESSAGE
+    if (body?.code === PRICE_CHANGED_CODE || body?.code === DISCOUNT_CHANGED_CODE) {
+      return new PriceChangedError(
+        message,
+        Number(body.displayed_total),
+        Number(body.total),
+        typeof body.piece === 'string' && body.piece ? body.piece : null,
+        body.code === PRICE_CHANGED_CODE ? 'buy_together' : 'discount',
+      )
+    }
+    return new Error(message)
   } catch {
     // body ilegível → fallback
   }
-  return PAYMENT_UNAVAILABLE_MESSAGE
+  return new Error(PAYMENT_UNAVAILABLE_MESSAGE)
 }
 
 /**
@@ -70,7 +117,7 @@ export const useCreatePayment = () =>
             signal: controller.signal,
           },
         )
-        if (error || !data) throw new Error(await extractErrorMessage(error))
+        if (error || !data) throw await extractError(error)
         return data as CreatePaymentResponse
       } catch (err) {
         // O abort vence: um erro genérico de rede causado pelo próprio abort não deve

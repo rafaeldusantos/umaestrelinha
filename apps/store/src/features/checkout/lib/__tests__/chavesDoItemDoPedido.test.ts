@@ -67,19 +67,18 @@ const chavesDaLoja = (): string[][] =>
         accompanies: [{ mainProductId: 'joia', listId: null }],
       },
     ] as never,
-    pricingItems: [
-      { product_id: 'joia', unit_price: 100, quantity: 1 },
-      { product_id: 'corrente', unit_price: 50, quantity: 1 },
-      { product_id: 'bump', unit_price: 40, quantity: 1 },
+    lines: [
+      { index: 0, quantity: 1, fullUnitPrice: 100, unitPrice: 100 },
+      { index: 1, quantity: 1, fullUnitPrice: 50, unitPrice: 45 },
+      { index: 2, quantity: 1, fullUnitPrice: 40, unitPrice: 36 },
     ],
-    bump: { enabled: true, product_id: 'bump', discount_percent: 10 } as never,
     bumpProduct: produto('bump'),
   }).map((linha) => Object.keys(linha).sort())
 
 describe('as chaves do item do pedido batem com as colunas do create-order', () => {
-  it('âncora: a function foi lida e as duas listas foram achadas, com 14 e 2 colunas', () => {
+  it('âncora: a function foi lida e as duas listas foram achadas, com 15 e 2 colunas', () => {
     expect(fonte).toContain('export async function createOrder')
-    expect(listaDe(fonte, 'COLUNAS_DOS_ITENS')).toHaveLength(14)
+    expect(listaDe(fonte, 'COLUNAS_DOS_ITENS')).toHaveLength(15)
     expect(listaDe(fonte, 'COLUNAS_DA_MARCA')).toEqual(['accompanies_product_ids', 'accompanies_list_ids'])
   })
 

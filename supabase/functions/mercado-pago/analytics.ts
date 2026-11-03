@@ -49,7 +49,7 @@ export const PURCHASE_BUDGET_MS = 2000
 
 /** As colunas que a reivindicação devolve — nada de nome, e-mail, telefone, CPF ou endereço. */
 const COLUNAS_DA_COMPRA =
-  "id, order_number, total, shipping_cost, discount, promotion_discount, pix_discount, coupon_code, ga_client_id, ga_session_id, analytics_declined"
+  "id, order_number, total, shipping_cost, discount, promotion_discount, buy_together_discount, pix_discount, coupon_code, ga_client_id, ga_session_id, analytics_declined"
 
 /** Os status finais que esta função grava. `sending` é o da reivindicação. */
 type DesfechoFinal = "sent" | "failed" | Exclude<PurchaseDecision, "send">
@@ -204,8 +204,16 @@ export async function sendPurchase(
         order_number: String(pedido.order_number ?? ""),
         total: numero(pedido.total),
         shipping_cost: numero(pedido.shipping_cost),
-        // Informativo para o GA4 (o `value` é o `total` cobrado): cupom + promoção + Pix.
-        discount: numero(pedido.discount) + numero(pedido.promotion_discount) + numero(pedido.pix_discount),
+        // Informativo para o GA4 (o `value` é o `total` cobrado): cupom + promoção + desconto casado
+        // + Pix. O preço de cada item já é o cobrado (`unit_price`). Somado em centavos.
+        discount:
+          Math.round(
+            (numero(pedido.discount) +
+              numero(pedido.promotion_discount) +
+              numero(pedido.buy_together_discount) +
+              numero(pedido.pix_discount)) *
+              100,
+          ) / 100,
         coupon_code: pedido.coupon_code ?? null,
       },
       itens,

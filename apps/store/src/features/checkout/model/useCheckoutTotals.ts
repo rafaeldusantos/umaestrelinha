@@ -28,8 +28,11 @@ import { useMemo } from 'react'
 import type { Product } from '@estrelinha/supabase/types'
 import {
   applyProgressiveDiscount,
+  resolveOrderLines,
   resolveOrderPricing,
+  type ChargedLine,
   type OrderBumpConfig,
+  type OrderPricingInput,
   type OrderPricingOutcome,
   type OrderTotals,
   type PricingItem,
@@ -85,6 +88,13 @@ export interface CheckoutTotals {
   buyTogetherLines: NonNullable<OrderPricingOutcome['buyTogetherLines']>
   /** A configuração lida — a mesma entrada da gaveta. */
   buyTogether: CartBuyTogether
+  /**
+   * As linhas que o pedido grava (`resolveOrderLines`, a mesma do servidor): o preço cheio e
+   * o cobrado de cada uma, com a linha mista partida em duas. `index` aponta para `pricingItems`.
+   */
+  orderLines: ChargedLine[]
+  /** O desconto da oferta do checkout, já embutido em `totals.subtotal`. Vai ao pedido como teto. */
+  orderBumpDiscount: number
   /**
    * PRM-12: as faixas que de fato alteraram preço no caminho VENCEDOR — é este `applied` que a
    * `CheckoutPage` grava em `orders.promotion_id`, com a mesma regra do servidor (uma só ⇒ o id;
@@ -181,25 +191,30 @@ export function useCheckoutTotals(): CheckoutTotals {
     // O frete COTADO entra na função; quem zera para `free_shipping` é ela. Ver o item 2 do topo.
     const quotedShipping = shipping?.cost ?? 0
 
-    const pricingFor = (chosen: 'pix' | 'card') =>
-      resolveOrderPricing({
-        items: pricingItems,
-        shipping: quotedShipping,
-        pixDiscountPercent: pix_discount_percent,
-        method: chosen,
-        bump,
-        coupon: coupon ? { type: coupon.type, value: coupon.value } : null,
-        promotions,
-        buyTogether: buyTogetherInput,
-      })
+    const inputFor = (chosen: 'pix' | 'card'): OrderPricingInput => ({
+      items: pricingItems,
+      shipping: quotedShipping,
+      pixDiscountPercent: pix_discount_percent,
+      method: chosen,
+      bump,
+      coupon: coupon ? { type: coupon.type, value: coupon.value } : null,
+      promotions,
+      buyTogether: buyTogetherInput,
+    })
+    const pricingFor = (chosen: 'pix' | 'card') => resolveOrderPricing(inputFor(chosen))
 
     let outcome: OrderPricingOutcome
     let cardTotal: number
+    let orderLines: ChargedLine[]
+    let orderBumpDiscount = 0
     try {
       // Sem método escolhido ainda: mostra o valor sem desconto PIX (o maior dos dois).
       outcome = pricingFor(method ?? 'card')
       // Uma conta a mais pela MESMA função do servidor — zero risco de divergir dele (RSM-06).
       cardTotal = method === 'pix' ? pricingFor('card').totals.total : outcome.totals.total
+      const lines = resolveOrderLines(inputFor(method ?? 'card'), outcome)
+      orderLines = lines.lines
+      orderBumpDiscount = lines.orderBumpDiscount
     } catch {
       // Total abaixo de R$ 0,01: a criação do pagamento é bloqueada server-side (herdado da 02).
       // Aqui o resumo só não pode quebrar a tela.
@@ -219,6 +234,12 @@ export function useCheckoutTotals(): CheckoutTotals {
         discarded: null,
       }
       cardTotal = 0
+      orderLines = pricingItems.map((item, index) => ({
+        index,
+        quantity: item.quantity,
+        fullUnitPrice: item.unit_price,
+        unitPrice: item.unit_price,
+      }))
     }
 
     // O nome do descartado (PRM-17) tem de sobreviver ao caso em que o CUPOM vence — e nesse caso
@@ -249,6 +270,8 @@ export function useCheckoutTotals(): CheckoutTotals {
       buyTogetherDiscount: outcome.buyTogetherDiscount ?? 0,
       buyTogetherLines: outcome.buyTogetherLines ?? [],
       buyTogether,
+      orderLines,
+      orderBumpDiscount,
       applied: outcome.applied,
       promotionName,
       winner: outcome.winner,

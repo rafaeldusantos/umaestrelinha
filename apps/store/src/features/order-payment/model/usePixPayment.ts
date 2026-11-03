@@ -19,6 +19,7 @@ import { accessFor } from '@/entities/order/model/orderAccess'
 import {
   useCreatePayment,
   PAYMENT_UNAVAILABLE_MESSAGE,
+  PriceChangedError,
 } from '@/features/checkout/api/useCreatePayment'
 
 /**
@@ -55,6 +56,17 @@ export type PixState =
   | { kind: 'ready'; qrCode: string; secondsLeft: number }
   | { kind: 'expired' }
   | { kind: 'failed'; message: string }
+  /**
+   * O pagamento foi recusado antes de cobrar — o desconto do Compre Junto mudou e o pedido
+   * sairia mais caro do que a tela mostrou. Não é falha do banco: tentar de novo daria o mesmo 422.
+   */
+  | {
+      kind: 'price-changed'
+      displayedTotal: number
+      total: number
+      piece: string | null
+      reason: 'buy_together' | 'discount'
+    }
   | { kind: 'approved' }
 
 export interface PixPaymentMachine {
@@ -72,6 +84,7 @@ export function usePixPayment(orderId: string): PixPaymentMachine {
   const [generating, setGenerating] = useState(true)
   const [slow, setSlow] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [priceChanged, setPriceChanged] = useState<PriceChangedError | null>(null)
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [approved, setApproved] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -83,6 +96,7 @@ export function usePixPayment(orderId: string): PixPaymentMachine {
 
   const generate = useCallback(() => {
     setError(null)
+    setPriceChanged(null)
     setPix(null)
     setSecondsLeft(null)
     setGenerating(true)
@@ -94,7 +108,8 @@ export function usePixPayment(orderId: string): PixPaymentMachine {
         })) as PixPaymentResponse
         setPix(response)
       } catch (err) {
-        setError(err instanceof Error ? err.message : PAYMENT_UNAVAILABLE_MESSAGE)
+        if (err instanceof PriceChangedError) setPriceChanged(err)
+        else setError(err instanceof Error ? err.message : PAYMENT_UNAVAILABLE_MESSAGE)
       } finally {
         setGenerating(false)
       }
@@ -224,11 +239,20 @@ export function usePixPayment(orderId: string): PixPaymentMachine {
    */
   const state = useMemo<PixState>(() => {
     if (approved) return { kind: 'approved' }
+    if (priceChanged) {
+      return {
+        kind: 'price-changed',
+        displayedTotal: priceChanged.displayedTotal,
+        total: priceChanged.total,
+        piece: priceChanged.piece,
+        reason: priceChanged.reason,
+      }
+    }
     if (error) return { kind: 'failed', message: error }
     if (generating || !pix) return { kind: 'generating', slow }
     if (secondsLeft !== null && secondsLeft <= 0) return { kind: 'expired' }
     return { kind: 'ready', qrCode: pix.qr_code, secondsLeft: secondsLeft ?? 0 }
-  }, [approved, error, generating, pix, slow, secondsLeft])
+  }, [approved, priceChanged, error, generating, pix, slow, secondsLeft])
 
   return { state, generate, copy, copied }
 }

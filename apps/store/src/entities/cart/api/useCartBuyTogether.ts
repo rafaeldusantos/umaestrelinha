@@ -1,9 +1,11 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
-import type {
-  AddonList,
-  BuyTogetherDiscountAddon,
-  BuyTogetherDiscountConfig,
+import { BUY_TOGETHER_DISCOUNT_SELECT } from '@estrelinha/core/buy-together/io/discountSelect'
+import {
+  buyTogetherDiscountConfig,
+  type BuyTogetherDiscountConfig,
+  type BuyTogetherDiscountRow,
 } from '@estrelinha/core/buy-together'
 
 /**
@@ -26,71 +28,29 @@ import type {
  * cheio, e `resolveOrderPricing` sem a entrada nova é exatamente o cálculo de antes.
  */
 
-interface ConfigRow {
-  id: string
-  position: number
-  kind: 'product' | 'list'
-  product_id: string
-  target_product_id: string | null
-  list_id: string | null
-  target_variant_ids: string[] | null
-  hidden_on_variant_ids: string[] | null
-  discount_percent: number | null
-  main: { id: string; name: string } | null
-  list: {
-    id: string
-    name: string
-    items: { product_id: string; position: number; variant_ids: string[] | null }[] | null
-  } | null
-}
-
-export const CART_BUY_TOGETHER_SELECT =
-  'id, position, kind, product_id, target_product_id, list_id, target_variant_ids, hidden_on_variant_ids, discount_percent, ' +
-  'main:products!product_buy_together_product_id_fkey(id, name), ' +
-  'list:buy_together_lists!product_buy_together_list_id_fkey(id, name, ' +
-  'items:buy_together_list_items(product_id, position, variant_ids))'
+/** A leitura e o mapeamento moram em `core` (`buyTogetherDiscountConfig`): o servidor faz a mesma. */
+export const CART_BUY_TOGETHER_SELECT = BUY_TOGETHER_DISCOUNT_SELECT
 
 export interface CartBuyTogether {
   /** A entrada de `resolveOrderPricing` (sem as marcas, que são da sacola). `null` = sem desconto. */
   config: BuyTogetherDiscountConfig | null
   /** O nome de cada joia lida, para as frases da linha. */
   mainNames: ReadonlyMap<string, string>
+  /**
+   * Relê a configuração agora: depois de o servidor recusar o pagamento porque o desconto
+   * mudou, a tela tem de mostrar o de agora sem esperar a próxima montagem.
+   */
+  refresh?: () => void
 }
 
 const NONE: CartBuyTogether = { config: null, mainNames: new Map() }
 
 export class CartBuyTogetherQueryError extends Error {}
 
-const toCartBuyTogether = (rows: ConfigRow[]): CartBuyTogether => {
-  const lists = new Map<string, AddonList>()
+const toCartBuyTogether = (rows: BuyTogetherDiscountRow[]): CartBuyTogether => {
   const mainNames = new Map<string, string>()
-  const addons: BuyTogetherDiscountAddon[] = rows.map(r => {
-    if (r.main) mainNames.set(r.main.id, r.main.name)
-    if (r.kind === 'list' && r.list && !lists.has(r.list.id)) {
-      lists.set(r.list.id, {
-        id: r.list.id,
-        name: r.list.name,
-        items: (r.list.items ?? []).map(i => ({
-          productId: i.product_id,
-          position: i.position,
-          variantIds: i.variant_ids ?? [],
-        })),
-      })
-    }
-    return {
-      id: r.id,
-      mainProductId: r.product_id,
-      position: r.position,
-      kind: r.kind,
-      targetProductId: r.target_product_id,
-      listId: r.list_id,
-      targetVariantIds: r.target_variant_ids ?? [],
-      hiddenOnVariantIds: r.hidden_on_variant_ids ?? [],
-      discountPercent: r.discount_percent,
-    }
-  })
-  const anyDiscount = addons.some(a => typeof a.discountPercent === 'number' && a.discountPercent > 0)
-  return { config: anyDiscount ? { addons, lists: [...lists.values()] } : null, mainNames }
+  for (const r of rows) if (r.main) mainNames.set(r.main.id, r.main.name)
+  return { config: buyTogetherDiscountConfig(rows), mainNames }
 }
 
 export const useCartBuyTogether = (productIds: readonly string[]): CartBuyTogether => {
@@ -108,10 +68,12 @@ export const useCartBuyTogether = (productIds: readonly string[]): CartBuyTogeth
           `carregar o Compre Junto da sacola: ${error.message ?? 'erro desconhecido'}`,
         )
       }
-      return toCartBuyTogether((data ?? []) as unknown as ConfigRow[])
+      return toCartBuyTogether((data ?? []) as unknown as BuyTogetherDiscountRow[])
     },
     enabled: ids.length > 0,
     staleTime: 0,
   })
-  return query.data ?? NONE
+  const data = query.data ?? NONE
+  const refetch = query.refetch
+  return useMemo(() => ({ ...data, refresh: () => void refetch() }), [data, refetch])
 }

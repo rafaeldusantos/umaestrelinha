@@ -708,3 +708,91 @@ export function resolveOrderPricing(input: OrderPricingInput): OrderPricingOutco
   }
   return { ...withCoupon, winner: 'coupon', discarded: 'promotion' }
 }
+
+// =====================================================================
+// resolveOrderLines — as linhas que o pedido grava
+// =====================================================================
+//
+// Não decide preço nenhum: devolve, linha a linha, o que `resolveOrderPricing` já decidiu no caminho
+// que VENCEU — o preço cheio da unidade e o cobrado (com o bump, o desconto casado e a faixa). A loja
+// grava o pedido por aqui e o servidor regrava pelo mesmo caminho depois de recalcular: uma linha
+// da sacola com unidades com e sem o desconto casado vira duas linhas no pedido, cada uma com o seu
+// preço por unidade.
+
+/** Uma linha do pedido: `quantity` unidades da linha `index` da entrada, a `unitPrice` cada. */
+export interface ChargedLine {
+  /** A posição da linha em `items` de onde estas unidades saíram. */
+  index: number
+  quantity: number
+  /** O preço cheio da unidade (o da entrada). */
+  fullUnitPrice: number
+  /** O preço cobrado da unidade: o menor entre o bump, o desconto casado e a faixa (`AD-015`). */
+  unitPrice: number
+}
+
+export interface OrderLinesOutcome {
+  /** Na ordem de `items`; dentro da linha, as unidades com desconto casado primeiro. */
+  lines: ChargedLine[]
+  /** O desconto do order bump (preço cheio − com o bump), já embutido no subtotal. */
+  orderBumpDiscount: number
+  /** O desconto casado (`outcome.buyTogetherDiscount`), zero sem ele. */
+  buyTogetherDiscount: number
+  /** O desconto da faixa (`outcome.promotionDiscount`). */
+  promotionDiscount: number
+}
+
+/**
+ * As linhas do pedido e os descontos por tipo, para o `outcome` que `resolveOrderPricing` devolveu
+ * para a MESMA entrada. O caminho do cupom é calculado sem promoção — é o que o `winner` diz.
+ * Unidades seguidas da mesma linha com o mesmo preço viram uma linha só.
+ */
+export function resolveOrderLines(
+  input: OrderPricingInput,
+  outcome: OrderPricingOutcome,
+): OrderLinesOutcome {
+  const promotions = outcome.winner === 'coupon' ? [] : input.promotions || []
+  const path: CalculateOrderTotalsInput = { ...input, couponDiscount: 0, promotions }
+
+  const raw: ChargedLine[] = []
+  if (input.buyTogether) {
+    const parts = buyTogetherParts(path)
+    parts.owner.forEach((owner, k) => {
+      raw.push({
+        index: owner,
+        quantity: parts.charged[k].quantity,
+        fullUnitPrice: input.items[owner].unit_price,
+        unitPrice: parts.charged[k].unit_price,
+      })
+    })
+  } else {
+    resolveChargedItems(path).forEach((item, index) => {
+      raw.push({
+        index,
+        quantity: item.quantity,
+        fullUnitPrice: input.items[index].unit_price,
+        unitPrice: item.unit_price,
+      })
+    })
+  }
+
+  const lines: ChargedLine[] = []
+  for (const line of raw) {
+    const last = lines[lines.length - 1]
+    if (last && last.index === line.index && last.unitPrice === line.unitPrice) {
+      last.quantity += line.quantity
+    } else {
+      lines.push({ ...line })
+    }
+  }
+
+  const full = sumItems(input.items)
+  const buyTogetherDiscount = outcome.buyTogetherDiscount ?? 0
+  return {
+    lines,
+    // `|| 0`: a subtração em ponto flutuante pode dar `-0`, e o pedido gravaria "−0".
+    orderBumpDiscount:
+      round2(full - outcome.totals.subtotal - outcome.promotionDiscount - buyTogetherDiscount) || 0,
+    buyTogetherDiscount,
+    promotionDiscount: outcome.promotionDiscount,
+  }
+}

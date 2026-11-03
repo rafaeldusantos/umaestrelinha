@@ -268,6 +268,17 @@ Pagamentos `/v1/payments` **não é usada em código novo** (`AD-001`).
   `supabase/operacoes/pagamento-aprovado-marca-pago.probe.sql` contra a 54442, exit 0 e só `ok —`.
 - **A URL de notificação fica só no painel do MP** — a Orders API valida o corpo por schema fechado e
   **recusa** `notification_url`.
+- **O desconto da compra casada (WI 92, migration `20261107140000`)**: o `create-payment` junta as
+  linhas da mesma peça (`joinOrderRows`, `core/payment/orderLines.ts` — a loja parte a linha mista em
+  duas), lê a configuração do Compre Junto do banco (`BUY_TOGETHER_DISCOUNT_SELECT` +
+  `buyTogetherDiscountConfig`, a mesma leitura da sacola) e chama `resolveOrderPricing` +
+  `resolveOrderLines`. A guarda de teto compara a SOMA de `promotion_discount`,
+  `buy_together_discount` e `order_bump_discount` gravados na criação com a recalculada: menor ⇒
+  **422 `buy_together_price_changed`** (o casado caiu; corpo com `displayed_total`, `total` e `piece`)
+  ou `promotion_no_longer_valid`, antes de qualquer chamada ao MP. Depois regrava cada linha com
+  `unit_price` = cobrado e `full_unit_price` = cheio (atualiza, insere a parte a mais, apaga a que
+  sobrou) e os três descontos no pedido. O pin personalizado lê `full_unit_price` com recuo para
+  `unit_price`.
 - **O recálculo descarta o `unit_price` do cliente** e refaz a conta a partir de
   `products.base_price`, chamando o mesmo `resolveOrderPricing` que a loja chama. Ver
   [`../packages/core/CLAUDE.md`](../packages/core/CLAUDE.md).
@@ -463,8 +474,8 @@ convidada e para quem tem sessão.
   principal não está nos itens do pedido, que aponta para a própria peça, ou de forma forjada
   (principal que não é texto, lista que não é uuid, coluna que não é array) é **descartada**, a lista
   dela cai junto e os dois arrays são regravados alinhados; sem nenhuma, a linha entra como peça
-  comum — a venda nunca cai por ela. **Informativa**: não decide preço nem desconto, e o `create-payment`
-  recalcula por `select` explícito que não a lê. `chavesDoItemDoPedido.test.ts` (loja) cruza as chaves
+  comum — a venda nunca cai por ela. **Não decide preço**: desde o WI 92 o `create-payment` lê de
+  `order_items` só os principais já validados aqui, para decidir o par recíproco do desconto casado. `chavesDoItemDoPedido.test.ts` (loja) cruza as chaves
   de `buildOrderItems` com as duas listas lidas do disco.
 - **Retirada no escritório forjada é recusada AQUI** (feature `63`, `RET-12`, `AD-049`). Pedido com
   `shipping_service_id = 'retirada'` lê `store_settings` (`shipping` e `material`, por

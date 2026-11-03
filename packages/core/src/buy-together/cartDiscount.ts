@@ -251,3 +251,63 @@ export function allocateBuyTogetherDiscount(
   })
   return out
 }
+
+// =====================================================================
+// A configuração lida do banco — a mesma leitura na sacola e no servidor
+// =====================================================================
+
+/** Uma linha de `BUY_TOGETHER_DISCOUNT_SELECT` (`io/discountSelect.ts`), como o PostgREST a devolve. */
+export interface BuyTogetherDiscountRow {
+  id: string
+  position: number
+  kind: 'product' | 'list'
+  product_id: string
+  target_product_id: string | null
+  list_id: string | null
+  target_variant_ids: string[] | null
+  hidden_on_variant_ids: string[] | null
+  discount_percent: number | null
+  main?: { id: string; name: string } | null
+  list?: {
+    id: string
+    name: string
+    items: { product_id: string; position: number; variant_ids: string[] | null }[] | null
+  } | null
+}
+
+/**
+ * A entrada `buyTogether` de `resolveOrderPricing` a partir das linhas lidas (sem as marcas, que são
+ * do pedido). `null` quando nenhum adicional tem desconto: o cálculo fica exatamente o de antes.
+ */
+export function buyTogetherDiscountConfig(
+  rows: readonly BuyTogetherDiscountRow[],
+): BuyTogetherDiscountConfig | null {
+  const lists = new Map<string, AddonList>()
+  const addons: BuyTogetherDiscountAddon[] = rows.map((r) => {
+    if (r.kind === 'list' && r.list && !lists.has(r.list.id)) {
+      lists.set(r.list.id, {
+        id: r.list.id,
+        name: r.list.name,
+        items: (r.list.items ?? []).map((i) => ({
+          productId: i.product_id,
+          position: i.position,
+          variantIds: i.variant_ids ?? [],
+        })),
+      })
+    }
+    return {
+      id: r.id,
+      mainProductId: r.product_id,
+      position: r.position,
+      kind: r.kind,
+      targetProductId: r.target_product_id,
+      listId: r.list_id,
+      targetVariantIds: r.target_variant_ids ?? [],
+      hiddenOnVariantIds: r.hidden_on_variant_ids ?? [],
+      discountPercent: r.discount_percent === null || r.discount_percent === undefined
+        ? null
+        : Number(r.discount_percent),
+    }
+  })
+  return addons.some((a) => hasPercent(a.discountPercent)) ? { addons, lists: [...lists.values()] } : null
+}

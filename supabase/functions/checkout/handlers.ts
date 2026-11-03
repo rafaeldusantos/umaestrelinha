@@ -230,6 +230,10 @@ const COLUNAS_DO_PEDIDO = [
   'coupon_id',
   'promotion_id',
   'promotion_discount',
+  // O desconto casado e o da oferta do checkout que a tela mostrou — teto da guarda do
+  // `create-payment`, como `promotion_discount`.
+  'buy_together_discount',
+  'order_bump_discount',
   'material_status',
 ] as const
 
@@ -250,6 +254,8 @@ const COLUNAS_DOS_ITENS = [
   'finish',
   'quantity',
   'unit_price',
+  // O preço cheio da unidade, ao lado do cobrado (`unit_price`).
+  'full_unit_price',
   'variant_id',
   'price_source',
   'variant_label',

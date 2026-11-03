@@ -15,3 +15,8 @@ export {
 export { default as PaymentApproved, type PaymentApprovedProps } from './ui/PaymentApproved'
 export { approvedNote } from './model/approvedNote'
 export { default as PixSurface, type PixSurfaceProps } from './ui/PixSurface'
+export {
+  default as PriceChangedCheckout,
+  type PriceChangedCheckoutProps,
+} from './ui/PriceChangedCheckout'
+export { default as PriceChangedContact, type PriceChangedContactProps } from './ui/PriceChangedContact'

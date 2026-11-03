@@ -160,6 +160,29 @@ describe('sendPurchase — o caminho feliz (CMP-02)', () => {
     })
   })
 
+  it('com o desconto casado: o preço de cada item é o cobrado, e o desconto soma o casado', async () => {
+    capturarLog()
+    // A linha do pedido guarda o cobrado (`unit_price`) e o cheio ao lado; o GA recebe o cobrado.
+    const fake = banco(
+      {
+        lists: {
+          order_items: [
+            { product_id: 'prod-a', product_name: 'Nome congelado A', variant_label: null, unit_price: 71.1, full_unit_price: 79, quantity: 1 },
+          ],
+          products: PRODUTOS,
+        },
+      },
+      { ...LINHA_DO_PEDIDO, buy_together_discount: 7.9 },
+    )
+    const google = okGoogle()
+    await sendPurchase(deps(fake, google), PEDIDO_ID)
+
+    const params = google.calls[0].body.events[0].params
+    // cupom 10 + promoção 3 + PIX 2 + casado 7,90.
+    expect(params.discount).toBe(22.9)
+    expect(params.items[0].price).toBe(71.1)
+  })
+
   it('a reivindicação é `sending`, por id, com o recorte `is null` — o dublê enxerga o filtro', async () => {
     capturarLog()
     const fake = banco()

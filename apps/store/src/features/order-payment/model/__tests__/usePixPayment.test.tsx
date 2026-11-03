@@ -6,7 +6,7 @@ import { supabase } from '@estrelinha/supabase/client'
 import { fetchGuestOrder } from '@/entities/order/api/guestOrder'
 import { rememberAccess } from '@/entities/order/model/orderAccess'
 
-import { PAYMENT_TIMEOUT_MS } from '@/features/checkout/api/useCreatePayment'
+import { PAYMENT_TIMEOUT_MS, PriceChangedError } from '@/features/checkout/api/useCreatePayment'
 
 import { GUEST_POLL_MS, PIX_SLOW_MS, usePixPayment } from '../usePixPayment'
 
@@ -247,6 +247,23 @@ describe('usePixPayment — a falha é do banco (PIX-P2-03)', () => {
       expect(result.current.state).toEqual({
         kind: 'failed',
         message: 'O pagamento demorou demais para responder.',
+      }),
+    )
+  })
+
+  it('o valor que mudou NÃO é falha do banco: vira `price-changed`, com o antes, o agora e a peça', async () => {
+    mutateAsync.mockRejectedValue(
+      new PriceChangedError('O desconto do Compre Junto deste pedido mudou. Nada foi cobrado.', 450.1, 454.05, 'Corrente', 'buy_together'),
+    )
+    const { result } = renderHook(() => usePixPayment('order-1'))
+
+    await waitFor(() =>
+      expect(result.current.state).toEqual({
+        kind: 'price-changed',
+        displayedTotal: 450.1,
+        total: 454.05,
+        piece: 'Corrente',
+        reason: 'buy_together',
       }),
     )
   })

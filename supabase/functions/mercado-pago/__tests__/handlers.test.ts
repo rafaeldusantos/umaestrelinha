@@ -912,6 +912,9 @@ describe('create-payment — order bump + cupom percent: exibido == cobrado (BMP
         // por valor que se afirma: desconto ZERO e nenhuma campanha atribuída a este pedido.
         promotion_id: null,
         promotion_discount: 0,
+        // Os outros dois descontos por item. O bump de 50% sobre 4,90 desconta 2,45.
+        buy_together_discount: 0,
+        order_bump_discount: 2.45,
       })
 
       // 3) O booleano que o cenário 4 do sandbox não conseguiu observar (o bloqueador D1 desviava
@@ -939,6 +942,8 @@ describe('create-payment — order bump + cupom percent: exibido == cobrado (BMP
       pix_discount: 0.44,
       promotion_id: null,
       promotion_discount: 0,
+      buy_together_discount: 0,
+      order_bump_discount: 0,
     })
     const entry = lines
       .map((l) => JSON.parse(l))
@@ -1054,7 +1059,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
    */
   const expectCharged = (
     e: ReturnType<typeof env>,
-    expected: { amount: string; total: number; pixDiscount: number; subtotal: number },
+    expected: { amount: string; total: number; pixDiscount: number; subtotal: number; bump?: number },
   ) => {
     const call = e.fetchDouble.calls.at(-1)!
     expect(call.url).toBe(ORDERS_ENDPOINT)
@@ -1072,6 +1077,9 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
       // 17/T9: nenhum destes pares tem promoção cadastrada — o par da promoção é gravado zerado.
       promotion_id: null,
       promotion_discount: 0,
+      // Os outros dois descontos por item — o do bump, quando ele se aplica.
+      buy_together_discount: 0,
+      order_bump_discount: expected.bump ?? 0,
     })
   }
 
@@ -1120,7 +1128,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
       // Ignorando a quantidade a base cairia para 7,35 ⇒ cupom 0,74, e a cliente pagaria
       // 25,49 (PIX) / 26,31 (cartão) — quase R$ 1 acima do exibido.
       // Subtotal com bump = 3 x 4,90 + 2,45 = 17,15 (07/T13 passou a persisti-lo).
-      expectCharged(e, { amount, total, pixDiscount, subtotal: 17.15 })
+      expectCharged(e, { amount, total, pixDiscount, subtotal: 17.15, bump: 2.45 })
     },
   )
 
@@ -1221,7 +1229,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
 
     expect(response.status).toBe(200)
     // Sem desconto de cupom: 7,35 (bump aplicado) − 0,37 (PIX 5%) + 9,90 = 16,88.
-    expectCharged(e, { amount: '16.88', total: 16.88, pixDiscount: 0.37, subtotal: 7.35 })
+    expectCharged(e, { amount: '16.88', total: 16.88, pixDiscount: 0.37, subtotal: 7.35, bump: 2.45 })
     expect(logsOf(lines).some((x) => x.status === 'coupon_invalid')).toBe(true)
   })
 
@@ -1244,7 +1252,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
 
     expect(response.status).toBe(200)
     // 7,35 − 0,74 (cupom 10%) − 0,33 (PIX 5%) + 9,90 = 16,18 — o valor medido em sandbox no T16.
-    expectCharged(e, { amount: '16.18', total: 16.18, pixDiscount: 0.33, subtotal: 7.35 })
+    expectCharged(e, { amount: '16.18', total: 16.18, pixDiscount: 0.33, subtotal: 7.35, bump: 2.45 })
     expect(logsOf(lines).some((x) => x.status === 'coupon_invalid')).toBe(false)
   })
 
@@ -1405,6 +1413,7 @@ describe('create-payment — desconto progressivo por quantidade (PRM-11)', () =
     amount: string,
     subtotal: number,
     promotion: { id: string | null; discount: number } = { id: null, discount: 0 },
+    bumpDiscount = 0,
   ) => {
     const response = await createPayment(e.deps, paymentRequest(), pixBody)
     expect(response.status).toBe(200)
@@ -1421,6 +1430,8 @@ describe('create-payment — desconto progressivo por quantidade (PRM-11)', () =
       pix_discount: 0,
       promotion_id: promotion.id,
       promotion_discount: promotion.discount,
+      buy_together_discount: 0,
+      order_bump_discount: bumpDiscount,
     })
   }
 
@@ -1526,10 +1537,13 @@ describe('create-payment — desconto progressivo por quantidade (PRM-11)', () =
     const response = await createPayment(e.deps, paymentRequest(), pixBody)
 
     expect(response.status).toBe(422)
+    // As telas de "o valor mudou" mostram o antes (o total gravado) e o agora (o recalculado).
     expect(await response.json()).toEqual({
-      error:
-        'A promoção deste pedido mudou. Recarregue a sacola para ver o novo total antes de pagar.',
+      error: 'Um desconto deste pedido mudou. Nada foi cobrado.',
       code: 'promotion_no_longer_valid',
+      displayed_total: null,
+      total: 26.7,
+      piece: null,
     })
     // O que separa "recusar" de "cobrar errado": nada foi enviado ao Mercado Pago.
     expect(e.fetchDouble.calls).toHaveLength(0)
@@ -1646,7 +1660,7 @@ describe('create-payment — desconto progressivo por quantidade (PRM-11)', () =
       },
     })
     // 8,90 + (4,90 × 50%) = 8,90 + 2,45 = 11,35
-    await expectCharged(e, '11.35', 11.35)
+    await expectCharged(e, '11.35', 11.35, undefined, 2.45)
   })
 })
 
@@ -2782,14 +2796,15 @@ describe('create-payment — preço por variação (07/T12, T13, T14)', () => {
 
     const itemUpdate = e.supabase.updates.find((u) => u.table === 'order_items')
     expect(itemUpdate).toBeDefined()
-    expect(itemUpdate!.values).toEqual({ unit_price: 18.4 })
+    // A linha guarda também o preço cheio — aqui o mesmo, sem desconto nenhum.
+    expect(itemUpdate!.values).toEqual({ unit_price: 18.4, full_unit_price: 18.4 })
     expect(itemUpdate!.eq).toEqual(['id', 'oi-1'])
   })
 
-  it('item cujo unit_price já está certo não gera update redundante', async () => {
+  it('item cujo unit_price e full_unit_price já estão certos não gera update redundante', async () => {
     const e = envWith(variantLists({
       order_items: [{
-        id: 'oi-1', product_id: PRODUCT_ID, quantity: 1, unit_price: 18.4,
+        id: 'oi-1', product_id: PRODUCT_ID, quantity: 1, unit_price: 18.4, full_unit_price: 18.4,
         variant_id: VARIANT_ID, price_source: 'variant',
       }],
     }))

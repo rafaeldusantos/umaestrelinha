@@ -7,6 +7,7 @@ import {
   PAYMENT_UNAVAILABLE_MESSAGE,
   PAYMENT_TIMEOUT_MESSAGE,
   PAYMENT_TIMEOUT_MS,
+  PriceChangedError,
 } from '../useCreatePayment'
 import { supabase } from '@estrelinha/supabase/client'
 import { rememberAccess } from '@/entities/order/model/orderAccess'
@@ -84,6 +85,58 @@ describe('useCreatePayment', () => {
     await expect(result.current.mutateAsync({ order_id: 'order-1', method: 'pix' })).rejects.toThrow(
       'Não foi possível iniciar o pagamento. Tente novamente.',
     )
+  })
+
+  it('o 422 do valor que mudou vira PriceChangedError, com o antes, o agora e a peça', async () => {
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        context: new Response(
+          JSON.stringify({
+            error: 'O desconto do Compre Junto deste pedido mudou. Nada foi cobrado.',
+            code: 'buy_together_price_changed',
+            displayed_total: 450.1,
+            total: 454.05,
+            piece: 'Corrente',
+          }),
+          { status: 422 },
+        ),
+      },
+    })
+
+    const { result } = renderHook(() => useCreatePayment(), { wrapper })
+    const erro = await result.current
+      .mutateAsync({ order_id: 'order-1', method: 'pix' })
+      .catch((e: unknown) => e)
+
+    expect(erro).toBeInstanceOf(PriceChangedError)
+    expect(erro).toMatchObject({ displayedTotal: 450.1, total: 454.05, piece: 'Corrente', reason: 'buy_together' })
+  })
+
+  it('o 422 de outro desconto que caiu (promoção ou oferta do checkout) também é o valor que mudou', async () => {
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        context: new Response(
+          JSON.stringify({
+            error: 'Um desconto deste pedido mudou. Nada foi cobrado.',
+            code: 'promotion_no_longer_valid',
+            displayed_total: 320,
+            total: 340,
+            piece: 'Caixa',
+          }),
+          { status: 422 },
+        ),
+      },
+    })
+
+    const { result } = renderHook(() => useCreatePayment(), { wrapper })
+    const erro = await result.current
+      .mutateAsync({ order_id: 'order-1', method: 'pix' })
+      .catch((e: unknown) => e)
+
+    expect(erro).toBeInstanceOf(PriceChangedError)
+    expect(erro).toMatchObject({ displayedTotal: 320, total: 340, piece: 'Caixa', reason: 'discount' })
   })
 
   it('erro sem body legível cai na mensagem amigável de fallback', async () => {

@@ -11,7 +11,7 @@
 //
 // **Fora do `StoreLayout`**, como o checkout: header próprio, sem navegação de categorias, e sem o
 // `MobileNav` fixo disputando o rodapé com o QR.
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 
 import { useCartStore } from '@/entities/cart'
@@ -27,6 +27,7 @@ import {
   BATIDA_MS,
   PaymentProgress,
   PixSurface,
+  PriceChangedContact,
   usePixPayment,
 } from '@/features/order-payment'
 import { CheckoutHeader } from '@/widgets/checkout-header'
@@ -116,6 +117,41 @@ const PagamentoEmCurso = ({
     const timer = setTimeout(() => navigate(orderHref), BATIDA_MS)
     return () => clearTimeout(timer)
   }, [state.kind, navigate, orderHref])
+
+  /**
+   * O valor mudou entre o pedido e o pagamento, e nada foi cobrado.
+   *
+   * Pedido da sacola em curso (o mesmo recorte de `PIX-P1-08`): a cliente veio do checkout, e é lá
+   * que ela vê o total novo e confirma outra vez. O pedido de antes é descartado do rascunho — a nova
+   * confirmação cria outro, com o total novo, em vez de repagar este e tomar o mesmo 422.
+   *
+   * Pedido de outra hora (o link, Minha conta): não há total novo a confirmar — a página diz que o
+   * valor deste pedido mudou e mostra o contato da loja (abaixo).
+   */
+  // Lido na montagem: depois de descartar o pedido do rascunho, ele deixa de ser "o da sacola", e a
+  // tela não pode piscar o contato antes de a navegação acontecer.
+  const [daSacola] = useState(() => useCheckoutStore.getState().orderId === orderId)
+  const priceChanged = state.kind === 'price-changed' ? state : null
+  useEffect(() => {
+    if (!priceChanged || !daSacola) return
+    useCheckoutStore.getState().invalidateOrder()
+    navigate('/checkout', {
+      replace: true,
+      state: {
+        priceChanged: {
+          displayedTotal: priceChanged.displayedTotal,
+          total: priceChanged.total,
+          piece: priceChanged.piece,
+          reason: priceChanged.reason,
+        },
+      },
+    })
+  }, [priceChanged, daSacola, navigate])
+
+  if (state.kind === 'price-changed') {
+    if (daSacola) return null
+    return <PriceChangedContact orderNumber={orderNumber} />
+  }
 
   if (state.kind === 'generating') {
     return (

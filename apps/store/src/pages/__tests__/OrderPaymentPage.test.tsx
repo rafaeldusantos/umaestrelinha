@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { StrictMode, useEffect } from 'react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useCartStore } from '@/entities/cart'
@@ -136,6 +136,12 @@ const pedido = (extra: Record<string, unknown> = {}) => ({
   isError: false,
 })
 
+/** O checkout, como destino: mostra o que a navegação levou no estado. */
+const CheckoutDestino = () => {
+  const location = useLocation()
+  return <div>pagina:checkout {JSON.stringify(location.state)}</div>
+}
+
 /** A rota real, para o `:id` sair da URL — nunca de uma prop inventada pelo teste. */
 const montar = (rota = '/pedido/ord-1/pagamento') =>
   render(
@@ -143,6 +149,7 @@ const montar = (rota = '/pedido/ord-1/pagamento') =>
       <Routes>
         <Route path="/pedido/:id/pagamento" element={<OrderPaymentPage />} />
         <Route path="/pedido/:id" element={<div>pagina:pedido</div>} />
+        <Route path="/checkout" element={<CheckoutDestino />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -607,5 +614,50 @@ describe('OrderPaymentPage — as ações chegam à máquina', () => {
 
     screen.getByRole('button', { name: 'Copiar código' }).click()
     await waitFor(() => expect(copy).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('OrderPaymentPage — o valor do pedido mudou (o desconto do Compre Junto)', () => {
+  const mudou = { kind: 'price-changed', displayedTotal: 450.1, total: 454.05, piece: 'Corrente', reason: 'buy_together' }
+
+  it('pelo link ou por Minha conta: "O valor deste pedido mudou", nada cobrado, e o contato da loja', () => {
+    vi.mocked(useOrder).mockReturnValue(pedido() as never)
+    pixState.current = mudou
+    montar()
+
+    expect(screen.getByRole('heading', { level: 1, name: 'O valor deste pedido mudou' })).toBeInTheDocument()
+    expect(screen.getByText('#0244').parentElement).toHaveTextContent('Pedido #0244')
+    expect(
+      screen.getByText(
+        'Depois que este pedido foi feito, o desconto de uma das peças mudou, e o pagamento não pode seguir pelo valor de antes. Nada foi cobrado.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Fale comigo para combinarmos como seguir com o seu pedido.')).toBeInTheDocument()
+    const zap = screen.getByRole('link', { name: 'Falar pelo WhatsApp' })
+    expect(zap.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/51999998888\?text=/)
+    expect(screen.getByRole('link', { name: 'Escrever por e-mail' })).toHaveAttribute(
+      'href',
+      'mailto:ola@umaestrelinha.com.br',
+    )
+    // Não é o pedido da sacola: não há total novo a confirmar, nem QR.
+    expect(screen.queryByText('Confirmar com o novo total')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('qr')).not.toBeInTheDocument()
+  })
+
+  it('o pedido da sacola em curso volta ao checkout com o antes, o agora e a peça — e sai do rascunho', async () => {
+    vi.mocked(useOrder).mockReturnValue(pedido() as never)
+    useCheckoutStore.setState({ orderId: 'ord-1' })
+    pixState.current = mudou
+    montar()
+
+    await waitFor(() => expect(screen.getByText(/pagina:checkout/)).toBeInTheDocument())
+    expect(screen.getByText(/pagina:checkout/).textContent).toContain(
+      JSON.stringify({
+        priceChanged: { displayedTotal: 450.1, total: 454.05, piece: 'Corrente', reason: 'buy_together' },
+      }),
+    )
+    // A nova confirmação cria outro pedido, em vez de repagar este e tomar o mesmo 422.
+    expect(useCheckoutStore.getState().orderId).toBeNull()
+    expect(screen.queryByText('O valor deste pedido mudou')).not.toBeInTheDocument()
   })
 })

@@ -79,7 +79,12 @@ vi.mock('@/features/checkout/api/useCardInstallments', () => ({
     isError: false,
   }),
 }))
-vi.mock('@/features/checkout/api/useCreatePayment', () => ({
+vi.mock('@/features/checkout/api/useCreatePayment', async () => ({
+  // O módulo REAL, com só a porta trocada: a página faz `instanceof PriceChangedError`, e uma classe
+  // ausente do dublê derrubaria o ramo do erro.
+  ...(await vi.importActual<typeof import('@/features/checkout/api/useCreatePayment')>(
+    '@/features/checkout/api/useCreatePayment',
+  )),
   useCreatePayment: () => ({ mutateAsync: createPaymentMock, isPending: false }),
   PAYMENT_UNAVAILABLE_MESSAGE: 'Não foi possível iniciar o pagamento. Tente novamente.',
 }))
