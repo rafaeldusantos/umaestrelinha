@@ -191,6 +191,69 @@ describe('a aba Adesão — por joia principal e por lista', () => {
   })
 })
 
+describe('a aba Adesão — o cartão do recorte como no protótipo (BUG-013)', () => {
+  it('o cartão tem o título do recorte e é nomeado por ele; trocar para "Por lista" troca o título', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const titulo = screen.getByRole('heading', { name: 'Por joia principal' })
+    const cartao = screen.getByRole('region', { name: 'Por joia principal' })
+    expect(cartao).toContainElement(titulo)
+    expect(cartao).toContainElement(screen.getByTestId('adesao-tabela'))
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Por lista' }))
+    expect(await screen.findByRole('heading', { name: 'Por lista' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Por lista' })).toContainElement(screen.getByTestId('adesao-tabela'))
+    expect(screen.queryByRole('heading', { name: 'Por joia principal' })).not.toBeInTheDocument()
+  })
+
+  it('o título fica à esquerda e o alternador à direita, na mesma linha, embrulhando quando não cabe', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const titulo = screen.getByRole('heading', { name: 'Por joia principal' })
+    const alternador = screen.getByRole('tablist', { name: 'Recorte' })
+    const linha = titulo.parentElement as HTMLElement
+    expect(linha).toContainElement(alternador)
+    expect(titulo.compareDocumentPosition(alternador) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const token of ['flex', 'flex-wrap', 'items-center', 'justify-between']) {
+      expect(linha.className).toMatch(new RegExp(`(?:^|\\s)${token}(?:\\s|$)`))
+    }
+  })
+
+  it('o alternador diz "Por joia" e "Por lista" — nenhuma aba chamada "Por joia principal"', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const alternador = screen.getByRole('tablist', { name: 'Recorte' })
+    expect(within(alternador).getAllByRole('tab').map(t => t.textContent)).toEqual(['Por joia', 'Por lista'])
+    expect(screen.getByRole('tab', { name: 'Por joia' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tab', { name: 'Por joia principal' })).not.toBeInTheDocument()
+  })
+
+  it('a nota da régua traz o ícone ⓘ de 14 px, escondido do leitor, antes do texto', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const texto = screen.getByText(/^Conta pedidos pagos e não cancelados/)
+    const nota = texto.closest('[data-testid="nota-da-regua"]') as HTMLElement
+    expect(nota).not.toBeNull()
+    const icone = nota.querySelector('svg') as SVGElement
+    expect(icone).not.toBeNull()
+    expect(icone.getAttribute('aria-hidden')).toBe('true')
+    expect(icone.getAttribute('width')).toBe('14')
+    expect(icone.getAttribute('height')).toBe('14')
+    expect(icone.compareDocumentPosition(texto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('o cartão do celular diz "Mais sai: <peça>"; a coluna da tabela continua "Peça que mais sai"', async () => {
+    montar()
+    await screen.findByText('75% dos 4 pedidos pagos')
+    const cartoes = screen.getByTestId('adesao-cartoes')
+    const linhas = within(cartoes)
+      .getAllByRole('listitem')
+      .map(li => li.lastElementChild?.textContent)
+    expect(linhas).toEqual(['Mais sai: Corrente Veneziana em Prata 925 · 45 cm', 'Mais sai: Corrente Veneziana em Prata 925 · 45 cm'])
+    expect(cartoes.textContent).not.toMatch(/Peça que mais sai/)
+    expect(within(screen.getByTestId('adesao-tabela')).getByRole('columnheader', { name: 'Peça que mais sai' })).toBeInTheDocument()
+  })
+})
+
 describe('a aba Adesão — vazio, carregando e erro', () => {
   it('sem pedido com Compre Junto no período, diz isso por escrito — e nada de divisão por zero', async () => {
     rpc.mockResolvedValue({

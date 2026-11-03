@@ -1,9 +1,10 @@
 // O relatório de adesão ao Compre Junto: o período, três indicadores, a regra por escrito e o cartão
-// "Por joia principal" / "Por lista" — tabela no computador, cartões no celular, com a barra de valor
+// do recorte — título "Por joia principal" / "Por lista" à esquerda e o alternador "Por joia" / "Por lista"
+// à direita (protótipo, `cj-admin-listas.jsx` › `Adesao`) —, tabela no computador, cartões no celular, com a barra de valor
 // proporcional ao maior valor do recorte. O banco conta; aqui só se escreve o que ele devolveu.
 
-import { useState } from 'react'
-import { Coins, Package, ShoppingBag } from 'lucide-react'
+import { useId, useState } from 'react'
+import { Coins, Info, Package, ShoppingBag } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
 import { formatPrice } from '@estrelinha/core/formatters'
@@ -25,6 +26,9 @@ import {
 } from '../model/adoption'
 
 type Recorte = 'joia' | 'lista'
+
+// O título do cartão diz o recorte por extenso; o alternador, a forma curta (o protótipo).
+const TITULO_DO_RECORTE: Record<Recorte, string> = { joia: 'Por joia principal', lista: 'Por lista' }
 
 interface Linha {
   chave: string
@@ -82,19 +86,25 @@ const Recortes = ({ dado }: { dado: BuyTogetherAdoption }) => {
   const linhas = linhasDe(dado, recorte)
   const maior = Math.max(0, ...linhas.map(l => l.valor))
   const comPedidos = recorte === 'joia'
+  const tituloId = useId()
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4" aria-label="Recortes do relatório">
-      <Tabs value={recorte} onValueChange={v => setRecorte(v as Recorte)}>
-        <TabsList aria-label="Recorte" className="h-auto">
-          <TabsTrigger value="joia" className="min-h-11 px-4">
-            Por joia principal
-          </TabsTrigger>
-          <TabsTrigger value="lista" className="min-h-11 px-4">
-            Por lista
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <section className="rounded-2xl border border-border bg-card p-4" aria-labelledby={tituloId}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id={tituloId} className="text-base font-semibold text-foreground">
+          {TITULO_DO_RECORTE[recorte]}
+        </h2>
+        <Tabs value={recorte} onValueChange={v => setRecorte(v as Recorte)}>
+          <TabsList aria-label="Recorte" className="h-auto">
+            <TabsTrigger value="joia" className="min-h-11 px-4">
+              Por joia
+            </TabsTrigger>
+            <TabsTrigger value="lista" className="min-h-11 px-4">
+              Por lista
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
       <table data-testid="adesao-tabela" className="mt-4 hidden w-full text-sm md:table">
         <thead>
@@ -136,7 +146,7 @@ const Recortes = ({ dado }: { dado: BuyTogetherAdoption }) => {
             </p>
             <Barra valor={l.valor} maior={maior} />
             <p className="mt-2 break-words text-xs text-muted-foreground">
-              Peça que mais sai: <span className="text-foreground">{l.top}</span>
+              Mais sai: <span className="text-foreground">{l.top}</span>
             </p>
           </li>
         ))}
@@ -195,7 +205,10 @@ const AdoptionReport = () => {
             />
           </div>
 
-          <p className="text-xs text-muted-foreground">{RULE_NOTE}</p>
+          <p data-testid="nota-da-regua" className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <Info size={14} aria-hidden="true" className="mt-px shrink-0" />
+            <span>{RULE_NOTE}</span>
+          </p>
 
           {data &&
             (data.pedidos_com === 0 ? (
