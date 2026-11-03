@@ -19,21 +19,26 @@ interface Props {
   value: string | undefined
   /** O teto. Vem de `COPY_LIMITS` (`core`) nos e-mails e do `maxLength` do campo nas outras seções. */
   limit: number
+  /**
+   * Padrão desligado (`n/limite`, a forma de Configurações). Ligado, a barra ganha um espaço de cada
+   * lado (`n / limite`), como o editor de lista do Compre Junto desenha.
+   */
+  espacado?: boolean
   'data-testid'?: string
 }
 
-export const CharCounter = ({ value, limit, 'data-testid': testId }: Props) => (
+export const CharCounter = ({ value, limit, espacado = false, 'data-testid': testId }: Props) => (
   <span
     data-testid={testId}
     /* `tabular-nums` para o número não dançar a cada tecla: sem ele, o `1` é mais estreito que o `0`
        e o contador se mexe horizontalmente enquanto a dona digita. */
     className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
   >
-    {/* A forma é direta — o comprimento colado na barra — e não passa por variável intermediária.
+    {/* As duas formas são diretas — o comprimento colado na barra — e não passam por variável intermediária.
         Não é estilo: `contadorComDonoUnico.test.ts` ancora a própria régua NESTA linha, e um
         `const usado = …` antes do JSX a deixaria sem nada para encontrar no dono. Um guarda cuja
         âncora não casa varre o escopo, acha zero e aprova em silêncio. */}
-    {(value ?? '').length}/{limit}
+    {espacado ? <>{(value ?? '').length} / {limit}</> : <>{(value ?? '').length}/{limit}</>}
   </span>
 )
 

@@ -49,6 +49,9 @@ const inicial = (lista: ListaDoCompreJunto | null) => ({
 })
 
 const NOMES_MOSTRADOS = 4
+/** A busca de peça só lista a partir de 2 letras, e desenha até 8 linhas. */
+const LETRAS_PARA_BUSCAR = 2
+const RESULTADOS_DA_BUSCA = 8
 
 const BuyTogetherListEditor = ({ lista, onBack, onCreated, onDeleted }: BuyTogetherListEditorProps) => {
   const { save, remove } = useBuyTogetherListWrites()
@@ -117,7 +120,6 @@ const BuyTogetherListEditor = ({ lista, onBack, onCreated, onDeleted }: BuyToget
   return (
     <div className="pb-24">
       <RecordPageHeader
-        group="Catálogo"
         parentLabel="Compre Junto"
         crumb={saved.name || 'Nova lista'}
         title={saved.name || 'Nova lista'}
@@ -149,15 +151,20 @@ const BuyTogetherListEditor = ({ lista, onBack, onCreated, onDeleted }: BuyToget
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="nome-da-lista">Nome da lista</Label>
-                <CharCounter value={name} limit={BUY_TOGETHER_LIST_NAME_MAX} data-testid="contador-do-nome" />
+                <CharCounter value={name} limit={BUY_TOGETHER_LIST_NAME_MAX} espacado data-testid="contador-do-nome" />
               </div>
               <Input
                 id="nome-da-lista"
                 value={name}
                 maxLength={BUY_TOGETHER_LIST_NAME_MAX}
                 placeholder="Correntes"
+                aria-describedby="dica-do-nome-da-lista"
                 onChange={e => setName(e.target.value)}
               />
+              <p id="dica-do-nome-da-lista" className="text-xs text-muted-foreground">
+                É este nome que a cliente lê no Compre Junto, na página de cada joia que usa a lista. Escreva como
+                você falaria com ela: “Correntes”, “Pingentes para a mesma corrente”.
+              </p>
             </div>
           </FormCard>
 
@@ -170,8 +177,11 @@ const BuyTogetherListEditor = ({ lista, onBack, onCreated, onDeleted }: BuyToget
             }
           >
             <ProductSearchField
-              rotulo="Acrescentar peça"
+              rotulo="Acrescentar uma peça"
               id="busca-da-lista"
+              placeholder="Buscar pelo nome da joia"
+              minimoDeLetras={LETRAS_PARA_BUSCAR}
+              teto={RESULTADOS_DA_BUSCA}
               selecionados={items.map(i => i.productId)}
               rotuloJaEscolhida="Já está na lista"
               bloquearForaDoAr
@@ -218,11 +228,16 @@ const BuyTogetherListEditor = ({ lista, onBack, onCreated, onDeleted }: BuyToget
         <aside className="min-w-0 space-y-4">
           <FormCard title="Em uso">
             {usadaEm.length === 0 ? (
-              <p data-testid="em-uso" className="text-xs text-muted-foreground">Nenhuma joia oferece esta lista.</p>
+              <p data-testid="em-uso" className="text-xs text-muted-foreground">
+                Nenhuma joia usa esta lista ainda. Ela entra na loja quando você a escolher no Compre Junto de uma joia.
+              </p>
             ) : (
               <div data-testid="em-uso" className="space-y-1 text-xs text-muted-foreground">
-                <p className="font-semibold text-foreground">
-                  {usadaEm.length} {usadaEm.length === 1 ? 'joia oferece' : 'joias oferecem'} esta lista
+                <p>
+                  <span className="font-semibold text-foreground">
+                    {usadaEm.length} {usadaEm.length === 1 ? 'joia oferece' : 'joias oferecem'} esta lista.
+                  </span>{' '}
+                  Mudar aqui muda o Compre Junto de todas elas.
                 </p>
                 <ul>
                   {usadaEm.slice(0, NOMES_MOSTRADOS).map(n => (
@@ -236,7 +251,8 @@ const BuyTogetherListEditor = ({ lista, onBack, onCreated, onDeleted }: BuyToget
           <FormCard title="Como a cliente vê">
             <p className="flex gap-2 text-xs text-muted-foreground">
               <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              O nome da lista é o título do bloco na página da joia, e as peças aparecem nesta ordem.
+              Na página da joia, o bloco mostra o nome da lista e as peças nesta ordem, e a cliente escolhe uma.
+              Peças fora do ar, sem nenhuma variação à venda, ou que sejam a própria joia da página são puladas.
             </p>
           </FormCard>
         </aside>

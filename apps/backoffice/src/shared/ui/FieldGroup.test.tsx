@@ -113,3 +113,20 @@ describe('CharCounter (LEG-14, LEG-19)', () => {
     expect(screen.getByTestId('c')).toHaveTextContent('4/10')
   })
 })
+
+describe('CharCounter — a forma espaçada, para quem a pede', () => {
+  it('sem `espacado`, a barra fica colada: "n/limite"', () => {
+    render(<CharCounter data-testid="c" value="Correntes" limit={40} />)
+    expect(screen.getByTestId('c').textContent).toBe('9/40')
+  })
+
+  it('com `espacado`, a barra ganha um espaço de cada lado: "n / limite"', () => {
+    render(<CharCounter data-testid="c" value="Correntes" limit={40} espacado />)
+    expect(screen.getByTestId('c').textContent).toBe('9 / 40')
+  })
+
+  it('com `espacado` e campo vazio, conta zero na mesma forma', () => {
+    render(<CharCounter data-testid="c" value={undefined} limit={40} espacado />)
+    expect(screen.getByTestId('c').textContent).toBe('0 / 40')
+  })
+})

@@ -118,7 +118,7 @@ const ListItemRow = ({
         ativas.length > 0 && (
           <div className="mt-2 pl-7">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span data-testid={`resumo-variacoes-${position}`}>Variações: {resumo}</span>
+              <span data-testid={`resumo-variacoes-${position}`}>Variações oferecidas: {resumo}</span>
               <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={onToggleOpen}>
                 {open ? 'Esconder' : 'Escolher quais'}
               </Button>

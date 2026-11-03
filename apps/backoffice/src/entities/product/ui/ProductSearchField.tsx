@@ -33,7 +33,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { useProductPool } from '../api/useProductPool'
 import { useProductCovers } from '../api/useProductCovers'
 import PecaFoto from './PecaFoto'
-import { buscarProdutos, type ProdutoDoPool } from '../lib/buscarProdutos'
+import { buscarProdutos, RESULTADOS_VISIVEIS, type ProdutoDoPool } from '../lib/buscarProdutos'
 
 export interface ProductSearchFieldProps {
   /** O texto do `<label>`, e o nome acessível do campo. */
@@ -102,6 +102,13 @@ export interface ProductSearchFieldProps {
    * escolher peça despublicada é estado legítimo, e continua sendo.
    */
   bloquearForaDoAr?: boolean
+  /**
+   * Padrão 0 (lista sem digitar). Com o termo aparado abaixo dele, o campo não lista nada — nem
+   * lista, nem vazio, nem "Mostrando…"; o contador do topo continua.
+   */
+  minimoDeLetras?: number
+  /** Quantas linhas a lista desenha. Padrão `RESULTADOS_VISIVEIS` (20). */
+  teto?: number
 }
 
 const ProductSearchField = ({
@@ -121,6 +128,8 @@ const ProductSearchField = ({
   mostrarFoto = false,
   autoFocus = false,
   bloquearForaDoAr = false,
+  minimoDeLetras = 0,
+  teto = RESULTADOS_VISIVEIS,
 }: ProductSearchFieldProps) => {
   const { produtos, carregando, erro, recarregar } = useProductPool()
   const [busca, setBusca] = useState('')
@@ -131,9 +140,9 @@ const ProductSearchField = ({
   const chaveSelecionados = (selecionados ?? []).join(',')
 
   const resultado = useMemo(
-    () => buscarProdutos(produtos, busca, { excluir }),
+    () => buscarProdutos(produtos, busca, { excluir, teto }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [produtos, busca, chaveExcluir],
+    [produtos, busca, chaveExcluir, teto],
   )
 
   /**
@@ -241,6 +250,10 @@ const ProductSearchField = ({
         <p data-testid="busca-carregando" className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
           Carregando o catálogo…
         </p>
+      ) : termo.length < minimoDeLetras ? (
+        // Abaixo do mínimo de letras não há o que listar: nem lista, nem vazio, nem aviso. A carga e o
+        // erro continuam acima, porque falam do catálogo e não do termo.
+        null
       ) : resultado.total === 0 ? (
         // Lista em branco se lê como tela quebrada, e a dona iria procurar o defeito noutro lugar.
         // Dizer o que aconteceu **e** o que fazer é o que separa um vazio de um erro.

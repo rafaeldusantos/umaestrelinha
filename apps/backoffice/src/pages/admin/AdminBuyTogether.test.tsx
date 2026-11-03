@@ -198,11 +198,11 @@ describe('editor — criar a lista', () => {
     montar('/admin/compre-junto/listas/nova')
     const campo = await screen.findByLabelText('Nome da lista')
     expect(campo).toHaveAttribute('maxlength', '40')
-    expect(screen.getByTestId('contador-do-nome')).toHaveTextContent('0/40')
+    expect(screen.getByTestId('contador-do-nome')).toHaveTextContent('0 / 40')
     expect(screen.getByRole('button', { name: 'Salvar lista' })).toBeDisabled()
     expect(screen.getByTestId('estado-de-gravacao')).toHaveTextContent('Dê um nome à lista para salvar.')
     fireEvent.change(campo, { target: { value: 'Correntes' } })
-    expect(screen.getByTestId('contador-do-nome')).toHaveTextContent('9/40')
+    expect(screen.getByTestId('contador-do-nome')).toHaveTextContent('9 / 40')
     expect(screen.getByRole('button', { name: 'Salvar lista' })).toBeEnabled()
     expect(screen.getByTestId('estado-de-gravacao')).toHaveTextContent('Alterações não salvas')
   })
@@ -220,7 +220,7 @@ describe('editor — criar a lista', () => {
   it('acrescenta peças pela busca e grava nome e posições; a peça já na lista e a fora do ar vêm desabilitadas com o motivo', async () => {
     montar('/admin/compre-junto/listas/nova')
     fireEvent.change(await screen.findByLabelText('Nome da lista'), { target: { value: 'Correntes' } })
-    const busca = screen.getByLabelText('Acrescentar peça')
+    const busca = screen.getByLabelText('Acrescentar uma peça')
     fireEvent.change(busca, { target: { value: 'corrente' } })
     fireEvent.click(await screen.findByTestId(`peca-${CORRENTE}`))
     fireEvent.change(busca, { target: { value: 'fita' } })
@@ -249,7 +249,7 @@ describe('editor — criar a lista', () => {
     banco.itens = dozeProdutos.map((p, i) => item('l9', p.id as string, i))
     montar('/admin/compre-junto/listas/l9')
     expect(await screen.findByTestId('contador-de-pecas')).toHaveTextContent('12 de 12')
-    fireEvent.change(screen.getByLabelText('Acrescentar peça'), { target: { value: 'treze' } })
+    fireEvent.change(screen.getByLabelText('Acrescentar uma peça'), { target: { value: 'treze' } })
     fireEvent.click(await screen.findByTestId(`peca-${uuid(200)}`))
     expect(await screen.findByTestId('faixa-de-recusa')).toHaveTextContent(
       'Uma lista leva até 12 peças. Tire uma para acrescentar outra, ou crie uma segunda lista.',
@@ -313,12 +313,12 @@ describe('editor — ordenar, tirar e liberar variações', () => {
   it('libera variações por peça: "todas as ativas (N)" até marcar, "k de N" depois, e "Oferecer todas" volta', async () => {
     semear()
     montar('/admin/compre-junto/listas/l9')
-    expect(await screen.findByTestId('resumo-variacoes-0')).toHaveTextContent('todas as ativas (2)')
+    expect((await screen.findByTestId('resumo-variacoes-0')).textContent).toBe('Variações oferecidas: todas as ativas (2)')
     fireEvent.click(within(screen.getByTestId('peca-da-lista-0')).getByRole('button', { name: 'Escolher quais' }))
     const marcadores = screen.getByTestId('variacoes-0')
     expect(within(marcadores).getByText(/inclusive as que você criar depois/)).toBeInTheDocument()
     fireEvent.click(within(marcadores).getByRole('button', { name: /Ouro/ }))
-    expect(screen.getByTestId('resumo-variacoes-0')).toHaveTextContent('1 de 2')
+    expect(screen.getByTestId('resumo-variacoes-0').textContent).toBe('Variações oferecidas: 1 de 2')
 
     fireEvent.click(screen.getByRole('button', { name: 'Salvar lista' }))
     await waitFor(() => expect(escritas('buy_together_list_items')).toHaveLength(1))
@@ -355,7 +355,9 @@ describe('editor — em uso e excluir', () => {
     banco.usos = ['Anel A', 'Anel B', 'Anel C', 'Anel D', 'Anel E'].map((n, i) => ({ list_id: 'l9', product_id: `p${i}`, product_name: n }))
     montar('/admin/compre-junto/listas/l9')
     const uso = await screen.findByTestId('em-uso')
-    await waitFor(() => expect(uso).toHaveTextContent('5 joias oferecem esta lista'))
+    await waitFor(() =>
+      expect(uso).toHaveTextContent('5 joias oferecem esta lista. Mudar aqui muda o Compre Junto de todas elas.'),
+    )
     expect(uso).toHaveTextContent('Anel D')
     expect(uso).not.toHaveTextContent('Anel E')
     expect(uso).toHaveTextContent('Ver as 5 joias')
@@ -402,5 +404,74 @@ describe('editor — em uso e excluir', () => {
       'Esta lista está em uso e não pode ser excluída. Tire-a das joias que a usam antes.',
     )
     ;(supabase as { from: unknown }).from = original
+  })
+})
+
+const FRASE_DA_LOJA =
+  'Na página da joia, o bloco mostra o nome da lista e as peças nesta ordem, e a cliente escolhe uma. Peças fora do ar, sem nenhuma variação à venda, ou que sejam a própria joia da página são puladas.'
+const DICA_DO_NOME =
+  'É este nome que a cliente lê no Compre Junto, na página de cada joia que usa a lista. Escreva como você falaria com ela: “Correntes”, “Pingentes para a mesma corrente”.'
+
+describe('editor — os textos do protótipo', () => {
+  it('"Como a cliente vê" descreve o que a loja faz, e a frase antiga sumiu', async () => {
+    semear()
+    montar('/admin/compre-junto/listas/l9')
+    expect(await screen.findByText(FRASE_DA_LOJA)).toBeInTheDocument()
+    expect(screen.queryByText(/O nome da lista é o título do bloco/)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['na lista nova', '/admin/compre-junto/listas/nova'],
+    ['na lista existente', '/admin/compre-junto/listas/l9'],
+  ])('a dica sob "Nome da lista" aparece %s, apontada pelo aria-describedby do campo', async (_, rota) => {
+    semear()
+    montar(rota)
+    const campo = await screen.findByLabelText('Nome da lista')
+    const dica = screen.getByText(DICA_DO_NOME)
+    expect(dica.id).not.toBe('')
+    expect((campo.getAttribute('aria-describedby') ?? '').split(/\s+/)).toContain(dica.id)
+  })
+
+  it('"Em uso" com uma joia fica no singular, com a consequência', async () => {
+    semear()
+    banco.usos = [{ list_id: 'l9', product_id: 'p0', product_name: 'Anel A' }]
+    montar('/admin/compre-junto/listas/l9')
+    const uso = await screen.findByTestId('em-uso')
+    await waitFor(() =>
+      expect(uso).toHaveTextContent('1 joia oferece esta lista. Mudar aqui muda o Compre Junto de todas elas.'),
+    )
+    expect(uso).toHaveTextContent('Anel A')
+  })
+
+  it('"Em uso" sem joias diz quando a lista entra na loja', async () => {
+    semear()
+    montar('/admin/compre-junto/listas/l9')
+    expect((await screen.findByTestId('em-uso')).textContent).toBe(
+      'Nenhuma joia usa esta lista ainda. Ela entra na loja quando você a escolher no Compre Junto de uma joia.',
+    )
+  })
+
+  it('a busca "Acrescentar uma peça" só lista a partir de 2 letras, e no máximo 8', async () => {
+    banco.produtos = Array.from({ length: 12 }, (_, i) => produto(uuid(300 + i), `Colar ${String(i).padStart(2, '0')}`))
+    montar('/admin/compre-junto/listas/nova')
+    const busca = await screen.findByLabelText('Acrescentar uma peça')
+    expect(busca).toHaveAttribute('placeholder', 'Buscar pelo nome da joia')
+    await waitFor(() => expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('12 no catálogo'))
+    expect(screen.queryByTestId('pecas-encontradas')).not.toBeInTheDocument()
+
+    fireEvent.change(busca, { target: { value: 'c' } })
+    expect(screen.queryByTestId('pecas-encontradas')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('busca-sem-resultado')).not.toBeInTheDocument()
+
+    fireEvent.change(busca, { target: { value: 'co' } })
+    expect(within(await screen.findByTestId('pecas-encontradas')).getAllByRole('button')).toHaveLength(8)
+  })
+
+  it('a trilha começa por "Compre Junto", sem o nível "Catálogo"', async () => {
+    semear()
+    montar('/admin/compre-junto/listas/l9')
+    const trilha = await screen.findByRole('navigation', { name: 'Trilha' })
+    await waitFor(() => expect(trilha.textContent).toBe('Compre JuntoCorrentes'))
+    expect(trilha).not.toHaveTextContent('Catálogo')
   })
 })
