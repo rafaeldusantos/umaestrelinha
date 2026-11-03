@@ -234,6 +234,70 @@ describe('a forma "Com fórmula"', () => {
     expect(within(linhaDo('a1')).getByRole('radiogroup')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  const STORAGE = 'https://exemplo.supabase.co/storage/v1/object/public/produtos/'
+  const classes = (el: Element | null) => (el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
+  const itemDaFaixa = (chave: string) =>
+    screen.getByTestId('formula-strip').querySelector<HTMLElement>(`[data-formula-item="${chave}"]`)!
+  const fotoDoItem = (chave: string) => itemDaFaixa(chave).querySelector<HTMLElement>('[data-formula-photo]')!
+  const comFotos = () => {
+    const ping = pingente()
+    ping.image_url = `${STORAGE}pingente.jpg`
+    ofertar([addon('a1', 0, 'ping')], [ping])
+    renderPage(principal({ image_url: `${STORAGE}pulseira.jpg` }))
+  }
+
+  it('a faixa não tem fundo nem quebra de linha, e rola na horizontal dentro dela', () => {
+    comFotos()
+    const faixa = classes(screen.getByTestId('formula-strip'))
+    expect(faixa).toContain('overflow-x-auto')
+    expect(faixa).not.toContain('flex-wrap')
+    expect(faixa.filter(c => /^bg-/.test(c))).toEqual([])
+  })
+
+  it('cada item traz a foto e o nome; o primeiro é a foto da joia da página com "Esta joia"', () => {
+    comFotos()
+    const principalItem = itemDaFaixa('principal')
+    expect(principalItem).toHaveTextContent('Esta joia')
+    const fotoJoia = principalItem.querySelector('img')!
+    expect(fotoJoia.getAttribute('src')).toContain('/storage/v1/render/image/public/produtos/pulseira.jpg')
+    const item = itemDaFaixa('a1')
+    expect(item).toHaveTextContent('Pingente Estrela do Mar')
+    const fotoPeca = item.querySelector('img')!
+    expect(fotoPeca.getAttribute('src')).toContain('/storage/v1/render/image/public/produtos/pingente.jpg')
+    expect(fotoPeca.getAttribute('src')).toContain('width=240')
+    // A joia vem antes do adicional, e há um "+" entre os dois.
+    expect(principalItem.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(texto(screen.getByTestId('formula-strip'))).toMatch(/Esta joia\s*\+\s*Pingente Estrela do Mar/)
+  })
+
+  it('o adicional não marcado tem a foto a 35%, e marcado pela caixa da lista ela vai a plena', () => {
+    comFotos()
+    expect(classes(fotoDoItem('a1'))).toContain('opacity-35')
+    expect(classes(fotoDoItem('a1'))).not.toContain('opacity-100')
+    fireEvent.click(caixa(NOME))
+    expect(classes(fotoDoItem('a1'))).toContain('opacity-100')
+    expect(classes(fotoDoItem('a1'))).not.toContain('opacity-35')
+    for (const el of Array.from(screen.getByTestId('formula-strip').querySelectorAll('*'))) {
+      expect(classes(el)).not.toContain('bg-estrelinha-primary')
+      expect(classes(el)).not.toContain('rounded-full')
+    }
+  })
+
+  it('o nome de cada item sai em 11px', () => {
+    comFotos()
+    for (const chave of ['principal', 'a1']) {
+      const nome = itemDaFaixa(chave).querySelector('[data-formula-name]')
+      expect(classes(nome)).toContain('text-[11px]')
+    }
+  })
+
+  it('a transição de opacidade da foto desliga com menos movimento', () => {
+    comFotos()
+    const foto = classes(fotoDoItem('a1'))
+    expect(foto).toContain('transition-opacity')
+    expect(foto).toContain('motion-reduce:transition-none')
+  })
 })
 
 describe('a forma "Em folha"', () => {

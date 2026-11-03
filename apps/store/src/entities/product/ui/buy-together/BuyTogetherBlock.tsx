@@ -13,6 +13,8 @@ interface Props {
   state: BuyTogether
   /** A cliente já tentou levar o conjunto incompleto (`useBuyAction`): só então cada linha diz o que falta. */
   attempted?: boolean
+  /** A foto da joia da página, que abre a faixa da forma "Com fórmula". */
+  mainPhoto?: string | null
 }
 
 /**
@@ -24,14 +26,14 @@ interface Props {
  * já mostra entram na conta pelo estado (`useBuyTogether`). O texto não diz qual material uma peça
  * exige — quem pergunta isso é a gaveta de material, e `semMaterialNaPaginaDoProduto.test.ts` vigia.
  */
-const BuyTogetherBlock = ({ state, attempted = false }: Props) => {
+const BuyTogetherBlock = ({ state, attempted = false, mainPhoto = null }: Props) => {
   if (state.display === 'off') return null
   if (state.display === 'loading') return <BuyTogetherSkeleton />
-  return <ReadyBlock state={state} attempted={attempted} />
+  return <ReadyBlock state={state} attempted={attempted} mainPhoto={mainPhoto} />
 }
 
 /** O bloco desenhado. A forma só é lida aqui: sem adicional a mostrar, o bloco não pergunta nada. */
-const ReadyBlock = ({ state, attempted }: Props) => {
+const ReadyBlock = ({ state, attempted, mainPhoto = null }: Props) => {
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
   const form = useBuyTogetherForm()
   const { addons, markedCount, total } = state
@@ -55,7 +57,7 @@ const ReadyBlock = ({ state, attempted }: Props) => {
         </p>
       </div>
 
-      {form === 'formula' && <FormulaStrip addons={addons} toggle={state.toggle} />}
+      {form === 'formula' && <FormulaStrip mainPhoto={mainPhoto} addons={addons} toggle={state.toggle} />}
 
       <ul className="grid grid-cols-[minmax(0,1fr)]">
         {addons.map(addon => (

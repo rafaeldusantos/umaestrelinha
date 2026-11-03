@@ -172,7 +172,13 @@ const ProductInfo = ({ product, categoryName, purchase, buyTogether, action }: P
 
       {/* Compre Junto — entre a escolha do principal (variação e gravação) e o estoque/CTA. O bloco
           lê a variação e a quantidade do principal pelo estado; não repete o seletor. */}
-      {buyTogether && <BuyTogetherBlock state={buyTogether} attempted={buy.attempted} />}
+      {buyTogether && (
+        <BuyTogetherBlock
+          state={buyTogether}
+          attempted={buy.attempted}
+          mainPhoto={purchase.variant?.image_url || product.image_url || null}
+        />
+      )}
 
       <hr className="mt-5 border-estrelinha-line" />
 
