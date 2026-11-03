@@ -4,7 +4,7 @@ import { Copy, ExternalLink, ImageOff, MessageSquare, Printer, Truck } from 'luc
 import { toast } from 'sonner'
 
 import { formatPrice } from '@estrelinha/core/formatters'
-import { formatOrderNumber, itemPhoto } from '@estrelinha/core/orders'
+import { formatOrderNumber, itemPhoto, orderSummary } from '@estrelinha/core/orders'
 import { queueAgeLabel } from '@estrelinha/core/material'
 import { isPickupOrder, PICKUP_METHOD_NAME } from '@estrelinha/core/shipping'
 import { companionPhrase, orderItemCompanionNames } from '@estrelinha/core/buy-together'
@@ -317,6 +317,13 @@ const AdminOrderPage = () => {
   const daProposta = order as unknown as PedidoComOrigem
   const descontoCombinado = Number(daProposta.manual_discount ?? 0)
 
+  // O resumo é o da loja (`orderSummary`, `core/orders`): Subtotal pelo preço cheio, uma linha por
+  // desconto, e o "de/por" de cada peça. O desconto nunca é calculado aqui. O pedido de antes das
+  // colunas de preço cheio sai como era: o subtotal gravado, o desconto do cupom e o PIX.
+  const resumo = orderSummary({ ...order, order_items: items })
+  const descontosAntesDoPix = resumo.discounts.filter(d => d.key !== 'pix')
+  const descontoPix = resumo.discounts.find(d => d.key === 'pix')
+
   return (
     <div>
       <RecordPageHeader
@@ -479,7 +486,7 @@ const AdminOrderPage = () => {
             )}
 
             <ul className="divide-y divide-border">
-              {items.map(item => {
+              {items.map((item, index) => {
                 const produto = productRefs[item.product_id] ?? null
                 // O snapshot VENCE sempre: `order_items.product_image` é a foto do momento da
                 // compra, e trocar a imagem no cadastro não pode mudar o que a bancada vai separar.
@@ -499,7 +506,12 @@ const AdminOrderPage = () => {
                 const adminHref = produto ? `/admin/produtos/${produto.id}/editar` : null
                 // Compre Junto: a peça levada junto diz qual joia acompanha — a mesma frase da sacola
                 // e da confirmação, com o nome do principal tirado deste pedido (snapshot).
-                const acompanha = companionPhrase(orderItemCompanionNames(item, items))
+                // Da linha mista gravada partida, só a parte com o desconto casado é a que acompanha;
+                // a outra é a mesma peça levada avulsa.
+                const preco = resumo.rows[index]
+                const acompanha = preco?.showsCompanion === false
+                  ? ''
+                  : companionPhrase(orderItemCompanionNames(item, items))
 
                 return (
                 <li key={item.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-1 py-3.5">
@@ -566,9 +578,22 @@ const AdminOrderPage = () => {
                       {item.quantity} un
                     </span>
                     {/* `min-w` e não `w`: com a fonte grande o valor cresce além de 110 e saía cortado. */}
-                    <span className="min-w-[110px] shrink-0 whitespace-nowrap text-right text-sm font-semibold">
-                      {formatPrice(item.unit_price)}
-                    </span>
+                    {/* O preço é o da unidade, ao lado de "N un". Com desconto (decidido por
+                        `orderSummary`), o cheio da unidade riscado e o cobrado abaixo. */}
+                    {preco?.full != null && item.full_unit_price != null ? (
+                      <span data-testid="item-de-por" className="flex min-w-[110px] shrink-0 flex-col items-end">
+                        <s className="whitespace-nowrap text-xs text-estrelinha-admin-text-secondary">
+                          {formatPrice(item.full_unit_price)}
+                        </s>
+                        <span className="whitespace-nowrap text-right text-sm font-semibold">
+                          {formatPrice(item.unit_price)}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="min-w-[110px] shrink-0 whitespace-nowrap text-right text-sm font-semibold">
+                        {formatPrice(item.unit_price)}
+                      </span>
+                    )}
                   </span>
                 </li>
                 )
@@ -726,18 +751,18 @@ const AdminOrderPage = () => {
               Pagamento
             </h2>
             <dl className="space-y-1 text-sm">
-              <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd>{formatPrice(order.subtotal)}</dd></div>
-              {order.discount > 0 && (
-                <div className="flex justify-between"><dt className="text-muted-foreground">Desconto</dt><dd>− {formatPrice(order.discount)}</dd></div>
-              )}
+              <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd>{formatPrice(resumo.subtotal)}</dd></div>
+              {descontosAntesDoPix.map(d => (
+                <div key={d.key} className="flex justify-between gap-x-3"><dt className="text-muted-foreground">{d.label}</dt><dd className="shrink-0">− {formatPrice(d.amount)}</dd></div>
+              ))}
               {daProposta.proposal_id && descontoCombinado > 0 && (
                 <ManualDiscountRow proposalId={daProposta.proposal_id} amount={descontoCombinado} />
               )}
-              {order.pix_discount > 0 && (
-                <div className="flex justify-between"><dt className="text-muted-foreground">Desconto Pix</dt><dd>− {formatPrice(order.pix_discount)}</dd></div>
+              {descontoPix && (
+                <div className="flex justify-between gap-x-3"><dt className="text-muted-foreground">{descontoPix.label}</dt><dd className="shrink-0">− {formatPrice(descontoPix.amount)}</dd></div>
               )}
-              <div className="flex justify-between"><dt className="text-muted-foreground">Frete</dt><dd>{order.shipping_cost > 0 ? formatPrice(order.shipping_cost) : 'Grátis'}</dd></div>
-              <div className="flex justify-between border-t border-border pt-1 font-semibold"><dt>Total</dt><dd>{formatPrice(order.total)}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">Frete</dt><dd>{resumo.shipping > 0 ? formatPrice(resumo.shipping) : 'Grátis'}</dd></div>
+              <div className="flex justify-between border-t border-border pt-1 font-semibold"><dt>Total</dt><dd>{formatPrice(resumo.total)}</dd></div>
               <div className="flex justify-between pt-2"><dt className="text-muted-foreground">Método</dt><dd>{order.payment_method}</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">Situação</dt><dd>{PAYMENT_STATUS_LABELS[order.payment_status] ?? order.payment_status}</dd></div>
               {order.paid_at && (
