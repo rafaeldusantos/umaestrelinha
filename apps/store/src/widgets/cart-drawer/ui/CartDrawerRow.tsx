@@ -93,7 +93,8 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
         </div>
 
         {acompanha && (
-          <p data-testid="acompanha" className="break-words text-[12px] leading-4 text-estrelinha-ink-soft">
+          <p data-testid="acompanha" className="break-words text-[12.5px] leading-4 text-estrelinha-ink-soft">
+            <span aria-hidden="true" className="mr-1.5 inline-block h-px w-2.5 align-middle bg-estrelinha-accent" />
             {acompanha}
           </p>
         )}

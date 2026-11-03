@@ -115,3 +115,43 @@ describe('a linha da sacola do adicional do conjunto', () => {
     await waitFor(() => expect(screen.queryByText('Corrente Prata')).toBeNull())
   })
 })
+
+// Token exato: `w-2.5` não pode casar dentro de `w-2.5x`, nem `h-px` dentro de `min-h-px` (L-034).
+const temToken = (el: Element, token: string) =>
+  new RegExp(`(?:^|\\s)${token.replace(/[.[\]]/g, '\\$&')}(?![-\\w])`).test(el.getAttribute('class') ?? '')
+
+describe('o desenho da linha "Acompanha o …" (protótipo, .acomp i)', () => {
+  const montar = () => {
+    useCartStore.getState().addItems([
+      { product: peca('main', 'Pingente Estrela com Cinzas da Mamãe') },
+      { product: peca('corr', 'Corrente Prata'), accompanies: marca('main') },
+    ])
+    abrir()
+    return within(linha('Corrente Prata')).getByTestId('acompanha')
+  }
+
+  it('antes do texto vem um traço decorativo de 10×1px em accent, escondido do leitor de tela e sem texto', () => {
+    const p = montar()
+    const traco = p.firstElementChild
+    expect(traco).not.toBeNull()
+    // O traço é o PRIMEIRO nó da linha: nada de texto antes dele.
+    expect(p.firstChild).toBe(traco)
+    expect(traco!.getAttribute('aria-hidden')).toBe('true')
+    expect(traco!.textContent).toBe('')
+    for (const token of ['bg-estrelinha-accent', 'w-2.5', 'h-px', 'inline-block']) {
+      expect(temToken(traco!, token), token).toBe(true)
+    }
+  })
+
+  it('a frase sai em 12,5px ink-soft', () => {
+    const p = montar()
+    expect(temToken(p, 'text-[12.5px]')).toBe(true)
+    expect(temToken(p, 'text-estrelinha-ink-soft')).toBe(true)
+    expect(temToken(p, 'text-[12px]')).toBe(false)
+  })
+
+  it('o texto da linha é exatamente a frase — o traço não entra no textContent', () => {
+    const p = montar()
+    expect(p.textContent).toBe('Acompanha o Pingente Estrela com Cinzas da Mamãe')
+  })
+})
