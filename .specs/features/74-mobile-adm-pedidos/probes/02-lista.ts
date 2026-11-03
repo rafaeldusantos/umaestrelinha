@@ -17,6 +17,10 @@
 //      Feature `82`: o detalhe ganhou `material_tracking_set_at`/`_by` e os itens `requires_material`/
 //      `material_kinds` — as listas são importadas de `linha.ts`, então a régua 7 as confere sem edição
 //      (saída em `.specs/features/82-envelope-da-cliente/probes/02-colunas-da-74.saida.txt`).
+//      WI 92 (desconto da compra casada): o detalhe ganhou `buy_together_discount`/`order_bump_discount`
+//      e os itens `variant_id`, `size`, `finish`, `full_unit_price` e `accompanies_product_ids` — o
+//      esperado continua vindo de `linha.ts` (saída em
+//      `.specs/work-items/92-desconto-da-compra-casada/probes/07-lista-do-app.saida.txt`).
 //
 // Rodar: `npx tsx --tsconfig tsconfig.base.json .specs/features/74-mobile-adm-pedidos/probes/02-lista.ts`
 // da raiz do worktree (o `.sh` faz isso).

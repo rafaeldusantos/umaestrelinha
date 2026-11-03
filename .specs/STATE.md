@@ -1747,6 +1747,30 @@
   na sacola, a forma do bloco).
 - **Date**: 2026-11-02
 
+### AD-073
+
+- **Status**: accepted (WI 92, desconto da compra casada, 2026-11-03) — **emenda o `AD-015`**
+- **Decision**: **o desconto do Compre Junto é por item e empilha com o cupom.** A peça adicional sai com
+  o percentual que a dona deu ao adicional (`product_buy_together.discount_percent`) quando a joia que a
+  oferece está no mesmo pedido — uma unidade de peça por unidade de joia, o maior percentual primeiro, a
+  linha de maior preço primeiro. Por item ele segue o `AD-015` (com a promoção e o order bump vale o
+  **menor preço**, nunca a soma: a base dos dois caminhos é, unidade a unidade, o menor entre o bump e o
+  casado). Com o **cupom** ele **empilha**: o cupom incide sobre o subtotal já com o desconto casado, como
+  com o order bump, e a escolha promoção × cupom compara o que cada um desconta **além** do casado. O
+  descartado só é nomeado quando de fato desconta alguma coisa. A conta mora em `resolveOrderPricing`
+  (entrada opcional `buyTogether`, saídas `buyTogetherDiscount` e `buyTogetherLines` só quando ela veio)
+  e a regra em `core/buy-together/cartDiscount.ts`; a gaveta, o checkout e o servidor chamam a mesma.
+- **Reason**: decisão do gate do WI (Q-03): o desconto da compra casada é condição da oferta na página do
+  produto, não um cupom concorrente — perder o casado por ter digitado um código faria a cliente pagar
+  mais pela peça que a página prometeu mais barata.
+- **Trade-off**: um pedido pode somar três descontos (casado, cupom e PIX); o par recíproco dá desconto a
+  uma peça só (a levada pelo bloco, ou a de menor preço). Sem a entrada nova, o cálculo de qualquer pedido
+  é o de antes, inclusive a forma do objeto.
+- **Scope**: `packages/core/src/payment/pricing.ts`, `packages/core/src/buy-together/cartDiscount.ts`
+  (`allocateBuyTogetherDiscount`, `buyTogetherOfferPercent`) e `claimPieces` (`availability.ts`);
+  `apps/store` (sacola e checkout); o servidor e o pedido na tarefa 04 do WI 92.
+- **Date**: 2026-11-03
+
 ## Handoff
 
 ### 2026-11-02 · `WI-01-compre-junto` **IMPLEMENTADO (tarefas 01..07), sem push — falta a prova em navegador do relatório**
