@@ -18,5 +18,6 @@ export type {
   ItemDoPedido,
   JanelaDaLista,
   LinhaDaLista,
+  ObservacaoDoPedido,
   PedidoDoDetalhe,
 } from './model/linha'

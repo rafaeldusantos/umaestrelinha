@@ -2,6 +2,8 @@ import { supabase } from '@estrelinha/supabase/client'
 import {
   runAppAction,
   triggerOrderNotification,
+  writeAdminNote,
+  type AdminNoteOutcome,
   type AppActionOutcome,
   type OrderWriteDeps,
   type PedidoDaAcao,
@@ -69,4 +71,40 @@ export const gravarAcao = async (row: LinhaDaLista, pedido: PedidoDaAcao): Promi
   }
 
   return r as ResultadoDaAcao
+}
+
+/**
+ * A observação do pedido — o texto que só quem administra lê. Pela MESMA porta: o dono da
+ * escrita é `writeAdminNote` (`@estrelinha/core/order-actions`), o mesmo que o painel chama, e o client
+ * vai a ele como VALOR (a regra — aparar, o teto, vazio apaga — é dele, nunca daqui).
+ *
+ * - **Confere o papel ANTES** (`conferirPapel`): a conta sem papel não chega a escrever, e a recusa
+ *   (`42501`) LANÇA no formato único do app. Sem rede na conferência ⇒ `falhou`, sem escrever.
+ * - `nenhuma-linha` (o `delete` de uma observação que já não existe, ou a RLS que filtrou depois da
+ *   conferência) é PERGUNTA: papel de pé ⇒ `mudou`; recusa ⇒ lança.
+ * - `falhou` com `42501` (o `with check` da RLS recusou o `upsert`) também pergunta: recusa ⇒ lança;
+ *   papel de pé ⇒ a própria falha.
+ */
+export type ResultadoDaObservacao = Exclude<AdminNoteOutcome, { tipo: 'nenhuma-linha' }> | { tipo: 'mudou' }
+
+export interface AutorDaObservacao {
+  userId: string | null
+  userName: string | null
+}
+
+export const gravarObservacao = async (orderId: string, texto: string, autor: AutorDaObservacao): Promise<ResultadoDaObservacao> => {
+  const antes = await papelDePe()
+  if (antes !== true) return { tipo: 'falhou', erro: antes.erro }
+
+  const r = await writeAdminNote({ client: supabase }, { orderId, texto, userId: autor.userId, userName: autor.userName })
+
+  if (r.tipo === 'nenhuma-linha') {
+    const papel = await papelDePe()
+    return papel === true ? { tipo: 'mudou' } : { tipo: 'falhou', erro: papel.erro }
+  }
+  if (r.tipo === 'falhou' && isAccessDenied(r.erro)) {
+    await papelDePe()
+    return r
+  }
+  return r
 }

@@ -72,7 +72,7 @@ const ERROS_DA_FOLHA: Record<'material' | 'saida', readonly OrigemDoErro[]> = {
 }
 export interface FolhaDoRastreioProps {
   row: LinhaDaLista
-  origem: OrigemDaFolha
+  origem: Exclude<OrigemDaFolha, 'observacao'>
   controle: FolhaNoHistorico<CopiaDaFolha>
   acao: AcaoDoPedido
 }

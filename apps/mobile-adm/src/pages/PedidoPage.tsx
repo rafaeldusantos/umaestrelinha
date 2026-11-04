@@ -8,11 +8,13 @@ import { useRecusaDePapel } from '@/features/access-check'
 import { VerCliente } from '@/features/open-customer'
 import {
   ColocarEmProducao,
+  EditarObservacao,
   EditarRastreio,
   EnvelopeDaCliente,
   LembreteDoEnvio,
   RodapeDaAcao,
   useAcaoDoPedido,
+  useObservacaoDoPedido,
   useRecusaDaAcao,
 } from '@/features/order-actions'
 import {
@@ -20,6 +22,7 @@ import {
   BlocoEntrega,
   BlocoItens,
   BlocoMaterial,
+  BlocoObservacao,
   BlocoValores,
   CabecalhoDoPedido,
   EsqueletoDoBloco,
@@ -47,6 +50,7 @@ const Esqueletos = () => (
     <EsqueletoDoBloco linhas={1} />
     <EsqueletoDoBloco linhas={3} />
     <EsqueletoDoBloco linhas={2} />
+    <EsqueletoDoBloco linhas={1} />
     <EsqueletoDoBloco linhas={4} />
   </div>
 )
@@ -72,6 +76,9 @@ const Esqueletos = () => (
  *   (`erroBruto`) entra na MESMA vigia da leitura: um episódio só (R11).
  * - **O bloco Material** (feature `82`): "Envelope da cliente" e "Colocar em produção", de
  *   `features/order-actions`, com a MESMA ação do pedido — e os itens, para os chips do material.
+ * - **A observação do pedido**: o bloco de `widgets/order-detail` entre o Material e as joias,
+ *   com a ação e a folha de `features/order-actions` compostas aqui; a recusa da gravação entra na
+ *   mesma vigia.
  * - **"Ver cliente"** (feature `76`, `MAC-21`): o botão do bloco Cliente é composto aqui, e a recusa que a
  *   leitura da ficha lança entra na mesma vigia.
  */
@@ -81,6 +88,10 @@ const PedidoPage = () => {
   const pedido = usePedido(id)
   const acao = useAcaoDoPedido(id)
   const recusaDaAcao = useRecusaDaAcao(acao.erroBruto, pedido.dataUpdatedAt)
+  // A observação do pedido: a gravação tem a própria instância, e a recusa que a porta lança
+  // entra na MESMA vigia da leitura e da ação — um episódio só.
+  const observacao = useObservacaoDoPedido(id)
+  const recusaDaObservacao = useRecusaDaAcao(observacao.erroBruto, pedido.dataUpdatedAt)
   // "Ver cliente" (feature `76`): a recusa que a leitura da ficha lança entra na MESMA vigia, com a
   // mesma régua de validade da recusa da ação (um episódio só). E relê o pedido: se a função segue
   // recusando, o `42501` fica no erro da PRÓPRIA leitura — que sobrevive à troca da página pela splash
@@ -94,7 +105,7 @@ const PedidoPage = () => {
     },
     [pedido],
   )
-  const recusada = useRecusaDePapel([pedido.error, recusaDaAcao, recusaDaFicha], !!pedido.data && !pedido.isError)
+  const recusada = useRecusaDePapel([pedido.error, recusaDaAcao, recusaDaFicha, recusaDaObservacao], !!pedido.data && !pedido.isError)
   const detalhe = recusada ? undefined : pedido.data
   const naoAtualizou = !recusada && pedido.isError && !!pedido.data
   const tentarDeNovo = useCallback(() => {
@@ -157,6 +168,15 @@ const PedidoPage = () => {
               envelope={<EnvelopeDaCliente pedido={p} lidoEm={lidoEm} acao={acao} />}
               producao={<ColocarEmProducao pedido={p} acao={acao} />}
               lembrete={<LembreteDoEnvio pedido={p} lidoEm={lidoEm} />}
+            />
+            <BlocoObservacao
+              observacao={detalhe.observacao}
+              tentarDeNovo={tentarDeNovo}
+              acao={
+                detalhe.observacao.estado === 'ok' ? (
+                  <EditarObservacao pedido={p} observacao={observacao} gravada={detalhe.observacao.dado} />
+                ) : null
+              }
             />
             <BlocoItens itens={detalhe.itens} tentarDeNovo={tentarDeNovo} valores={<BlocoValores pedido={p} />} />
             <BlocoEntrega pedido={p} editar={<EditarRastreio pedido={p} acao={acao} avisoDePostagemSaiu={detalhe.avisoDePostagemSaiu} />} />

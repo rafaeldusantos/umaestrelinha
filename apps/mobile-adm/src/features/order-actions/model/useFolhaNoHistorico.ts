@@ -42,13 +42,27 @@ import { definirErro } from './erros'
  * de §3.8 os dois leriam o mesmo marcador. A referência já impedia a folha de abrir nos dois; a origem
  * deixa a chave dizer o que ela é.
  */
-/** De onde a folha abre: as duas do rastreio de SAÍDA (`75`) e a do envelope da cliente (`82`). */
-export type OrigemDaFolha = TrackingSheetOrigin | 'material'
+/**
+ * De onde a folha abre: as duas do rastreio de SAÍDA (`75`), a do envelope da cliente (`82`) e a da
+ * observação do pedido.
+ */
+export type OrigemDaFolha = TrackingSheetOrigin | 'material' | 'observacao'
 
-/** O que a folha desenha — a cópia do rastreio de saída ou a do envelope, as duas de `core`. */
+/**
+ * A folha da observação do pedido não depende do estado do pedido: ela existe sempre, com um
+ * modo só. O título e a frase dela são da própria folha (`FolhaDaObservacao`), porque mudam com a
+ * observação gravada, que não está na linha do pedido.
+ */
+export interface CopiaDaObservacao {
+  tipo: 'observacao'
+}
+
+/** O que a folha do rastreio desenha — a cópia do rastreio de saída ou a do envelope, as duas de `core`. */
 export type CopiaDaFolha = TrackingSheet | MaterialTrackingSheetCopy
 
-export interface FolhaNoHistorico<F extends CopiaDaFolha = TrackingSheet> {
+const COPIA_DA_OBSERVACAO: CopiaDaObservacao = { tipo: 'observacao' }
+
+export interface FolhaNoHistorico<F extends CopiaDaFolha | CopiaDaObservacao = TrackingSheet> {
   /** A folha que esta origem oferece para a linha de agora, ou `null`. */
   folha: F | null
   aberta: boolean
@@ -65,7 +79,12 @@ const marcadorDe = (state: unknown): string | undefined => {
 }
 
 /** A cópia da folha e o "modo" que entra na chave. O envelope tem um modo só (ver o cabeçalho). */
-const folhaDe = (row: LinhaDaLista, origem: OrigemDaFolha, avisoDePostagemSaiu?: boolean): { folha: CopiaDaFolha; modo: string } | null => {
+const folhaDe = (
+  row: LinhaDaLista,
+  origem: OrigemDaFolha,
+  avisoDePostagemSaiu?: boolean,
+): { folha: CopiaDaFolha | CopiaDaObservacao; modo: string } | null => {
+  if (origem === 'observacao') return { folha: COPIA_DA_OBSERVACAO, modo: 'editar' }
   if (origem === 'material') {
     const folha = materialTrackingSheet(row)
     return folha ? { folha, modo: 'editar' } : null
@@ -75,13 +94,18 @@ const folhaDe = (row: LinhaDaLista, origem: OrigemDaFolha, avisoDePostagemSaiu?:
 }
 
 export function useFolhaNoHistorico(row: LinhaDaLista, origem: 'material'): FolhaNoHistorico<MaterialTrackingSheetCopy>
+export function useFolhaNoHistorico(row: LinhaDaLista, origem: 'observacao'): FolhaNoHistorico<CopiaDaObservacao>
 export function useFolhaNoHistorico(
   row: LinhaDaLista,
   origem: TrackingSheetOrigin,
   /** O aviso de postagem saiu? Só o detalhe sabe (lê `order_notifications`); ausente ⇒ a folha não afirma. */
   avisoDePostagemSaiu?: boolean,
 ): FolhaNoHistorico<TrackingSheet>
-export function useFolhaNoHistorico(row: LinhaDaLista, origem: OrigemDaFolha, avisoDePostagemSaiu?: boolean): FolhaNoHistorico<CopiaDaFolha> {
+export function useFolhaNoHistorico(
+  row: LinhaDaLista,
+  origem: OrigemDaFolha,
+  avisoDePostagemSaiu?: boolean,
+): FolhaNoHistorico<CopiaDaFolha | CopiaDaObservacao> {
   const location = useLocation()
   const navigate = useNavigate()
   const daOrigem = folhaDe(row, origem, avisoDePostagemSaiu)
@@ -133,7 +157,7 @@ export function useFolhaNoHistorico(row: LinhaDaLista, origem: OrigemDaFolha, av
     if (chave !== abriu) {
       abertaAqui.current = null
       // O erro é da ação desta folha (feature `82`, T17): o do envelope aparece no envelope, o do rastreio no rodapé.
-      definirErro(row.id, { frase: ORDER_CHANGED, retentativa: null }, origem === 'material' ? 'rastreio-do-material' : 'rastreio')
+      definirErro(row.id, { frase: ORDER_CHANGED, retentativa: null }, origem === 'material' ? 'rastreio-do-material' : origem === 'observacao' ? 'observacao' : 'rastreio')
       navigate(-1)
     }
   }, [chave, location.state, navigate, row.id, origem])

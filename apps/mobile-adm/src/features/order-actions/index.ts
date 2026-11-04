@@ -24,3 +24,20 @@ export {
 } from './ui/EnvelopeDaCliente'
 export { default as ColocarEmProducao, COLOCAR_EM_PRODUCAO, type ColocarEmProducaoProps } from './ui/ColocarEmProducao'
 export type { CopiaDaFolha, OrigemDaFolha } from './model/useFolhaNoHistorico'
+export { gravarObservacao, type ResultadoDaObservacao, type AutorDaObservacao } from './api/gravarAcao'
+export {
+  useObservacaoDoPedido,
+  OBSERVACAO_SALVA,
+  OBSERVACAO_APAGADA,
+  type ObservacaoDoPedidoAcao,
+} from './model/useObservacaoDoPedido'
+export {
+  default as FolhaDaObservacao,
+  TITULO_ADICIONAR_OBSERVACAO,
+  TITULO_EDITAR_OBSERVACAO,
+  FRASE_DA_OBSERVACAO,
+  ROTULO_DA_OBSERVACAO,
+  type FolhaDaObservacaoProps,
+} from './ui/FolhaDaObservacao'
+export { default as EditarObservacao, ADICIONAR_OBSERVACAO, EDITAR_OBSERVACAO, type EditarObservacaoProps } from './ui/EditarObservacao'
+export type { CopiaDaObservacao } from './model/useFolhaNoHistorico'

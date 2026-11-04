@@ -24,8 +24,12 @@ export interface ErroDaAcao {
  * em produção" longe do botão). O erro continua UM por pedido — a última ação é a dona dele —, mas cada
  * superfície desenha só o seu (`erroDe`). A origem fica AO LADO da frase, não dentro de `ErroDaAcao`:
  * a forma `{ frase, retentativa }` que a `75` assere por igualdade não muda.
+ *
+ * `observacao`: a gravação da observação do pedido não é um `PedidoDaAcao` (não muda o pedido,
+ * tem dono próprio em `core`), mas o erro dela mora aqui também — UM por pedido, desenhado só pela
+ * folha da observação.
  */
-export type OrigemDoErro = PedidoDaAcao['tipo']
+export type OrigemDoErro = PedidoDaAcao['tipo'] | 'observacao'
 
 /** O rodapé do detalhe e o cartão da lista: a primária e o rastreio de saída (a folha deles). */
 export const ERROS_DO_RODAPE: readonly OrigemDoErro[] = ['primaria', 'rastreio']

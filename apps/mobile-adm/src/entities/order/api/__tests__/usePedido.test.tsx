@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildHistory } from '@estrelinha/core/orders'
 
 import { fake } from '@/test/fakeSupabase'
-import { EMAIL_FALHO, ITEM_COM_GRAVACAO, NOTA, detalhe, item, statusRow } from '@/test/pedidos'
+import { EMAIL_FALHO, ITEM_COM_GRAVACAO, NOTA, OBSERVACAO, detalhe, item, statusRow } from '@/test/pedidos'
 
 import { COLUNAS_DO_DETALHE } from '../../model/linha'
 import { chaveDoPedido, usePedido } from '../usePedido'
@@ -21,7 +21,7 @@ const ID = '00000000-0000-4000-8000-000000000244'
 const LIDO_EM = '2026-10-23T14:30:00.123456+00:00'
 const RECUSA = { message: 'acesso restrito ao painel', code: '42501' }
 const REDE = { message: 'TypeError: Failed to fetch' }
-const RELACOES = ['order_items', 'order_status_history', 'order_notes', 'order_notifications'] as const
+const RELACOES = ['order_items', 'order_status_history', 'order_notes', 'order_notifications', 'order_admin_notes'] as const
 
 // Um QueryClient sem padrão nenhum: a regra de repetição tem de vir do PRÓPRIO hook (`retryUnlessDenied`),
 // e é ela que os casos de recusa e de rede medem.
@@ -36,6 +36,7 @@ const tudoBem = () => {
   fake.responderTabela('order_status_history', { data: [statusRow()], error: null })
   fake.responderTabela('order_notes', { data: [NOTA], error: null })
   fake.responderTabela('order_notifications', { data: [EMAIL_FALHO], error: null })
+  fake.responderTabela('order_admin_notes', { data: null, error: null })
 }
 
 beforeEach(() => {
@@ -95,12 +96,32 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
       itens: { estado: 'ok', dado: [{ ...item(), foto: null }, { ...ITEM_COM_GRAVACAO, foto: null }] },
       historico: { estado: 'ok', dado: buildHistory([statusRow()], [EMAIL_FALHO], [NOTA]) },
       avisoDePostagemSaiu: false,
+      observacao: { estado: 'ok', dado: null },
       lido_em: LIDO_EM,
     })
     // Os três fios estão lá — inclusive o e-mail que falhou.
     const historico = result.current.data!.historico as { estado: 'ok'; dado: { kind: string; title: string }[] }
     expect(historico.dado.map((e) => e.kind).sort()).toEqual(['email', 'note', 'status'])
     expect(historico.dado.some((e) => e.title.startsWith('Falha ao enviar'))).toBe(true)
+  })
+
+  it('a observação sai de order_admin_notes, por order_id, com maybeSingle e só as colunas que a tela desenha', async () => {
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fake.cadeiasDe('order_admin_notes')).toEqual([
+      [
+        { metodo: 'select', args: ['note, updated_by_name, updated_at'] },
+        { metodo: 'eq', args: ['order_id', ID] },
+        { metodo: 'maybeSingle', args: [] },
+      ],
+    ])
+  })
+
+  it('com observação gravada ⇒ o bloco traz o texto, o nome e o instante, como vieram', async () => {
+    fake.responderTabela('order_admin_notes', { data: OBSERVACAO, error: null })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.observacao).toEqual({ estado: 'ok', dado: OBSERVACAO })
   })
 
   it('a chave é por pedido', () => {
@@ -157,6 +178,23 @@ describe('os estados (MAP-29, MAP-30, MAP-34)', () => {
       expect(result.current.data?.itens.estado).toBe('ok')
     },
   )
+
+  it('a observação em falha ⇒ só a observação em falha; o pedido, os itens e o histórico desenham', async () => {
+    fake.falharTabela('order_admin_notes', REDE)
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.observacao).toEqual({ estado: 'falhou' })
+    expect(result.current.data?.pedido).toEqual(detalhe())
+    expect(result.current.data?.itens.estado).toBe('ok')
+    expect(result.current.data?.historico.estado).toBe('ok')
+  })
+
+  it('a observação cujo fetch LANÇA também vira bloco em falha, não a tela inteira', async () => {
+    fake.responderTabela('order_admin_notes', () => Promise.reject(new TypeError('Failed to fetch')))
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.observacao).toEqual({ estado: 'falhou' })
+  })
 
   it('uma relação cujo fetch LANÇA também vira bloco em falha, não a tela inteira', async () => {
     fake.responderTabela('order_items', () => Promise.reject(new TypeError('Failed to fetch')))

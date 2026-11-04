@@ -45,6 +45,7 @@ const responder = ({
   fake.responderTabela('order_status_history', { data: [statusRow()], error: null })
   fake.responderTabela('order_notes', { data: [NOTA], error: null })
   fake.responderTabela('order_notifications', { data: [], error: null })
+  fake.responderTabela('order_admin_notes', { data: null, error: null })
 }
 
 const h1 = () => screen.getByRole('heading', { level: 1 })
@@ -283,6 +284,7 @@ describe('falha por bloco (MAP-30, TE4)', () => {
     fake.responderTabela('order_status_history', { data: [], error: null })
     fake.responderTabela('order_notes', { data: [], error: null })
     fake.responderTabela('order_notifications', { data: [], error: null })
+    fake.responderTabela('order_admin_notes', { data: null, error: null })
     await abrir()
     await andar(3000)
     expect(h1().textContent).toBe('Pedido')

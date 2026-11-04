@@ -14,6 +14,7 @@ import {
 import { supabase } from '@estrelinha/supabase/client'
 
 import {
+  COLUNAS_DA_OBSERVACAO,
   COLUNAS_DAS_NOTAS,
   COLUNAS_DAS_NOTIFICACOES,
   COLUNAS_DO_DETALHE,
@@ -23,6 +24,7 @@ import {
   type DetalheDoPedido,
   type ItemComFoto,
   type ItemDoPedido,
+  type ObservacaoDoPedido,
   type PedidoDoDetalhe,
 } from '../model/linha'
 import { lerComPapel } from '@/shared/api/lerComPapel'
@@ -32,15 +34,15 @@ import { ler } from '@/shared/api/lerSemLancar'
  * O detalhe de um pedido (feature `74`, Design §3.4, emenda E2; `MAP-29`, `MAP-30`, `MAP-36`,
  * `MAP-37`, `MAP-39`).
  *
- * UMA `queryFn`, cinco leituras e UMA confirmação de papel para todas (`lerComPapel`): o pedido vem da
+ * UMA `queryFn`, seis leituras e UMA confirmação de papel para todas (`lerComPapel`): o pedido vem da
  * view `order_list` (endereço, descontos e `purchase_ordinal` numa ida), e as quatro relações por
- * `order_id`. As colunas são as de `model/linha.ts`, conferidas pelo probe `02-lista` (`AD-012`).
+ * `order_id`, mais a observação do pedido (`order_admin_notes`, `maybeSingle`). As colunas são as de `model/linha.ts`, conferidas pelo probe `02-lista` (`AD-012`).
  *
  * - erro na leitura do PEDIDO ⇒ a query falha (a tela inteira em falha, `MAP-34`);
  * - pedido `null` ⇒ `pedido: null` ("Não encontrei este pedido.", `MAP-29`);
  * - um id que não é uuid ⇒ `pedido: null` SEM rede e sem RPC (Q7): o PostgREST devolveria `22P02`,
  *   e a tela diria "não consegui carregar" de um endereço que simplesmente não existe;
- * - erro em itens ⇒ só `itens` em falha; erro em QUALQUER das três fontes do histórico ⇒ o
+ * - erro em itens ⇒ só `itens` em falha; erro na observação ⇒ só a observação em falha; erro em QUALQUER das três fontes do histórico ⇒ o
  *   histórico inteiro em falha (Q6: fundir um fio faltando contaria uma história errada);
  * - a recusa da RPC vence tudo: nenhum bloco sai.
  *
@@ -69,16 +71,24 @@ const comFoto = (itens: readonly ItemDoPedido[], capas: Record<string, string | 
 
 const lerDetalhe = async (id: string): Promise<DetalheDoPedido> => {
   if (!isOrderId(id)) {
-    return { pedido: null, itens: { estado: 'falhou' }, historico: { estado: 'falhou' }, avisoDePostagemSaiu: false, lido_em: null }
+    return {
+      pedido: null,
+      itens: { estado: 'falhou' },
+      historico: { estado: 'falhou' },
+      avisoDePostagemSaiu: false,
+      observacao: { estado: 'falhou' },
+      lido_em: null,
+    }
   }
 
   const { resultado, lido_em } = await lerComPapel(async () => {
-    const [pedido, itens, status, notas, notificacoes] = await Promise.all([
+    const [pedido, itens, status, notas, notificacoes, observacao] = await Promise.all([
       ler<PedidoDoDetalhe>(supabase.from('order_list').select(COLUNAS_DO_DETALHE).eq('id', id).maybeSingle()),
       ler<ItemDoPedido[]>(supabase.from('order_items').select(COLUNAS_DOS_ITENS).eq('order_id', id)),
       ler<HistoryStatusRow[]>(supabase.from('order_status_history').select(COLUNAS_DO_STATUS).eq('order_id', id)),
       ler<HistoryNoteRow[]>(supabase.from('order_notes').select(COLUNAS_DAS_NOTAS).eq('order_id', id)),
       ler<HistoryNotificationRow[]>(supabase.from('order_notifications').select(COLUNAS_DAS_NOTIFICACOES).eq('order_id', id)),
+      ler<ObservacaoDoPedido>(supabase.from('order_admin_notes').select(COLUNAS_DA_OBSERVACAO).eq('order_id', id).maybeSingle()),
     ])
     if (pedido.error) throw pedido.error
     const historico: Bloco<ReturnType<typeof buildHistory>> =
@@ -89,7 +99,10 @@ const lerDetalhe = async (id: string): Promise<DetalheDoPedido> => {
     const avisoDePostagemSaiu = !notificacoes.error && shippedNoticeSent(notificacoes.data ?? [])
     const capas = itens.error ? {} : await lerCapas(itens.data ?? [])
     const blocoDosItens: Bloco<ItemComFoto[]> = itens.error ? { estado: 'falhou' } : { estado: 'ok', dado: comFoto(itens.data ?? [], capas) }
-    return { pedido: pedido.data, itens: blocoDosItens, historico, avisoDePostagemSaiu }
+    const blocoDaObservacao: Bloco<ObservacaoDoPedido | null> = observacao.error
+      ? { estado: 'falhou' }
+      : { estado: 'ok', dado: observacao.data ?? null }
+    return { pedido: pedido.data, itens: blocoDosItens, historico, avisoDePostagemSaiu, observacao: blocoDaObservacao }
   })
 
   return { ...resultado, lido_em }

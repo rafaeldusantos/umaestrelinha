@@ -159,3 +159,13 @@ export const NOTA: HistoryNoteRow = {
   created_at: '2026-10-20T15:00:00.000000+00:00',
   created_by: null,
 }
+
+/**
+ * A observação do pedido (o texto que só quem administra lê) — as chaves de `COLUNAS_DA_OBSERVACAO`.
+ * `updated_at` com microssegundos, como o PostgREST devolve.
+ */
+export const OBSERVACAO = {
+  note: 'Gravar o nome com letra cursiva, como no pedido anterior.',
+  updated_by_name: 'Adri Muniz',
+  updated_at: '2026-10-21T17:40:00.123456+00:00',
+}

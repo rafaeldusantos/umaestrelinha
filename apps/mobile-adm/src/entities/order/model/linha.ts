@@ -38,6 +38,12 @@ export const COLUNAS_DAS_NOTAS = 'id, note, created_by, created_at'
  */
 export const COLUNAS_DAS_NOTIFICACOES =
   'id, event, channel, status, attempts, delivery_status, error, created_at, sent_at, provider_message_id'
+/**
+ * A observação do pedido (`order_admin_notes`, uma linha no máximo por pedido): só o que o bloco
+ * desenha — o texto e a autoria da última edição (`adminNoteAuthorLine`, `@estrelinha/core/orders`).
+ * `updated_by` (o id da conta) não entra: a tela não o usa.
+ */
+export const COLUNAS_DA_OBSERVACAO = 'note, updated_by_name, updated_at'
 
 export interface LinhaDaLista {
   id: string
@@ -113,6 +119,13 @@ export interface ItemComFoto extends ItemDoPedido {
   foto: string | null
 }
 
+/** A observação do pedido como o detalhe a lê (`COLUNAS_DA_OBSERVACAO`). */
+export interface ObservacaoDoPedido {
+  note: string
+  updated_by_name: string | null
+  updated_at: string
+}
+
 /** Um bloco do detalhe que pode falhar sozinho (`MAP-30`). Discriminado por STRING (`strictNullChecks: false`). */
 export type Bloco<T> = { estado: 'ok'; dado: T } | { estado: 'falhou' }
 
@@ -128,6 +141,11 @@ export interface DetalheDoPedido {
    * (`BUG-20261024-folha-afirma-aviso-que-falhou`).
    */
   avisoDePostagemSaiu: boolean
+  /**
+   * A observação do pedido — `dado: null` quando não há (a linha não existe). A falha é do bloco só:
+   * "sem observação" nunca é a frase de "o banco não respondeu".
+   */
+  observacao: Bloco<ObservacaoDoPedido | null>
   /**
    * O instante do banco da leitura confirmada. `null` só quando NÃO houve leitura: o endereço não é
    * um id de pedido (Q7), e "Não encontrei este pedido." sai sem ir à rede.

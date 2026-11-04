@@ -187,8 +187,9 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
 
   it('régua 2: na porta, `supabase` só é VALOR passado — nunca receptor', () => {
     const r = clientComoReceptor(PORTA, textoDe(PORTA))
-    // Âncora: as duas passagens (`client: supabase` e o primeiro argumento da notificadora).
-    expect(r.referencias).toBe(2)
+    // Âncora: as três passagens (`client: supabase` da ação e o primeiro argumento da notificadora, e
+    // `{ client: supabase }` da observação do pedido).
+    expect(r.referencias).toBe(3)
     expect(r.receptor).toEqual([])
   })
 
