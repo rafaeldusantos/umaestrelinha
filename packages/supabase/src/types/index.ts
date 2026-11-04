@@ -402,6 +402,20 @@ export interface DbOrderNote {
 }
 
 /**
+ * A observação do pedido (`order_admin_notes`) — UM texto por pedido, editável, só de quem
+ * administra. Não é o Recado da cliente (`orders.notes`) nem a nota interna acima, que é histórico só
+ * de acréscimo. A cliente nunca a recebe: por isso é tabela à parte, e não coluna de `orders`.
+ * `updated_by_name` é o nome gravado no momento da edição (o painel não lê `auth.users`).
+ */
+export interface DbOrderAdminNote {
+  order_id: string
+  note: string
+  updated_by: string | null
+  updated_by_name: string | null
+  updated_at: string
+}
+
+/**
  * Nota **interna** sobre a cliente — `CLI-10`, feature 34. A cliente nunca vê, e a tela escreve isso.
  *
  * `customer_id` aponta para o id de `customer_directory`, que **inclui a convidada** e por isso não

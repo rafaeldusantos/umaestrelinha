@@ -57,6 +57,7 @@ const PROPOSTA = (over: Record<string, unknown> = {}) => ({
   // Colunas internas que um `select *` traria e que NÃO podem sair (SEG-04).
   manual_discount_reason: 'Combinado no WhatsApp',
   token_hash: 'nao-deveria-sair',
+  admin_note: 'Observação só do ateliê',
   subtotal: 250,
   promotion_discount: 0,
   items_total: 230,
@@ -165,6 +166,29 @@ describe('get-proposal — aberta (CON-01, SEG-04)', () => {
     expect(corpo).not.toContain('nao-deveria-sair')
     expect(Object.keys(proposal)).not.toContain('manual_discount_reason')
     expect(Object.keys(proposal)).not.toContain('token_hash')
+  })
+
+  // A observação interna da proposta mora na mesma linha, e a cliente nunca a recebe —
+  // nem pedida no `select`, nem na resposta, mesmo com o banco devolvendo a coluna.
+  it('nunca devolve a observação interna (`admin_note`), nem a pede ao banco', async () => {
+    let pedidas = ''
+    const f = ambiente({
+      extra: {
+        rows: {
+          order_proposals: (_eq: [string, unknown] | null, select: string) => {
+            pedidas = select
+            return PROPOSTA()
+          },
+        },
+      },
+    })
+    const res = await route(f.deps, pedir('get-proposal', { token: TOKEN }))
+    expect(res.status).toBe(200)
+    const { proposal } = await res.json()
+    expect(pedidas.length).toBeGreaterThan(0)
+    expect(pedidas).not.toMatch(/admin_note/)
+    expect(Object.keys(proposal)).not.toContain('admin_note')
+    expect(JSON.stringify(proposal)).not.toContain('Observação só do ateliê')
   })
 
   it('o filtro é o HASH do token, na coluna `token_hash`', async () => {

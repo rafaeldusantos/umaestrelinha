@@ -76,9 +76,11 @@ describe('core/order-actions não carrega client, React nem alias', () => {
         'material.ts',
         'appAction.ts',
         'materialTracking.ts',
+        // A observação do pedido, que o painel e o app do ateliê gravam.
+        'adminNote.ts',
       ]),
     )
-    expect(arquivos.length).toBeGreaterThanOrEqual(8)
+    expect(arquivos.length).toBeGreaterThanOrEqual(9)
   })
 
   it('a âncora de USO: o barril e os arquivos têm imports, então a régua não varre o vazio', () => {

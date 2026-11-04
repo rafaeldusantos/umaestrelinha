@@ -16,3 +16,10 @@ export { writeTrackingCode, type WriteTrackingCodeInput } from './tracking.ts'
 export { writeMaterialStatus, type WriteMaterialStatusInput } from './material.ts'
 export { writeMaterialTracking, type WriteMaterialTrackingInput } from './materialTracking.ts'
 export { runAppAction } from './appAction.ts'
+export {
+  ORDER_ADMIN_NOTE_COLUMNS,
+  writeAdminNote,
+  type AdminNoteOutcome,
+  type AdminNoteRow,
+  type WriteAdminNoteInput,
+} from './adminNote.ts'

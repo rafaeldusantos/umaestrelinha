@@ -18,6 +18,7 @@
 //   renew     link novo e prazo novo, com os preços relidos e travados de novo (`LNK-05`, `LNK-06`)
 //   cancel    o link passa a dizer que o pedido não está mais disponível (`LNK-05`)
 //   log-sent  "Link enviado", com o canal (`LNK-03`)
+//   note      a observação interna, em qualquer status não concluído, sem subir a versão
 //
 // `requireAdmin` em TODA ação, antes de qualquer leitura ou escrita (`SEG-05`).
 //
@@ -60,6 +61,7 @@ import {
 } from '../../../packages/core/src/material/material.ts'
 import { hashAccessToken, newAccessToken } from '../../../packages/core/src/checkout/guestAccess.ts'
 import { isValidEmail, normalizeEmail } from '../../../packages/core/src/validators/email.ts'
+import { adminNoteRefusal, normalizeAdminNote } from '../../../packages/core/src/orders/adminNote.ts'
 import { json, preflight } from '../_shared/http.ts'
 import { requireAdmin } from '../_shared/auth.ts'
 
@@ -134,6 +136,7 @@ const COLUNAS_DA_PROPOSTA = [
   'subtotal',
   'promotion_discount',
   'items_total',
+  'admin_note',
   'created_by',
   'created_at',
   'updated_at',
@@ -643,6 +646,19 @@ async function get(deps: Deps, req: Request, body: any): Promise<Response> {
 const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 const nuloSeVazio = (v: unknown) => texto(v) || null
 
+/**
+ * A observação do corpo, como ela é gravada: `undefined` quando o corpo não a traz (a gravação não a
+ * toca), `null` para vazio (apaga), o texto aparado — ou a recusa, pela regra de `core`.
+ */
+function observacaoDoCorpo(body: any): { ok: true; value: string | null | undefined } | { ok: false; error: string } {
+  if (!body || !('admin_note' in body)) return { ok: true, value: undefined }
+  const bruto = body.admin_note
+  if (bruto != null && typeof bruto !== 'string') return { ok: false, error: 'A observação precisa ser um texto.' }
+  const recusa = adminNoteRefusal(bruto)
+  if (recusa) return { ok: false, error: recusa }
+  return { ok: true, value: normalizeAdminNote(bruto) || null }
+}
+
 async function save(deps: Deps, req: Request, body: any): Promise<Response> {
   const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
@@ -668,6 +684,9 @@ async function save(deps: Deps, req: Request, body: any): Promise<Response> {
 
   const linhas = linhasDoCorpo(body?.lines)
   if (linhas === null) return json({ error: 'Confira as peças da proposta.', code: 'bad_lines' }, 400)
+
+  const observacao = observacaoDoCorpo(body)
+  if (!observacao.ok) return json({ error: observacao.error, code: 'bad_admin_note' }, 422)
 
   const esperado = Number(body?.expected_total)
   if (body?.expected_total == null || !Number.isFinite(esperado)) {
@@ -715,6 +734,8 @@ async function save(deps: Deps, req: Request, body: any): Promise<Response> {
     ...conteudoDoSave(precificado.value, manual),
     actor: auth.userId,
   }
+  // A observação não é conteúdo: a RPC não sobe a versão por ela. Ausente do corpo, ela não é tocada.
+  if (observacao.value !== undefined) p.admin_note = observacao.value
   if (editando) {
     p.id = id
     p.version = body.version
@@ -952,6 +973,59 @@ async function cancel(deps: Deps, req: Request, body: any): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// note — a observação interna, em qualquer status não concluído
+// ---------------------------------------------------------------------------------------------
+
+export const NOTE_ON_ORDER = 'Esta proposta já virou pedido: a observação agora é a do pedido.'
+
+/**
+ * `save` recusa proposta fechada ou vencida, e a observação precisa ser editável nas duas. Esta ação
+ * escreve SÓ a coluna: não sobe a versão (o link da cliente não diz "a proposta mudou"), não toca em
+ * `updated_at` e não gera evento `edited`. Concluída ⇒ recusa: a dona passou a ser a observação do
+ * pedido, e a coluna da proposta fica congelada. O `update` é escopado pelos status não concluídos: a
+ * conclusão que chegou entre a leitura e esta escrita vence.
+ */
+async function note(deps: Deps, req: Request, body: any): Promise<Response> {
+  const auth = await exigirAdmin(deps, req)
+  if (!auth.ok) return json({ error: auth.error }, auth.status)
+
+  const id = idDe(body)
+  if (!id) return json({ error: NOT_FOUND, code: 'not_found' }, 404)
+
+  const observacao = observacaoDoCorpo(body)
+  if (!observacao.ok) return json({ error: observacao.error, code: 'bad_admin_note' }, 422)
+  if (observacao.value === undefined) {
+    return json({ error: 'admin_note é obrigatório.', code: 'missing_fields' }, 400)
+  }
+
+  const { row, error } = await lerProposta(deps, id)
+  if (error) return json({ error: 'Não consegui ler a proposta.' }, 502)
+  if (!row) return json({ error: NOT_FOUND, code: 'not_found' }, 404)
+  if (row.status === 'completed' || row.order_id) {
+    return json({ error: NOTE_ON_ORDER, code: 'completed' }, 409)
+  }
+
+  const { data: gravada, error: erroUpdate } = await deps.supabase
+    .from('order_proposals')
+    .update({ admin_note: observacao.value })
+    .eq('id', id)
+    .in('status', ['open', 'cancelled'])
+    .select('id, admin_note')
+    .maybeSingle()
+  if (erroUpdate) {
+    log({ action: 'order-proposals:note', status: 'update_failed', proposal_id: id })
+    return json({ error: 'Não consegui gravar a observação.' }, 500)
+  }
+  if (!gravada?.id) {
+    log({ action: 'order-proposals:note', status: 'completed', proposal_id: id })
+    return json({ error: NOTE_ON_ORDER, code: 'completed' }, 409)
+  }
+
+  log({ action: 'order-proposals:note', status: 'ok', proposal_id: id })
+  return json({ id, admin_note: gravada.admin_note ?? null })
+}
+
+// ---------------------------------------------------------------------------------------------
 // log-sent — "Link enviado" (`LNK-03`)
 // ---------------------------------------------------------------------------------------------
 
@@ -1023,9 +1097,11 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
         return await cancel(deps, req, body)
       case 'log-sent':
         return await logSent(deps, req, body)
+      case 'note':
+        return await note(deps, req, body)
       default:
         log({ action: `order-proposals:${action}`, status: 'unknown_action' })
-        return json({ error: 'Ação desconhecida. Use: list, get, save, renew, cancel, log-sent' }, 400)
+        return json({ error: 'Ação desconhecida. Use: list, get, save, renew, cancel, log-sent, note' }, 400)
     }
   } catch (err) {
     log({ action: `order-proposals:${action}`, status: 'error', message: err instanceof Error ? err.message : String(err) })

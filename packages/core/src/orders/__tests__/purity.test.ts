@@ -83,9 +83,12 @@ describe('core/orders é módulo puro e alcançável pelo Deno', () => {
         'charge.ts',
         // Feature `75`: a ação do app do ateliê, a folha do rastreio e a confirmação.
         'appAction.ts',
+        // A observação do pedido: o teto e a contagem, lidos pelo painel, pelo app e pelo dono da escrita.
+        'adminNote.ts',
+        'adminNoteAuthor.ts',
       ]),
     )
-    expect(arquivos.length).toBeGreaterThanOrEqual(18)
+    expect(arquivos.length).toBeGreaterThanOrEqual(20)
   })
 
   it('todo especificador relativo leva `.ts` explícito', () => {

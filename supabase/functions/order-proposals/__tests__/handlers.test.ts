@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFakeSupabase, type FakeSupabaseOptions } from '../../_shared/testing/fakes.ts'
 import { hashAccessToken } from '../../../../packages/core/src/checkout/guestAccess.ts'
+import { ORDER_ADMIN_NOTE_MAX } from '../../../../packages/core/src/orders/adminNote.ts'
 import {
+  NOTE_ON_ORDER,
   NOT_EDITABLE,
   PRICES_CHANGED,
   VERSION_CONFLICT,
@@ -186,6 +188,7 @@ const ACOES: Array<[string, unknown]> = [
   ['renew', { id: PROP }],
   ['cancel', { id: PROP }],
   ['log-sent', { id: PROP, channel: 'copy' }],
+  ['note', { id: PROP, admin_note: 'Embrulhar para presente' }],
 ]
 
 describe('order-proposals — autorização (SEG-05)', () => {
@@ -610,6 +613,65 @@ describe('save — recusas', () => {
 // save — editar (LNK-05, CON-10)
 // ---------------------------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------------------------
+// save — a observação interna
+// ---------------------------------------------------------------------------------------------
+
+describe('save — a observação', () => {
+  it('ao criar, a observação vai aparada à RPC', async () => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    const res = await route(f.deps, pedir('save', corpoNovo({ admin_note: '  Embrulhar para presente  ' })))
+    expect(res.status).toBe(200)
+    expect(argsDoSave(f.rpcs)[0].admin_note).toBe('Embrulhar para presente')
+  })
+
+  it('vazia ou só espaço vira null — não existe observação vazia', async () => {
+    for (const vazio of ['', '   ', null]) {
+      const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+      await route(f.deps, pedir('save', corpoNovo({ admin_note: vazio })))
+      const [p] = argsDoSave(f.rpcs)
+      expect(p).toHaveProperty('admin_note', null)
+    }
+  })
+
+  it('ausente do corpo, a RPC não recebe a chave (e não a apaga na edição)', async () => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    await route(f.deps, pedir('save', corpoNovo({ id: PROP, version: 2, idempotency_key: undefined })))
+    expect(Object.keys(argsDoSave(f.rpcs)[0])).not.toContain('admin_note')
+  })
+
+  it('na edição, a observação vai à RPC junto do resto', async () => {
+    const f = ambiente({
+      rpcByFn: { has_role: { data: true }, save_order_proposal: { data: { ...SAVE_OK.data, version: 2, created: false } } },
+    })
+    await route(f.deps, pedir('save', corpoNovo({ id: PROP, version: 2, idempotency_key: undefined, admin_note: 'Ligar antes' })))
+    const [p] = argsDoSave(f.rpcs)
+    expect(p.id).toBe(PROP)
+    expect(p.admin_note).toBe('Ligar antes')
+  })
+
+  it('acima do teto ⇒ 422 com a frase de core, ANTES do RPC; no teto passa (contado aparado, por ponto de código)', async () => {
+    const acima = 'a'.repeat(ORDER_ADMIN_NOTE_MAX + 1)
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    const res = await route(f.deps, pedir('save', corpoNovo({ admin_note: acima })))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toMatchObject({ error: `A observação vai até ${ORDER_ADMIN_NOTE_MAX} caracteres.`, code: 'bad_admin_note' })
+    expect(argsDoSave(f.rpcs)).toEqual([])
+    expect(f.reads.find((r) => r.table === 'products')).toBeUndefined()
+
+    const noTeto = `  ${'🌟'.repeat(ORDER_ADMIN_NOTE_MAX)}  `
+    const g = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    expect((await route(g.deps, pedir('save', corpoNovo({ admin_note: noTeto })))).status).toBe(200)
+    expect(argsDoSave(g.rpcs)[0].admin_note).toBe('🌟'.repeat(ORDER_ADMIN_NOTE_MAX))
+  })
+
+  it('observação que não é texto ⇒ 422, nada gravado', async () => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    expect((await route(f.deps, pedir('save', corpoNovo({ admin_note: 42 })))).status).toBe(422)
+    expect(argsDoSave(f.rpcs)).toEqual([])
+  })
+})
+
 describe('save — editar', () => {
   it('manda id e versão, nunca token nem chave; o link continua o mesmo', async () => {
     const f = ambiente({
@@ -708,8 +770,14 @@ describe('list (LNK-04)', () => {
 
 describe('get', () => {
   it('a proposta inteira, as linhas em ordem, o histórico e as ações do estado — sem o hash', async () => {
+    let colunasPedidas = ''
     const f = ambiente({
-      rows: { order_proposals: (eq: [string, unknown] | null) => (eq?.[1] === PROP ? LINHA({ manual_discount_reason: 'Combinado' }) : null) },
+      rows: {
+        order_proposals: (eq: [string, unknown] | null, select: string) => {
+          colunasPedidas = select
+          return eq?.[1] === PROP ? LINHA({ manual_discount_reason: 'Combinado', admin_note: 'Só para o ateliê' }) : null
+        },
+      },
       lists: {
         order_proposal_items: [
           { position: 1, product_id: P2, quantity: 1, unit_price: 150 },
@@ -727,6 +795,10 @@ describe('get', () => {
     expect(corpo.proposal.events).toHaveLength(1)
     // O motivo é interno à loja, mas o painel o vê (HIS-02).
     expect(corpo.proposal.manual_discount_reason).toBe('Combinado')
+    // A observação também: a coluna é pedida e devolvida.
+    expect(corpo.proposal.admin_note).toBe('Só para o ateliê')
+    expect(colunasPedidas.split(', ')).toContain('admin_note')
+    expect(colunasPedidas).not.toMatch(/token_hash|idempotency_key|\*/)
     const leitura = f.reads.find((r) => r.table === 'order_proposal_items')!
     expect(leitura.eq).toEqual([['proposal_id', PROP]])
   })
@@ -933,6 +1005,79 @@ describe('cancel (LNK-05)', () => {
     const f = ambiente({ rows: { order_proposals: LINHA() }, updatedRows: { order_proposals: null } })
     expect((await route(f.deps, pedir('cancel', { id: PROP }))).status).toBe(409)
     expect(f.inserts).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// note — a observação em qualquer status não concluído
+// ---------------------------------------------------------------------------------------------
+
+describe('note', () => {
+  const anotar = (row: Record<string, unknown>, updated: unknown = { id: PROP, admin_note: 'Ligar antes' }) =>
+    ambiente({ rows: { order_proposals: row }, updatedRows: { order_proposals: updated } })
+
+  it.each([
+    ['aberta', {}],
+    ['vista', { viewed_at: '2026-10-31T10:00:00Z' }],
+    ['expirada', { expires_at: '2026-10-01T00:00:00Z' }],
+    ['cancelada', { status: 'cancelled' }],
+  ])('%s: grava SÓ a coluna, escopada pelos status não concluídos — sem versão, sem updated_at, sem evento', async (_n, over) => {
+    const f = anotar(LINHA(over))
+    const res = await route(f.deps, pedir('note', { id: PROP, admin_note: '  Ligar antes  ' }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ id: PROP, admin_note: 'Ligar antes' })
+    expect(f.updates).toEqual([
+      { table: 'order_proposals', values: { admin_note: 'Ligar antes' }, eq: ['id', PROP], in: [['status', ['open', 'cancelled']]] },
+    ])
+    expect(f.inserts).toEqual([])
+    expect(argsDoSave(f.rpcs)).toEqual([])
+  })
+
+  it('vazia apaga (null)', async () => {
+    const f = anotar(LINHA({ admin_note: 'antiga' }), { id: PROP, admin_note: null })
+    const res = await route(f.deps, pedir('note', { id: PROP, admin_note: '   ' }))
+    expect(res.status).toBe(200)
+    expect(f.updates[0].values).toEqual({ admin_note: null })
+  })
+
+  it.each([
+    ['concluída', { status: 'completed', order_id: 'ffffffff-0000-4000-8000-000000000001' }],
+    ['com pedido', { order_id: 'ffffffff-0000-4000-8000-000000000001' }],
+  ])('%s ⇒ 409 com a frase (a observação agora é a do pedido), nada gravado', async (_n, over) => {
+    const f = anotar(LINHA(over))
+    const res = await route(f.deps, pedir('note', { id: PROP, admin_note: 'x' }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: NOTE_ON_ORDER, code: 'completed' })
+    expect(tabelasEscritas(f)).toEqual([])
+  })
+
+  it('concluída entre a leitura e o update (nenhuma linha casou) ⇒ 409', async () => {
+    const f = anotar(LINHA(), null)
+    expect((await route(f.deps, pedir('note', { id: PROP, admin_note: 'x' }))).status).toBe(409)
+    expect(f.inserts).toEqual([])
+  })
+
+  it('acima do teto ⇒ 422 antes de ler ou gravar', async () => {
+    const f = anotar(LINHA())
+    const res = await route(f.deps, pedir('note', { id: PROP, admin_note: 'a'.repeat(ORDER_ADMIN_NOTE_MAX + 1) }))
+    expect(res.status).toBe(422)
+    expect(f.reads).toEqual([])
+    expect(tabelasEscritas(f)).toEqual([])
+  })
+
+  it('sem admin_note no corpo ⇒ 400; id malformado ⇒ 404; proposta inexistente ⇒ 404', async () => {
+    const f = anotar(LINHA())
+    expect((await route(f.deps, pedir('note', { id: PROP }))).status).toBe(400)
+    expect((await route(f.deps, pedir('note', { id: 'x', admin_note: 'a' }))).status).toBe(404)
+    const g = ambiente({ rows: { order_proposals: null } })
+    expect((await route(g.deps, pedir('note', { id: PROP, admin_note: 'a' }))).status).toBe(404)
+    expect(tabelasEscritas(f)).toEqual([])
+    expect(tabelasEscritas(g)).toEqual([])
+  })
+
+  it('falha ao gravar ⇒ 500', async () => {
+    const f = ambiente({ rows: { order_proposals: LINHA() }, updateError: { message: 'x' } })
+    expect((await route(f.deps, pedir('note', { id: PROP, admin_note: 'a' }))).status).toBe(500)
   })
 })
 
