@@ -283,6 +283,42 @@ const disco = readdirSync(PASTA)
   .filter((f) => f.endsWith('.sql'))
   .map((nome) => ({ nome, texto: readFileSync(resolve(PASTA, nome), 'utf8') }))
 
+/**
+ * `save_order_proposal` e `create_order_from_proposal` foram RECRIADAS depois da 89 (a observação da
+ * proposta). As réguas dos corpos e das permissões leem a VIGENTE de cada função — a última migration
+ * que a cria —, senão continuariam medindo um arquivo que o banco já não executa: peça certa,
+ * endereço errado, suíte verde. `observacaoDaPropostaSchema.test.ts` prova que a vigente é a da 89
+ * mais as trocas da observação, byte a byte.
+ */
+const NOME_OBSERVACAO = '20261109120000_95-observacao-da-proposta.sql'
+
+const vigenteDa = (arquivos: { nome: string; texto: string }[], nome: string): string | null => {
+  const criadoras = arquivos
+    .filter((a) => new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${nome}\\s*\\(`, 'i').test(semComentarios(a.texto)))
+    .map((a) => a.nome)
+    .sort()
+  return criadoras[criadoras.length - 1] ?? null
+}
+
+/** O texto da migration vigente da função `nome` — vazio quando nenhuma a cria (e aí as réguas reprovam). */
+const sqlDa = (nome: string): string => disco.find((a) => a.nome === vigenteDa(disco, nome))?.texto ?? ''
+
+const SAVE = sqlDa('save_order_proposal')
+const CRIAR = sqlDa('create_order_from_proposal')
+
+describe('a vigente das duas RPCs recriadas é a da observação da proposta', () => {
+  it.each(['save_order_proposal', 'create_order_from_proposal'])('%s', (nome) => {
+    expect(vigenteDa(disco, nome)).toBe(NOME_OBSERVACAO)
+    expect(corpo(sqlDa(nome), nome)).not.toBe('')
+  })
+  it('SENSOR: sem a migration nova, a vigente volta a ser a 89', () => {
+    expect(vigenteDa(disco.filter((a) => a.nome !== NOME_OBSERVACAO), 'save_order_proposal')).toBe(NOME_89)
+  })
+  it('a 89 continua sendo a vigente de `mark_order_proposal_viewed`', () => {
+    expect(vigenteDa(disco, 'mark_order_proposal_viewed')).toBe(NOME_89)
+  })
+})
+
 describe('âncoras — a varredura olhou alguma coisa', () => {
   it('a migration da 89 existe e as três tabelas, as três RPCs e o gatilho foram achados nela', () => {
     expect(sql.length).toBeGreaterThan(5000)
@@ -346,35 +382,35 @@ describe('as tabelas da proposta são fechadas (SEG-05)', () => {
 
 describe('as três RPCs — security definer, search_path vazio, execute só da service role', () => {
   it.each(RPCS)('$nome é security definer', ({ nome }) => {
-    expect(securityDefiner(sql, nome)).toBe(true)
+    expect(securityDefiner(sqlDa(nome), nome)).toBe(true)
   })
   it.each(RPCS)('SENSOR: $nome como security invoker reprova', ({ nome }) => {
-    expect(securityDefiner(mutarNaFuncao(sql, nome, 'security definer', 'security invoker'), nome)).toBe(false)
+    expect(securityDefiner(mutarNaFuncao(sqlDa(nome), nome, 'security definer', 'security invoker'), nome)).toBe(false)
   })
 
   it.each(RPCS)("$nome tem search_path = ''", ({ nome }) => {
-    expect(searchPathVazio(sql, nome)).toBe(true)
+    expect(searchPathVazio(sqlDa(nome), nome)).toBe(true)
   })
   it.each(RPCS)('SENSOR: $nome com search_path = public reprova', ({ nome }) => {
-    expect(searchPathVazio(mutarNaFuncao(sql, nome, "set search_path = ''", 'set search_path = public'), nome)).toBe(false)
+    expect(searchPathVazio(mutarNaFuncao(sqlDa(nome), nome, "set search_path = ''", 'set search_path = public'), nome)).toBe(false)
   })
 
   const trios = RPCS.flatMap((r) => PAPEIS_DE_CLIENTE.map((p) => [r.nome, r.assinatura, p] as const))
   it.each(trios)('%s(%s) revogada de `%s`', (nome, assinatura, p) => {
-    expect(revogaFuncao(sql, nome, assinatura, p)).toBe(true)
+    expect(revogaFuncao(sqlDa(nome), nome, assinatura, p)).toBe(true)
   })
   it.each(trios)('SENSOR: sem o revoke de %s(%s) de `%s` reprova', (nome, assinatura, p) => {
-    const mutado = mutar(sql, `revoke all on function public.${nome}(${assinatura}) from ${p};`, '')
+    const mutado = mutar(sqlDa(nome), `revoke all on function public.${nome}(${assinatura}) from ${p};`, '')
     expect(revogaFuncao(mutado, nome, assinatura, p)).toBe(false)
   })
 
   it.each(RPCS)('$nome: execute concedido só à service_role', ({ nome, assinatura }) => {
-    expect(executaSoServiceRole(sql, nome, assinatura)).toBe(true)
+    expect(executaSoServiceRole(sqlDa(nome), nome, assinatura)).toBe(true)
   })
   it.each(RPCS)('SENSOR: $nome sem o grant à service_role, ou com um segundo grant, reprova', ({ nome, assinatura }) => {
     const linha = `grant execute on function public.${nome}(${assinatura}) to service_role;`
-    expect(executaSoServiceRole(mutar(sql, linha, ''), nome, assinatura)).toBe(false)
-    expect(executaSoServiceRole(mutar(sql, linha, `${linha}\n${linha.replace('service_role', 'authenticated')}`), nome, assinatura)).toBe(
+    expect(executaSoServiceRole(mutar(sqlDa(nome), linha, ''), nome, assinatura)).toBe(false)
+    expect(executaSoServiceRole(mutar(sqlDa(nome), linha, `${linha}\n${linha.replace('service_role', 'authenticated')}`), nome, assinatura)).toBe(
       false,
     )
   })
@@ -456,41 +492,41 @@ describe('o pedido carrega a origem (CON-06)', () => {
 
 describe('`save_order_proposal` — o que só o banco confere', () => {
   it('procura a ficha por lower(btrim(email)), com o e-mail normalizado na entrada (MON-03)', () => {
-    expect(saveProcuraFichaPorEmailNormalizado(sql)).toBe(true)
+    expect(saveProcuraFichaPorEmailNormalizado(SAVE)).toBe(true)
   })
   it('SENSOR: comparar o e-mail cru reprova', () => {
-    expect(saveProcuraFichaPorEmailNormalizado(mutar(sql, 'where lower(btrim(c.email)) = v_email', 'where c.email = v_email'))).toBe(false)
+    expect(saveProcuraFichaPorEmailNormalizado(mutar(SAVE, 'where lower(btrim(c.email)) = v_email', 'where c.email = v_email'))).toBe(false)
   })
 
   it('a ficha nova nasce sem conta (A-09)', () => {
-    expect(saveCriaFichaSemConta(sql)).toBe(true)
+    expect(saveCriaFichaSemConta(SAVE)).toBe(true)
   })
 
   it('confere a versão lida (CON-10)', () => {
-    expect(saveConfereVersao(sql)).toBe(true)
+    expect(saveConfereVersao(SAVE)).toBe(true)
   })
   it('SENSOR: sem a conferência de versão reprova', () => {
-    expect(saveConfereVersao(mutar(sql, "if v_atual.version <> (p->>'version')::integer then", 'if false then'))).toBe(false)
+    expect(saveConfereVersao(mutar(SAVE, "if v_atual.version <> (p->>'version')::integer then", 'if false then'))).toBe(false)
   })
 
   it('deduplica pela chave de idempotência', () => {
-    expect(saveDeduplicaPorChave(sql)).toBe(true)
+    expect(saveDeduplicaPorChave(SAVE)).toBe(true)
   })
   it('SENSOR: sem a leitura pela chave reprova', () => {
-    expect(saveDeduplicaPorChave(mutar(sql, "where idempotency_key = p->>'idempotency_key'", 'where false'))).toBe(false)
+    expect(saveDeduplicaPorChave(mutar(SAVE, "where idempotency_key = p->>'idempotency_key'", 'where false'))).toBe(false)
   })
 
   it('a edição trava a linha (`for update`)', () => {
-    expect(saveTravaALinha(sql)).toBe(true)
+    expect(saveTravaALinha(SAVE)).toBe(true)
   })
   it('SENSOR: sem `for update` reprova', () => {
-    expect(saveTravaALinha(mutar(sql, 'where id = v_id for update', 'where id = v_id'))).toBe(false)
+    expect(saveTravaALinha(mutar(SAVE, 'where id = v_id for update', 'where id = v_id'))).toBe(false)
   })
 })
 
 describe('a trava consultiva por e-mail é a MESMA nos dois lados', () => {
   it.each(['save_order_proposal', 'handle_new_customer'])('%s trava por `customer-email:`', (nome) => {
-    expect(travaPorEmail(sql, nome)).toBe(true)
+    expect(travaPorEmail(sqlDa(nome), nome)).toBe(true)
   })
   it('SENSOR: outra chave no gatilho reprova', () => {
     const mutado = mutar(sql, "perform pg_advisory_xact_lock(hashtext('customer-email:' || lower(btrim(new.email))));", "perform pg_advisory_xact_lock(hashtext('conta:' || new.email));")
@@ -500,43 +536,43 @@ describe('a trava consultiva por e-mail é a MESMA nos dois lados', () => {
 
 describe('`create_order_from_proposal` — o pedido nasce da proposta', () => {
   it('trava a proposta (`for update`)', () => {
-    expect(criarTravaAProposta(sql)).toBe(true)
+    expect(criarTravaAProposta(CRIAR)).toBe(true)
   })
   it('SENSOR: sem `for update` reprova', () => {
-    expect(criarTravaAProposta(mutar(sql, 'where id = p_proposal_id for update', 'where id = p_proposal_id'))).toBe(false)
+    expect(criarTravaAProposta(mutar(CRIAR, 'where id = p_proposal_id for update', 'where id = p_proposal_id'))).toBe(false)
   })
 
   it('os itens do pedido vêm das linhas da proposta, nunca do corpo (PRC-03)', () => {
-    expect(itensVemDaProposta(sql)).toBe(true)
+    expect(itensVemDaProposta(CRIAR)).toBe(true)
   })
   it('SENSOR: itens lidos do corpo reprova', () => {
-    const mutado = mutar(sql, '    from public.order_proposal_items i\n   where i.proposal_id = v_prop.id', "    from jsonb_to_recordset(p_order->'items') i")
+    const mutado = mutar(CRIAR, '    from public.order_proposal_items i\n   where i.proposal_id = v_prop.id', "    from jsonb_to_recordset(p_order->'items') i")
     expect(itensVemDaProposta(mutado)).toBe(false)
   })
 
   it('o e-mail do pedido é o da proposta (A-07)', () => {
-    expect(emailDaProposta(sql)).toBe(true)
+    expect(emailDaProposta(CRIAR)).toBe(true)
   })
   it('SENSOR: e-mail do corpo reprova', () => {
-    const mutado = mutar(sql, "v_prop.id, v_prop.customer_id, v_prop.customer_email, 'pending'", "v_prop.id, v_prop.customer_id, p_order->>'customer_email', 'pending'")
+    const mutado = mutar(CRIAR, "v_prop.id, v_prop.customer_id, v_prop.customer_email, 'pending'", "v_prop.id, v_prop.customer_id, p_order->>'customer_email', 'pending'")
     expect(emailDaProposta(mutado)).toBe(false)
   })
 
   it('concluída devolve o mesmo pedido ANTES de conferir a versão (CON-06, CON-07)', () => {
-    expect(concluidaAntesDaVersao(sql)).toBe(true)
+    expect(concluidaAntesDaVersao(CRIAR)).toBe(true)
   })
   it('SENSOR: a versão conferida antes reprova', () => {
     const versao = "  if v_prop.version <> p_version then\n    return jsonb_build_object('error', 'proposal_changed');\n  end if;\n"
-    const semVersao = mutar(sql, versao, '')
+    const semVersao = mutar(CRIAR, versao, '')
     const mutado = mutar(semVersao, "  if v_prop.status = 'completed' then", `${versao}  if v_prop.status = 'completed' then`)
     expect(concluidaAntesDaVersao(mutado)).toBe(false)
   })
 
   it('cancelada ou vencida pelo relógio do servidor recusa (CON-08)', () => {
-    expect(vencidaPeloServidor(sql)).toBe(true)
+    expect(vencidaPeloServidor(CRIAR)).toBe(true)
   })
   it('SENSOR: sem o `expires_at <= now()` reprova', () => {
-    expect(vencidaPeloServidor(mutar(sql, " or v_prop.expires_at <= now() then\n    return jsonb_build_object('error', 'unavailable')", " then\n    return jsonb_build_object('error', 'unavailable')"))).toBe(false)
+    expect(vencidaPeloServidor(mutar(CRIAR, " or v_prop.expires_at <= now() then\n    return jsonb_build_object('error', 'unavailable')", " then\n    return jsonb_build_object('error', 'unavailable')"))).toBe(false)
   })
 })
 

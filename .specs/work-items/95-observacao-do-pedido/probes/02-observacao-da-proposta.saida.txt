@@ -1,0 +1,29 @@
+BEGIN
+psql:supabase/migrations/20261109120000_95-observacao-da-proposta.sql:27: NOTICE:  column "admin_note" of relation "order_proposals" already exists, skipping
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+COMMENT
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+COMMENT
+NOTIFY
+CREATE FUNCTION
+CREATE FUNCTION
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — criar grava a observação aparada, versão 1
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — só a observação mudando: grava, não sobe a versão, nenhum edited
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — corpo sem a chave não apaga a observação
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — renew (troca do link + save de conteúdo sem a chave) não apaga a observação
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — save de conteúdo sobe a versão e grava a observação junto
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — vazia apaga (null), sem subir a versão
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — o check recusa 1001 caracteres
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — a conversão copia a observação para order_admin_notes, com o autor da proposta; a coluna fica
+psql:.specs/work-items/95-observacao-do-pedido/probes/02-observacao-da-proposta.sql:148: NOTICE:  ok — proposta sem observação não cria linha em order_admin_notes
+DO
+ROLLBACK
