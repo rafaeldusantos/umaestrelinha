@@ -20,6 +20,7 @@ import type { CouponRule, ProgressivePromotion } from '@estrelinha/core/payment/
 import { engravingRefusal, normalizeEngraving } from '@estrelinha/core/material'
 import { isValidEmail, normalizeEmail, stripCep, stripCpf, stripPhone } from '@estrelinha/core/validators'
 import type { QuoteDimensions } from '@estrelinha/core/shipping'
+import { adminNoteRefusal, normalizeAdminNote } from '@estrelinha/core/orders'
 import type { ProposalDetail, SaveProposalPayload } from '../api/proposalsApi'
 
 // ---------------------------------------------------------------------------------------------
@@ -99,6 +100,11 @@ export interface ProposalDraft {
   lines: DraftLine[]
   coupon: DraftCoupon | null
   manual: DraftManual | null
+  /**
+   * A observação interna: só quem administra lê, e passa ao pedido quando a cliente conclui.
+   * Não é conteúdo da proposta — gravá-la não sobe a versão nem muda o que o link mostra.
+   */
+  adminNote: string
 }
 
 export const emptyCustomer = (): DraftCustomer => ({
@@ -128,6 +134,7 @@ export const emptyDraft = (): ProposalDraft => ({
   lines: [],
   coupon: null,
   manual: null,
+  adminNote: '',
 })
 
 let sequencia = 0
@@ -220,6 +227,8 @@ export const createLinkRefusal = (d: ProposalDraft, pricing: DraftPricing): stri
     const recusa = engravingRefusal(l.engraving_text, l.engraving_max)
     if (recusa) return `${l.product_name}: ${recusa}`
   }
+  const recusaDaObservacao = adminNoteRefusal(d.adminNote)
+  if (recusaDaObservacao) return recusaDaObservacao
   return pricing.refusal
 }
 
@@ -269,6 +278,8 @@ export const toSavePayload = (d: ProposalDraft, pricing: DraftPricing, alvo: Sav
         ? { kind: d.manual.kind, value: d.manual.value, reason: d.manual.reason.trim() }
         : null,
     expected_total: pricing.price.itemsTotal,
+    // Vai sempre, inclusive vazia (`null` apaga): o que a tela mostra é o que fica gravado.
+    admin_note: normalizeAdminNote(d.adminNote) || null,
   }
   if (editando) return { id: alvo.id, version: alvo.version, ...payload }
   return { idempotency_key: alvo.idempotencyKey, ...payload }
@@ -281,7 +292,8 @@ export const toSavePayload = (d: ProposalDraft, pricing: DraftPricing, alvo: Sav
 /**
  * O rascunho a partir da proposta. Os preços das linhas são os TRAVADOS (o `list_price` gravado); a
  * linha relê a peça ao montar e troca pelo preço de hoje, e o servidor confere de novo no save
- * (`PRC-01`/`PRC-02`). Duplicar (`DUP-01`) leva peças e desconto, e deixa a cliente para escolher.
+ * (`PRC-01`/`PRC-02`). Duplicar (`DUP-01`) leva peças e desconto, e deixa a cliente para escolher —
+ * e NÃO leva a observação: ela é sobre aquela proposta, não sobre as peças.
  */
 export const draftFromProposal = (p: ProposalDetail, modo: 'editar' | 'duplicar'): ProposalDraft => {
   const lines: DraftLine[] = (p.items ?? []).map((i) => ({
@@ -309,6 +321,7 @@ export const draftFromProposal = (p: ProposalDetail, modo: 'editar' | 'duplicar'
   if (modo === 'duplicar') return base
   return {
     ...base,
+    adminNote: p.admin_note ?? '',
     customer: {
       mode: 'existente',
       fichaId: p.customer_id,

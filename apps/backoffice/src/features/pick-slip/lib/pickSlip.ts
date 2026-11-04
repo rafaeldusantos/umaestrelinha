@@ -39,6 +39,11 @@ export interface PickSlipOrder extends AdminOrderRow {
   address_city?: string | null
   address_state?: string | null
   address_zip?: string | null
+  /**
+   * A observação do pedido (`order_admin_notes`), só de quem administra. Só a folha de UM pedido a
+   * recebe — a página do pedido a passa; a folha em lote não.
+   */
+  admin_note?: string | null
 }
 
 const escapar = (valor: unknown): string =>
@@ -105,6 +110,13 @@ const folha = (o: PickSlipOrder): string => `
       // O recado da cliente entra na folha porque é o que ela pediu, e a bancada é onde isso importa.
       o.notes
         ? `<div class="bloco recado"><h2>Recado da cliente</h2><p>${escapar(o.notes)}</p></div>`
+        : ''
+    }
+
+    ${
+      // A observação de quem administra vai junto do Recado: é instrução para a bancada.
+      o.admin_note && o.admin_note.trim() !== ''
+        ? `<div class="bloco recado"><h2>Observação</h2><p>${escapar(o.admin_note.trim())}</p></div>`
         : ''
     }
 

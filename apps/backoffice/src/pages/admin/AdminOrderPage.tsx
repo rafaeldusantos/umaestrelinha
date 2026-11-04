@@ -39,6 +39,7 @@ import { buildHistory } from '@/features/order-detail/model/history'
 import { gerundioDoStatus } from '@/features/order-detail/model/gerundio'
 import { abrirPrevia, fraseDoResultado, OUTRA_GRAVACAO, useGestoComAviso } from '@/features/order-notice'
 import { openPickSlips, type PickSlipOrder } from '@/features/pick-slip'
+import { OrderAdminNoteCard, useOrderAdminNote } from '@/features/order-admin-note'
 import { chargeMaterialUrl } from '@/features/order-list/model/chargeMaterial'
 import { ActionButton, OrderPageSkeleton, RecordPageHeader } from '@/shared/ui'
 import { ManualDiscountRow, ProposalOriginLine, type PedidoComOrigem } from '@/features/order-proposal'
@@ -95,6 +96,10 @@ const AdminOrderPage = () => {
 
   // Feature `88`: a previsão do aviso (`A-01`) lê as configurações de notificação (os padrões enquanto
   // a leitura não chega — os mesmos do motor) e o que a cliente JÁ recebeu deste pedido.
+  // A observação do pedido (só de quem administra): o card lê e grava sozinho; a página lê o MESMO
+  // cache para a folha de separação deste pedido.
+  const observacao = useOrderAdminNote(id)
+
   const notificacoes = useNotificationSettings()
   const enviados = useMemo(() => sentCustomerEvents(emails ?? []), [emails])
   // Um caminho para todo gesto que pode avisar a cliente: portão, uma gravação por vez, a frase do
@@ -345,7 +350,9 @@ const AdminOrderPage = () => {
           <>
             <Button
               variant="outline" size="sm" className="min-h-[44px] md:min-h-0"
-              onClick={() => openPickSlips([{ ...(order as unknown as PickSlipOrder), items }])}
+              onClick={() =>
+                openPickSlips([{ ...(order as unknown as PickSlipOrder), items, admin_note: observacao.nota?.note ?? null }])
+              }
             >
               <Printer className="mr-1 h-4 w-4" /> Folha de separação
             </Button>
@@ -444,6 +451,10 @@ const AdminOrderPage = () => {
               </p>
             </section>
           )}
+
+          {/* A observação do pedido: um texto editável que só quem administra vê, em qualquer status.
+              Mora no slice próprio (o mesmo card serve à proposta concluída). */}
+          <OrderAdminNoteCard orderId={order.id} />
 
           {/* 3 · Itens */}
           <section className="rounded-xl border border-border bg-estrelinha-admin-card p-4">

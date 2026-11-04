@@ -81,7 +81,7 @@ const detalhe = (over: Record<string, unknown> = {}) => ({
   address_neighborhood: null, address_city: null, address_state: null,
   coupon_id: null, coupon_code: null, coupon_discount: 0, coupon_free_shipping: false,
   manual_discount_kind: 'amount', manual_discount_value: 10, manual_discount_reason: 'Cliente antiga',
-  manual_discount: 10, subtotal: 90, promotion_discount: 0, items_total: 80,
+  manual_discount: 10, subtotal: 90, promotion_discount: 0, items_total: 80, admin_note: null,
   created_at: '2026-10-31T15:00:00Z', updated_at: '2026-10-31T15:00:00Z',
   items: [{
     position: 0, product_id: ANEL_ID, variant_id: null, product_name: 'Anel Simples', product_image: null,
@@ -228,6 +228,7 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
         'address_city', 'address_complement', 'address_neighborhood', 'address_number', 'address_state',
         'address_street', 'address_zip', 'coupon_code', 'customer_document', 'customer_email', 'customer_id',
         'customer_name', 'customer_phone', 'expected_total', 'idempotency_key', 'lines', 'manual_discount',
+        'admin_note',
       ].sort(),
     )
     const linhas = corpo.lines as Record<string, unknown>[]
@@ -238,6 +239,33 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
     expect((estado.calls as Registro[]).some((c) => c.table.startsWith('order_proposal'))).toBe(false)
     // O link nasceu NESTA resposta e a página da proposta o mostra (o banco só tem o hash).
     expect(await screen.findByTestId('link-da-proposta')).toHaveTextContent('https://loja.exemplo.invalid/pedido-montado#tok-abc')
+  })
+
+  it('a observação escrita na montagem vai no save, aparada, e a tela a diz "só você vê"', async () => {
+    estado.invocar = (nome) =>
+      nome === 'order-proposals?action=save'
+        ? falha(500, { error: 'Fora do ar.' })
+        : { data: null, error: null }
+    montar('/admin/pedidos/montar')
+    await preencherClienteNova()
+    await acrescentarAnel()
+    const campo = screen.getByLabelText('Observação interna')
+    expect(campo.closest('div')!.parentElement).toHaveTextContent('só você vê')
+    expect(campo).not.toHaveAttribute('maxlength')
+    fireEvent.change(campo, { target: { value: '  Embrulhar para presente  ' } })
+    expect(screen.getByText('23/1000')).toBeInTheDocument()
+    fireEvent.click(botaoCriar())
+    await waitFor(() => expect(saves()).toHaveLength(1))
+    expect(saves()[0].corpo.admin_note).toBe('Embrulhar para presente')
+  })
+
+  it('a observação acima do teto trava "Criar link" com a frase de core', async () => {
+    montar('/admin/pedidos/montar')
+    await preencherClienteNova()
+    await acrescentarAnel()
+    fireEvent.change(screen.getByLabelText('Observação interna'), { target: { value: 'a'.repeat(1001) } })
+    expect(botaoCriar()).toBeDisabled()
+    expect(screen.getByTestId('motivo-criar-link')).toHaveTextContent('A observação vai até 1000 caracteres.')
   })
 
   it('MON-04: "Salvar no cadastro da cliente" grava o endereço na ficha que a function devolveu', async () => {
@@ -331,6 +359,23 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
     expect(corpo).not.toHaveProperty('idempotency_key')
   })
 
+  it('editar abre com a observação gravada e a manda de volta, editada', async () => {
+    estado.invocar = (nome) => {
+      if (nome === 'order-proposals?action=get')
+        return { data: { proposal: detalhe({ admin_note: 'Ligar antes' }), state: 'open', actions: {} }, error: null }
+      return falha(500, { error: 'Fora do ar.' })
+    }
+    montar(`/admin/pedidos/montar/${PROPOSTA}`)
+    await screen.findByRole('heading', { name: 'Editar pedido montado P-0007' })
+    const campo = screen.getByLabelText('Observação interna')
+    expect(campo).toHaveValue('Ligar antes')
+    fireEvent.change(campo, { target: { value: 'Ligar antes de postar' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar alterações' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }))
+    await waitFor(() => expect(saves()).toHaveLength(1))
+    expect(saves()[0].corpo).toMatchObject({ id: PROPOSTA, version: 3, admin_note: 'Ligar antes de postar' })
+  })
+
   it('editar abre com a caixa de acrescentar FECHADA e a linha com a foto da peça', async () => {
     estado.imagemDoAnel = 'https://img.exemplo.invalid/anel.webp'
     montar(`/admin/pedidos/montar/${PROPOSTA}`)
@@ -377,6 +422,10 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
   })
 
   it('DUP-01: duplicar leva as peças e o desconto, sem a cliente, e cria uma proposta NOVA', async () => {
+    estado.invocar = (nome) =>
+      nome === 'order-proposals?action=get'
+        ? { data: { proposal: detalhe({ admin_note: 'Ligar antes' }), state: 'open', actions: {} }, error: null }
+        : { data: null, error: null }
     montar(`/admin/pedidos/montar?duplicar=${PROPOSTA}`)
     expect(await screen.findByText('A partir de P-0007 · os preços são os de hoje')).toBeInTheDocument()
     const pecas = await screen.findByRole('list', { name: 'Peças da proposta' })
@@ -393,6 +442,9 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
     await waitFor(() => expect(saves()).toHaveLength(1))
     expect(saves()[0].corpo).not.toHaveProperty('id')
     expect(saves()[0].corpo).toMatchObject({ customer_name: 'Carla Dias', lines: [{ product_id: ANEL_ID, quantity: 2 }] })
+    // A observação é daquela proposta: duplicar não a copia.
+    expect(screen.getByLabelText('Observação interna')).toHaveValue('')
+    expect(saves()[0].corpo).toHaveProperty('admin_note', null)
   })
 
   it('falha ao ler a proposta oferece tentar de novo, e nunca abre um formulário vazio', async () => {

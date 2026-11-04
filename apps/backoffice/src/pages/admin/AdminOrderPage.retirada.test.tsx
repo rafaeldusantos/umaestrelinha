@@ -45,6 +45,12 @@ vi.mock('@/entities/order/api/notifyOrder', () => ({
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }))
 vi.mock('@/features/pick-slip', () => ({ openPickSlips: vi.fn() }))
+// A observação do pedido lê e grava sozinha (sessão e cache próprios); a prova dela pela página real é
+// `AdminOrderPage.observacao.test.tsx`. Aqui ela fica fora do caminho, como o Melhor Envio.
+vi.mock('@/features/order-admin-note', () => ({
+  OrderAdminNoteCard: () => null,
+  useOrderAdminNote: () => ({ nota: null, carregando: false, falhou: false, tentarDeNovo: () => {}, salvar: async () => ({ tipo: 'ok', nota: null }) }),
+}))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useMaterialSettings: () => materialState.value,
   // Feature `88`: a página prevê o aviso pelas configurações de notificação — aqui, os padrões.

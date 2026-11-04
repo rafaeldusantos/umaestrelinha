@@ -49,6 +49,7 @@ export const useProposalDraft = (inicial?: ProposalDraft) => {
   const remove = useCallback((key: string) => setDraft((d) => removeLine(d, key)), [])
   const setCoupon = useCallback((coupon: DraftCoupon | null) => setDraft((d) => ({ ...d, coupon })), [])
   const setManual = useCallback((manual: DraftManual | null) => setDraft((d) => ({ ...d, manual })), [])
+  const setAdminNote = useCallback((adminNote: string) => setDraft((d) => ({ ...d, adminNote })), [])
   const reset = useCallback((next: ProposalDraft) => setDraft(next), [])
 
   const payload = useCallback(
@@ -69,6 +70,7 @@ export const useProposalDraft = (inicial?: ProposalDraft) => {
     removeLine: remove,
     setCoupon,
     setManual,
+    setAdminNote,
     reset,
     payload,
     idempotencyKey: chave.current,

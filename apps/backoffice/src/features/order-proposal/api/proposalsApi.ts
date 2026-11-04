@@ -110,6 +110,8 @@ export interface ProposalDetail {
   subtotal: number
   promotion_discount: number
   items_total: number
+  /** A observação interna. Congelada depois da conclusão: a dona passa a ser a do pedido. */
+  admin_note: string | null
   created_at: string
   updated_at: string
   items: ProposalItemRow[]
@@ -150,6 +152,8 @@ export interface SaveProposalPayload {
   coupon_code: string | null
   manual_discount: { kind: 'amount' | 'percent'; value: number; reason: string } | null
   expected_total: number
+  /** A observação interna, aparada; `null` sem observação. Não sobe a versão da proposta. */
+  admin_note: string | null
 }
 
 export interface SaveProposalResult {
@@ -230,7 +234,7 @@ const chamar = async <T>(action: string, body: Record<string, unknown>, fallback
 }
 
 // ---------------------------------------------------------------------------------------------
-// As seis ações
+// As sete ações
 // ---------------------------------------------------------------------------------------------
 
 export const listProposals = async (): Promise<ProposalListItem[]> => {
@@ -258,6 +262,10 @@ export const cancelProposal = (id: string): Promise<{ id: string }> =>
 export const logProposalSent = (id: string, channel: SentChannel): Promise<unknown> =>
   chamar<unknown>('log-sent', { id, channel }, 'Não consegui registrar o envio.')
 
+/** A observação em qualquer status não concluído, sem subir a versão (a ação `note`). */
+export const saveProposalNote = (id: string, adminNote: string | null): Promise<{ id: string; admin_note: string | null }> =>
+  chamar<{ id: string; admin_note: string | null }>('note', { id, admin_note: adminNote }, 'A observação não foi salva. Tente de novo.')
+
 // ---------------------------------------------------------------------------------------------
 // React Query
 // ---------------------------------------------------------------------------------------------
@@ -282,7 +290,7 @@ export const useProposal = (id: string | null | undefined) =>
   })
 
 /**
- * As quatro escritas, cada uma invalidando a lista e o detalhe da proposta que mudou. A frase da
+ * As cinco escritas, cada uma invalidando a lista e o detalhe da proposta que mudou. A frase da
  * falha é a do servidor — quem chama lê `error.message` (e `code`, quando precisa agir).
  */
 export const useProposalMutations = () => {
@@ -303,5 +311,9 @@ export const useProposalMutations = () => {
     mutationFn: (v: { id: string; channel: SentChannel }) => logProposalSent(v.id, v.channel),
     onSuccess: (_r, v) => invalidarPropostas(qc, v.id),
   })
-  return { save, renew, cancel, logSent }
+  const note = useMutation({
+    mutationFn: (v: { id: string; adminNote: string | null }) => saveProposalNote(v.id, v.adminNote),
+    onSuccess: (_r, v) => invalidarPropostas(qc, v.id),
+  })
+  return { save, renew, cancel, logSent, note }
 }

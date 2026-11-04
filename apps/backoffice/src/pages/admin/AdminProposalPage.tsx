@@ -19,6 +19,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { formatOrderNumber } from '@estrelinha/core/orders'
 import { PROPOSAL_STATE_LABELS, proposalActions } from '@estrelinha/core/proposals'
 import { ActionButton, InfoBanner, OrderPageSkeleton, RecordPageHeader } from '@/shared/ui'
+import { OrderAdminNoteCard } from '@/features/order-admin-note'
 import { devolverFoco, tituloDaPagina } from '@/shared/lib/foco'
 import {
   CANCELLED_ANNOUNCE,
@@ -29,6 +30,7 @@ import {
   ProposalError,
   ProposalHistory,
   ProposalLinkCard,
+  ProposalNoteCard,
   RENEWED_ANNOUNCE,
   RENEW_WARNING,
   esquecerLink,
@@ -50,7 +52,7 @@ const AdminProposalPage = () => {
   const location = useLocation()
   const avisoDaMontagem = (location.state as { aviso?: string } | null)?.aviso ?? null
   const { data, isLoading, error, refetch } = useProposal(id)
-  const { renew, cancel, logSent } = useProposalMutations()
+  const { renew, cancel, logSent, note } = useProposalMutations()
   const [link, setLink] = useState<LinkGuardado | null>(() => lerLink(id))
   const [falha, setFalha] = useState<string | null>(null)
   const [novoTotal, setNovoTotal] = useState<number | null>(null)
@@ -242,6 +244,14 @@ const AdminProposalPage = () => {
               ))}
             </ul>
           </section>
+
+          {/* A observação: na proposta concluída a dona é a do PEDIDO — o mesmo card da página
+              do pedido, com o `order_id`; antes disso, a da proposta, editável em qualquer status. */}
+          {p.order_id ? (
+            <OrderAdminNoteCard orderId={p.order_id} />
+          ) : (
+            <ProposalNoteCard note={p.admin_note ?? null} onSave={(adminNote) => note.mutateAsync({ id: p.id, adminNote })} />
+          )}
         </div>
 
         <aside className="min-w-0 space-y-6">

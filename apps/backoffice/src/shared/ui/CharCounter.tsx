@@ -24,10 +24,16 @@ interface Props {
    * lado (`n / limite`), como o editor de lista do Compre Junto desenha.
    */
   espacado?: boolean
+  /**
+   * A contagem já decidida por uma regra de `core`, quando o campo não conta em unidades de UTF-16 do
+   * texto cru (a observação do pedido conta o texto APARADO por ponto de código, como o `check` do
+   * banco). Ausente, o contador conta `value` como sempre.
+   */
+  count?: number
   'data-testid'?: string
 }
 
-export const CharCounter = ({ value, limit, espacado = false, 'data-testid': testId }: Props) => (
+export const CharCounter = ({ value, limit, espacado = false, count, 'data-testid': testId }: Props) => (
   <span
     data-testid={testId}
     /* `tabular-nums` para o número não dançar a cada tecla: sem ele, o `1` é mais estreito que o `0`
@@ -38,7 +44,7 @@ export const CharCounter = ({ value, limit, espacado = false, 'data-testid': tes
         Não é estilo: `contadorComDonoUnico.test.ts` ancora a própria régua NESTA linha, e um
         `const usado = …` antes do JSX a deixaria sem nada para encontrar no dono. Um guarda cuja
         âncora não casa varre o escopo, acha zero e aprova em silêncio. */}
-    {espacado ? <>{(value ?? '').length} / {limit}</> : <>{(value ?? '').length}/{limit}</>}
+    {espacado ? <>{count ?? (value ?? '').length} / {limit}</> : <>{count ?? (value ?? '').length}/{limit}</>}
   </span>
 )
 

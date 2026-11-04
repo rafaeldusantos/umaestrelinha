@@ -19,6 +19,7 @@ import {
   invalidarPropostas,
   listProposals,
   logProposalSent,
+  saveProposalNote,
   motivoDaFalha,
   proposalKey,
   renewProposal,
@@ -73,6 +74,7 @@ describe('o corpo de cada ação', () => {
       coupon_code: null,
       manual_discount: null,
       expected_total: 100,
+      admin_note: 'Embrulhar para presente',
     }
     invoke.mockResolvedValueOnce({ data: { id: ID, token: 't' }, error: null })
     await saveProposal(payload)
@@ -95,6 +97,27 @@ describe('o corpo de cada ação', () => {
     expect(invoke).toHaveBeenLastCalledWith('order-proposals?action=log-sent', { body: { id: ID, channel: 'whatsapp' } })
     await logProposalSent(ID, 'copy')
     expect(invoke).toHaveBeenLastCalledWith('order-proposals?action=log-sent', { body: { id: ID, channel: 'copy' } })
+  })
+})
+
+describe('note — a observação da proposta', () => {
+  it('note → { id, admin_note }; vazia vai null', async () => {
+    invoke.mockResolvedValue({ data: { id: ID, admin_note: 'x' }, error: null })
+    await saveProposalNote(ID, 'Ligar antes')
+    expect(invoke).toHaveBeenLastCalledWith('order-proposals?action=note', { body: { id: ID, admin_note: 'Ligar antes' } })
+    await saveProposalNote(ID, null)
+    expect(invoke).toHaveBeenLastCalledWith('order-proposals?action=note', { body: { id: ID, admin_note: null } })
+  })
+
+  it('a recusa da proposta concluída chega com a frase do servidor', async () => {
+    invoke.mockResolvedValueOnce({
+      data: null,
+      error: erroHttp({ error: 'Esta proposta já virou pedido: a observação agora é a do pedido.', code: 'completed' }),
+    })
+    const falha = await saveProposalNote(ID, 'x').catch((e) => e)
+    expect(falha).toBeInstanceOf(ProposalError)
+    expect(falha.message).toBe('Esta proposta já virou pedido: a observação agora é a do pedido.')
+    expect(falha.code).toBe('completed')
   })
 })
 

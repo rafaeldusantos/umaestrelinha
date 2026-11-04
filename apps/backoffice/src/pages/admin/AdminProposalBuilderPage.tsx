@@ -34,6 +34,7 @@ import {
   ItemsSection,
   ManualDiscountField,
   ProposalError,
+  ProposalNoteField,
   ProposalSummary,
   ShippingPreview,
   draftFromProposal,
@@ -228,6 +229,7 @@ const AdminProposalBuilderPage = () => {
             }
             combinado={<ManualDiscountField manual={draft.manual} onChange={montagem.setManual} />}
           />
+          <ProposalNoteField value={draft.adminNote} onChange={montagem.setAdminNote} />
         </div>
 
         <ProposalSummary

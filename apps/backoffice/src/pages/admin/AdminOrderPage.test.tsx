@@ -62,6 +62,12 @@ vi.mock('sonner', () => ({ toast: { error: toastErrorMock, success: toastSuccess
 // O Melhor Envio migra sem alteração interna (D9) e fala com uma API externa — fora do escopo aqui.
 vi.mock('@/features/order-management/ui/MelhorEnvioTab', () => ({ default: () => null }))
 vi.mock('@/features/pick-slip', () => ({ openPickSlips: vi.fn() }))
+// A observação do pedido lê e grava sozinha (sessão e cache próprios); a prova dela pela página real é
+// `AdminOrderPage.observacao.test.tsx`. Aqui ela fica fora do caminho, como o Melhor Envio.
+vi.mock('@/features/order-admin-note', () => ({
+  OrderAdminNoteCard: () => null,
+  useOrderAdminNote: () => ({ nota: null, carregando: false, falhou: false, tentarDeNovo: () => {}, salvar: async () => ({ tipo: 'ok', nota: null }) }),
+}))
 // Feature `88`: a página lê as configurações de notificação para prever o aviso. Os PADRÕES aqui (os
 // mesmos do motor sem linha gravada); a prova do aviso pela página real é `AdminOrderPage.aviso.test.tsx`.
 vi.mock('@estrelinha/core/hooks/useStoreSettings', async importOriginal => ({

@@ -9,6 +9,7 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { priceProposalDraft, PROPOSAL_ZERO_REFUSAL } from '@estrelinha/core/proposals'
 import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
+import { ORDER_ADMIN_NOTE_MAX } from '@estrelinha/core/orders'
 
 vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: [], isLoading: false }),
@@ -156,6 +157,13 @@ describe('createLinkRefusal — cada motivo de MON-12, escrito', () => {
     expect(motivo(completo({ address: emptyDraft().address }))).toBeNull()
   })
 
+  it('a observação acima do teto recusa com a frase de core; no teto (aparado, por ponto de código) não', () => {
+    expect(motivo(completo({ adminNote: 'a'.repeat(ORDER_ADMIN_NOTE_MAX + 1) }))).toBe(
+      `A observação vai até ${ORDER_ADMIN_NOTE_MAX} caracteres.`,
+    )
+    expect(motivo(completo({ adminNote: ` ${'🌟'.repeat(ORDER_ADMIN_NOTE_MAX)} ` }))).toBeNull()
+  })
+
   it('a gravação de uma linha que NÃO grava não recusa', () => {
     expect(motivo(completo({ lines: [linha({ engraves: false, engraving_text: 'x'.repeat(40) })] }))).toBeNull()
   })
@@ -166,6 +174,7 @@ describe('toSavePayload — o corpo do save, por igualdade', () => {
     'customer_id', 'customer_name', 'customer_email', 'customer_phone', 'customer_document',
     'address_zip', 'address_street', 'address_number', 'address_complement', 'address_neighborhood',
     'address_city', 'address_state', 'lines', 'coupon_code', 'manual_discount', 'expected_total',
+    'admin_note',
   ]
 
   it('criar: só as chaves do contrato + idempotency_key; campo de tela nunca chega', () => {
@@ -173,6 +182,7 @@ describe('toSavePayload — o corpo do save, por igualdade', () => {
       address: { ...emptyDraft().address, zip: '90000-000', street: 'Rua A', number: '10', city: 'Porto Alegre', state: 'rs', saveToCustomer: true, savedId: 'e1' },
       coupon: { code: 'DEZ', rule: { type: 'percent', value: 10 } },
       manual: { kind: 'percent', value: 5, reason: ' combinado ' },
+      adminNote: '  Embrulhar para presente  ',
     })
     const p = toSavePayload(d, priceDraft(d, []), { idempotencyKey: 'chave-1' })
     expect(Object.keys(p).sort()).toEqual(['idempotency_key', ...CHAVES].sort())
@@ -198,6 +208,7 @@ describe('toSavePayload — o corpo do save, por igualdade', () => {
       coupon_code: 'DEZ',
       manual_discount: { kind: 'percent', value: 5, reason: 'combinado' },
       expected_total: priceDraft(d, []).price.itemsTotal,
+      admin_note: 'Embrulhar para presente',
     })
     for (const l of p.lines) expect(Object.keys(l).sort()).toEqual(['engraving_text', 'product_id', 'quantity', 'variant_id'])
   })
@@ -208,6 +219,14 @@ describe('toSavePayload — o corpo do save, por igualdade', () => {
     expect(Object.keys(p).sort()).toEqual(['id', 'version', ...CHAVES].sort())
     expect(p.id).toBe('pid')
     expect(p.version).toBe(3)
+  })
+
+  it('a observação vazia (ou só espaço) vai null — a chave vai sempre, e apaga', () => {
+    for (const vazia of ['', '   ']) {
+      const d = completo({ adminNote: vazia })
+      const p = toSavePayload(d, priceDraft(d, []), { id: 'pid', version: 3 })
+      expect(p).toHaveProperty('admin_note', null)
+    }
   })
 
   it('a ficha só vai como customer_id para a cliente EXISTENTE', () => {
@@ -232,6 +251,7 @@ describe('operações e draftFromProposal', () => {
     customer_document: null, address_zip: '90000000', address_street: 'Rua A', address_number: '1',
     address_complement: null, address_neighborhood: 'Centro', address_city: 'POA', address_state: 'RS',
     manual_discount_kind: 'amount', manual_discount_value: 15, manual_discount_reason: 'amiga',
+    admin_note: 'Embrulhar para presente',
     items: [{ position: 0, product_id: P1, variant_id: V1, product_name: 'Colar', product_image: null, variant_label: 'P', variant_options: null, quantity: 2, list_price: 150, unit_price: 140, engraving_text: 'Ana', requires_material: true, material_kinds: [] }],
   } as unknown as ProposalDetail
 
@@ -241,6 +261,7 @@ describe('operações e draftFromProposal', () => {
     expect(d.address).toMatchObject({ zip: '90000000', city: 'POA' })
     expect(d.lines[0]).toMatchObject({ product_id: P1, variant_id: V1, quantity: 2, list_price: 150, engraving_text: 'Ana' })
     expect(d.manual).toEqual({ kind: 'amount', value: 15, reason: 'amiga' })
+    expect(d.adminNote).toBe('Embrulhar para presente')
   })
 
   it('DUP-01: duplicar leva peças e desconto e deixa a cliente por escolher', () => {
@@ -249,6 +270,8 @@ describe('operações e draftFromProposal', () => {
     expect(d.address.zip).toBe('')
     expect(d.lines).toHaveLength(1)
     expect(d.manual?.value).toBe(15)
+    // A observação é daquela proposta, não das peças: duplicar não a copia.
+    expect(d.adminNote).toBe('')
   })
 })
 
@@ -266,5 +289,12 @@ describe('useProposalDraft', () => {
     expect(result.current.idempotencyKey).toBe(chave)
     expect(result.current.payload().idempotency_key).toBe(chave)
     expect(result.current.payload({ id: 'p', version: 2 }).idempotency_key).toBeUndefined()
+  })
+
+  it('setAdminNote leva a observação ao payload', () => {
+    const { result } = renderHook(() => useProposalDraft())
+    act(() => result.current.setAdminNote('  Ligar antes  '))
+    expect(result.current.draft.adminNote).toBe('  Ligar antes  ')
+    expect(result.current.payload().admin_note).toBe('Ligar antes')
   })
 })

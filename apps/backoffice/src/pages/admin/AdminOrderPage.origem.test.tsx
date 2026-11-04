@@ -40,6 +40,12 @@ vi.mock('@/entities/order/api/notifyOrder', () => ({ resendNotification: vi.fn()
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/features/order-management/ui/MelhorEnvioTab', () => ({ default: () => null }))
 vi.mock('@/features/pick-slip', () => ({ openPickSlips: vi.fn() }))
+// A observação do pedido lê e grava sozinha (sessão e cache próprios); a prova dela pela página real é
+// `AdminOrderPage.observacao.test.tsx`. Aqui ela fica fora do caminho, como o Melhor Envio.
+vi.mock('@/features/order-admin-note', () => ({
+  OrderAdminNoteCard: () => null,
+  useOrderAdminNote: () => ({ nota: null, carregando: false, falhou: false, tentarDeNovo: () => {}, salvar: async () => ({ tipo: 'ok', nota: null }) }),
+}))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', async importOriginal => ({
   ...(await importOriginal<typeof import('@estrelinha/core/hooks/useStoreSettings')>()),
   useNotificationSettings: () => DEFAULT_NOTIFICATIONS,

@@ -136,3 +136,32 @@ describe('degradação sem dado', () => {
     expect(html).toContain('<p>—</p>')
   })
 })
+
+describe('a observação do pedido (só quem administra vê) sai na folha de UM pedido', () => {
+  it('impressa ao lado do Recado da cliente, escapada', () => {
+    const html = buildPickSlipHtml([
+      pedido({ notes: 'Embale com cuidado', admin_note: 'Gravar <b>"Ana"</b> & conferir o fecho' }),
+    ])
+    expect(html).toContain('<h2>Observação</h2>')
+    expect(html).toContain('Gravar &lt;b&gt;&quot;Ana&quot;&lt;/b&gt; &amp; conferir o fecho')
+    expect(html).not.toContain('<b>"Ana"</b>')
+    // Ao lado do Recado: logo depois dele, antes do rodapé.
+    const recado = html.indexOf('Recado da cliente')
+    const observacao = html.indexOf('<h2>Observação</h2>')
+    expect(recado).toBeGreaterThan(-1)
+    expect(observacao).toBeGreaterThan(recado)
+    expect(html.indexOf('folha de separação</footer>')).toBeGreaterThan(observacao)
+  })
+
+  it('sai também sem Recado', () => {
+    const html = buildPickSlipHtml([pedido({ admin_note: 'Ligar antes de postar' })])
+    expect(html).toContain('<h2>Observação</h2>')
+    expect(html).toContain('Ligar antes de postar')
+  })
+
+  it('sem observação (ausente, nula ou só espaço), nenhum bloco', () => {
+    for (const admin_note of [undefined, null, '   ']) {
+      expect(buildPickSlipHtml([pedido({ admin_note })])).not.toContain('<h2>Observação</h2>')
+    }
+  })
+})

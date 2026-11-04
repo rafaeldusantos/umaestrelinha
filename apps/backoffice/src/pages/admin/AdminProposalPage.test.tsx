@@ -14,21 +14,39 @@ const { estado } = vi.hoisted(() => ({
   estado: {
     invocar: (_nome: string, _corpo: Record<string, unknown>): unknown => ({ data: null, error: null }),
     invocacoes: [] as { nome: string; corpo: Record<string, unknown> }[],
+    /** A observação do PEDIDO (`order_admin_notes`), como o banco a guardaria. */
+    notaDoPedido: null as Record<string, unknown> | null,
+    leiturasDaNota: [] as { table: string; filters: { method: string; args: unknown[] }[]; upsert?: unknown }[],
   },
 }))
 
-vi.mock('@estrelinha/supabase/client', () => ({
-  supabase: {
-    from: () => {
-      throw new Error('a página da proposta não lê tabela nenhuma pelo PostgREST')
-    },
-    functions: {
+// A página da proposta não lê tabela nenhuma pelo PostgREST — a não ser a observação do PEDIDO, que
+// o card do pedido (`OrderAdminNoteCard`) lê e grava sozinho quando a proposta já é pedido.
+vi.mock('@estrelinha/supabase/client', async () => {
+  const { criarDuble } = await import('@/test/dubleSupabase')
+  const duble = criarDuble((r) => {
+    if (r.table !== 'order_admin_notes') throw new Error(`a página da proposta não lê ${r.table} pelo PostgREST`)
+    estado.leiturasDaNota.push(r)
+    if (r.upsert) {
+      estado.notaDoPedido = { updated_by_name: null, ...(r.upsert.rows as object), updated_at: '2026-11-03T15:00:00.000Z' }
+      return { data: [estado.notaDoPedido] }
+    }
+    return { data: estado.notaDoPedido }
+  })
+  return {
+    supabase: {
+      from: duble.from,
+      functions: {
       invoke: async (nome: string, opcoes: { body: Record<string, unknown> }) => {
         estado.invocacoes.push({ nome, corpo: opcoes?.body })
         return estado.invocar(nome, opcoes?.body)
       },
     },
   },
+  }
+})
+vi.mock('@estrelinha/auth', () => ({
+  useAuthContext: () => ({ user: { id: 'u-admin', email: 'adri@exemplo.invalid' }, customer: { name: 'Adri Muniz' } }),
 }))
 vi.mock('@/shared/lib/storeOrigin', () => ({ storeOrigin: () => 'https://loja.exemplo.invalid', STORE_URL: undefined }))
 
@@ -58,7 +76,7 @@ const detalhe = (over: Record<string, unknown> = {}) => ({
   address_neighborhood: null, address_city: null, address_state: null,
   coupon_id: null, coupon_code: 'DEZ', coupon_discount: 18, coupon_free_shipping: false,
   manual_discount_kind: 'amount', manual_discount_value: 20, manual_discount_reason: 'Cliente antiga',
-  manual_discount: 20, subtotal: 180, promotion_discount: 0, items_total: 142,
+  manual_discount: 20, subtotal: 180, promotion_discount: 0, items_total: 142, admin_note: null,
   created_at: '2026-10-31T15:00:00Z', updated_at: '2026-10-31T15:00:00Z',
   items: [{
     position: 0, product_id: 'p1', variant_id: 'v1', product_name: 'Colar de Cinzas', product_image: null,
@@ -89,6 +107,8 @@ let confirmar: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   estado.invocacoes = []
+  estado.notaDoPedido = null
+  estado.leiturasDaNota = []
   servir(detalhe(), 'open')
   estado.invocar = (nome) => {
     if (nome === 'order-proposals?action=get') return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
@@ -449,5 +469,90 @@ describe('QA 89 — a 390 com fonte grande e pelo teclado', () => {
       await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancelar proposta' })))
       expect(regiao()).toHaveTextContent('')
     })
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// A observação: editável em qualquer status, e a do pedido depois da conclusão
+// ---------------------------------------------------------------------------------------------
+
+describe('A observação', () => {
+  const notas = () => estado.invocacoes.filter((i) => i.nome === 'order-proposals?action=note')
+  const servirNota = () => {
+    estado.invocar = (nome, corpo) => {
+      if (nome === 'order-proposals?action=note') {
+        servir({ ...atual.proposal, admin_note: corpo.admin_note }, atual.state)
+        return { data: { id: ID, admin_note: corpo.admin_note }, error: null }
+      }
+      return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+    }
+  }
+
+  it.each([
+    ['expirada', { expires_at: '2026-10-01T00:00:00Z' }, 'expired'],
+    ['cancelada', { status: 'cancelled' }, 'cancelled'],
+    ['aberta', {}, 'open'],
+  ])('%s: o card edita pela ação `note` (nunca `save`), e a versão não entra no corpo', async (_n, over, state) => {
+    servir(detalhe({ ...over, admin_note: 'Ligar antes' }), state)
+    servirNota()
+    montar()
+    const campo = await screen.findByRole('textbox', { name: 'Observação' })
+    expect(campo).toHaveValue('Ligar antes')
+    expect(screen.getByRole('button', { name: 'Salvar observação' })).toBeDisabled()
+    fireEvent.change(campo, { target: { value: '  Ligar antes de postar  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar observação' }))
+    await waitFor(() => expect(notas()).toHaveLength(1))
+    expect(notas()[0].corpo).toEqual({ id: ID, admin_note: 'Ligar antes de postar' })
+    expect(acoes()).not.toContain('save')
+    // O campo segue montado (gravar não pisca) e fica com o texto gravado; o botão volta a desabilitar.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar observação' })).toBeDisabled())
+    expect(screen.getByRole('textbox', { name: 'Observação' })).toHaveValue('Ligar antes de postar')
+    // A proposta não concluída nunca toca a observação do pedido.
+    expect(estado.leiturasDaNota).toEqual([])
+  })
+
+  it('apagar manda null; a recusa do servidor aparece no alerta e o texto fica', async () => {
+    servir(detalhe({ status: 'cancelled', admin_note: 'Ligar antes' }), 'cancelled')
+    estado.invocar = (nome) =>
+      nome === 'order-proposals?action=note'
+        ? falha({ error: 'Esta proposta já virou pedido: a observação agora é a do pedido.', code: 'completed' })
+        : { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+    montar()
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Observação' }), { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar observação' }))
+    await waitFor(() => expect(notas()).toHaveLength(1))
+    expect(notas()[0].corpo).toEqual({ id: ID, admin_note: null })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Esta proposta já virou pedido: a observação agora é a do pedido.')
+    expect(screen.getByRole('textbox', { name: 'Observação' })).toHaveValue('   ')
+  })
+
+  it('acima do teto, o Salvar fica desabilitado com a frase de core, e nada vai à function', async () => {
+    montar()
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Observação' }), { target: { value: 'a'.repeat(1001) } })
+    expect(screen.getByText('A observação vai até 1000 caracteres.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvar observação' })).toBeDisabled()
+    expect(notas()).toEqual([])
+  })
+
+  it('concluída mostra e edita a observação do PEDIDO — a da proposta, congelada, não aparece', async () => {
+    estado.notaDoPedido = {
+      order_id: PEDIDO, note: 'Nota que veio da proposta', updated_by: 'u-admin', updated_by_name: null,
+      updated_at: '2026-11-02T15:00:00.000Z',
+    }
+    servir(detalhe({ status: 'completed', order_id: PEDIDO, order_number: '0244', admin_note: 'Texto congelado da proposta' }), 'completed')
+    montar()
+    const campo = await screen.findByRole('textbox', { name: 'Observação' })
+    await waitFor(() => expect(campo).toHaveValue('Nota que veio da proposta'))
+    expect(screen.queryByDisplayValue('Texto congelado da proposta')).toBeNull()
+    // A leitura é a do pedido certo.
+    expect(estado.leiturasDaNota[0].filters).toContainEqual({ method: 'eq', args: ['order_id', PEDIDO] })
+
+    fireEvent.change(campo, { target: { value: 'Nota editada no pedido' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar observação' }))
+    await waitFor(() => expect(estado.leiturasDaNota.some((r) => r.upsert)).toBe(true))
+    const gravacao = estado.leiturasDaNota.find((r) => r.upsert)!
+    expect(gravacao.upsert).toMatchObject({ rows: { order_id: PEDIDO, note: 'Nota editada no pedido' } })
+    // A proposta concluída nunca chama a ação `note` (o servidor a recusaria).
+    expect(notas()).toEqual([])
   })
 })
