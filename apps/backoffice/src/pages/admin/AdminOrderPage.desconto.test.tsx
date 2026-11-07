@@ -30,6 +30,12 @@ vi.mock('@/entities/order/api/notifyOrder', () => ({ resendNotification: vi.fn()
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/features/order-management/ui/MelhorEnvioTab', () => ({ default: () => null }))
 vi.mock('@/features/pick-slip', () => ({ openPickSlips: vi.fn() }))
+// Feature `95`: a observação do pedido lê a sessão (`useAuthContext`), e esta suíte monta a página sem
+// `AuthProvider`. A prova da observação pela página real é `AdminOrderPage.observacao.test.tsx`.
+vi.mock('@/features/order-admin-note', () => ({
+  OrderAdminNoteCard: () => null,
+  useOrderAdminNote: () => ({ nota: null, carregando: false, falhou: false, tentarDeNovo: () => {}, salvar: async () => ({ tipo: 'ok', nota: null }) }),
+}))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', async importOriginal => ({
   ...(await importOriginal<typeof import('@estrelinha/core/hooks/useStoreSettings')>()),
   useNotificationSettings: () => DEFAULT_NOTIFICATIONS,
