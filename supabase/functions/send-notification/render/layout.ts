@@ -282,13 +282,14 @@ export function totalsTable(order: EmailOrder): string {
   </tr>`
 
   // A regra do resumo (`core/orders/summary.ts`): Subtotal cheio e uma linha por desconto no pedido
-  // novo; no de antes, o subtotal gravado, o desconto e o PIX, como sempre. A conta fecha.
+  // novo; no de antes, o subtotal gravado, o desconto e o PIX, como sempre. A ordem é a do painel do
+  // pedido: os descontos e o PIX antes do Frete. A conta fecha.
   const summary = orderSummary(order)
   const lines = [line('Subtotal', formatPrice(summary.subtotal))]
+  for (const d of summary.discounts) lines.push(line(escapeHtml(d.label), `−${formatPrice(d.amount)}`))
   if (order.shipping_cost != null) {
     lines.push(line('Frete', order.shipping_cost === 0 ? 'Grátis' : formatPrice(order.shipping_cost)))
   }
-  for (const d of summary.discounts) lines.push(line(escapeHtml(d.label), `−${formatPrice(d.amount)}`))
   lines.push(line('Total', formatPrice(summary.total), true))
 
   return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
@@ -408,10 +409,10 @@ export function textBody(
   })
 
   const totals = [`Subtotal: ${formatPrice(summary.subtotal)}`]
+  for (const d of summary.discounts) totals.push(`${d.label}: -${formatPrice(d.amount)}`)
   if (order.shipping_cost != null) {
     totals.push(`Frete: ${order.shipping_cost === 0 ? 'Grátis' : formatPrice(order.shipping_cost)}`)
   }
-  for (const d of summary.discounts) totals.push(`${d.label}: -${formatPrice(d.amount)}`)
   totals.push(`Total: ${formatPrice(summary.total)}`)
 
   const retirada = pickupLines(order, pickup)

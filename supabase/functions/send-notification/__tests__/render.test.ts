@@ -906,11 +906,11 @@ describe('o e-mail do pedido com o desconto do Compre Junto', () => {
     const linhas = totais(html)
     expect(linhas.map(([r]) => r)).toEqual([
       'Subtotal',
-      'Frete',
       'Desconto do Compre Junto',
       'Desconto da oferta',
       'Cupom',
       'Desconto PIX',
+      'Frete',
       'Total',
     ])
     expect(linhas[0][1]).toBe(reais(200))
@@ -928,8 +928,25 @@ describe('o e-mail do pedido com o desconto do Compre Junto', () => {
     const { html } = render('order_paid', orderFixture({ discount: 5, total: 55.5 }))
     expect(html).not.toContain('<s ')
     expect(html).not.toContain('Compre Junto')
-    expect(totais(html).map(([r]) => r)).toEqual(['Subtotal', 'Frete', 'Desconto', 'Total'])
+    expect(totais(html).map(([r]) => r)).toEqual(['Subtotal', 'Desconto', 'Frete', 'Total'])
     expect(totais(html)[0][1]).toBe(reais(48))
+  })
+
+  it('o pedido recebido com casado e cupom põe os descontos e o PIX antes do Frete, como o painel', () => {
+    const { html, text } = render('order_received', comDesconto({ order_bump_discount: 0 }))
+    expect(totais(html).map(([r]) => r)).toEqual([
+      'Subtotal',
+      'Desconto do Compre Junto',
+      'Cupom',
+      'Desconto PIX',
+      'Frete',
+      'Total',
+    ])
+    const ordem = ['Subtotal:', 'Desconto do Compre Junto:', 'Cupom:', 'Desconto PIX:', 'Frete:', 'Total:'].map(
+      (rotulo) => text.indexOf(rotulo),
+    )
+    expect(ordem.every((i) => i >= 0)).toBe(true)
+    expect([...ordem].sort((a, b) => a - b)).toEqual(ordem)
   })
 
   it('tom memorial: nada de "economize" no e-mail com desconto', () => {
