@@ -31,6 +31,7 @@ import {
   missingVariantMessage,
 } from '@/features/checkout/lib/requireVariantSelection'
 import { getCardFormData } from '@/features/checkout/lib/cardBrick'
+import { cartFingerprint } from '@/features/checkout/lib/cartFingerprint'
 import {
   buildOrderItems,
   buildOrderPayload,
@@ -276,6 +277,23 @@ const CheckoutPage = () => {
     if (!orderId || orderIdentity === (user?.id ?? null)) return
     useCheckoutStore.getState().invalidateOrder()
   }, [user?.id, loading])
+
+  /**
+   * **O pedido em curso é da sacola que o criou.** O PIX entrega o bastão para a rota do pagamento
+   * e o `orderId` fica no rascunho da aba (`PIX-P1-08`); o rascunho não carrega as peças, então
+   * `isOrderStale` não via a cliente que troca a sacola e volta ao checkout — o CTA reabria o
+   * pedido anterior, com outras peças e outro valor. Sacola diferente da do pedido em curso é
+   * outra compra: o pedido é descartado (a chave de idempotência cai junto) e a oferta do
+   * checkout volta desmarcada, porque ela foi escolhida para a compra anterior. Com a MESMA
+   * sacola nada muda: é a cliente voltando para pagar o pedido que já criou.
+   */
+  const sacola = useMemo(() => cartFingerprint(items, coupon?.code ?? null), [items, coupon?.code])
+  useEffect(() => {
+    const store = useCheckoutStore.getState()
+    if (!store.orderId || store.orderCart === sacola) return
+    store.invalidateOrder()
+    store.toggleBump(false)
+  }, [sacola])
 
   // `PIX-P1-07`: a linha de espera longa ACRESCENTA, e só no passo em que quem espera é o banco.
   // A mesma régua de 8s do PIX (`PIX_SLOW_MS`) — dois números seriam duas esperas "normais".
@@ -556,7 +574,7 @@ const CheckoutPage = () => {
           // checkout compara, e por isso ela precisa nascer no mesmo instante que o pedido.
           useCheckoutStore
             .getState()
-            .setOrder(newOrderId, useCheckoutStore.getState().draft(), user?.id ?? null)
+            .setOrder(newOrderId, useCheckoutStore.getState().draft(), user?.id ?? null, sacola)
           setEditing(null)
           if (order.order_number) {
             numeroDoPedido = order.order_number

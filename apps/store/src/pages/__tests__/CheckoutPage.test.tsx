@@ -1975,6 +1975,129 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
  * único dublê é a rota de destino, que ocupa o lugar de `OrderPaymentPage` e faz o que ela faz ao
  * montar — pedir o código.
  */
+describe('CheckoutPage — o pedido em curso é da sacola que o criou', () => {
+  /**
+   * O PIX entrega o bastão para `/pedido/:id/pagamento` e o `orderId` fica no rascunho da aba
+   * (`PIX-P1-08`). A cliente que não paga, troca as peças da sacola e volta ao checkout está
+   * montando OUTRA compra: o CTA tem de criar o pedido dela, e não reabrir o anterior, que tem
+   * outras peças e outro valor.
+   */
+  const criaPeloPixESai = async () => {
+    fillAll()
+    const primeira = renderPage()
+    fireEvent.click(cta())
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
+    primeira.unmount()
+  }
+
+  const outraSacola = () =>
+    useCartStore.setState({
+      items: [{
+        product: product({ id: 'p2', name: 'Medalha Afetiva', slug: 'medalha-afetiva', price: 80 }),
+        size: '', finish: '', quantity: 1,
+        variantId: null, variantLabel: '', optionValues: {}, unitPrice: 80,
+      }],
+    })
+
+  it('com a sacola trocada depois do pedido PIX, pagar cria o pedido da sacola nova', async () => {
+    await criaPeloPixESai()
+    outraSacola()
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-2')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(2)
+    const itens = createOrderMutateAsync.mock.calls[1][0].items
+    expect(itens.map((i: { product_id: string }) => i.product_id)).toEqual(['p2'])
+    expect(useCheckoutStore.getState().orderId).toBe('order-2')
+  })
+
+  it('trocar só a quantidade também é outra sacola', async () => {
+    await criaPeloPixESai()
+    useCartStore.setState({
+      items: [{ ...useCartStore.getState().items[0], quantity: 3 }],
+    })
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-2')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(2)
+  })
+
+  it('trocar o cupom também é outra sacola', async () => {
+    await criaPeloPixESai()
+    useCouponStore.setState({ applied: { id: 'cp1', code: 'ESTRELA10' } as any })
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-2')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(2)
+  })
+
+  it('com a MESMA sacola, voltar e pagar reabre o pedido em curso — o par inverso', async () => {
+    // Sem ele, invalidar a cada montagem passaria nos casos acima e deixaria um `pending` órfão a
+    // cada ida e vinda.
+    await criaPeloPixESai()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(1)
+  })
+
+  describe('a oferta do checkout', () => {
+    beforeEach(() => {
+      checkoutSettings.order_bump_enabled = true
+      checkoutSettings.order_bump_product_id = 'bump-1'
+      // Só o id da oferta devolve produto: é assim que `useProductById(null)` se comporta, e é o
+      // que deixa o pedido levar a oferta só quando ela está marcada.
+      productByIdMock.mockImplementation(
+        (id) =>
+          ({
+            data:
+              id === 'bump-1'
+                ? product({ id: 'bump-1', name: 'Corrente Veneziana', price: 89.9 })
+                : undefined,
+            isError: false,
+          }) as any,
+      )
+    })
+
+    const oferta = () => screen.getByRole('checkbox', { name: /Corrente Veneziana/ })
+
+    it('marcada no pedido anterior, aparece desmarcada no checkout da sacola nova', async () => {
+      useCheckoutStore.getState().toggleBump(true)
+      await criaPeloPixESai()
+      outraSacola()
+      renderPage()
+
+      await waitFor(() => expect(oferta()).toHaveAttribute('aria-checked', 'false'))
+      expect(useCheckoutStore.getState().bumpChecked).toBe(false)
+
+      fireEvent.click(cta())
+      await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(2))
+      const itens = createOrderMutateAsync.mock.calls[1][0].items
+      expect(itens.map((i: { product_id: string }) => i.product_id)).toEqual(['p2'])
+    })
+
+    it('com a MESMA sacola, a oferta marcada continua marcada — o par inverso', async () => {
+      useCheckoutStore.getState().toggleBump(true)
+      await criaPeloPixESai()
+      renderPage()
+
+      expect(oferta()).toHaveAttribute('aria-checked', 'true')
+      expect(useCheckoutStore.getState().bumpChecked).toBe(true)
+    })
+  })
+})
+
 describe('CheckoutPage — o valor do pedido mudou (o desconto do Compre Junto)', () => {
   const mudou = () =>
     new PriceChangedError('O desconto do Compre Junto deste pedido mudou. Nada foi cobrado.', 450.1, 454.05, 'Corrente', 'buy_together')
