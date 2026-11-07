@@ -63,8 +63,9 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
     expect(COLUNAS_DO_DETALHE).not.toMatch(/nuvemshop_/)
     // Feature `82` (`ENV-16`, `ENV-21`): quem informou o código do envelope, e quando.
     expect(COLUNAS_DO_DETALHE).toMatch(/(?:^|, )material_tracking_set_at, material_tracking_set_by(?:, |$)/)
-    // Compre Junto: os descontos por item do pedido, as duas últimas colunas de `order_list`.
-    expect(COLUNAS_DO_DETALHE).toMatch(/, buy_together_discount, order_bump_discount$/)
+    // Compre Junto: os descontos por item do pedido, e depois deles o desconto combinado do pedido
+    // montado pelo painel — as três últimas colunas de `order_list`, na ordem da view.
+    expect(COLUNAS_DO_DETALHE).toMatch(/, buy_together_discount, order_bump_discount, manual_discount$/)
   })
 
   it.each([

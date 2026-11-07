@@ -8,6 +8,9 @@ import Selo from '@/shared/ui/Selo'
 /** "− R$ 40,00": o sinal de menos tipográfico, para o desconto não se ler como hífen. */
 const menos = (valor: number) => `− ${formatPrice(valor)}`
 
+/** O rótulo do desconto combinado — a mesma frase do painel no pedido montado. */
+const DESCONTO_COMBINADO = 'Desconto combinado'
+
 const Linha = ({
   rotulo,
   valor,
@@ -40,6 +43,12 @@ const Linha = ({
  *   cheio fica no formato de sempre — quem decide é a regra, não esta tela.
  * - **O Total é `orders.total`, e NUNCA é recalculado** a partir das linhas acima: o banco é o dono do
  *   que a cliente pagou (`packages/core/src/payment/**` é o dono do cálculo, e ele não é refeito aqui).
+ * - **A ordem é a do painel**: Subtotal, os descontos (o desconto combinado do pedido montado antes
+ *   do PIX), o PIX, o Frete e o Total — conferir o mesmo pedido nas duas pontas lê as mesmas linhas
+ *   na mesma ordem, e "Subtotal − descontos" fica junto.
+ * - **O desconto combinado** (`orders.manual_discount`, só no pedido montado pelo painel) tem a sua
+ *   linha: sem ela as linhas não fecham com o Total. Sai sem o motivo — ele mora em `order_proposals`,
+ *   que o navegador não lê.
  * - O frete diz o serviço (ou "Retirada no escritório") e "grátis" com custo zero.
  * - O meio de pagamento (`paymentMethodLabel`, que nunca devolve o valor cru — B01) e o selo do `payment_status` — rótulo de
  *   `ORDER_PAYMENT_STATUS_LABELS`, tom de `PAYMENT_STATUS_TONES` (A15), desenhado pelo MESMO `Selo`
@@ -48,16 +57,21 @@ const Linha = ({
 const BlocoValores = ({ pedido, resumo }: { pedido: PedidoDoDetalhe; resumo: OrderSummary }) => {
   const servico = isPickupOrder(pedido) ? PICKUP_METHOD_NAME : pedido.shipping_method
   const meio = paymentMethodLabel(pedido.payment_method)
+  const descontosAntesDoPix = resumo.discounts.filter((d) => d.key !== 'pix')
+  const descontoPix = resumo.discounts.find((d) => d.key === 'pix')
+  const combinado = Number(pedido.manual_discount) || 0
   return (
     // Sem cartão próprio desde 2026-10-26: no protótipo os valores fecham o cartão das joias, abaixo de
     // um fio. É um GRUPO com nome ("Valores"), para o leitor de tela ainda o anunciar como bloco.
     <div role="group" aria-label="Valores" data-bloco="valores" className="mt-3.5 border-t border-estrelinha-line pt-3">
       <dl>
         <Linha parte="subtotal" rotulo="Subtotal" valor={formatPrice(resumo.subtotal)} />
-        <Linha parte="frete" rotulo={servico ? `Frete · ${servico}` : 'Frete'} valor={resumo.shipping > 0 ? formatPrice(resumo.shipping) : 'grátis'} />
-        {resumo.discounts.map((d) => (
+        {descontosAntesDoPix.map((d) => (
           <Linha key={d.key} parte="desconto" desconto={d.key} rotulo={d.label} valor={menos(d.amount)} />
         ))}
+        {combinado > 0 && <Linha parte="desconto" desconto="manual" rotulo={DESCONTO_COMBINADO} valor={menos(combinado)} />}
+        {descontoPix && <Linha parte="desconto" desconto={descontoPix.key} rotulo={descontoPix.label} valor={menos(descontoPix.amount)} />}
+        <Linha parte="frete" rotulo={servico ? `Frete · ${servico}` : 'Frete'} valor={resumo.shipping > 0 ? formatPrice(resumo.shipping) : 'grátis'} />
         <div className="mt-1 border-t border-estrelinha-line pt-1">
           <Linha parte="total" rotulo="Total" valor={formatPrice(resumo.total)} forte />
         </div>

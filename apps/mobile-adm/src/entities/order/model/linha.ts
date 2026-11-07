@@ -26,7 +26,9 @@ export const COLUNAS_DO_DETALHE =
   'material_tracking_set_at, material_tracking_set_by, ' +
   // Compre Junto: os descontos por item, cada um na sua coluna (`order_list`, no fim) — o resumo de
   // `orderSummary` (`core/orders`) os lê.
-  'buy_together_discount, order_bump_discount'
+  'buy_together_discount, order_bump_discount, ' +
+  // O desconto combinado do pedido montado pelo painel (`order_list`, no fim). Zero no pedido da loja.
+  'manual_discount'
 
 /** As quatro relações do detalhe — colunas conferidas no `information_schema` local (M3 do Design). */
 export const COLUNAS_DOS_ITENS =
@@ -94,6 +96,8 @@ export interface PedidoDoDetalhe extends LinhaDaLista {
   /** Compre Junto: zero nos pedidos de antes (o default da coluna). */
   buy_together_discount: number
   order_bump_discount: number
+  /** O desconto combinado do pedido montado pelo painel (`orders.manual_discount`); zero no da loja. */
+  manual_discount: number
 }
 
 /**

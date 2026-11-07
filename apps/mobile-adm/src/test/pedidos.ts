@@ -91,6 +91,7 @@ export const detalhe = (extra: Partial<PedidoDoDetalhe> = {}): PedidoDoDetalhe =
   material_tracking_set_by: null,
   buy_together_discount: 0,
   order_bump_discount: 0,
+  manual_discount: 0,
   ...extra,
 })
 

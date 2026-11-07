@@ -119,9 +119,9 @@ describe('o detalhe do pedido com o desconto do Compre Junto', () => {
     await abrir()
     expect(linhasDosValores()).toEqual([
       ['subtotal', 'SubtotalR$ 640,00'],
-      ['frete', 'Frete · PACR$ 19,90'],
       ['desconto', 'Desconto do Compre Junto− R$ 24,00'],
       ['desconto', 'Desconto PIX− R$ 30,80'],
+      ['frete', 'Frete · PACR$ 19,90'],
       ['total', 'TotalR$ 605,10'],
     ])
     expect(valores().textContent).not.toMatch(/Promoção|economi|!/i)
@@ -143,9 +143,9 @@ describe('o detalhe do pedido com o desconto do Compre Junto', () => {
     expect(texto(itensNaTela()[0].querySelector('[data-parte="quantidade"]'))).toBe('1 × R$ 400,00')
     expect(linhasDosValores()).toEqual([
       ['subtotal', 'SubtotalR$ 400,00'],
-      ['frete', 'Frete · PACR$ 19,90'],
       ['desconto', 'Cupom ESTRELA10− R$ 40,00'],
       ['desconto', 'Desconto PIX− R$ 18,00'],
+      ['frete', 'Frete · PACR$ 19,90'],
       ['total', 'TotalR$ 361,90'],
     ])
     expect(within(valores()).queryByText(/Compre Junto/)).toBeNull()
@@ -157,9 +157,67 @@ describe('o detalhe do pedido com o desconto do Compre Junto', () => {
     await abrir()
     expect(linhasDosValores()).toEqual([
       ['subtotal', 'SubtotalR$ 616,00'],
-      ['frete', 'Frete · PACR$ 19,90'],
       ['desconto', 'Desconto PIX− R$ 30,80'],
+      ['frete', 'Frete · PACR$ 19,90'],
       ['total', 'TotalR$ 605,10'],
+    ])
+  })
+})
+
+describe('o bloco de valores na ordem e com a composição do painel', () => {
+  // O pedido montado pelo painel com um desconto combinado de R$ 20,00, de antes das colunas de preço
+  // cheio (o subtotal gravado). As linhas fecham: 1.071,00 − 107,10 − 20,00 − 66,07 + 24,03 = 901,86.
+  const MONTADO_COM_COMBINADO = detalhe({
+    subtotal: 1071,
+    shipping_cost: 24.03,
+    shipping_method: 'SEDEX',
+    coupon_code: 'PROVA89',
+    discount: 107.1,
+    pix_discount: 66.07,
+    manual_discount: 20,
+    total: 901.86,
+  })
+
+  it('o pedido montado com desconto combinado mostra a linha dele antes do PIX, e as linhas fecham com o Total', async () => {
+    responder(MONTADO_COM_COMBINADO, [item({ id: 'i-1', quantity: 1, unit_price: 1071 })])
+    await abrir()
+    expect(linhasDosValores()).toEqual([
+      ['subtotal', 'SubtotalR$ 1.071,00'],
+      ['desconto', 'Cupom PROVA89− R$ 107,10'],
+      ['desconto', 'Desconto combinado− R$ 20,00'],
+      ['desconto', 'Desconto PIX− R$ 66,07'],
+      ['frete', 'Frete · SEDEXR$ 24,03'],
+      ['total', 'TotalR$ 901,86'],
+    ])
+  })
+
+  it('o desconto combinado sai também com a leitura dos itens em falha', async () => {
+    responder(MONTADO_COM_COMBINADO, [item({ id: 'i-1', quantity: 1, unit_price: 1071 })])
+    fake.falharTabela('order_items', { message: 'falhou' })
+    await abrir()
+    expect(texto(valores().querySelector('[data-desconto="manual"]'))).toBe('Desconto combinado− R$ 20,00')
+  })
+
+  it('sem desconto combinado (o pedido da loja), nenhuma linha dele', async () => {
+    responder({ ...MONTADO_COM_COMBINADO, manual_discount: 0, total: 921.86 }, [item({ id: 'i-1', quantity: 1, unit_price: 1071 })])
+    await abrir()
+    expect(within(valores()).queryByText(/combinado/i)).toBeNull()
+  })
+
+  it('o Frete vem depois dos descontos: Subtotal · Compre Junto · Cupom · PIX · Frete · Total', async () => {
+    // Cheio 640; o casado 24; cupom 61,60; PIX 27,72; frete 19,90 ⇒ 546,58.
+    responder(
+      { ...PEDIDO_COM_DESCONTO, coupon_code: 'QA92CUPOM15', discount: 61.6, pix_discount: 27.72, total: 546.58 },
+      ITENS_COM_DESCONTO,
+    )
+    await abrir()
+    expect(linhasDosValores()).toEqual([
+      ['subtotal', 'SubtotalR$ 640,00'],
+      ['desconto', 'Desconto do Compre Junto− R$ 24,00'],
+      ['desconto', 'Cupom QA92CUPOM15− R$ 61,60'],
+      ['desconto', 'Desconto PIX− R$ 27,72'],
+      ['frete', 'Frete · PACR$ 19,90'],
+      ['total', 'TotalR$ 546,58'],
     ])
   })
 })
