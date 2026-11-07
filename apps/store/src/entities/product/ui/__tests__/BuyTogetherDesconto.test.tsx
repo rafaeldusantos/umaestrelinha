@@ -183,6 +183,31 @@ describe('as peças de uma lista com desconto', () => {
     expect(within(cartaoFina).queryByText(/a menos levando junto/)).toBeNull()
   })
 
+  it('as peças correm numa faixa que rola na horizontal dentro do bloco, e não numa grade', () => {
+    const pecas = ['Veneziana', 'Cartier', 'Grumet', 'Singapura'].map((nome, i) =>
+      produto(`p${i}`, `Corrente ${nome}`, 80 + i * 10),
+    )
+    render(<BuyTogetherBlock state={estado([lista('a1', pecas, 10)])} />)
+    const faixa = screen.getByRole('radiogroup', { name: /Escolha a peça/ })
+    // A faixa: uma linha só, que rola dentro dela (nunca o body), com encaixe por cartão.
+    for (const token of ['flex', 'flex-row', 'overflow-x-auto', 'snap-x', 'snap-mandatory', 'min-w-0']) {
+      expect(temClasse(faixa, token), token).toBe(true)
+    }
+    // Nenhuma grade, em nenhum tamanho: a grade de 2 e de 3 colunas crescia para baixo.
+    expect(faixa.getAttribute('class') ?? '').not.toMatch(/(?:^|\s)(?:[a-z]+:)?grid(?:-cols-[^\s]+)?(?![-\w])/)
+    expect(faixa.getAttribute('class') ?? '').not.toMatch(/flex-wrap/)
+    // Cada cartão tem largura própria e não encolhe para caber: é isso que faz a faixa rolar até a última.
+    const cartoes = within(faixa).getAllByRole('radio')
+    expect(cartoes).toHaveLength(4)
+    for (const cartao of cartoes) {
+      expect(temClasse(cartao, 'shrink-0')).toBe(true)
+      expect(temClasse(cartao, 'snap-start')).toBe(true)
+      expect(cartao.getAttribute('class') ?? '').toMatch(/(?:^|\s)w-\[\d+px\](?![-\w])/)
+    }
+    // E a última peça segue com o "de/por".
+    expect(within(cartoes[3]).getByText(/^de R\$\s110,00 por R\$\s99,00$/)).toBeInTheDocument()
+  })
+
   it('numa lista sem desconto, o cartão segue como hoje: só a foto e o nome, sem preço', () => {
     const fina = produto('fina', 'Corrente Fina', 40)
     render(<BuyTogetherBlock state={estado([lista('a1', [fina], null)])} />)
