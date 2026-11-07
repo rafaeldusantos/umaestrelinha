@@ -4,7 +4,7 @@
 // chamam a mesma). O que nasce aqui é só a FRASE do painel: por quanto a peça sai com esta joia, e,
 // quando os preços das peças oferecidas divergem, a faixa do menor ao maior.
 
-import { buyTogetherDiscountedPrice, claimPieces } from '@estrelinha/core/buy-together'
+import { buyTogetherDiscountedPrice, resolveAddons, type PieceProduct } from '@estrelinha/core/buy-together'
 import { formatPrice } from '@estrelinha/core/formatters'
 import type { AddonDraft } from './addons'
 
@@ -31,30 +31,70 @@ export const precosDaPeca = (
   return [precoBase]
 }
 
+/** O que a prévia lê de uma peça da lista: a forma de `resolveAddons` e o preço da peça sem grade. */
+export interface PecaDaListaParaPrevia {
+  productId: string
+  ativa: boolean
+  /** As variações que a dona liberou para a peça nesta lista; vazio = todas. */
+  variantIds: readonly string[]
+  precoBase: number
+  produto: PieceProduct | null
+}
+
 /**
- * As peças de uma lista que a loja mostra DENTRO deste adicional, nesta joia: as ativas, menos a
- * própria joia, e menos a peça que outro adicional dela já leva — a avulsa vence a lista, e entre
- * listas vale a ordem. A precedência é a de `core` (`claimPieces`), a mesma que a página do produto e
- * a sacola usam, para a prévia não anunciar um preço que a cliente não encontra.
+ * Os preços cheios que a loja oferece DENTRO deste adicional de lista, nesta joia. Quem decide o que
+ * sobra é `resolveAddons` (`core/buy-together`), a mesma regra que a página do produto chama: pula a
+ * peça fora do ar, a sem variação à venda, a variação não liberada ou esgotada, a própria joia e a
+ * peça que outro adicional dela já leva (a avulsa vence a lista; entre listas vale a ordem). Assim a
+ * prévia não anuncia um preço que a cliente não encontra.
+ *
+ * A variação do principal não entra (`mainVariantId: null`): a prévia é da joia, não de uma linha
+ * dela. A peça avulsa só disputa a peça de uma lista quando a peça está na lista, e então a forma
+ * dela vem da própria lista.
  */
-export const pecasDaListaNestaJoia = <P extends { productId: string; ativa: boolean }>(
-  addons: readonly Pick<AddonDraft, 'key' | 'kind' | 'targetProductId' | 'listId'>[],
-  listas: readonly { id: string; pecas: readonly P[] }[],
+export const precosDaListaNestaJoia = (
+  addons: readonly Pick<
+    AddonDraft,
+    'key' | 'kind' | 'targetProductId' | 'listId' | 'targetVariantIds' | 'hiddenOnVariantIds'
+  >[],
+  listas: readonly { id: string; name: string; pecas: readonly PecaDaListaParaPrevia[] }[],
   mainProductId: string | null,
   key: string,
-): P[] => {
-  const candidatos = addons.map(a => ({
-    addon: { id: a.key, kind: a.kind },
-    pieces:
-      a.kind === 'product'
-        ? a.targetProductId
-          ? [{ productId: a.targetProductId, peca: null as P | null }]
-          : []
-        : (listas.find(l => l.id === a.listId)?.pecas ?? [])
-            .filter(p => p.ativa && p.productId !== mainProductId)
-            .map(p => ({ productId: p.productId, peca: p as P | null })),
-  }))
-  return (claimPieces(candidatos).get(key) ?? []).flatMap(c => (c.peca ? [c.peca] : []))
+): number[] => {
+  const pecas = new Map<string, PecaDaListaParaPrevia>()
+  for (const l of listas) for (const p of l.pecas) if (!pecas.has(p.productId)) pecas.set(p.productId, p)
+  // Fora do ar a loja nem recebe a peça (a RLS de `products` a esconde): ela não chega à regra.
+  const products = [...pecas.values()].flatMap(p => (p.ativa && p.produto ? [p.produto] : []))
+  const resolvido = resolveAddons({
+    mainProductId: mainProductId ?? '',
+    mainVariantId: null,
+    addons: addons.map((a, position) => ({
+      id: a.key,
+      position,
+      kind: a.kind,
+      targetProductId: a.targetProductId,
+      listId: a.listId,
+      targetVariantIds: a.targetVariantIds,
+      hiddenOnVariantIds: a.hiddenOnVariantIds,
+    })),
+    lists: listas.map(l => ({
+      id: l.id,
+      name: l.name,
+      items: l.pecas.map((p, position) => ({ productId: p.productId, position, variantIds: p.variantIds })),
+    })),
+    products,
+  }).find(a => a.id === key)
+  if (!resolvido) return []
+  return resolvido.pieces.flatMap(r => {
+    const peca = pecas.get(r.productId)
+    if (!peca?.produto) return []
+    if (r.simple) return [peca.precoBase]
+    const precoDe = new Map(peca.produto.variants.map(v => [v.id, v.price]))
+    return r.variantIds.flatMap(id => {
+      const preco = precoDe.get(id)
+      return preco === null || preco === undefined ? [] : [preco]
+    })
+  })
 }
 
 /**

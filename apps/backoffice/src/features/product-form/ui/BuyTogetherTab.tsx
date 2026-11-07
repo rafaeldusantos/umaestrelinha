@@ -40,7 +40,7 @@ import {
   toggleTargetVariant,
   type AddonDraft,
 } from '../model/addons'
-import { discountPreviewLine, pecasDaListaNestaJoia, precosDaPeca } from '../model/discountPreview'
+import { discountPreviewLine, precosDaListaNestaJoia, precosDaPeca } from '../model/discountPreview'
 
 export interface MainVariantOption {
   id: string
@@ -401,12 +401,10 @@ const AddonRow = ({ index, total, addon, addons, mainProductId, mainVariants, li
   const titulo = nome ?? `Adicional ${index + 1}`
   const escondidoEm = someCom(addon, mainVariants)
   // Os preços cheios que o adicional oferece: os da peça (variações liberadas) ou os das peças da
-  // lista que a loja mostraria nela — as ativas, menos esta joia e a peça que outro adicional leva.
+  // lista que a loja mostraria nela, pela regra da página do produto (`resolveAddons`).
   const precos =
     addon.kind === 'list'
-      ? pecasDaListaNestaJoia(addons, listas, mainProductId, addon.key).flatMap(p =>
-          precosDaPeca(p.precoBase, p.variacoes, p.variantIds),
-        )
+      ? precosDaListaNestaJoia(addons, listas, mainProductId, addon.key)
       : peca && peca.ativa
         ? precosDaPeca(peca.precoBase, peca.variacoes, addon.targetVariantIds)
         : []

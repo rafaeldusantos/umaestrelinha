@@ -712,6 +712,36 @@ describe('o desconto ao levar junto', () => {
     expect(previa(1)).toBe('As peças de Pingentes saem a R$ 45,00 com esta joia.')
   })
 
+  it('numa lista, a faixa pula a peça sem variação à venda e a variação esgotada, como a loja', async () => {
+    const ESGOTADA = uuid(4)
+    const SEM_SALDO = uuid(5)
+    banco.itens = [
+      { list_id: 'l1', product_id: FITA, position: 0, variant_ids: [] },
+      { list_id: 'l1', product_id: PINGENTE, position: 1, variant_ids: [] },
+      { list_id: 'l1', product_id: ESGOTADA, position: 2, variant_ids: [] },
+      { list_id: 'l1', product_id: SEM_SALDO, position: 3, variant_ids: [] },
+    ]
+    banco.produtos = [
+      ...banco.produtos.map(p => (p.id === FITA ? { ...p, base_price: 25 } : p)),
+      // Grade toda sem estoque: a loja não a oferece dentro da lista.
+      peca(ESGOTADA, 'Corrente Esgotada'),
+      // Sem grade e sem saldo, com estoque controlado: idem.
+      peca(SEM_SALDO, 'Corrente Sem Saldo', { base_price: 10, stock_total: 0 }),
+    ]
+    banco.variacoes = [
+      variacao(V_PRATA, PINGENTE, 'Prata', 0),
+      // A variação mais cara do Pingente está esgotada: não entra no teto.
+      { ...variacao(V_OURO, PINGENTE, 'Ouro', 1), price: 70, stock: 0 },
+      { ...variacao(uuid(41), ESGOTADA, 'Prata', 0), price: 20, stock: 0 },
+    ]
+    banco.produto!.product_buy_together = [adicional('ad1', 0, { kind: 'list', target_product_id: null, list_id: 'l1' })]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(within(adicionalN(0)).getByText('Correntes', { selector: 'p' })).toBeInTheDocument())
+    digitar(0, '10')
+    expect(previa(0)).toBe('As peças de Correntes saem de R$ 22,50 a R$ 45,00 com esta joia.')
+  })
+
   it('mudar só o percentual grava, e o corpo leva discount_percent', async () => {
     banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: FITA, discount_percent: 10 })]
     montar()
