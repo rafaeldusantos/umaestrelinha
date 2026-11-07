@@ -8,6 +8,7 @@
 // Módulo PURO: zero I/O, zero `Deno`. Roda no vitest (AD-002/AD-004).
 import { formatPrice } from '../../../../packages/core/src/formatters/price.ts'
 import { formatOrderNumber } from '../../../../packages/core/src/orders/format.ts'
+import { orderSummary } from '../../../../packages/core/src/orders/summary.ts'
 import {
   isPickupOrder,
   pickupLocation,
@@ -157,7 +158,18 @@ export interface EmailOrderItem {
   size: string | null
   finish: string | null
   quantity: number
+  /** O preço COBRADO da unidade (nos pedidos de antes, o que o checkout gravava). */
   unit_price: number
+  /**
+   * O preço cheio da unidade e o que a regra do resumo (`core/orders/summary.ts`) precisa
+   * para partir a linha mista e dizer qual peça levou o desconto do Compre Junto. Opcionais: o pedido
+   * de exemplo antigo e os pedidos de antes não os têm, e saem no formato de sempre.
+   */
+  full_unit_price?: number | null
+  product_id?: string | null
+  variant_id?: string | null
+  engraving_text?: string | null
+  accompanies_product_ids?: string[] | null
 }
 
 export interface EmailOrder {
@@ -201,6 +213,13 @@ export interface EmailOrder {
    * (`RET-18`). Quem responde "é retirada?" é `isPickupOrder`.
    */
   shipping_service_id?: string | null
+  /**
+   * Os descontos por item, cada um na sua coluna (zero nos pedidos de antes). Com o preço
+   * cheio das linhas, os totais partem do Subtotal cheio e têm uma linha por desconto.
+   */
+  buy_together_discount?: number | null
+  promotion_discount?: number | null
+  order_bump_discount?: number | null
   order_items: EmailOrderItem[]
 }
 
@@ -209,19 +228,39 @@ function variantLabel(item: EmailOrderItem): string {
   return [item.size && `Tam. ${item.size}`, item.finish].filter(Boolean).join(' · ')
 }
 
-export function itemsTable(items: EmailOrderItem[]): string {
+/** Os descontos por item do pedido — o que a regra do resumo lê para atribuir o da peça. */
+type ItemDiscounts = Partial<
+  Pick<EmailOrder, 'buy_together_discount' | 'promotion_discount' | 'order_bump_discount'>
+>
+
+/** O preço de cada linha, pela regra do resumo — a mesma da loja, do painel e do app. */
+const rowPrices = (items: EmailOrderItem[], discounts: ItemDiscounts) =>
+  orderSummary({ ...discounts, order_items: items, subtotal: 0, total: 0 }).rows
+
+/** "Compre Junto · 10% a menos" na linha que levou o desconto casado. */
+const buyTogetherNote = (percent: number | null): string =>
+  percent == null ? '' : `Compre Junto · ${percent}% a menos`
+
+export function itemsTable(items: EmailOrderItem[], discounts: ItemDiscounts = {}): string {
+  const prices = rowPrices(items, discounts)
   const rows = items
-    .map((item) => {
+    .map((item, index) => {
       const variant = variantLabel(item)
+      const { full, charged, buyTogetherPercent } = prices[index]
+      const note = buyTogetherNote(buyTogetherPercent)
+      // O cheio riscado acima do cobrado, quando a peça teve desconto. Sem desconto, só o valor —
+      // byte a byte o que o e-mail sempre mandou.
+      const value =
+        full != null
+          ? `<s style="font-size:12px;color:${ESTRELINHA.inkSoft};">${formatPrice(full)}</s><br>${formatPrice(charged)}`
+          : formatPrice(charged)
       return `  <tr>
     <td style="padding:10px 0;border-bottom:1px solid ${ESTRELINHA.line};font-family:${BODY_FONT};font-size:14px;color:${ESTRELINHA.ink};">
       ${item.quantity}× ${escapeHtml(item.product_name)}${
         variant ? `<br><span style="font-size:12px;color:${ESTRELINHA.inkSoft};">${escapeHtml(variant)}</span>` : ''
-      }
+      }${note ? `<br><span style="font-size:12px;color:${ESTRELINHA.inkSoft};">${escapeHtml(note)}</span>` : ''}
     </td>
-    <td align="right" style="padding:10px 0;border-bottom:1px solid ${ESTRELINHA.line};font-family:${BODY_FONT};font-size:14px;color:${ESTRELINHA.ink};white-space:nowrap;">${formatPrice(
-        item.unit_price * item.quantity,
-      )}</td>
+    <td align="right" style="padding:10px 0;border-bottom:1px solid ${ESTRELINHA.line};font-family:${BODY_FONT};font-size:14px;color:${ESTRELINHA.ink};white-space:nowrap;">${value}</td>
   </tr>`
     })
     .join('\n')
@@ -242,13 +281,16 @@ export function totalsTable(order: EmailOrder): string {
     }white-space:nowrap;">${value}</td>
   </tr>`
 
-  const lines = [line('Subtotal', formatPrice(order.subtotal))]
+  // A regra do resumo (`core/orders/summary.ts`): Subtotal cheio e uma linha por desconto no pedido
+  // novo; no de antes, o subtotal gravado, o desconto e o PIX, como sempre. A ordem é a do painel do
+  // pedido: os descontos e o PIX antes do Frete. A conta fecha.
+  const summary = orderSummary(order)
+  const lines = [line('Subtotal', formatPrice(summary.subtotal))]
+  for (const d of summary.discounts) lines.push(line(escapeHtml(d.label), `−${formatPrice(d.amount)}`))
   if (order.shipping_cost != null) {
     lines.push(line('Frete', order.shipping_cost === 0 ? 'Grátis' : formatPrice(order.shipping_cost)))
   }
-  if (order.discount) lines.push(line('Desconto', `−${formatPrice(order.discount)}`))
-  if (order.pix_discount) lines.push(line('Desconto PIX', `−${formatPrice(order.pix_discount)}`))
-  lines.push(line('Total', formatPrice(order.total), true))
+  lines.push(line('Total', formatPrice(summary.total), true))
 
   return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
 ${lines.join('\n')}
@@ -355,20 +397,23 @@ export function textBody(
   extra: string[] = [],
   pickup?: PickupAddress | null,
 ): string {
-  const items = order.order_items.map((item) => {
+  const summary = orderSummary(order)
+  const items = order.order_items.map((item, index) => {
     const variant = variantLabel(item)
-    return `- ${item.quantity}x ${item.product_name}${variant ? ` (${variant})` : ''} — ${formatPrice(
-      item.unit_price * item.quantity,
-    )}`
+    const { full, charged, buyTogetherPercent } = summary.rows[index]
+    const note = buyTogetherNote(buyTogetherPercent)
+    const extras = [full != null ? `de ${formatPrice(full)}` : '', note].filter(Boolean).join('; ')
+    return `- ${item.quantity}x ${item.product_name}${variant ? ` (${variant})` : ''} — ${formatPrice(charged)}${
+      extras ? ` (${extras})` : ''
+    }`
   })
 
-  const totals = [`Subtotal: ${formatPrice(order.subtotal)}`]
+  const totals = [`Subtotal: ${formatPrice(summary.subtotal)}`]
+  for (const d of summary.discounts) totals.push(`${d.label}: -${formatPrice(d.amount)}`)
   if (order.shipping_cost != null) {
     totals.push(`Frete: ${order.shipping_cost === 0 ? 'Grátis' : formatPrice(order.shipping_cost)}`)
   }
-  if (order.discount) totals.push(`Desconto: -${formatPrice(order.discount)}`)
-  if (order.pix_discount) totals.push(`Desconto PIX: -${formatPrice(order.pix_discount)}`)
-  totals.push(`Total: ${formatPrice(order.total)}`)
+  totals.push(`Total: ${formatPrice(summary.total)}`)
 
   const retirada = pickupLines(order, pickup)
   const address = addressLines(order)

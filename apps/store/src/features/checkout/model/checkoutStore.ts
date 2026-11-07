@@ -73,6 +73,14 @@ interface CheckoutState extends CheckoutDraft {
    */
   orderIdentity: string | null
   /**
+   * A impressão da sacola (`cartFingerprint`) no instante em que o pedido em curso nasceu. O
+   * rascunho não carrega as peças, então trocar a sacola com um PIX pendente na aba não tornava o
+   * pedido velho: o CTA reabria o pedido anterior, com outras peças e outro valor. O checkout
+   * compara esta impressão com a da sacola de agora e, divergindo, descarta o pedido e a oferta
+   * marcada. `null` quando quem criou o pedido não decide sacola (`/pedido-montado`).
+   */
+  orderCart: string | null
+  /**
    * FLW-01/FLW-04: blocos que a **pessoa** editou nesta tela. Fica no store porque quem edita são
    * os blocos, e eles já falam com o store — a alternativa seria um `onDirty` em cada `onChange`.
    * Semear de `customers`/`addresses` não suja: é o que preserva ADR-02.
@@ -123,7 +131,12 @@ interface CheckoutState extends CheckoutDraft {
    * para os chamadores que não decidem identidade nenhuma, e nesses o valor é `null`, que é o
    * mesmo "convidada" de sempre.
    */
-  setOrder: (id: string, snapshot: CheckoutDraft, identity?: string | null) => void
+  setOrder: (
+    id: string,
+    snapshot: CheckoutDraft,
+    identity?: string | null,
+    cart?: string | null,
+  ) => void
   invalidateOrder: () => void
   /** Devolve a chave da tentativa em curso, criando uma na primeira vez (`PED-04`). */
   ensureRequestId: () => string
@@ -154,6 +167,7 @@ export function createCheckoutStore(storageKey: string) {
       orderSnapshot: null,
       clientRequestId: null,
       orderIdentity: null,
+      orderCart: null,
       dirty: [],
       cardNumberRecognized: false,
       cardBin: null,
@@ -187,14 +201,20 @@ export function createCheckoutStore(storageKey: string) {
       setCardInstallments: (count) =>
         set((s) => (s.cardInstallments === count ? {} : { cardInstallments: Math.max(1, Math.floor(count) || 1) })),
 
-      setOrder: (id, snapshot, identity = null) =>
-        set({ orderId: id, orderSnapshot: snapshot, orderIdentity: identity }),
+      setOrder: (id, snapshot, identity = null, cart = null) =>
+        set({ orderId: id, orderSnapshot: snapshot, orderIdentity: identity, orderCart: cart }),
       // A chave de idempotência morre COM o pedido: mantê-la faria a próxima tentativa, já com o
       // rascunho alterado, reaproveitar o pedido antigo — e cobrar o valor que a cliente mudou.
       // A identidade cai junto pelo mesmo motivo: ela responde "de quem é o pedido em curso?", e
       // sem pedido em curso a pergunta não tem sujeito.
       invalidateOrder: () =>
-        set({ orderId: null, orderSnapshot: null, clientRequestId: null, orderIdentity: null }),
+        set({
+          orderId: null,
+          orderSnapshot: null,
+          clientRequestId: null,
+          orderIdentity: null,
+          orderCart: null,
+        }),
       ensureRequestId: () => {
         const atual = get().clientRequestId
         if (atual) return atual
@@ -211,6 +231,7 @@ export function createCheckoutStore(storageKey: string) {
           orderSnapshot: null,
           clientRequestId: null,
           orderIdentity: null,
+          orderCart: null,
           dirty: [],
           cardNumberRecognized: false,
           cardBin: null,
@@ -250,6 +271,9 @@ export function createCheckoutStore(storageKey: string) {
         // `IDN-07`: sem persistir, voltar ao checkout depois de entrar na conta compararia a
         // identidade nova com "não sei" e o pedido de convidada seria reusado — 403 no caixa.
         orderIdentity: s.orderIdentity,
+        // Sem persistir, recarregar a aba compararia a sacola com "nenhuma" e descartaria o pedido
+        // de quem só voltou para pagá-lo.
+        orderCart: s.orderCart,
         scope: s.scope,
       }),
     },

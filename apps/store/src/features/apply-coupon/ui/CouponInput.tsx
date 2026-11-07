@@ -17,9 +17,24 @@ interface Props {
    * este componente em vez de ter a própria entrada de cupom.
    */
   variant?: 'default' | 'drawer'
+  /**
+   * O desconto do cupom NESTA sacola, como `resolveOrderPricing` o calcula — o mesmo valor da linha
+   * "Cupom" do resumo. `applied.discount` é o da hora da aplicação, sobre o subtotal cheio: não
+   * desconta o Compre Junto e não acompanha a sacola. Sem a prop, o selo cai nele.
+   */
+  discount?: number
+  /** O cupom perdeu para outro desconto (`AD-015`): o selo diz "Não aplicado", nunca um valor. */
+  notApplied?: boolean
 }
 
-const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default' }: Props) => {
+const CouponInput = ({
+  subtotal,
+  shippingCost,
+  customerEmail,
+  variant = 'default',
+  discount,
+  notApplied = false,
+}: Props) => {
   const { applied, setCoupon, clearCoupon } = useCouponStore()
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
@@ -39,6 +54,7 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
   }
 
   const drawer = variant === 'drawer'
+  const shownDiscount = discount ?? applied?.discount ?? 0
 
   const remove = () => {
     clearCoupon()
@@ -55,7 +71,11 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
           {applied.code} aplicado
         </p>
         <span className="shrink-0 text-sm font-semibold leading-[18px] text-estrelinha-primary">
-          {applied.freeShipping ? 'Frete grátis' : `−${formatPrice(applied.discount)}`}
+          {notApplied
+            ? 'Não aplicado'
+            : applied.freeShipping
+              ? 'Frete grátis'
+              : `−${formatPrice(shownDiscount)}`}
         </span>
         <button
           type="button"
@@ -77,9 +97,11 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
           <div className="min-w-0">
             <p className="text-sm font-medium text-estrelinha-ink truncate">{applied.code}</p>
             <p className="text-xs text-estrelinha-ink-soft">
-              {applied.freeShipping
-                ? 'Frete grátis'
-                : `Desconto de ${formatPrice(applied.discount)}`}
+              {notApplied
+                ? 'Não aplicado'
+                : applied.freeShipping
+                  ? 'Frete grátis'
+                  : `Desconto de ${formatPrice(shownDiscount)}`}
             </p>
           </div>
         </div>

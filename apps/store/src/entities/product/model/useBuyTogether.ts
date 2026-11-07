@@ -71,6 +71,11 @@ export interface BuyTogetherAddon {
   engravingRefusal: string | null
   /** Marcado e completo: pode ir ao carrinho. */
   ready: boolean
+  /**
+   * O desconto ao levar junto, em percentual, ou `null`. A tela mostra o "de/por" pela função de
+   * `core` (`buyTogetherDiscountedPrice`), nunca por conta própria.
+   */
+  discountPercent: number | null
 }
 
 export interface TakenAddon {
@@ -80,6 +85,7 @@ export interface TakenAddon {
   variant: ProductVariant | null
   /** O texto aparado, ou `null`. */
   engraving: string | null
+  /** O preço de hoje da variação, cheio: o desconto do Compre Junto é da sacola, que o recalcula. */
   price: number
 }
 
@@ -88,8 +94,10 @@ export interface BuyTogether {
   display: 'off' | 'loading' | 'ready'
   addons: BuyTogetherAddon[]
   markedCount: number
-  /** O total do conjunto; `null` com nada marcado. */
+  /** O total do conjunto, já com o desconto do Compre Junto; `null` com nada marcado. */
   total: number | null
+  /** Quanto o conjunto deixa de custar pelo desconto do Compre Junto; 0 sem desconto. */
+  discount: number
   /** Todo adicional marcado está completo e sem recusa de gravação. */
   canTake: boolean
   /** O primeiro adicional marcado e incompleto, para a tela focar. */
@@ -149,6 +157,10 @@ export const useBuyTogether = (product: Product, purchase: ProductPurchase): Buy
 
   const mainVariantId = purchase.variant?.id ?? null
   const byId = useMemo(() => new Map(data.products.map(p => [p.id, p])), [data.products])
+  const percentOf = useMemo(
+    () => new Map(data.addons.map(a => [a.id, a.discountPercent ?? null])),
+    [data.addons],
+  )
 
   const resolved: ResolvedAddon[] = useMemo(
     () =>
@@ -265,6 +277,7 @@ export const useBuyTogether = (product: Product, purchase: ProductPurchase): Buy
       engravingLimit: engravingLimit(piece?.product.engraving_max_chars),
       engravingRefusal: refusal,
       ready: choice.marked && missing === null && refusal === null,
+      discountPercent: percentOf.get(addon.id) ?? null,
     }
   })
 
@@ -280,13 +293,14 @@ export const useBuyTogether = (product: Product, purchase: ProductPurchase): Buy
       engraving: a.engravingEnabled ? normalizeEngraving(a.engraving) : null,
       price: a.price as number,
     }))
-  const total =
+  const percentById = new Map(marked.map(a => [a.id, a.discountPercent]))
+  const bundle =
     marked.length === 0
       ? null
       : bundleTotal({
           mainPrice: purchase.price,
           mainQty: purchase.qty,
-          addonPrices: taken.map(t => t.price),
+          addons: taken.map(t => ({ price: t.price, discountPercent: percentById.get(t.addonId) })),
         })
 
   const patch = (id: string, fn: (c: Choice) => Choice) =>
@@ -337,7 +351,8 @@ export const useBuyTogether = (product: Product, purchase: ProductPurchase): Buy
     display,
     addons,
     markedCount: marked.length,
-    total,
+    total: bundle?.total ?? null,
+    discount: bundle?.discount ?? 0,
     canTake: incomplete.length === 0,
     firstIncompleteId: incomplete[0]?.id ?? null,
     incompleteCount: incomplete.length,

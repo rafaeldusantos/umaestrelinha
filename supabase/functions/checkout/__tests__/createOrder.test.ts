@@ -181,6 +181,21 @@ describe('create-order — a convidada (CSC-03, CSC-04, PED-05)', () => {
     })
   })
 
+  it('guarda os descontos por tipo que a tela mostrou: o casado e o da oferta do checkout', async () => {
+    // São o teto da guarda do `create-payment`, ao lado de `promotion_discount`.
+    const supabase = cenario()
+    await route(
+      criarDeps(supabase),
+      pedir({ ...PEDIDO, promotion_discount: 3.95, buy_together_discount: 7.9, order_bump_discount: 20 }),
+    )
+
+    expect(linhaDoPedido(supabase)).toMatchObject({
+      promotion_discount: 3.95,
+      buy_together_discount: 7.9,
+      order_bump_discount: 20,
+    })
+  })
+
   it('coluna que a loja não enviou não é inventada com nulo', async () => {
     // O par do caso acima. `undefined` no corpo tem de ficar FORA do insert, para o default da
     // coluna valer — mandar `null` explícito sobrescreveria `promotion_discount default 0`.
@@ -1097,6 +1112,14 @@ describe('create-order — retirada no escritório (RET-12)', () => {
 
 // ---------------------------------------------------------------------------------------------
 
+/** A leitura de `order_items` do recálculo traz a marca (a constante das colunas lidas). */
+const leMarcaDoPedido = (fonte: string): boolean => {
+  const m = /const ITENS_DO_RECALCULO =([\s\S]*?)\n\n/.exec(fonte)
+  return !!m && m[1].includes('accompanies_product_ids') && fonte.includes('.select(ITENS_DO_RECALCULO)')
+}
+/** Alguma leitura da marca no corpo da requisição (`body.…accompanies…`). */
+const leMarcaDoCorpo = (fonte: string): boolean => /\bbody\??\.[\w?.[\]0-9]*accompanies/.test(fonte)
+
 describe('create-order — a marca "acompanha" do Compre Junto', () => {
   const LISTA = '7f1c2a9e-3b4d-4e5f-8a6b-1c2d3e4f5a6b'
   const PRINCIPAL = {
@@ -1209,6 +1232,7 @@ describe('create-order — a marca "acompanha" do Compre Junto', () => {
       finish: 'Fosco',
       quantity: 2,
       unit_price: 150,
+      full_unit_price: 180,
       variant_id: 'v1',
       price_source: 'variant',
       variant_label: 'P · Fosco',
@@ -1222,18 +1246,27 @@ describe('create-order — a marca "acompanha" do Compre Junto', () => {
     expect(linha).toEqual({ ...completo, order_id: 'ord-1' })
   })
 
-  it('a marca não mexe no preço: o valor da linha é o que veio, e o `create-payment` não lê a marca', async () => {
+  it('a marca não mexe no preço gravado, e o `create-payment` só lê a marca que ESTA function validou', async () => {
     const [, adicional] = await gravar([PRINCIPAL, ADICIONAL])
     expect(adicional.unit_price).toBe(80)
     expect(adicional.price_source).toBe('variant')
     expect(adicional.variant_id).toBe('var-45')
 
-    // O recálculo do pagamento lê `order_items` por colunas explícitas de preço; a marca não entra.
+    // O recálculo do pagamento LÊ a marca — para decidir o par recíproco do desconto
+    // casado —, e a lê de `order_items`, onde só entra o que `linhaDoItem` validou. Nunca do corpo
+    // da requisição de pagamento.
     const fonte = readFileSync(
       resolve(dirname(fileURLToPath(import.meta.url)), '../../mercado-pago/handlers.ts'),
       'utf8',
     )
-    expect(fonte).toContain('.select("id, product_id, quantity, unit_price, variant_id, price_source")')
-    expect(fonte).not.toMatch(/accompanies/)
+    expect(leMarcaDoPedido(fonte)).toBe(true)
+    expect(leMarcaDoCorpo(fonte)).toBe(false)
+
+    // Sensores: sem a coluna na leitura, ou lendo a marca do corpo, a régua acusa.
+    const semColuna = fonte.replace('engraving_text, accompanies_product_ids, accompanies_list_ids"', 'engraving_text"')
+    expect(semColuna).not.toBe(fonte)
+    expect(leMarcaDoPedido(semColuna)).toBe(false)
+    expect(leMarcaDoCorpo(`${fonte}\nconst m = body?.items?.[0]?.accompanies_product_ids\n`)).toBe(true)
+    expect(leMarcaDoCorpo(`${fonte}\nconst m = body.accompanies_product_ids\n`)).toBe(true)
   })
 })

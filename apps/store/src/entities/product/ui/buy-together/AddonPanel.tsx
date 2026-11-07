@@ -5,6 +5,7 @@ import type { OptionValues } from '@estrelinha/supabase/types'
 import type { BuyTogether, BuyTogetherAddon } from '../../model/useBuyTogether'
 import { PAGE_MAX_AXES } from '../../lib/variantSelection'
 import EngravingField from '../EngravingField'
+import AddonPrice from './AddonPrice'
 import VariantPicker from '../VariantPicker'
 import { panelIdOf } from './panel'
 
@@ -67,7 +68,10 @@ const AddonPanel = ({ addon, actions, showMissing = true }: Props) => {
           <div
             role="radiogroup"
             aria-labelledby={`${panelId}-label`}
-            className="mt-2.5 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            // Uma faixa que rola dentro do bloco, e nunca o body: os cartões têm largura própria e não
+            // encolhem, e o encaixe para no começo de cada um. O recuo de 2px é o do contorno de foco,
+            // que a rolagem cortaria rente à borda.
+            className="mt-2.5 flex min-w-0 snap-x snap-mandatory flex-row gap-2 overflow-x-auto px-0.5 pb-1.5 pt-0.5"
           >
             {addon.pieces.map((piece, index) => {
               const checked = piece.product.id === chosenPieceId
@@ -88,7 +92,7 @@ const AddonPanel = ({ addon, actions, showMissing = true }: Props) => {
                     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') moveBy(e, 1)
                     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') moveBy(e, -1)
                   }}
-                  className={`flex min-h-11 min-w-0 flex-col items-stretch gap-1.5 rounded-md border-2 p-1.5 text-left transition-colors motion-reduce:transition-none ${
+                  className={`flex min-h-11 w-[132px] shrink-0 snap-start flex-col items-stretch gap-1.5 rounded-md border-2 p-1.5 text-left transition-colors motion-reduce:transition-none ${
                     checked
                       ? 'border-estrelinha-primary bg-estrelinha-primary/[0.06]'
                       : 'border-estrelinha-line bg-estrelinha-ground-deep hover:border-estrelinha-primary/40'
@@ -98,6 +102,13 @@ const AddonPanel = ({ addon, actions, showMissing = true }: Props) => {
                   <span className="break-words text-[13px] font-semibold leading-4 text-estrelinha-ink">
                     {piece.product.name}
                   </span>
+                  {addon.discountPercent !== null && (
+                    <AddonPrice
+                      price={checked && addon.price !== null ? addon.price : piece.product.price}
+                      discountPercent={addon.discountPercent}
+                      size="card"
+                    />
+                  )}
                 </button>
               )
             })}

@@ -387,6 +387,14 @@ export interface DbOrder {
    */
   material_tracking_set_at?: string | null
   material_tracking_set_by?: 'customer' | 'admin' | null
+  /**
+   * O desconto da compra casada (Compre Junto) e o da oferta do checkout (order bump), cada um
+   * na sua coluna, ao lado de `promotion_discount`. Gravados na criação com o que a tela mostrou e
+   * regravados pelo `create-payment` com o recalculado. Zero nos pedidos de antes. Opcionais porque
+   * nem toda leitura os pede no `select`.
+   */
+  buy_together_discount?: number
+  order_bump_discount?: number
 }
 
 export interface DbOrderStatusHistory {
@@ -526,7 +534,13 @@ export interface DbOrderItem {
   /** Snapshot de `option_values` no momento da compra. */
   variant_options: OptionValues | null
   quantity: number
+  /**
+   * O preço COBRADO da unidade — com a oferta do checkout, a promoção ou o desconto casado.
+   * Nos pedidos anteriores às colunas de preço cheio, o que o checkout gravava (com o bump; sem a promoção).
+   */
   unit_price: number
+  /** O preço cheio da unidade. Nulo nos pedidos anteriores: use `unit_price`. */
+  full_unit_price?: number | null
   /**
    * Feature 22 — **snapshot**, redundante em relação a `products` de propósito: mudar a exigência no
    * cadastro não pode alterar pedido já criado (`MAT-05`).
@@ -538,7 +552,8 @@ export interface DbOrderItem {
   /**
    * Compre Junto — **snapshot** de quais joias principais esta peça acompanhava na compra (texto, como
    * `product_id`) e da lista de origem de cada uma, alinhadas por posição (elemento `null` na peça
-   * escolhida direto no produto). Nulos na peça comum. Informativos: o pagamento não os lê.
+   * escolhida direto no produto). Nulos na peça comum. Não decidem preço; o pagamento lê só os
+   * principais, já validados na gravação, para decidir o par recíproco do desconto casado.
    */
   accompanies_product_ids?: string[] | null
   accompanies_list_ids?: (string | null)[] | null

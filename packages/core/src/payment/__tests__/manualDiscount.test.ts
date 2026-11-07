@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
@@ -213,12 +214,55 @@ describe('sem desconto avulso, a saída é a de antes da feature 89', () => {
   })
 })
 
-describe('pricing.ts continua sem import (alcançável pelo Deno por caminho)', () => {
-  it('nenhuma linha de import no arquivo', () => {
-    const fonte = readFileSync(fileURLToPath(new URL('../pricing.ts', import.meta.url)), 'utf8')
+describe('pricing.ts alcançável pelo Deno por caminho', () => {
+  // Até o WI 92 a régua era "nenhuma linha de import". O desconto da compra casada trouxe UM import
+  // relativo (a folha `buy-together/cartDiscount.ts`, que chama a conta de `discount.ts`): a régua
+  // passou a caminhar o grafo transitivo e recusar pacote, `node:`, alias e relativo sem `.ts` —
+  // `import type` incluso —, que é o que o Deno de fato exige.
+  const semComentario = (fonte: string) => fonte.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
+  const especificadores = (fonte: string) =>
+    [...semComentario(fonte).matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]/g)].map(m => m[1])
+  const caminhar = (ler: (c: string) => string) => {
+    const inicio = fileURLToPath(new URL('../pricing.ts', import.meta.url))
+    const fila = [inicio]
+    const vistos = new Set<string>()
+    const ruins: string[] = []
+    while (fila.length > 0) {
+      const atual = fila.shift()!
+      if (vistos.has(atual)) continue
+      vistos.add(atual)
+      for (const spec of especificadores(ler(atual))) {
+        if (!spec.startsWith('.') || !spec.endsWith('.ts')) ruins.push(spec)
+        else fila.push(join(dirname(atual), spec))
+      }
+    }
+    return { vistos: [...vistos], ruins }
+  }
+  const disco = (c: string) => readFileSync(c, 'utf8')
+
+  it('âncora: pricing.ts e as folhas do Compre Junto que ele alcança foram lidos', () => {
+    const fonte = disco(fileURLToPath(new URL('../pricing.ts', import.meta.url)))
     expect(fonte.length).toBeGreaterThan(1000)
     expect(fonte).toContain('export function resolveOrderPricing')
-    expect(fonte).not.toMatch(/^\s*import\s/m)
-    expect(fonte).not.toMatch(/^\s*export\s[^\n]*\sfrom\s/m)
+    const rotulos = caminhar(disco).vistos.map(c => c.replace(/\\/g, '/').split('/').slice(-2).join('/'))
+    expect(rotulos.sort()).toEqual([
+      'buy-together/availability.ts',
+      'buy-together/cartDiscount.ts',
+      'buy-together/discount.ts',
+      'buy-together/types.ts',
+      'payment/pricing.ts',
+    ])
+  })
+
+  it('nenhum especificador de pacote, alias, `node:` ou relativo sem `.ts` no grafo', () => {
+    expect(caminhar(disco).ruins).toEqual([])
+  })
+
+  it('sensor — `import type` sem extensão e import de pacote SÃO acusados', () => {
+    const m = (c: string) =>
+      c.endsWith('pricing.ts')
+        ? `import type { X } from './x'\nimport { y } from '@estrelinha/supabase/types'\n${disco(c)}`
+        : disco(c)
+    expect(caminhar(m).ruins).toEqual(['./x', '@estrelinha/supabase/types'])
   })
 })

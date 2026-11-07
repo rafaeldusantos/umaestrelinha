@@ -1074,3 +1074,65 @@ describe('feature 88 — quem pode pular o e-mail da cliente', () => {
     expect(skips(supabase)).toEqual([])
   })
 })
+
+// =================================================================================================
+// A prévia de um pedido real com o desconto do Compre Junto
+// =================================================================================================
+
+/**
+ * A prévia tem o próprio `select` (`previewOrder`), separado do motor: sem o preço cheio das linhas,
+ * a marca e os descontos por item, a prévia de um pedido com desconto sairia no formato de antes. A
+ * fixtura é FUNÇÃO do `select` — cada coluna só chega se a prévia a pediu.
+ */
+describe('`preview` de um pedido real com o desconto do Compre Junto', () => {
+  const ITEM_COLS = ['product_id', 'full_unit_price', 'accompanies_product_ids']
+  const ORDER_COLS = ['buy_together_discount', 'promotion_discount', 'order_bump_discount']
+  const pediu = (select: string, coluna: string) => new RegExp(`\\b${coluna}\\b`).test(select)
+
+  it('com `order_id`: o "de/por", a linha do desconto e o Subtotal cheio', async () => {
+    const supabase = createFakeSupabase({
+      user: ADMIN,
+      rows: {
+        orders: (_eq: unknown, select: string) => {
+          const itens = select.match(/order_items\s*\(([^)]*)\)/)?.[1] ?? ''
+          const cabecalho = Object.fromEntries(
+            Object.entries({ buy_together_discount: 4, promotion_discount: 0, order_bump_discount: 0 }).filter(
+              ([c]) => ORDER_COLS.includes(c) && pediu(select, c),
+            ),
+          )
+          const soPedidas = (linha: Record<string, unknown>) =>
+            Object.fromEntries(Object.entries(linha).filter(([c]) => !ITEM_COLS.includes(c) || pediu(itens, c)))
+          return orderRow({
+            subtotal: 285,
+            pix_discount: 0,
+            shipping_cost: 0,
+            total: 285,
+            ...cabecalho,
+            order_items: [
+              { product_id: 'p', product_name: 'Pingente Gota', size: null, finish: null, quantity: 1, unit_price: 249, full_unit_price: 249 },
+              { product_id: 'c', product_name: 'Corrente', size: null, finish: null, quantity: 1, unit_price: 36, full_unit_price: 40, accompanies_product_ids: ['p'] },
+            ].map(soPedidas),
+          })
+        },
+      },
+      lists: { store_settings: settingsRows() },
+      rpcByFn: { has_role: { data: true } },
+    })
+    const deps = {
+      supabase: supabase.client,
+      fetch: createFakeFetch([OK_ROUTE]).fetch,
+      env: ENV,
+      providers: [createResendProvider({ apiKey: 're_test_key', from: ENV.resendFrom })],
+    }
+
+    const body = await (
+      await route(deps, request('preview', { event: 'order_paid', channel: 'email', order_id: ORDER_ID }))
+    ).json()
+
+    expect(body.sample).toBe(false)
+    expect(body.html).toContain('Compre Junto · 10% a menos')
+    expect(body.html).toContain('Desconto do Compre Junto')
+    // `formatPrice` separa o símbolo com espaço inseparável.
+    expect(body.html).toContain('R$ 289,00')
+  })
+})

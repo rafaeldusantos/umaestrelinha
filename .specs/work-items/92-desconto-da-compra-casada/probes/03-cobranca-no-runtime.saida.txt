@@ -1,0 +1,5 @@
+ok — o create-payment sobe no runtime local (HTTP 400 para corpo vazio)
+ok — o create-payment grava o total da tela (413.8/31.67)
+ok — percentual que caiu ⇒ 422 buy_together_price_changed
+ok — nenhuma order criada no Mercado Pago
+falhas: 0

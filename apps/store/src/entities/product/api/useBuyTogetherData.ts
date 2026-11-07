@@ -44,6 +44,8 @@ interface ConfigRow {
   list_id: string | null
   target_variant_ids: string[] | null
   hidden_on_variant_ids: string[] | null
+  /** O desconto ao levar junto (1 a 50), ou `null`. */
+  discount_percent: number | null
   target: ProductRow | null
   list: {
     id: string
@@ -62,6 +64,7 @@ export interface BuyTogetherConfig {
 
 export const BUY_TOGETHER_SELECT =
   'id, position, kind, product_id, target_product_id, list_id, target_variant_ids, hidden_on_variant_ids, ' +
+  'discount_percent, ' +
   'main:products!product_buy_together_product_id_fkey!inner(slug), ' +
   `target:products!product_buy_together_target_product_id_fkey(${PRODUCT_CARD_SELECT}), ` +
   'list:buy_together_lists!product_buy_together_list_id_fkey(id, name, ' +
@@ -102,6 +105,7 @@ const toConfig = (rows: ConfigRow[]): BuyTogetherConfig => {
       listId: r.list_id,
       targetVariantIds: r.target_variant_ids ?? [],
       hiddenOnVariantIds: r.hidden_on_variant_ids ?? [],
+      discountPercent: r.discount_percent ?? null,
     })),
     lists: [...lists.values()],
     products: [...products.values()],

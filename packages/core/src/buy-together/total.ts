@@ -5,18 +5,40 @@
 
 import { engravingLimit, normalizeEngraving } from '../material/material.ts'
 import { pixPrice } from '../payment/pix.ts'
+import { buyTogetherDiscountedPrice } from './discount.ts'
 import type { BuyTogetherAddonKind } from './types.ts'
 
 const cents = (value: number): number => Math.round(value * 100)
 
-/** O principal na quantidade que a página mostra, mais cada adicional marcado uma vez. */
+/** Uma peça marcada no bloco: o preço de hoje da variação escolhida e o desconto ao levar junto. */
+export interface BundleAddon {
+  price: number
+  /** `null` ou ausente = sem desconto. */
+  discountPercent?: number | null
+}
+
+/**
+ * O principal na quantidade que a página mostra, mais cada adicional marcado uma vez, já com o desconto
+ * do Compre Junto. O preço com desconto é `buyTogetherDiscountedPrice`, por unidade e arredondado a
+ * centavo — a mesma conta da sacola e do servidor. `discount` é o que o conjunto deixa de custar: só
+ * as peças, nunca a joia.
+ */
 export const bundleTotal = (input: {
   mainPrice: number
   mainQty: number
-  addonPrices: readonly number[]
-}): number =>
-  (cents(input.mainPrice) * input.mainQty + input.addonPrices.reduce((s, p) => s + cents(p), 0)) /
-  100
+  addons: readonly BundleAddon[]
+}): { total: number; discount: number } => {
+  let full = 0
+  let charged = 0
+  for (const addon of input.addons) {
+    full += cents(addon.price)
+    charged += cents(buyTogetherDiscountedPrice(addon.price, addon.discountPercent))
+  }
+  return {
+    total: (cents(input.mainPrice) * input.mainQty + charged) / 100,
+    discount: (full - charged) / 100,
+  }
+}
 
 /** `null` quando a loja não oferece PIX ou o desconto é inválido. */
 export const bundlePix = (total: number, percent: number): number | null => pixPrice(total, percent)

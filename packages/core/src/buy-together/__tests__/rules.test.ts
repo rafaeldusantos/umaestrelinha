@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   BUY_TOGETHER_ADDONS_MAX,
+  BUY_TOGETHER_DISCOUNT_MAX,
+  BUY_TOGETHER_DISCOUNT_MIN,
   BUY_TOGETHER_LIST_ITEMS_MAX,
   BUY_TOGETHER_LIST_NAME_MAX,
   addonCountRefusal,
+  addonDiscountRefusal,
   addonIsMainRefusal,
   addonRepeatedRefusal,
   listDeleteRefusal,
@@ -99,5 +102,31 @@ describe('addonRepeatedRefusal', () => {
     expect(addonRepeatedRefusal('p2', ['p3', 'p2'])).toBe('Esta peça já é outro adicional desta joia.')
     expect(addonRepeatedRefusal('p2', ['p3', 'p4'])).toBeNull()
     expect(addonRepeatedRefusal('p2', [])).toBeNull()
+  })
+})
+
+describe('addonDiscountRefusal — o desconto ao levar junto', () => {
+  const FRASE = 'O desconto ao levar junto é um número inteiro de 1% a 50%.'
+
+  it('os limites são 1% e 50%', () => {
+    expect(BUY_TOGETHER_DISCOUNT_MIN).toBe(1)
+    expect(BUY_TOGETHER_DISCOUNT_MAX).toBe(50)
+  })
+
+  it('1% e 50% passam, e o vazio (sem desconto) também', () => {
+    expect(addonDiscountRefusal(1)).toBeNull()
+    expect(addonDiscountRefusal(50)).toBeNull()
+    expect(addonDiscountRefusal(null)).toBeNull()
+    expect(addonDiscountRefusal(undefined)).toBeNull()
+  })
+
+  it('0, 51 e 10,5 são recusados com o motivo', () => {
+    expect(addonDiscountRefusal(0)).toBe(FRASE)
+    expect(addonDiscountRefusal(51)).toBe(FRASE)
+    expect(addonDiscountRefusal(10.5)).toBe(FRASE)
+  })
+
+  it('o que não é número (um campo mal lido) é recusado, nunca vira "sem desconto"', () => {
+    expect(addonDiscountRefusal(Number.NaN)).toBe(FRASE)
   })
 })

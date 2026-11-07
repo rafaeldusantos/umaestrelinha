@@ -76,8 +76,9 @@ const gravavel = () =>
     variants: [variante({ 'Com gravação': 'Sim' }, 45), variante({ 'Com gravação': 'Não' }, 30)],
   })
 
-const addon = (id: string, position: number, target: string) => ({
+const addon = (id: string, position: number, target: string, over: Record<string, unknown> = {}) => ({
   id, position, kind: 'product', targetProductId: target, listId: null, targetVariantIds: [], hiddenOnVariantIds: [],
+  ...over,
 })
 const ofertar = (addons: unknown[], products: Product[]) => {
   dados.value = { status: 'ready', addons, lists: [], products }
@@ -424,6 +425,24 @@ describe('a barra fixa com o conjunto', () => {
 
     fireEvent.click(caixa(/Pingente Gravado/))
     expect(texto(screen.getByTestId('product-buy-bar'))).toContain('Conjunto · 3 peças')
+  })
+
+  it('com desconto do Compre Junto: a barra, a nota da coluna e o bloco mostram o mesmo total descontado', () => {
+    // À mão: o pingente Prata de 35 a 10% sai por 31,50; 100 + 31,50 = 131,50, com 3,50 a menos.
+    ofertar([addon('a1', 0, 'ping', { discountPercent: 10 })], [pingente()])
+    renderPage()
+    marcarPingente('Prata')
+
+    expect(texto(screen.getByText('Desconto do Compre Junto').parentElement)).toBe(
+      'Desconto do Compre Junto−R$ 3,50',
+    )
+    expect(texto(screen.getByText('Total do conjunto').parentElement)).toContain('R$ 131,50')
+
+    const b = texto(screen.getByTestId('product-buy-bar'))
+    expect(b).toContain('R$ 131,50')
+    expect(b).toContain('Conjunto · 2 peças')
+    expect(b).not.toContain('R$ 135,00')
+    expect(texto(screen.getByText(/A joia e/))).toBe('A joia e 1 peça marcada · R$ 131,50')
   })
 
   it('a nota da coluna: "A joia e N peças marcadas · total"', () => {

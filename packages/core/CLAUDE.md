@@ -90,9 +90,15 @@ fazer antes de qualquer outra.
 - **Elegibilidade de promoção sai da view `promotion_eligible_products`** (categoria + descendência),
   nos dois lados. **Nunca de `Product.category_links`**: aquele campo vem do snapshot do carrinho em
   `localStorage` e pode ter dias.
+- **`resolveOrderLines(input, outcome)`** (WI 92) devolve as linhas que o pedido grava — o preço cheio
+  e o cobrado de cada uma, no caminho que venceu, com a linha mista partida — e os descontos por tipo
+  (`orderBumpDiscount`, `buyTogetherDiscount`, `promotionDiscount`). A loja grava o pedido por ela e o
+  servidor regrava pelo mesmo caminho; `payment/orderLines.ts` (`joinOrderRows`) junta as linhas de
+  volta antes do recálculo. `order_items.unit_price` passa a ser o COBRADO (C-01).
 - **`orders.promotion_discount` é TETO, não valor.** `create-payment` cobra sempre o próprio recálculo
-  e devolve **422 `promotion_no_longer_valid`** quando o recalculado é MENOR que o exibido — cobrar
-  mais caro do que a tela prometeu é o que essa guarda existe para impedir.
+  e devolve **422** quando o recalculado é MENOR que o exibido — cobrar mais caro do que a tela
+  prometeu é o que essa guarda existe para impedir. Desde o WI 92 a régua é a soma dos três descontos
+  por item (`promotion_discount`, `buy_together_discount`, `order_bump_discount`).
 - **`orders.promotion_id` é `null` de propósito quando duas promoções aplicam** (FK única não
   representa "duas"). Logo "este pedido teve promoção?" se pergunta por `promotion_discount > 0`.
 - **Todo item que entra na conta usa `cartItem.unitPrice`** (preço da variação), nunca

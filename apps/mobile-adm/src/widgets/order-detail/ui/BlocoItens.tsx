@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import type { OrderRowPrice } from '@estrelinha/core/orders'
 import type { Bloco, ItemComFoto } from '@/entities/order'
 import FotoDaPeca from '@/shared/ui/FotoDaPeca'
 import { TITULO_DOS_ITENS_SEM_DADO, tituloDosItens } from '../model/titulos'
@@ -11,6 +12,10 @@ import { BlocoDoDetalhe } from './BlocoDoDetalhe'
  * (`product_name` — um item importado da Nuvemshop, sem produto no catálogo, sai pelo nome do mesmo
  * jeito), a variação, "Gravação: …" quando há texto, e "quantidade × preço unitário".
  *
+ * A peça com desconto mostra o valor cheio riscado e o cobrado ("de/por"), da linha de `precos` na
+ * mesma posição — `orderSummary` (`core/orders`) decide, nunca esta tela. A linha mista da sacola vem
+ * gravada partida em duas (a unidade com o desconto casado e a avulsa), e cada parte é um item.
+ *
  * Com a leitura dos itens em falha, só este bloco diz "Não consegui carregar." — o resto do detalhe
  * segue (`MAP-30`), e "Tentar de novo" relê o detalhe inteiro (TE4).
  */
@@ -18,11 +23,14 @@ const BlocoItens = ({
   itens,
   tentarDeNovo,
   valores,
+  precos,
 }: {
   itens: Bloco<ItemComFoto[]>
   tentarDeNovo: () => void
   /** Os valores do pedido, que fecham o cartão (protótipo). Vêm do PEDIDO, então ficam mesmo com os itens em falha. */
   valores?: ReactNode
+  /** O preço de cada item, alinhado com `itens` (`orderSummary(...).rows`). Sem ele, nenhum "de/por". */
+  precos?: readonly OrderRowPrice[]
 }) => {
   if (itens.estado === 'falhou') {
     return (
@@ -36,8 +44,9 @@ const BlocoItens = ({
   return (
     <BlocoDoDetalhe id="itens" titulo={tituloDosItens(lista)}>
       <ul className="space-y-3 pt-1">
-        {lista.map((i) => {
+        {lista.map((i, posicao) => {
           const gravacao = i.engraving_text?.trim()
+          const preco = precos?.[posicao]
           return (
             // O item do protótipo: a foto em retrato (56 × 70) e, ao lado, nome, variação, gravação e
             // "quantidade × preço" — tudo numa coluna, que embrulha sem empurrar a foto.
@@ -54,6 +63,13 @@ const BlocoItens = ({
                 <p data-parte="quantidade" className="mt-1 text-[13px] text-estrelinha-ink-soft [overflow-wrap:anywhere]">
                   {`${i.quantity} × ${formatPrice(i.unit_price)}`}
                 </p>
+                {preco?.full != null && (
+                  <p data-parte="de-por" className="mt-0.5 text-[13px] [overflow-wrap:anywhere]">
+                    <span className="sr-only">De </span>
+                    <s className="text-estrelinha-ink-soft">{formatPrice(preco.full)}</s>
+                    <span className="sr-only">, por</span> <span className="font-medium">{formatPrice(preco.charged)}</span>
+                  </p>
+                )}
               </div>
             </li>
           )

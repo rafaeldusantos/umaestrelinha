@@ -6,8 +6,15 @@
 
 import {
   applyOrderBump,
+  resolveOrderLines,
   resolveOrderPricing,
+  type OrderPricingInput,
 } from "../../../packages/core/src/payment/pricing.ts"
+// A linha mista (unidades com e sem o desconto casado) chega como duas linhas; o recálculo as
+// junta de volta antes, e lê a configuração do Compre Junto do banco pela MESMA leitura da sacola.
+import { joinOrderRows } from "../../../packages/core/src/payment/orderLines.ts"
+import { buyTogetherDiscountConfig } from "../../../packages/core/src/buy-together/cartDiscount.ts"
+import { BUY_TOGETHER_DISCOUNT_SELECT } from "../../../packages/core/src/buy-together/io/discountSelect.ts"
 import { buildPayer, mergePayer } from "../../../packages/core/src/payment/payer.ts"
 // Feature `49`: a segunda prova de posse — quem comprou sem conta não tem JWT para apresentar.
 import { accessGrant } from "../../../packages/core/src/checkout/guestAccess.ts"
@@ -426,17 +433,39 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   }
 
   // --- Recálculo server-side (PAY-03): nunca confiar no valor vindo do client ---
+  //
+  // Além das colunas de preço, a leitura traz o snapshot da linha (para regravar o pedido
+  // linha a linha depois do recálculo) e a marca "acompanha" — a que o `create-order` VALIDOU ao
+  // gravar (`orderItemMarks`), nunca a do corpo desta requisição. Ela só decide o par recíproco do
+  // desconto casado, nunca o preço.
   const { data: items, error: itemsError } = await supabase
     .from("order_items")
-    .select("id, product_id, quantity, unit_price, variant_id, price_source")
+    .select(ITENS_DO_RECALCULO)
     .eq("order_id", order_id)
   if (itemsError || !items?.length) {
     return json({ error: "Pedido sem itens" }, 422)
   }
 
+  // As linhas da mesma peça (a linha mista que a loja partiu em duas) voltam a ser UMA
+  // antes do recálculo — a faixa conta as unidades juntas, e o bump (que vale só para a linha de 1
+  // unidade) não vale duas vezes.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = items as any[]
+  const grupos = joinOrderRows(
+    rows.map((i) => ({
+      product_id: String(i.product_id),
+      variant_id: i.variant_id ?? null,
+      size: i.size ?? null,
+      finish: i.finish ?? null,
+      engraving_text: i.engraving_text ?? null,
+      quantity: Number(i.quantity),
+      accompanies_product_ids: Array.isArray(i.accompanies_product_ids) ? i.accompanies_product_ids : null,
+    })),
+  )
+
   // order_items.product_id é TEXT; products.id é uuid — só ids uuid válidos entram no join.
   const productIds = [
-    ...new Set(items.map((i: any) => i.product_id).filter((id: string) => UUID_RE.test(id))),
+    ...new Set(rows.map((i) => String(i.product_id)).filter((id: string) => UUID_RE.test(id))),
   ]
   const basePriceByProductId = new Map<string, number>()
   if (productIds.length) {
@@ -448,7 +477,7 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   }
 
   const variantIds = [
-    ...new Set(items.map((i: any) => i.variant_id).filter((id: unknown): id is string => !!id)),
+    ...new Set(rows.map((i) => i.variant_id).filter((id: unknown): id is string => !!id)),
   ]
   const variantById = new Map<string, { product_id: string; price: number | null }>()
   if (variantIds.length) {
@@ -466,29 +495,30 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
 
   const pricingContext = { basePriceByProductId, variantById }
 
-  // Resolve o preço item a item por `resolveItemPrice` (@estrelinha/core/pricing) — a MESMA função
-  // pura que o admin e a loja usam, coberta por 36 testes em vitest. O que ela garante e o mapa
-  // `priceById` de antes não garantia: o caminho de preço é o **gravado no item**, e preço não
-  // resolvível vira ERRO, não o `unit_price` que veio do cliente.
-  const resolvedUnitPrice = new Map<string, number>()
-  const pricingItems: { product_id: string; unit_price: number; quantity: number }[] = []
+  // Resolve o preço de cada PEÇA por `resolveItemPrice` (@estrelinha/core/pricing) — a MESMA função
+  // pura que o admin e a loja usam. O caminho de preço é o **gravado no item**, e preço não
+  // resolvível vira ERRO, não o `unit_price` que veio do cliente. Uma linha de `pricingItems` por
+  // grupo, na ordem em que as linhas chegaram.
+  const pricingItems: { product_id: string; variant_id: string | null; unit_price: number; quantity: number }[] = []
 
-  for (const i of items as any[]) {
+  for (const grupo of grupos) {
+    const i = rows[grupo.rows[0]]
     const productId = String(i.product_id)
+    const variantId = i.variant_id ?? null
 
-    // Pin personalizado (A3): `product_id` sintético, sem linha em `products`. Mantém o
-    // comportamento de hoje — `unit_price` do item — porque não há o que resolver.
+    // Pin personalizado (A3): `product_id` sintético, sem linha em `products`. O preço de origem é o
+    // gravado no item — o CHEIO (`full_unit_price`), porque `unit_price` passou a ser o cobrado, e
+    // relê-lo numa segunda tentativa aplicaria o desconto de novo. Pedido de antes: `unit_price`.
     if (!UUID_RE.test(productId)) {
-      const unit = Number(i.unit_price)
-      pricingItems.push({ product_id: productId, unit_price: unit, quantity: i.quantity })
-      resolvedUnitPrice.set(String(i.id), unit)
+      const unit = Number(i.full_unit_price ?? i.unit_price)
+      pricingItems.push({ product_id: productId, variant_id: variantId, unit_price: unit, quantity: grupo.quantity })
       continue
     }
 
     const resolution = resolveItemPrice(
       {
         product_id: productId,
-        variant_id: i.variant_id ?? null,
+        variant_id: variantId,
         price_source: (i.price_source ?? "base") as "base" | "variant",
       },
       pricingContext,
@@ -503,7 +533,7 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
           code: resolution.error.code,
           item_id: i.id,
           product_id: productId,
-          variant_id: i.variant_id ?? null,
+          variant_id: variantId,
         })
         // 422 ANTES de qualquer chamada ao MP: pedido impagável não vira cobrança.
         return json(
@@ -526,18 +556,37 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
       if (fallback === undefined) {
         return json({ error: `Produto ${productId} não encontrado para precificação.` }, 422)
       }
-      pricingItems.push({ product_id: productId, unit_price: fallback, quantity: i.quantity })
-      resolvedUnitPrice.set(String(i.id), fallback)
+      pricingItems.push({ product_id: productId, variant_id: variantId, unit_price: fallback, quantity: grupo.quantity })
       continue
     }
 
     pricingItems.push({
       product_id: productId,
+      variant_id: variantId,
       unit_price: resolution.price,
-      quantity: i.quantity,
+      quantity: grupo.quantity,
     })
-    resolvedUnitPrice.set(String(i.id), resolution.price)
   }
+
+  // O desconto casado sai da configuração do BANCO — a mesma leitura e o mesmo
+  // mapeamento da sacola (`buyTogetherDiscountConfig`) —, nunca de um desconto vindo do navegador.
+  // Sem nenhum adicional com desconto, a entrada fica ausente e o cálculo é exatamente o de antes.
+  let buyTogetherConfig: ReturnType<typeof buyTogetherDiscountConfig> = null
+  if (productIds.length) {
+    const { data: configRows, error: configError } = await supabase
+      .from("product_buy_together")
+      .select(BUY_TOGETHER_DISCOUNT_SELECT)
+      .in("product_id", productIds)
+      .order("position", { ascending: true })
+    if (configError) {
+      log({ action: "create-payment", order_id, status: "buy_together_read_failed" })
+      return json({ error: "Não foi possível calcular o pedido. Tente de novo." }, 500)
+    }
+    buyTogetherConfig = buyTogetherDiscountConfig(configRows || [])
+  }
+  const buyTogether = buyTogetherConfig
+    ? { ...buyTogetherConfig, marks: grupos.map((g) => g.marks) }
+    : undefined
 
   // BMP-04: a oferta do bump é do lojista (store_settings), nunca do payload do cliente —
   // um flag `is_order_bump` vindo do browser seria input não confiável.
@@ -649,52 +698,72 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   // promoção e cupom não somam — vale o de menor total final. O `shipping` que entra é o COTADO;
   // quem zera para cupom `free_shipping` é a própria função, porque comparar os dois caminhos pelo
   // total exige que o frete já esteja resolvido nos dois.
+  const pricingInput: OrderPricingInput = {
+    items: pricingItems,
+    shipping: Number(order.shipping_cost || 0),
+    pixDiscountPercent,
+    method,
+    bump,
+    coupon,
+    promotions,
+    ...(buyTogether ? { buyTogether } : {}),
+  }
   let pricing
   try {
-    pricing = resolveOrderPricing({
-      items: pricingItems,
-      shipping: Number(order.shipping_cost || 0),
-      pixDiscountPercent,
-      method,
-      bump,
-      coupon,
-      promotions,
-    })
+    pricing = resolveOrderPricing(pricingInput)
   } catch (_err) {
     return json({ error: "Total do pedido inválido: menor que R$ 0,01" }, 422)
   }
   const totals = pricing.totals
+  // As linhas que o pedido passa a gravar e os descontos por tipo — a MESMA função que a loja chama
+  // ao montar o pedido (`buildOrderItems`).
+  const orderLines = resolveOrderLines(pricingInput, pricing)
 
   // PRM-12 — A GUARDA DE TETO.
   //
-  // `orders.promotion_discount` foi gravado na CRIAÇÃO do pedido, pela loja: é número escrito pelo
-  // cliente. Por isso ele nunca é o valor cobrado (`PAY-03` — o total cobrado é sempre o recálculo
-  // deste servidor); ele serve para responder uma pergunta só: "o desconto piorou depois de a
-  // cliente ver o total?".
+  // `orders.promotion_discount`, `buy_together_discount` e `order_bump_discount` foram gravados na
+  // CRIAÇÃO do pedido, pela loja: são números escritos pelo cliente. Por isso nunca são o valor
+  // cobrado (`PAY-03` — o total cobrado é sempre o recálculo deste servidor); eles respondem uma
+  // pergunta só: "o pedido ficou mais caro depois de a cliente ver o total?".
   //
-  // Recalculado MENOR que o exibido ⇒ cobrar agora seria cobrar mais caro do que a tela prometeu.
-  // 422 antes de qualquer chamada ao MP, e a loja recarrega. É o único caminho de erro que esta
-  // feature adiciona, e existe porque a alternativa é a loja mentir sobre preço.
+  // A régua é a SOMA dos três descontos por item: recalculada MENOR que a exibida ⇒ cobrar agora
+  // seria cobrar mais caro do que a tela prometeu, e é 422 antes de qualquer chamada ao MP. Igual ou
+  // MAIOR ⇒ passa — inclusive quando outro desconto passou a valer no lugar do casado (a dona tirou o
+  // percentual e uma promoção cobre): a cliente paga menos, e recusar seria erro onde não há problema.
   //
-  // Recalculado igual ou MAIOR ⇒ passa direto. Promoção que melhorou entre o pedido e o pagamento
-  // deixa a cliente pagar menos; recusar um pagamento por isso seria erro onde não havia problema.
-  //
-  // Por que um valor alto forjado não é exploração: ele só torna o 422 mais provável — auto-
-  // infligido. Não existe caminho em que o número do cliente vire o valor cobrado.
-  const displayedPromotionDiscount = Number(order.promotion_discount || 0)
-  if (pricing.promotionDiscount < displayedPromotionDiscount) {
+  // Um valor alto forjado não é exploração: ele só torna o 422 mais provável — auto-infligido.
+  const centavos = (v: unknown) => Math.round(Number(v || 0) * 100)
+  const exibido =
+    centavos(order.promotion_discount) +
+    centavos(order.buy_together_discount) +
+    centavos(order.order_bump_discount)
+  const recalculado =
+    centavos(pricing.promotionDiscount) +
+    centavos(orderLines.buyTogetherDiscount) +
+    centavos(orderLines.orderBumpDiscount)
+  if (recalculado < exibido) {
+    const casadoCaiu = centavos(orderLines.buyTogetherDiscount) < centavos(order.buy_together_discount)
     log({
       action: "create-payment",
       order_id,
-      status: "promotion_no_longer_valid",
-      displayed_discount: displayedPromotionDiscount,
-      recomputed_discount: pricing.promotionDiscount,
+      status: casadoCaiu ? "buy_together_price_changed" : "promotion_no_longer_valid",
+      displayed_discount: exibido / 100,
+      recomputed_discount: recalculado / 100,
     })
+    // Os dois códigos levam o mesmo corpo: as telas de "o valor mudou" mostram o antes (o total que
+    // a tela mostrou), o agora (o recalculado) e a peça que encareceu, e a loja trata os dois do mesmo
+    // jeito — no checkout a cliente vê o total novo e confirma outra vez (um pedido novo; repagar este
+    // daria o mesmo 422). O código diz QUAL desconto caiu, e a frase só nomeia o Compre Junto quando
+    // foi ele: o bump ou a promoção são "um desconto".
     return json(
       {
-        error:
-          "A promoção deste pedido mudou. Recarregue a sacola para ver o novo total antes de pagar.",
-        code: "promotion_no_longer_valid",
+        error: casadoCaiu
+          ? "O desconto do Compre Junto deste pedido mudou. Nada foi cobrado."
+          : "Um desconto deste pedido mudou. Nada foi cobrado.",
+        code: casadoCaiu ? "buy_together_price_changed" : "promotion_no_longer_valid",
+        displayed_total: order.total === null || order.total === undefined ? null : Number(order.total),
+        total: totals.total,
+        piece: pecaQueEncareceu(rows, grupos, orderLines.lines),
       },
       422,
     )
@@ -719,28 +788,30 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
       subtotal: totals.subtotal,
       pix_discount: totals.pixDiscount,
       total: totals.total,
+      // A linha do cupom: incide sobre o subtotal já com os descontos por item, então muda junto com
+      // eles. Sem ela o resumo do pedido mostra o cupom da criação e as linhas deixam de somar o Total.
+      discount: totals.couponDiscount,
       // Gravados com o valor RECALCULADO, nunca com o que veio do cliente: depois do pagamento é
       // esta linha que o resumo, o e-mail e o backoffice leem.
       promotion_id: appliedPromotionId,
       promotion_discount: pricing.promotionDiscount,
+      // Os outros dois descontos por item, recalculados.
+      buy_together_discount: orderLines.buyTogetherDiscount,
+      order_bump_discount: orderLines.orderBumpDiscount,
     })
     .eq("id", order_id)
   if (persistError) {
     return json({ error: "Falha ao atualizar o pedido" }, 500)
   }
 
-  // Um update por item: o `unit_price` recalculado difere por linha, e o supabase-js não expressa
-  // um UPDATE ... FROM (VALUES ...) em uma chamada. São poucos itens por pedido.
-  for (const i of items as any[]) {
-    const resolved = resolvedUnitPrice.get(String(i.id))
-    if (resolved === undefined || resolved === Number(i.unit_price)) continue
-    const { error: itemPersistError } = await supabase
-      .from("order_items")
-      .update({ unit_price: resolved })
-      .eq("id", i.id)
-    if (itemPersistError) {
-      return json({ error: "Falha ao atualizar os itens do pedido" }, 500)
-    }
+  // Cada linha passa a guardar o preço COBRADO (`unit_price`) e o cheio (`full_unit_price`),
+  // pelo recálculo. As linhas de cada peça são regravadas para casar com as partes que
+  // `resolveOrderLines` devolveu: a primeira de cada parte é atualizada (só o que mudou), a parte a
+  // mais vira uma linha nova com o mesmo snapshot, e a linha que sobrou sai. Um update por linha: o
+  // supabase-js não expressa um UPDATE ... FROM (VALUES ...) numa chamada. São poucos itens.
+  const itemWriteError = await regravarLinhas(supabase, order_id, rows, grupos, orderLines.lines)
+  if (itemWriteError) {
+    return json({ error: "Falha ao atualizar os itens do pedido" }, 500)
   }
 
   return await chargeOrder(deps, {
@@ -758,8 +829,107 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
       promotion_id: appliedPromotionId,
       tier_min_qty: pricing.applied.length === 1 ? pricing.applied[0].tier_min_qty : null,
       promotions_applied: pricing.applied.length,
+      buy_together_discount: orderLines.buyTogetherDiscount,
     },
   })
+}
+
+/**
+ * As colunas que o recálculo lê de `order_items`: as de preço, as que identificam a peça (para juntar
+ * as linhas), a marca validada e o snapshot que uma linha nova copia.
+ */
+const ITENS_DO_RECALCULO =
+  "id, product_id, product_name, product_image, size, finish, quantity, unit_price, full_unit_price, " +
+  "variant_id, price_source, variant_label, variant_options, requires_material, material_kinds, " +
+  "engraving_text, accompanies_product_ids, accompanies_list_ids"
+
+/** O snapshot que a linha nova de uma peça copia da primeira linha dela. */
+const SNAPSHOT_DA_LINHA = [
+  "product_id",
+  "product_name",
+  "product_image",
+  "size",
+  "finish",
+  "variant_id",
+  "price_source",
+  "variant_label",
+  "variant_options",
+  "requires_material",
+  "material_kinds",
+  "engraving_text",
+  "accompanies_product_ids",
+  "accompanies_list_ids",
+] as const
+
+interface LinhaCobrada {
+  index: number
+  quantity: number
+  fullUnitPrice: number
+  unitPrice: number
+}
+
+/** O nome da primeira peça cujo total recalculado ficou acima do que a linha mostrava. */
+function pecaQueEncareceu(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[],
+  grupos: ReturnType<typeof joinOrderRows>,
+  lines: readonly LinhaCobrada[],
+): string | null {
+  const centavos = (v: unknown) => Math.round(Number(v || 0) * 100)
+  for (let g = 0; g < grupos.length; g++) {
+    const antes = grupos[g].rows.reduce((t, r) => t + centavos(rows[r].unit_price) * Number(rows[r].quantity), 0)
+    const agora = lines
+      .filter((l) => l.index === g)
+      .reduce((t, l) => t + centavos(l.unitPrice) * l.quantity, 0)
+    if (agora > antes) return String(rows[grupos[g].rows[0]].product_name ?? "") || null
+  }
+  return null
+}
+
+/** Regrava as linhas de cada peça com as partes recalculadas. Devolve o primeiro erro, ou `null`. */
+async function regravarLinhas(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  orderId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[],
+  grupos: ReturnType<typeof joinOrderRows>,
+  lines: readonly LinhaCobrada[],
+): Promise<unknown> {
+  for (let g = 0; g < grupos.length; g++) {
+    const partes = lines.filter((l) => l.index === g)
+    const linhas = grupos[g].rows.map((r) => rows[r])
+    const total = Math.max(partes.length, linhas.length)
+    for (let k = 0; k < total; k++) {
+      const parte = partes[k]
+      const atual = linhas[k]
+      if (parte && atual) {
+        const mudou: Record<string, number> = {}
+        if (Number(atual.quantity) !== parte.quantity) mudou.quantity = parte.quantity
+        if (Number(atual.unit_price) !== parte.unitPrice) mudou.unit_price = parte.unitPrice
+        if (atual.full_unit_price === null || atual.full_unit_price === undefined ||
+          Number(atual.full_unit_price) !== parte.fullUnitPrice) {
+          mudou.full_unit_price = parte.fullUnitPrice
+        }
+        if (Object.keys(mudou).length === 0) continue
+        const { error } = await supabase.from("order_items").update(mudou).eq("id", atual.id)
+        if (error) return error
+      } else if (parte) {
+        const modelo = linhas[0]
+        const nova: Record<string, unknown> = { order_id: orderId }
+        for (const coluna of SNAPSHOT_DA_LINHA) nova[coluna] = modelo[coluna] ?? null
+        nova.quantity = parte.quantity
+        nova.unit_price = parte.unitPrice
+        nova.full_unit_price = parte.fullUnitPrice
+        const { error } = await supabase.from("order_items").insert(nova)
+        if (error) return error
+      } else if (atual) {
+        const { error } = await supabase.from("order_items").delete().eq("id", atual.id)
+        if (error) return error
+      }
+    }
+  }
+  return null
 }
 
 /**

@@ -219,7 +219,7 @@ export const emptyProductForm = (): ProductFormState => ({
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, position, suppliers(name)), product_buy_together!product_buy_together_product_id_fkey(id, position, kind, target_product_id, list_id, target_variant_ids, hidden_on_variant_ids)'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, position, suppliers(name)), product_buy_together!product_buy_together_product_id_fkey(id, position, kind, target_product_id, list_id, target_variant_ids, hidden_on_variant_ids, discount_percent)'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Os fornecedores do embed, na ordem; sem nenhum, a linha vazia onde a dona digita. */

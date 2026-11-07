@@ -34,7 +34,21 @@ const item = (over: Record<string, unknown> = {}) =>
     ...over,
   }) as never
 
-const entrada = (over: Partial<OrderPayloadInput> = {}): OrderPayloadInput =>
+/** Uma linha do pedido por item da entrada, ao preço da entrada (sem desconto nenhum). */
+const linhasDe = (pricingItems: { unit_price: number; quantity: number }[]) =>
+  pricingItems.map((p, index) => ({
+    index,
+    quantity: p.quantity,
+    fullUnitPrice: p.unit_price,
+    unitPrice: p.unit_price,
+  }))
+
+const entrada = (over: Partial<OrderPayloadInput> = {}): OrderPayloadInput => {
+  const pricingItems = over.pricingItems ?? [{ product_id: 'prod-1', unit_price: 100, quantity: 1 }]
+  return montar({ lines: linhasDe(pricingItems), ...over })
+}
+
+const montar = (over: Partial<OrderPayloadInput> = {}): OrderPayloadInput =>
   ({
     items: [item()],
     pricingItems: [{ product_id: 'prod-1', unit_price: 100, quantity: 1 }],
@@ -63,6 +77,8 @@ const entrada = (over: Partial<OrderPayloadInput> = {}): OrderPayloadInput =>
     coupon: null,
     applied: [],
     promotionDiscount: 0,
+    buyTogetherDiscount: 0,
+    orderBumpDiscount: 0,
     materialStatus: 'aguardando_material',
     ...over,
   }) as OrderPayloadInput
@@ -252,7 +268,63 @@ describe('buildOrderItems — a marca "acompanha" do Compre Junto', () => {
   })
 })
 
+describe('buildOrderItems — o preço cheio e o cobrado de cada linha (desconto casado, bump, promoção)', () => {
+  const principal = item({ product: produto({ id: 'joia', name: 'Pingente', requires_material: false, material_kinds: [] }), unitPrice: 300 })
+  const correntes = item({
+    product: produto({ id: 'corrente', name: 'Corrente', requires_material: false, material_kinds: [] }),
+    unitPrice: 79,
+    quantity: 2,
+    accompanies: [{ mainProductId: 'joia', listId: null }],
+  })
+
+  it('a linha mista vira duas linhas: as unidades com o desconto casado e as a preço cheio', () => {
+    const linhas = buildOrderItems(
+      montar({
+        items: [principal, correntes] as never,
+        lines: [
+          { index: 0, quantity: 1, fullUnitPrice: 300, unitPrice: 300 },
+          { index: 1, quantity: 1, fullUnitPrice: 79, unitPrice: 71.1 },
+          { index: 1, quantity: 1, fullUnitPrice: 79, unitPrice: 75.05 },
+        ],
+      }),
+    )
+
+    expect(linhas.map((l) => [l.product_id, l.quantity, l.unit_price, l.full_unit_price])).toEqual([
+      ['joia', 1, 300, 300],
+      ['corrente', 1, 71.1, 79],
+      ['corrente', 1, 75.05, 79],
+    ])
+    // As duas linhas da mesma peça levam a mesma marca e o mesmo snapshot.
+    expect(linhas[1].accompanies_product_ids).toEqual(['joia'])
+    expect(linhas[2].accompanies_product_ids).toEqual(['joia'])
+    expect(linhas[2].product_name).toBe('Corrente')
+  })
+
+  it('o bump grava o cobrado e o cheio', () => {
+    const linhas = buildOrderItems(
+      montar({
+        items: [principal] as never,
+        bumpProduct: produto({ id: 'bump-1', name: 'Porta-joias', images: [] }) as never,
+        lines: [
+          { index: 0, quantity: 1, fullUnitPrice: 300, unitPrice: 300 },
+          { index: 1, quantity: 1, fullUnitPrice: 40, unitPrice: 20 },
+        ],
+      }),
+    )
+
+    expect(linhas[1]).toMatchObject({ product_id: 'bump-1', quantity: 1, unit_price: 20, full_unit_price: 40 })
+  })
+})
+
 describe('buildOrderPayload — o corpo do pedido', () => {
+  it('leva os descontos por tipo que a tela mostrou, ao lado da promoção', () => {
+    const corpo = buildOrderPayload(entrada({ promotionDiscount: 3.95, buyTogetherDiscount: 7.9, orderBumpDiscount: 20 }))
+
+    expect(corpo.promotion_discount).toBe(3.95)
+    expect(corpo.buy_together_discount).toBe(7.9)
+    expect(corpo.order_bump_discount).toBe(20)
+  })
+
   it('o CEP vai com 8 dígitos, sem máscara (ADR-05)', () => {
     // Sem isto `orders.address_zip` fica com hífen e o backoffice estoura em `MelhorEnvioTab`.
     expect(buildOrderPayload(entrada()).address_zip).toBe('01310100')

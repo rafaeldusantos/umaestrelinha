@@ -7,7 +7,7 @@
 //
 // Aqui não há mudança de regra nenhuma: é o mesmo código, com os mesmos comentários, num lugar
 // onde ele pode ser exercido sem montar a página inteira.
-import { applyOrderBump, type OrderBumpConfig, type PricingItem } from '@estrelinha/core/payment/pricing'
+import type { ChargedLine, OrderBumpConfig, PricingItem } from '@estrelinha/core/payment/pricing'
 import { primaryImage } from '@estrelinha/core/media'
 import { materialKindsOf, requiresMaterial } from '@estrelinha/core/material'
 import { markColumns, orderItemMarks } from '@estrelinha/core/buy-together'
@@ -46,6 +46,14 @@ export interface OrderPayloadInput {
   /** As promoções que a tela aplicou — `PRM-12`. */
   applied: { promotion_id: string }[]
   promotionDiscount: number
+  /** O desconto casado e o da oferta do checkout que a tela mostrou (`resolveOrderLines`). */
+  buyTogetherDiscount: number
+  orderBumpDiscount: number
+  /**
+   * As linhas do pedido, de `resolveOrderLines` (`useCheckoutTotals`): o preço cheio e o cobrado de
+   * cada uma. `index` aponta para `items`; `items.length` é o bump.
+   */
+  lines: ChargedLine[]
   materialStatus: string
   /**
    * Feature 61 · CMP-01 — os ids do GA e a recusa. Opcional: sem medição na tela, nada vai.
@@ -55,23 +63,23 @@ export interface OrderPayloadInput {
 }
 
 /**
- * Os itens do pedido, com o desconto do bump já embutido.
+ * Os itens do pedido: uma linha por linha de `resolveOrderLines`, com o preço cheio
+ * (`full_unit_price`) e o cobrado (`unit_price`, com o bump, a promoção ou o desconto casado). A linha
+ * da sacola com unidades com e sem o desconto casado vira duas linhas, cada uma com o seu preço; o
+ * servidor as junta de volta antes de recalcular (`joinOrderRows`).
  *
- * BMP-03: `order_items.unit_price` já sai descontado; o servidor recalcula pelo `product_id`
- * (BMP-04). ⚠️ A lista descontada serve só para persistir — `calculateOrderTotals` recebe preço
- * cheio + `bump` dentro de `useCheckoutTotals` (carry-forward #1).
+ * Nenhuma conta aqui: quem decide o preço é `resolveOrderPricing`, a MESMA função do servidor.
  */
 export function buildOrderItems(
-  input: Pick<OrderPayloadInput, 'items' | 'pricingItems' | 'bump' | 'bumpProduct'>,
+  input: Pick<OrderPayloadInput, 'items' | 'bumpProduct' | 'lines'>,
 ): CreateOrderInput['items'] {
-  const { items, pricingItems, bump, bumpProduct } = input
-  const priced = applyOrderBump(pricingItems, bump)
+  const { items, bumpProduct, lines } = input
   // Os principais da sacola: a marca "acompanha" só vai quando o principal dela está no pedido. A
   // regra é a de `core/buy-together`, a MESMA que a function `checkout` chama ao gravar.
   const idsDoPedido = items.map((i) => i.product.id)
 
-  return [
-    ...items.map((item, index) => {
+  const snapshots = [
+    ...items.map((item) => {
       const marcas = orderItemMarks(item.accompanies, idsDoPedido, item.product.id)
       return {
         product_id: item.product.id,
@@ -79,8 +87,6 @@ export function buildOrderItems(
         product_image: primaryImage(item.product.images)?.url ?? null,
         size: item.size || null,
         finish: item.finish || null,
-        quantity: item.quantity,
-        unit_price: priced[index].unit_price,
         // 07/T16 (PST-03): a variação escolhida vai para o pedido, e o caminho de preço é CONGELADO
         // aqui. O servidor obedece este `price_source` e não reavalia se o produto tem grade — sem
         // isso, criar ou pausar uma variação entre o pedido e o pagamento mudaria o valor de um
@@ -98,9 +104,9 @@ export function buildOrderItems(
         material_kinds: materialKindsOf(item.product),
         engraving_text: item.engravingText ?? null,
         // Compre Junto: de quais principais e de quais listas a peça veio (todos os que ainda estão
-        // na sacola, alinhados por posição). Informativa — o servidor recalcula o preço sem ler
-        // isto. As chaves batem com as colunas que o `create-order` aceita
-        // (`chavesDoItemDoPedido.test.ts`).
+        // na sacola, alinhados por posição). Não decide preço; o servidor lê só os principais já
+        // validados, para o par recíproco. As chaves batem com as colunas que o `create-order`
+        // aceita (`chavesDoItemDoPedido.test.ts`).
         ...markColumns(marcas),
       }
     }),
@@ -112,8 +118,6 @@ export function buildOrderItems(
             product_image: primaryImage(bumpProduct.images)?.url ?? null,
             size: null,
             finish: null,
-            quantity: 1,
-            unit_price: priced[items.length].unit_price,
             // O bump é sempre o produto inteiro, nunca uma linha da grade — a oferta do lojista
             // aponta para um `product_id`, não para uma variação.
             variant_id: null,
@@ -133,6 +137,15 @@ export function buildOrderItems(
         ]
       : []),
   ]
+
+  return lines
+    .filter((line) => snapshots[line.index] !== undefined)
+    .map((line) => ({
+      ...snapshots[line.index],
+      quantity: line.quantity,
+      unit_price: line.unitPrice,
+      full_unit_price: line.fullUnitPrice,
+    }))
 }
 
 /**
@@ -181,6 +194,10 @@ export function buildOrderPayload(input: OrderPayloadInput): CreateOrderInput {
     // "quanto" fica em `promotion_discount`.
     promotion_id: applied.length === 1 ? applied[0].promotion_id : null,
     promotion_discount: input.promotionDiscount,
+    // Os outros dois descontos por item que esta tela exibiu — o teto da guarda do
+    // `create-payment` é a soma dos três.
+    buy_together_discount: input.buyTogetherDiscount,
+    order_bump_discount: input.orderBumpDiscount,
     material_status: input.materialStatus,
     items: buildOrderItems(input),
     ...analyticsFields(input.analytics),

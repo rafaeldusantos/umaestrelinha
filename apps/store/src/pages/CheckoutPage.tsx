@@ -12,7 +12,7 @@
 // Por isso o `AuthOverlay` é montado aqui — mas desde a feature `49` ele não abre mais sozinho:
 // `CHK-02` foi **removida**, e quem convida a entrar é o `SignInInvite`, sem obrigar ninguém.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@estrelinha/ui/button'
@@ -31,6 +31,7 @@ import {
   missingVariantMessage,
 } from '@/features/checkout/lib/requireVariantSelection'
 import { getCardFormData } from '@/features/checkout/lib/cardBrick'
+import { cartFingerprint } from '@/features/checkout/lib/cartFingerprint'
 import {
   buildOrderItems,
   buildOrderPayload,
@@ -38,6 +39,7 @@ import {
 import {
   useCreatePayment,
   PAYMENT_UNAVAILABLE_MESSAGE,
+  PriceChangedError,
 } from '@/features/checkout/api/useCreatePayment'
 import { useCartStore, useCartUiStore } from '@/entities/cart'
 import {
@@ -45,6 +47,7 @@ import {
   PIX_SLOW_MS,
   PaymentApproved,
   PaymentProgress,
+  PriceChangedCheckout,
 } from '@/features/order-payment'
 import {
   declinedNotice,
@@ -108,6 +111,14 @@ interface DbGridRow {
  */
 const TRUST_ITEMS = [{ icon: ShieldCheck, label: 'Pagamento processado por Mercado Pago' }]
 
+/** O que a tela "o valor do seu pedido mudou" mostra (`PriceChangedError`). */
+interface PriceChangedFacts {
+  displayedTotal: number
+  total: number
+  piece: string | null
+  reason: 'buy_together' | 'discount'
+}
+
 const CheckoutPage = () => {
   // Feature 62: o <title> e a descrição desta rota (`core/seo`).
   usePageMeta(staticPageMeta('/checkout'))
@@ -136,8 +147,19 @@ const CheckoutPage = () => {
   /** Cartão: o Brick reconheceu o número (`CardFormSignal`). Sem isso "Pagar" não habilita. */
   const cardNumberRecognized = useCheckoutStore((s) => s.cardNumberRecognized)
 
-  const { pricingItems, bump, bumpProduct, totals, cardTotal, promotionDiscount, applied } =
-    useCheckoutTotals()
+  const {
+    pricingItems,
+    bump,
+    bumpProduct,
+    totals,
+    cardTotal,
+    promotionDiscount,
+    buyTogetherDiscount,
+    orderBumpDiscount,
+    orderLines,
+    buyTogether,
+    applied,
+  } = useCheckoutTotals()
   /**
    * A tabela de parcelas do cartão digitado e a escolhida (`InstallmentPicker` lê a mesma). Sobre o
    * total do CARTÃO, sem desconto PIX — o mesmo valor que o card do cartão anuncia.
@@ -145,6 +167,21 @@ const CheckoutPage = () => {
   const cardInstallments = useCardInstallmentOptions(cardTotal)
   const createOrder = useCreateOrder()
   const createPayment = useCreatePayment()
+  const location = useLocation()
+  /**
+   * O servidor recusou antes de cobrar — o desconto do Compre Junto mudou e o pedido
+   * sairia mais caro do que esta tela mostrou. Chega pelo cartão (aqui mesmo) ou pela rota do PIX,
+   * que devolve a cliente ao checkout com o antes e o agora no estado da navegação.
+   */
+  const [priceChanged, setPriceChanged] = useState<PriceChangedFacts | null>(
+    () => (location.state as { priceChanged?: PriceChangedFacts } | null)?.priceChanged ?? null,
+  )
+  useEffect(() => {
+    // O estado da navegação é lido uma vez: um F5 não pode trazer de volta números de outra hora.
+    if ((location.state as { priceChanged?: unknown } | null)?.priceChanged) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    }
+  }, [location, navigate])
 
   const [editing, setEditing] = useState<BlockId | null>(null)
   /** FLW-03: blocos que a pessoa fechou clicando em `Continuar`. Não sobrevive ao reload. */
@@ -240,6 +277,23 @@ const CheckoutPage = () => {
     if (!orderId || orderIdentity === (user?.id ?? null)) return
     useCheckoutStore.getState().invalidateOrder()
   }, [user?.id, loading])
+
+  /**
+   * **O pedido em curso é da sacola que o criou.** O PIX entrega o bastão para a rota do pagamento
+   * e o `orderId` fica no rascunho da aba (`PIX-P1-08`); o rascunho não carrega as peças, então
+   * `isOrderStale` não via a cliente que troca a sacola e volta ao checkout — o CTA reabria o
+   * pedido anterior, com outras peças e outro valor. Sacola diferente da do pedido em curso é
+   * outra compra: o pedido é descartado (a chave de idempotência cai junto) e a oferta do
+   * checkout volta desmarcada, porque ela foi escolhida para a compra anterior. Com a MESMA
+   * sacola nada muda: é a cliente voltando para pagar o pedido que já criou.
+   */
+  const sacola = useMemo(() => cartFingerprint(items, coupon?.code ?? null), [items, coupon?.code])
+  useEffect(() => {
+    const store = useCheckoutStore.getState()
+    if (!store.orderId || store.orderCart === sacola) return
+    store.invalidateOrder()
+    store.toggleBump(false)
+  }, [sacola])
 
   // `PIX-P1-07`: a linha de espera longa ACRESCENTA, e só no passo em que quem espera é o banco.
   // A mesma régua de 8s do PIX (`PIX_SLOW_MS`) — dois números seriam duas esperas "normais".
@@ -470,7 +524,7 @@ const CheckoutPage = () => {
       // A montagem vive em `features/checkout/lib/buildOrderPayload` desde a feature `49`: ela
       // estava no meio desta função de sete passos, e é exatamente aqui que o caminho de gravação
       // muda. Regra nenhuma mudou de lugar — só saiu de dentro do CTA para onde pode ser exercida.
-      const orderItems = buildOrderItems({ items, pricingItems, bump, bumpProduct })
+      const orderItems = buildOrderItems({ items, bumpProduct, lines: orderLines })
 
       // PGM-08: pedido `pending` já existente é REUSADO — só cria quem ainda não tem. Criar um
       // segundo deixaria lixo `pending` e faria a retentativa cobrar um pedido diferente do que a
@@ -493,6 +547,9 @@ const CheckoutPage = () => {
               coupon,
               applied,
               promotionDiscount,
+              buyTogetherDiscount,
+              orderBumpDiscount,
+              lines: orderLines,
               // MAT-07: um item que exige material põe o pedido inteiro na fila — inclusive quando
               // exige SEM dizer qual. A fila é sobre "algo está a caminho", não sobre saber o quê.
               materialStatus: initialMaterialStatus(orderItems),
@@ -517,13 +574,15 @@ const CheckoutPage = () => {
           // checkout compara, e por isso ela precisa nascer no mesmo instante que o pedido.
           useCheckoutStore
             .getState()
-            .setOrder(newOrderId, useCheckoutStore.getState().draft(), user?.id ?? null)
+            .setOrder(newOrderId, useCheckoutStore.getState().draft(), user?.id ?? null, sacola)
           setEditing(null)
           if (order.order_number) {
             numeroDoPedido = order.order_number
             setCardOrderNumber(order.order_number)
           }
           payingOrderId = newOrderId
+          // O pedido com o total novo existe: o aviso do valor mudado cumpriu o papel dele.
+          setPriceChanged(null)
         } catch (err) {
           // IDN-08: o servidor recusou porque o e-mail já tem conta. É a ÚNICA falha de criação
           // que a cliente pode resolver sozinha — e o caminho é o desafio de código, não um toast
@@ -600,6 +659,19 @@ const CheckoutPage = () => {
         setCardError(friendlyMessage(response.status_detail))
         setCardNotice(declinedNotice(response.status_detail, numeroDoPedido))
       } catch (err) {
+        if (err instanceof PriceChangedError) {
+          // Nada foi cobrado. O pedido de antes sai do rascunho (a nova confirmação cria outro, com
+          // o total novo), e a configuração do Compre Junto é relida para a tela mostrar o de agora.
+          useCheckoutStore.getState().invalidateOrder()
+          buyTogether.refresh?.()
+          setPriceChanged({
+            displayedTotal: err.displayedTotal,
+            total: err.total,
+            piece: err.piece,
+            reason: err.reason,
+          })
+          return
+        }
         const message = err instanceof Error ? err.message : PAYMENT_UNAVAILABLE_MESSAGE
         setCardError(message)
         // Sem resposta do banco a loja não sabe se cobrou: o aviso não diz "nada foi cobrado".
@@ -722,6 +794,25 @@ const CheckoutPage = () => {
             {/* CHK-10 revisto (2026-10-04, pedido da dona): o CTA segue no fluxo também no celular,
                 logo abaixo do pagamento. Fixo no rodapé ele cobria o fim do formulário do cartão e
                 a escolha das parcelas, que é exatamente o que a cliente confere antes de pagar. */}
+            {priceChanged ? (
+              <PriceChangedCheckout
+                displayedTotal={priceChanged.displayedTotal}
+                total={priceChanged.total}
+                piece={priceChanged.piece}
+                reason={priceChanged.reason}
+                busy={busy}
+                // O aviso fica de pé até o pedido novo existir: se o servidor pedir o código (o
+                // primeiro pedido da convidada criou a conta do e-mail), ela segue vendo o total
+                // novo e o motivo do código, em vez de o aviso sumir trocado pelo desafio.
+                codeEmail={identity === 'challenge' ? contact.email : null}
+                onConfirm={() => void handleConfirm()}
+                onBackToBag={() => {
+                  setPriceChanged(null)
+                  useCartUiStore.getState().openCart()
+                }}
+              />
+            ) : null}
+
             <div className="flex flex-col items-center gap-3 pt-2">
               {/* FLW-07: o gate é `complete`, não `open`. Com o Pagamento sempre aberto
                   (FLW-05), `open` nunca é `null` e olhar para ele travaria o CTA para sempre. */}

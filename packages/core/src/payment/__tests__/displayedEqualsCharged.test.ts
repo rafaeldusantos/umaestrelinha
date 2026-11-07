@@ -9,6 +9,9 @@ import {
   type ProgressivePromotion,
 } from '../pricing'
 import { pixPrice } from '../pix'
+import { resolveOrderLines, type BuyTogetherPricingInput, type OrderPricingInput } from '../pricing'
+import { joinOrderRows, type OrderRowLike } from '../orderLines'
+import type { BuyTogetherDiscountAddon } from '../../buy-together/cartDiscount'
 
 // BMP-04 / Success Criterion central da 08: "o total no rótulo do CTA é igual ao `total` que a
 // edge function persiste em `orders`" — asseverado **por valor**, não por inspeção visual.
@@ -477,5 +480,178 @@ describe('preço com PIX da vitrine = total cobrado por uma unidade', () => {
     expect(pixPrice(7.9, 5)).toBe(7.5)
     // A fórmula anterior, escrita por extenso: é o valor que NÃO pode voltar.
     expect(Math.round(7.9 * (1 - 5 / 100) * 100) / 100).toBe(7.51)
+  })
+})
+
+// --- O desconto da compra casada, com bump, promoção e cupom ---------------------------------
+//
+// A assimetria de verdade entre as duas pontas: a loja calcula sobre as linhas da SACOLA e grava o
+// pedido com a linha mista partida em duas (as unidades com desconto casado e as a preço cheio); o
+// servidor lê `order_items`, JUNTA as linhas da mesma peça e recalcula. Os dois lados chamam
+// `resolveOrderPricing` e `resolveOrderLines` — o espelho abaixo passa pelas mesmas funções que a
+// `CheckoutPage` (`buildOrderItems`) e a `mercado-pago` (`joinOrderRows`) chamam. Os números foram
+// feitos à mão.
+describe('exibido == cobrado com o desconto casado — a sacola e o pedido gravado dão o mesmo centavo', () => {
+  const addon = (o: Partial<BuyTogetherDiscountAddon>): BuyTogetherDiscountAddon => ({
+    id: 'a1',
+    mainProductId: 'joia',
+    position: 0,
+    kind: 'product',
+    targetProductId: 'corrente',
+    listId: null,
+    targetVariantIds: [],
+    hiddenOnVariantIds: [],
+    discountPercent: 10,
+    ...o,
+  })
+
+  interface CartLine extends PricingItem {
+    product_id: string
+    marks?: string[]
+  }
+
+  /** A loja: as linhas da sacola, o pedido gravado com a linha mista partida. */
+  const lojaGrava = (input: OrderPricingInput, cart: CartLine[]) => {
+    const outcome = resolveOrderPricing(input)
+    const lines = resolveOrderLines(input, outcome)
+    const rows: Array<OrderRowLike & { unit_price: number; full_unit_price: number }> =
+      lines.lines.map((l) => ({
+        product_id: cart[l.index].product_id,
+        variant_id: cart[l.index].variant_id ?? null,
+        quantity: l.quantity,
+        unit_price: l.unitPrice,
+        full_unit_price: l.fullUnitPrice,
+        accompanies_product_ids: cart[l.index].marks ?? null,
+      }))
+    return { outcome, lines, rows }
+  }
+
+  /** O servidor: junta as linhas gravadas, refaz as entradas e recalcula pela MESMA função. */
+  const servidorRecalcula = (
+    base: Omit<OrderPricingInput, 'items' | 'buyTogether'>,
+    config: Omit<BuyTogetherPricingInput, 'marks'>,
+    rows: ReturnType<typeof lojaGrava>['rows'],
+  ) => {
+    const joined = joinOrderRows(rows)
+    const input: OrderPricingInput = {
+      ...base,
+      items: joined.map((j) => ({
+        product_id: rows[j.rows[0]].product_id,
+        variant_id: rows[j.rows[0]].variant_id ?? null,
+        // O preço de catálogo, que o servidor lê do banco: aqui, o cheio gravado.
+        unit_price: rows[j.rows[0]].full_unit_price,
+        quantity: j.quantity,
+      })),
+      buyTogether: { ...config, marks: joined.map((j) => j.marks) },
+    }
+    const outcome = resolveOrderPricing(input)
+    return { joined, outcome, lines: resolveOrderLines(input, outcome) }
+  }
+
+  const config = { addons: [addon({})], lists: [] }
+  // A joia (300), duas correntes (79 — uma leva o casado de 10%, a outra vai a preço cheio) e o bump
+  // (40, 50%). A promoção dá 5% nas correntes a partir de 2 unidades; o cupom, 10%.
+  const cart: CartLine[] = [
+    { product_id: 'joia', variant_id: null, unit_price: 300, quantity: 1 },
+    { product_id: 'corrente', variant_id: null, unit_price: 79, quantity: 2, marks: ['joia'] },
+    { product_id: 'bump-1', variant_id: null, unit_price: 40, quantity: 1 },
+  ]
+  const cincoNasCorrentes: ProgressivePromotion = {
+    id: 'promo-5',
+    discount_kind: 'percent',
+    tiers: [{ min_qty: 2, value: 5 }],
+    scope: 'categories',
+    eligibleProductIds: ['corrente'],
+    stacks_with_coupon: false,
+    created_at: '2026-11-01T00:00:00Z',
+  }
+  const base = {
+    shipping: 20,
+    pixDiscountPercent: 5,
+    method: 'pix' as const,
+    bump: { enabled: true, product_id: 'bump-1', discount_percent: 50 },
+    promotions: [cincoNasCorrentes],
+  }
+
+  it('casado + bump + promoção, sem cupom: a promoção vale só na corrente a preço cheio', () => {
+    const input: OrderPricingInput = {
+      ...base,
+      coupon: null,
+      items: cart,
+      buyTogether: { ...config, marks: cart.map((c) => c.marks ?? []) },
+    }
+    const loja = lojaGrava(input, cart)
+    // 300 + 71,10 (79 com 10%) + 75,05 (79 com 5%) + 20 (bump) = 466,15 · PIX 23,31 · frete 20.
+    expect(loja.outcome.totals.total).toBe(462.84)
+    expect(loja.rows.map((r) => [r.product_id, r.quantity, r.unit_price, r.full_unit_price])).toEqual([
+      ['joia', 1, 300, 300],
+      ['corrente', 1, 71.1, 79],
+      ['corrente', 1, 75.05, 79],
+      ['bump-1', 1, 20, 40],
+    ])
+    expect(loja.lines.buyTogetherDiscount).toBe(7.9)
+    expect(loja.lines.promotionDiscount).toBe(3.95)
+    expect(loja.lines.orderBumpDiscount).toBe(20)
+
+    const servidor = servidorRecalcula({ ...base, coupon: null }, config, loja.rows)
+    // As duas linhas da corrente voltam a ser UMA: a faixa conta 2 unidades, e o bump não dobra.
+    expect(servidor.joined.map((j) => j.quantity)).toEqual([1, 2, 1])
+    expect(servidor.outcome.totals).toEqual(loja.outcome.totals)
+    expect(servidor.lines).toEqual(loja.lines)
+  })
+
+  it('com cupom de 10%: o cupom vence a promoção, e o casado e o bump continuam', () => {
+    const coupon: CouponRule = { type: 'percent', value: 10 }
+    const input: OrderPricingInput = {
+      ...base,
+      coupon,
+      items: cart,
+      buyTogether: { ...config, marks: cart.map((c) => c.marks ?? []) },
+    }
+    const loja = lojaGrava(input, cart)
+    // 470,10 − cupom 47,01 = 423,09 · PIX 21,15 · frete 20 ⇒ 421,94 (a promoção daria 462,84).
+    expect(loja.outcome.winner).toBe('coupon')
+    expect(loja.outcome.totals.total).toBe(421.94)
+    expect(loja.rows.map((r) => r.unit_price)).toEqual([300, 71.1, 79, 20])
+    expect(loja.lines.promotionDiscount).toBe(0)
+    expect(loja.lines.buyTogetherDiscount).toBe(7.9)
+    expect(loja.lines.orderBumpDiscount).toBe(20)
+    // O pedido gravado soma o subtotal cobrado, linha a linha.
+    expect(loja.rows.reduce((s, r) => s + r.unit_price * r.quantity, 0)).toBeCloseTo(470.1, 10)
+
+    const servidor = servidorRecalcula({ ...base, coupon }, config, loja.rows)
+    expect(servidor.outcome.totals).toEqual(loja.outcome.totals)
+    expect(servidor.lines).toEqual(loja.lines)
+  })
+
+  it('no par recíproco o servidor decide pela marca gravada, como a sacola', () => {
+    // A oferece B com 10% e B oferece A com 20%, os dois a 100. B foi levada pelo bloco de A: B recebe
+    // os 10% (190). Sem a marca, o empate iria para A, a primeira, com 20% (180).
+    const reciproco = {
+      addons: [
+        addon({ id: 'ab', mainProductId: 'A', targetProductId: 'B', discountPercent: 10 }),
+        addon({ id: 'ba', mainProductId: 'B', targetProductId: 'A', discountPercent: 20 }),
+      ],
+      lists: [],
+    }
+    const par: CartLine[] = [
+      { product_id: 'A', variant_id: null, unit_price: 100, quantity: 1 },
+      { product_id: 'B', variant_id: null, unit_price: 100, quantity: 1, marks: ['A'] },
+    ]
+    const semTaxas = { shipping: 0, pixDiscountPercent: 0, method: 'card' as const, coupon: null, promotions: [] }
+    const loja = lojaGrava(
+      { ...semTaxas, items: par, buyTogether: { ...reciproco, marks: par.map((c) => c.marks ?? []) } },
+      par,
+    )
+    expect(loja.outcome.totals.total).toBe(190)
+    const servidor = servidorRecalcula(semTaxas, reciproco, loja.rows)
+    expect(servidor.outcome.totals.total).toBe(190)
+    // Sem a marca gravada, o servidor cobraria outro número — é por isso que ele a lê.
+    const semMarca = servidorRecalcula(
+      semTaxas,
+      reciproco,
+      loja.rows.map((r) => ({ ...r, accompanies_product_ids: null })),
+    )
+    expect(semMarca.outcome.totals.total).toBe(180)
   })
 })

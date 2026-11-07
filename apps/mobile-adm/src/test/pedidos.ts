@@ -89,6 +89,9 @@ export const detalhe = (extra: Partial<PedidoDoDetalhe> = {}): PedidoDoDetalhe =
   customer_phone: '51999990000',
   material_tracking_set_at: null,
   material_tracking_set_by: null,
+  buy_together_discount: 0,
+  order_bump_discount: 0,
+  manual_discount: 0,
   ...extra,
 })
 
@@ -120,6 +123,11 @@ export const item = (extra: Partial<ItemDoPedido> = {}): ItemDoPedido => ({
   unit_price: 400,
   requires_material: false,
   material_kinds: null,
+  variant_id: null,
+  size: null,
+  finish: null,
+  full_unit_price: null,
+  accompanies_product_ids: null,
   ...extra,
 })
 

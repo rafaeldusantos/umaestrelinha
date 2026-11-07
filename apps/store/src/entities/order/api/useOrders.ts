@@ -134,6 +134,12 @@ export interface CreateOrderInput {
    */
   promotion_discount?: number
   /**
+   * O desconto casado (Compre Junto) e o da oferta do checkout que a loja exibiu — teto da
+   * guarda do `create-payment`, ao lado de `promotion_discount`, e regravados por ele com o recálculo.
+   */
+  buy_together_discount?: number
+  order_bump_discount?: number
+  /**
    * Feature 61 · CMP-01 — o que o servidor precisa para o `purchase` pelo Measurement Protocol.
    *
    * `ga_client_id` e `ga_session_id` vêm dos cookies do GA (`gaIds`) e podem faltar — bloqueador,
@@ -154,7 +160,10 @@ export interface CreateOrderInput {
     /** @deprecated Eixo fixo do modelo antigo. Pedidos novos preenchem `variant_label`. */
     finish: string | null
     quantity: number
+    /** O preço COBRADO da unidade: com o bump, a promoção ou o desconto casado. */
     unit_price: number
+    /** O preço cheio da unidade. */
+    full_unit_price?: number
     /** `null` = produto sem grade, precificado por `base_price` (07/T16, PST-03). */
     variant_id?: string | null
     /** Congela o caminho de preço NO PEDIDO — o servidor obedece, não reavalia (A8). */

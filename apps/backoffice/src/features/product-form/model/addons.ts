@@ -26,6 +26,8 @@ export interface AddonDraft {
   targetVariantIds: string[]
   /** Variações do principal em que o adicional some. Vazio = aparece em todas. */
   hiddenOnVariantIds: string[]
+  /** O desconto ao levar junto (1 a 50, inteiro). `null` = sem desconto. A recusa é de `core`. */
+  discountPercent: number | null
 }
 
 let sequencia = 0
@@ -40,6 +42,7 @@ export const emptyAddon = (kind: BuyTogetherAddonKind = 'list'): AddonDraft => (
   listId: null,
   targetVariantIds: [],
   hiddenOnVariantIds: [],
+  discountPercent: null,
 })
 
 /** O adicional foi escolhido? Sem lista ou sem peça ele é incompleto e bloqueia o salvar. */
@@ -128,6 +131,10 @@ export const releaseAllTargetVariants = (addons: readonly AddonDraft[], key: str
 export const toggleHiddenOn = (addons: readonly AddonDraft[], key: string, variantId: string): AddonDraft[] =>
   addons.map(a => (a.key === key ? { ...a, hiddenOnVariantIds: alternar(a.hiddenOnVariantIds, variantId) } : a))
 
+/** O percentual digitado no adicional; `null` = sem desconto. Não recusa aqui: a recusa é de `core`. */
+export const setDiscount = (addons: readonly AddonDraft[], key: string, percent: number | null): AddonDraft[] =>
+  addons.map(a => (a.key === key ? { ...a, discountPercent: percent } : a))
+
 /** Os ids de peça já escolhidos em outros adicionais — o que a busca mostra desabilitado. */
 export const targetsOutside = (addons: readonly AddonDraft[], key: string): string[] =>
   addons.filter(a => a.key !== key && a.targetProductId !== null).map(a => a.targetProductId as string)
@@ -149,7 +156,8 @@ export const addonsChanged = (next: readonly AddonDraft[], saved: readonly Addon
         r.targetProductId !== b[i].targetProductId ||
         r.listId !== b[i].listId ||
         !mesmos(r.targetVariantIds, b[i].targetVariantIds) ||
-        !mesmos(r.hiddenOnVariantIds, b[i].hiddenOnVariantIds),
+        !mesmos(r.hiddenOnVariantIds, b[i].hiddenOnVariantIds) ||
+        (r.discountPercent ?? null) !== (b[i].discountPercent ?? null),
     )
   )
 }
@@ -169,5 +177,6 @@ export const addonsFromRow = (row: unknown): AddonDraft[] => {
       listId: l.list_id ?? null,
       targetVariantIds: ids(l.target_variant_ids),
       hiddenOnVariantIds: ids(l.hidden_on_variant_ids),
+      discountPercent: typeof l.discount_percent === 'number' ? l.discount_percent : null,
     }))
 }

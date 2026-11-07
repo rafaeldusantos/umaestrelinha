@@ -83,7 +83,7 @@ const montar = () =>
     </QueryClientProvider>,
   )
 
-const resumoDePagamento = () => within(screen.getByText('Desconto Pix').closest('dl') as HTMLElement)
+const resumoDePagamento = () => within(screen.getByText('Desconto PIX').closest('dl') as HTMLElement)
 
 beforeEach(() => {
   invocacoes.length = 0

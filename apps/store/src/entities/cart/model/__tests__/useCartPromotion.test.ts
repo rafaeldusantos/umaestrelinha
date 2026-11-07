@@ -14,6 +14,11 @@ import { useCartStore } from '../cartStore'
 
 const active: { data: ProgressivePromotion[] } = { data: [] }
 
+// O Compre Junto da sacola é uma consulta (React Query), e esta tela é montada sem
+// `QueryClientProvider`: sem configuração com desconto, a sacola é a de sempre.
+vi.mock('@/entities/cart/api/useCartBuyTogether', () => ({
+  useCartBuyTogether: () => ({ config: null, mainNames: new Map() }),
+}))
 vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: active.data, isLoading: false }),
 }))

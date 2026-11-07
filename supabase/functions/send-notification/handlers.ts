@@ -266,7 +266,7 @@ async function previewOrder(deps: Deps, orderId: unknown): Promise<EmailOrder> {
   const { data } = await deps.supabase
     .from('orders')
     .select(
-      'id, order_number, customer_name, customer_email, status, payment_status, paid_at, tracking_code, shipping_carrier, shipping_service_id, material_status, material_tracking_code, subtotal, shipping_cost, discount, pix_discount, total, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip, order_items ( product_name, size, finish, quantity, unit_price )',
+      'id, order_number, customer_name, customer_email, status, payment_status, paid_at, tracking_code, shipping_carrier, shipping_service_id, material_status, material_tracking_code, subtotal, shipping_cost, discount, pix_discount, total, buy_together_discount, promotion_discount, order_bump_discount, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip, order_items ( product_id, product_name, variant_id, size, finish, engraving_text, quantity, unit_price, full_unit_price, accompanies_product_ids )',
     )
     .eq('id', id)
     .maybeSingle()

@@ -106,6 +106,9 @@ const PixSurface = ({
   // Os hooks vêm antes da saída: `generating` é da `PaymentProgress`, e a página é quem escolhe
   // entre as duas. Desenhar a espera aqui daria dois donos de "como é a tela de espera".
   if (state.kind === 'generating') return null
+  // O valor que mudou tem tela própria (`PriceChangedCheckout`/`PriceChangedContact`), e quem
+  // escolhe entre as duas é a página — ela sabe se o pedido é o da sacola em curso.
+  if (state.kind === 'price-changed') return null
 
   const desconto = pagamento.pix_discount_percent > 0 ? pagamento.pix_discount_percent : null
 

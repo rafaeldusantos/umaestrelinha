@@ -23,11 +23,19 @@ export const COLUNAS_DO_DETALHE =
   'shipping_method, address_street, address_number, address_complement, address_neighborhood, ' +
   'address_city, address_state, address_zip, customer_phone, ' +
   // Feature `82` (`ENV-16`, `ENV-21`): quem informou o código do envelope, e quando (`order_list`, no fim).
-  'material_tracking_set_at, material_tracking_set_by'
+  'material_tracking_set_at, material_tracking_set_by, ' +
+  // Compre Junto: os descontos por item, cada um na sua coluna (`order_list`, no fim) — o resumo de
+  // `orderSummary` (`core/orders`) os lê.
+  'buy_together_discount, order_bump_discount, ' +
+  // O desconto combinado do pedido montado pelo painel (`order_list`, no fim). Zero no pedido da loja.
+  'manual_discount'
 
 /** As quatro relações do detalhe — colunas conferidas no `information_schema` local (M3 do Design). */
 export const COLUNAS_DOS_ITENS =
   'id, product_id, product_name, product_image, variant_label, engraving_text, quantity, unit_price, ' +
+  // Compre Junto: o preço cheio e a marca "acompanha" da linha, mais o que junta as linhas partidas da
+  // mesma peça — o "de/por" de `orderSummary` (`core/orders`).
+  'variant_id, size, finish, full_unit_price, accompanies_product_ids, ' +
   // Feature `82` (`ENV-23`): o snapshot do material que o item exige — os chips do bloco Material.
   'requires_material, material_kinds'
 export const COLUNAS_DO_STATUS = 'id, from_status, to_status, note, created_at'
@@ -91,6 +99,11 @@ export interface PedidoDoDetalhe extends LinhaDaLista {
   /** Feature `82`: nulas antes da migration `20261028120000` e nas linhas gravadas antes dela (A2). */
   material_tracking_set_at: string | null
   material_tracking_set_by: 'customer' | 'admin' | null
+  /** Compre Junto: zero nos pedidos de antes (o default da coluna). */
+  buy_together_discount: number
+  order_bump_discount: number
+  /** O desconto combinado do pedido montado pelo painel (`orders.manual_discount`); zero no da loja. */
+  manual_discount: number
 }
 
 /**
@@ -108,7 +121,15 @@ export interface ItemDoPedido extends MaterialRequirement {
   variant_label: string | null
   engraving_text: string | null
   quantity: number
+  /** O preço COBRADO da unidade (com a oferta do checkout, a promoção ou o desconto casado). */
   unit_price: number
+  variant_id: string | null
+  size: string | null
+  finish: string | null
+  /** O preço cheio da unidade. Nulo nos pedidos de antes: neles o resumo fica no formato de sempre. */
+  full_unit_price: number | null
+  /** Compre Junto: os principais que a peça acompanhava (snapshot). Nulo na peça comum. */
+  accompanies_product_ids: string[] | null
 }
 
 /**

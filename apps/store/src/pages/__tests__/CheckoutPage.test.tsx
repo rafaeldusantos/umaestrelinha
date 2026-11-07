@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import type { Product } from '@estrelinha/supabase/types'
 import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
 import type { ShippingQuote } from '@estrelinha/supabase/types/shipping'
-import { useCartStore } from '@/entities/cart'
+import { useCartStore, useCartUiStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useProductById } from '@/entities/product'
 import { useCheckoutStore } from '@/features/checkout/model/checkoutStore'
@@ -16,6 +16,7 @@ import { useAuthUiStore } from '@/features/auth'
 import { accessFor } from '@/entities/order/model/orderAccess'
 import { markCartRecovered, clearGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { DOC_FIELD_LABEL } from '@/features/checkout/ui/PaymentBlock'
+import { PriceChangedError } from '@/features/checkout/api/useCreatePayment'
 import CheckoutPage, {
   MISSING_DOCUMENT_MESSAGE,
   ORDER_FAILED_MESSAGE,
@@ -27,6 +28,11 @@ import { resetAnalyticsForTests, setAnalyticsSettings } from '@/shared/lib/analy
 // Feature 61 · T18 — o dublê do `track` registra e repassa ao de verdade (que em teste é no-op).
 // Nenhum caso anterior a esta feature olha para ele.
 const { trackSpy } = vi.hoisted(() => ({ trackSpy: vi.fn() }))
+// O Compre Junto da sacola é uma consulta (React Query), e esta tela é montada sem
+// `QueryClientProvider`: sem configuração com desconto, a sacola é a de sempre.
+vi.mock('@/entities/cart/api/useCartBuyTogether', () => ({
+  useCartBuyTogether: () => ({ config: null, mainNames: new Map() }),
+}))
 vi.mock('@/shared/lib/analytics', async importOriginal => {
   const real = await importOriginal<typeof import('@/shared/lib/analytics')>()
   return {
@@ -94,7 +100,12 @@ vi.mock('@/entities/order/api/useOrders', async () => ({
   useCreateOrder: () => ({ mutateAsync: createOrderMutateAsync, isPending: false }),
 }))
 // PGM-06: quem cobra o cartão passou a ser o CTA da página — antes era o botão próprio do Brick.
-vi.mock('@/features/checkout/api/useCreatePayment', () => ({
+vi.mock('@/features/checkout/api/useCreatePayment', async () => ({
+  // O módulo REAL, com só a porta trocada: a página faz `instanceof PriceChangedError`, e uma classe
+  // ausente do dublê derrubaria o ramo do erro.
+  ...(await vi.importActual<typeof import('@/features/checkout/api/useCreatePayment')>(
+    '@/features/checkout/api/useCreatePayment',
+  )),
   useCreatePayment: () => ({ mutateAsync: createPaymentMutateAsync, isPending: false }),
   PAYMENT_UNAVAILABLE_MESSAGE: 'Não foi possível iniciar o pagamento. Tente novamente.',
 }))
@@ -453,6 +464,7 @@ const fillAll = (method: 'pix' | 'card' = 'pix') => {
 }
 
 const cta = () => screen.getByRole('button', { name: /pagar/i })
+const brickErrorOf = () => screen.queryByTestId('card-brick')?.getAttribute('data-error') ?? null
 const region = (name: string) => within(screen.getByRole('region', { name }))
 
 /** Ações reais dos stores, capturadas antes de qualquer espião — evita espião sobre espião. */
@@ -1385,6 +1397,8 @@ describe('CheckoutPage — criação do pedido (CHK-07, CHK-08)', () => {
       finish: null,
       quantity: 1,
       unit_price: 12.45,
+      // O preço cheio ao lado do cobrado.
+      full_unit_price: 24.9,
       // 07/T16: o bump e sempre o produto inteiro, nunca uma linha da grade — a oferta do lojista
       // aponta para um `product_id`. Por isso price_source 'base' e o resto nulo.
       variant_id: null,
@@ -1961,6 +1975,268 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
  * único dublê é a rota de destino, que ocupa o lugar de `OrderPaymentPage` e faz o que ela faz ao
  * montar — pedir o código.
  */
+describe('CheckoutPage — o pedido em curso é da sacola que o criou', () => {
+  /**
+   * O PIX entrega o bastão para `/pedido/:id/pagamento` e o `orderId` fica no rascunho da aba
+   * (`PIX-P1-08`). A cliente que não paga, troca as peças da sacola e volta ao checkout está
+   * montando OUTRA compra: o CTA tem de criar o pedido dela, e não reabrir o anterior, que tem
+   * outras peças e outro valor.
+   */
+  const criaPeloPixESai = async () => {
+    fillAll()
+    const primeira = renderPage()
+    fireEvent.click(cta())
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
+    primeira.unmount()
+  }
+
+  const outraSacola = () =>
+    useCartStore.setState({
+      items: [{
+        product: product({ id: 'p2', name: 'Medalha Afetiva', slug: 'medalha-afetiva', price: 80 }),
+        size: '', finish: '', quantity: 1,
+        variantId: null, variantLabel: '', optionValues: {}, unitPrice: 80,
+      }],
+    })
+
+  it('com a sacola trocada depois do pedido PIX, pagar cria o pedido da sacola nova', async () => {
+    await criaPeloPixESai()
+    outraSacola()
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-2')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(2)
+    const itens = createOrderMutateAsync.mock.calls[1][0].items
+    expect(itens.map((i: { product_id: string }) => i.product_id)).toEqual(['p2'])
+    expect(useCheckoutStore.getState().orderId).toBe('order-2')
+  })
+
+  it('trocar só a quantidade também é outra sacola', async () => {
+    await criaPeloPixESai()
+    useCartStore.setState({
+      items: [{ ...useCartStore.getState().items[0], quantity: 3 }],
+    })
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-2')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(2)
+  })
+
+  it('trocar o cupom também é outra sacola', async () => {
+    await criaPeloPixESai()
+    useCouponStore.setState({ applied: { id: 'cp1', code: 'ESTRELA10' } as any })
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-2')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(2)
+  })
+
+  it('com a MESMA sacola, voltar e pagar reabre o pedido em curso — o par inverso', async () => {
+    // Sem ele, invalidar a cada montagem passaria nos casos acima e deixaria um `pending` órfão a
+    // cada ida e vinda.
+    await criaPeloPixESai()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(1)
+  })
+
+  describe('a oferta do checkout', () => {
+    beforeEach(() => {
+      checkoutSettings.order_bump_enabled = true
+      checkoutSettings.order_bump_product_id = 'bump-1'
+      // Só o id da oferta devolve produto: é assim que `useProductById(null)` se comporta, e é o
+      // que deixa o pedido levar a oferta só quando ela está marcada.
+      productByIdMock.mockImplementation(
+        (id) =>
+          ({
+            data:
+              id === 'bump-1'
+                ? product({ id: 'bump-1', name: 'Corrente Veneziana', price: 89.9 })
+                : undefined,
+            isError: false,
+          }) as any,
+      )
+    })
+
+    const oferta = () => screen.getByRole('checkbox', { name: /Corrente Veneziana/ })
+
+    it('marcada no pedido anterior, aparece desmarcada no checkout da sacola nova', async () => {
+      useCheckoutStore.getState().toggleBump(true)
+      await criaPeloPixESai()
+      outraSacola()
+      renderPage()
+
+      await waitFor(() => expect(oferta()).toHaveAttribute('aria-checked', 'false'))
+      expect(useCheckoutStore.getState().bumpChecked).toBe(false)
+
+      fireEvent.click(cta())
+      await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(2))
+      const itens = createOrderMutateAsync.mock.calls[1][0].items
+      expect(itens.map((i: { product_id: string }) => i.product_id)).toEqual(['p2'])
+    })
+
+    it('com a MESMA sacola, a oferta marcada continua marcada — o par inverso', async () => {
+      useCheckoutStore.getState().toggleBump(true)
+      await criaPeloPixESai()
+      renderPage()
+
+      expect(oferta()).toHaveAttribute('aria-checked', 'true')
+      expect(useCheckoutStore.getState().bumpChecked).toBe(true)
+    })
+  })
+})
+
+describe('CheckoutPage — o valor do pedido mudou (o desconto do Compre Junto)', () => {
+  const mudou = () =>
+    new PriceChangedError('O desconto do Compre Junto deste pedido mudou. Nada foi cobrado.', 450.1, 454.05, 'Corrente', 'buy_together')
+
+  it('no cartão: o 422 mostra o antes e o agora, e "Confirmar com o novo total" cria OUTRO pedido', async () => {
+    createPaymentMutateAsync.mockRejectedValueOnce(mudou())
+    fillAll('card')
+    renderPage()
+    fireEvent.click(cta())
+
+    const alerta = await screen.findByRole('alert', { name: 'O valor do seu pedido mudou' })
+    expect(alerta).toHaveTextContent(
+      'Desde que você montou a sacola, o desconto do Compre Junto do Corrente mudou. Por isso o pagamento não seguiu. Nada foi cobrado.',
+    )
+    expect(within(alerta).getByText('Corrente').tagName).toBe('STRONG')
+    expect(within(alerta).getByText('Antes').nextElementSibling?.tagName).toBe('S')
+    expect(within(alerta).getByText('Antes').nextElementSibling).toHaveTextContent('R$ 450,10')
+    expect(within(alerta).getByText('Agora').nextElementSibling).toHaveTextContent('R$ 454,05')
+    // Nada foi cobrado, e a mensagem não vira erro de cartão.
+    expect(brickErrorOf() || null).toBeNull()
+    expect(useCheckoutStore.getState().orderId).toBeNull()
+
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    fireEvent.click(within(alerta).getByRole('button', { name: 'Confirmar com o novo total' }))
+
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(createPaymentMutateAsync).toHaveBeenCalledTimes(2))
+    expect(createPaymentMutateAsync.mock.calls[1][0].order_id).toBe('order-2')
+  })
+
+  it('outro desconto que caiu (a oferta do checkout): o mesmo aviso, sem nomear o Compre Junto, e a nova confirmação cria OUTRO pedido', async () => {
+    createPaymentMutateAsync.mockRejectedValueOnce(
+      new PriceChangedError('Um desconto deste pedido mudou. Nada foi cobrado.', 320, 340, 'Caixa', 'discount'),
+    )
+    fillAll('card')
+    renderPage()
+    fireEvent.click(cta())
+
+    const alerta = await screen.findByRole('alert', { name: 'O valor do seu pedido mudou' })
+    expect(alerta).toHaveTextContent(
+      'Desde que você montou a sacola, um desconto do seu pedido mudou. Por isso o pagamento não seguiu. Nada foi cobrado.',
+    )
+    expect(alerta).not.toHaveTextContent('Compre Junto')
+    expect(within(alerta).getByText('Agora').nextElementSibling).toHaveTextContent('R$ 340,00')
+    expect(useCheckoutStore.getState().orderId).toBeNull()
+
+    createOrderMutateAsync.mockResolvedValueOnce({ id: 'order-2' })
+    fireEvent.click(within(alerta).getByRole('button', { name: 'Confirmar com o novo total' }))
+    await waitFor(() => expect(createPaymentMutateAsync).toHaveBeenCalledTimes(2))
+    expect(createPaymentMutateAsync.mock.calls[1][0].order_id).toBe('order-2')
+  })
+
+  it('"Voltar à sacola" fecha o aviso e abre a sacola', async () => {
+    createPaymentMutateAsync.mockRejectedValueOnce(mudou())
+    fillAll('card')
+    renderPage()
+    fireEvent.click(cta())
+
+    const alerta = await screen.findByRole('alert', { name: 'O valor do seu pedido mudou' })
+    fireEvent.click(within(alerta).getByRole('button', { name: 'Voltar à sacola' }))
+
+    expect(screen.queryByRole('alert', { name: 'O valor do seu pedido mudou' })).not.toBeInTheDocument()
+    expect(useCartUiStore.getState().open).toBe(true)
+    // A gaveta é uma store global: fechada de novo para não vazar para o caso seguinte.
+    act(() => useCartUiStore.getState().setCartOpen(false))
+  })
+
+  it('no PIX: a rota do pagamento devolve ao checkout, e o aviso chega pelo estado da navegação', async () => {
+    fillAll('pix')
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/checkout', state: { priceChanged: { displayedTotal: 450.1, total: 454.05, piece: 'Corrente', reason: 'buy_together' } } },
+        ]}
+      >
+        <Routes>
+          <Route path="/checkout" element={<CheckoutPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const alerta = await screen.findByRole('alert', { name: 'O valor do seu pedido mudou' })
+    expect(within(alerta).getByText('Agora').nextElementSibling).toHaveTextContent('R$ 454,05')
+    expect(within(alerta).getByRole('button', { name: 'Confirmar com o novo total' })).toBeInTheDocument()
+  })
+
+  it('convidada no PIX: o código pedido ao confirmar o novo total vem com o motivo, e o total novo fica à vista', async () => {
+    // O primeiro pedido criou a conta do e-mail dela; a nova confirmação cria outro pedido, e o
+    // servidor pede o código. O aviso não pode sumir trocado pelo desafio sem dizer por quê.
+    const { NeedsOtpError } = await vi.importActual<
+      typeof import('@/entities/order/api/useOrders')
+    >('@/entities/order/api/useOrders')
+    createOrderMutateAsync.mockRejectedValue(new NeedsOtpError('Este e-mail já tem cadastro.'))
+    authState.user = null
+    authState.customer = null
+    fillAll('pix')
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/checkout', state: { priceChanged: { displayedTotal: 450.1, total: 454.05, piece: 'Corrente', reason: 'buy_together' } } },
+        ]}
+      >
+        <Routes>
+          <Route path="/checkout" element={<CheckoutPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const alerta = await screen.findByRole('alert', { name: 'O valor do seu pedido mudou' })
+    fireEvent.click(within(alerta).getByRole('button', { name: 'Confirmar com o novo total' }))
+
+    expect(await screen.findByTestId('auth-code-step')).toBeInTheDocument()
+    const depois = screen.getByRole('alert', { name: 'O valor do seu pedido mudou' })
+    expect(within(depois).getByText('Agora').nextElementSibling).toHaveTextContent('R$ 454,05')
+    expect(depois).toHaveTextContent(
+      'O seu primeiro pedido criou uma conta na loja com marina@email.com. Por isso, antes de criar o pedido com o novo total, é preciso confirmar que o e-mail é seu.',
+    )
+    // O foco não cai no <body>: vai ao aviso que explica a mudança na tela.
+    expect(document.activeElement).toBe(depois)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('o par: sem o valor mudado, o 409 abre o desafio sem a frase do pedido anterior', async () => {
+    const { NeedsOtpError } = await vi.importActual<
+      typeof import('@/entities/order/api/useOrders')
+    >('@/entities/order/api/useOrders')
+    createOrderMutateAsync.mockRejectedValue(new NeedsOtpError('Este e-mail já tem cadastro.'))
+    authState.user = null
+    authState.customer = null
+    fillAll('pix')
+    renderPage()
+    fireEvent.click(cta())
+
+    expect(await screen.findByTestId('auth-code-step')).toBeInTheDocument()
+    expect(screen.queryByRole('alert', { name: 'O valor do seu pedido mudou' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/O seu primeiro pedido criou uma conta/)).not.toBeInTheDocument()
+  })
+})
+
 describe('CheckoutPage — o PIX entrega o bastão para a rota (PIX-P1-01, PIX-P1-02)', () => {
   /** Prende a criação do pedido para a espera ser observável. Devolve quem a solta. */
   const criacaoPresa = () => {

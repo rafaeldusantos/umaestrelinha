@@ -63,11 +63,15 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
     expect(COLUNAS_DO_DETALHE).toContain('purchase_ordinal')
     expect(COLUNAS_DO_DETALHE).not.toMatch(/nuvemshop_/)
     // Feature `82` (`ENV-16`, `ENV-21`): quem informou o código do envelope, e quando.
-    expect(COLUNAS_DO_DETALHE).toMatch(/(?:^|, )material_tracking_set_at, material_tracking_set_by$/)
+    expect(COLUNAS_DO_DETALHE).toMatch(/(?:^|, )material_tracking_set_at, material_tracking_set_by(?:, |$)/)
+    // Compre Junto: os descontos por item do pedido, e depois deles o desconto combinado do pedido
+    // montado pelo painel — as três últimas colunas de `order_list`, na ordem da view.
+    expect(COLUNAS_DO_DETALHE).toMatch(/, buy_together_discount, order_bump_discount, manual_discount$/)
   })
 
   it.each([
-    ['order_items', 'id, product_id, product_name, product_image, variant_label, engraving_text, quantity, unit_price, requires_material, material_kinds'], // `82`: o snapshot do material (ENV-23)
+    // Compre Junto: o preço cheio, a marca "acompanha" e o que junta as linhas partidas; `82`: o snapshot do material (ENV-23).
+    ['order_items', 'id, product_id, product_name, product_image, variant_label, engraving_text, quantity, unit_price, variant_id, size, finish, full_unit_price, accompanies_product_ids, requires_material, material_kinds'],
     ['order_status_history', 'id, from_status, to_status, note, created_at'],
     ['order_notes', 'id, note, created_by, created_at'],
     ['order_notifications', 'id, event, channel, status, attempts, delivery_status, error, created_at, sent_at, provider_message_id'],

@@ -19,6 +19,11 @@ import OrderSummary from '../OrderSummary'
 // RSM-01 … RSM-07: fidelidade ao board `04` (respiro, itens, faixa de cupom, total, parcela) e
 //                  ao board `07` (barra do mobile).
 
+// O Compre Junto da sacola é uma consulta (React Query), e esta tela é montada sem
+// `QueryClientProvider`: sem configuração com desconto, a sacola é a de sempre.
+vi.mock('@/entities/cart/api/useCartBuyTogether', () => ({
+  useCartBuyTogether: () => ({ config: null, mainNames: new Map() }),
+}))
 vi.mock('@/features/apply-coupon/ui/CouponInput', () => ({
   default: () => <div data-testid="coupon-input" />,
 }))
@@ -791,5 +796,65 @@ describe('OrderSummary — a linha do frete com a retirada no escritório (RET-0
     render(<OrderSummary variant="sidebar" />)
     expect(screen.getByText('Frete · Correios PAC')).toBeInTheDocument()
     expect(screen.queryByText('Retirada no escritório')).not.toBeInTheDocument()
+  })
+})
+
+describe('OrderSummary — a ordem das linhas é a do painel: descontos e PIX antes do Frete', () => {
+  /** Os rótulos das linhas de valor, na ordem em que aparecem, até antes do Total. */
+  const rotulosDasLinhas = () => {
+    const bloco = screen.getByTestId('summary-subtotal').parentElement!.parentElement!
+    return Array.from(bloco.children).map((linha) => linha.firstElementChild?.textContent)
+  }
+
+  it('Subtotal · Desconto progressivo · Cupom · Desconto PIX · Frete', () => {
+    active.data = [
+      {
+        id: 'promo-kit',
+        name: 'Kit de bottons',
+        discount_kind: 'unit_price',
+        tiers: [{ min_qty: 3, value: 5 }],
+        scope: 'all',
+        eligibleProductIds: [],
+        stacks_with_coupon: true,
+        created_at: '2026-08-01T00:00:00.000Z',
+      },
+    ]
+    setCart([{ product: product({ id: 'p1', price: 8.9 }), quantity: 3 }])
+    useCouponStore.getState().setCoupon({
+      id: 'c1',
+      code: 'BEMVINDA',
+      type: 'percent',
+      value: 10,
+      discount: 0,
+      freeShipping: false,
+    } as any)
+    useCheckoutStore.getState().setPayment({ method: 'pix' })
+    selectShipping(19.9)
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(rotulosDasLinhas()).toEqual([
+      'Subtotal',
+      'Desconto progressivo',
+      'Cupom BEMVINDA',
+      'Desconto PIX (5%)',
+      'Frete · Correios PAC',
+    ])
+  })
+
+  it('antes de informar o CEP, "Frete a calcular" também fica por último, depois do cupom e do PIX', () => {
+    useCouponStore.getState().setCoupon({
+      id: 'c1',
+      code: 'ESTRELA20',
+      type: 'fixed',
+      value: 20,
+      discount: 20,
+      freeShipping: false,
+    })
+    useCheckoutStore.getState().setPayment({ method: 'pix' })
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(rotulosDasLinhas()).toEqual(['Subtotal', 'Cupom ESTRELA20', 'Desconto PIX (5%)', 'Frete'])
+    const bloco = screen.getByTestId('summary-subtotal').parentElement!.parentElement!
+    expect(bloco.lastElementChild).toHaveTextContent('a calcular')
   })
 })

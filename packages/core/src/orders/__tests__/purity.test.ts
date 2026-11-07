@@ -86,6 +86,8 @@ describe('core/orders é módulo puro e alcançável pelo Deno', () => {
         // A observação do pedido: o teto e a contagem, lidos pelo painel, pelo app e pelo dono da escrita.
         'adminNote.ts',
         'adminNoteAuthor.ts',
+        // O resumo do pedido, que a confirmação, o e-mail, o painel e o app leem.
+        'summary.ts',
       ]),
     )
     expect(arquivos.length).toBeGreaterThanOrEqual(20)

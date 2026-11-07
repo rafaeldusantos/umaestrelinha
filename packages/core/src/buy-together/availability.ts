@@ -43,6 +43,11 @@ export interface AddonConfig {
   targetVariantIds: readonly string[]
   /** O adicional some quando a variação escolhida do principal está aqui. */
   hiddenOnVariantIds: readonly string[]
+  /**
+   * O desconto ao levar junto, em percentual inteiro de 1 a 50 (`discount_percent`). `null` ou
+   * ausente = sem desconto. O preço com desconto é `buyTogetherDiscountedPrice` (`discount.ts`).
+   */
+  discountPercent?: number | null
 }
 
 export interface AddonList {
@@ -105,6 +110,32 @@ const pieceOf = (p: PieceProduct, liberated: readonly string[]): ResolvedPiece |
     : null
 }
 
+/**
+ * A precedência entre os adicionais de UMA joia: cada peça fica com um adicional só. A peça avulsa
+ * vem antes da lista (é a escolha explícita da dona), e entre listas vale a ordem em que chegam —
+ * o chamador as passa já na ordem de `position`.
+ *
+ * Sem estoque nem disponibilidade: é só a regra de quem fica com a peça. `resolveAddons` a chama com
+ * as peças oferecíveis, e o desconto da compra casada (`cartDiscount.ts`) com todas — a mesma regra,
+ * um dono só, para o percentual da sacola ser o do adicional que a página mostra.
+ *
+ * Devolve, por id de adicional, as peças que ficaram com ele (na ordem em que vieram).
+ */
+export function claimPieces<P extends { productId: string }>(
+  candidates: readonly { addon: { id: string; kind: BuyTogetherAddonKind }; pieces: readonly P[] }[],
+): Map<string, P[]> {
+  const claimed = new Set<string>()
+  const kept = new Map<string, P[]>()
+  for (const kind of ['product', 'list'] as const) {
+    for (const c of candidates.filter(x => x.addon.kind === kind)) {
+      const pieces = c.pieces.filter(p => !claimed.has(p.productId))
+      for (const p of pieces) claimed.add(p.productId)
+      kept.set(c.addon.id, pieces)
+    }
+  }
+  return kept
+}
+
 export interface ResolveAddonsInput {
   mainProductId: string
   /** A variação escolhida do principal, ou `null` em produto simples. */
@@ -149,15 +180,7 @@ export function resolveAddons(input: ResolveAddonsInput): ResolvedAddon[] {
     return { addon, listName, pieces: pieces.filter(p => p.productId !== input.mainProductId) }
   })
 
-  const claimed = new Set<string>()
-  const kept = new Map<string, ResolvedPiece[]>()
-  for (const kind of ['product', 'list'] as const) {
-    for (const c of candidates.filter(x => x.addon.kind === kind)) {
-      const pieces = c.pieces.filter(p => !claimed.has(p.productId))
-      for (const p of pieces) claimed.add(p.productId)
-      kept.set(c.addon.id, pieces)
-    }
-  }
+  const kept = claimPieces(candidates)
 
   return candidates
     .filter(c => (kept.get(c.addon.id) ?? []).length > 0)

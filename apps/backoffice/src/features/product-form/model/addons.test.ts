@@ -9,6 +9,7 @@ import {
   incompleteNote,
   moveAddon,
   removeAddon,
+  setDiscount,
   setKind,
   toggleHiddenOn,
   toggleTargetVariant,
@@ -104,5 +105,31 @@ describe('o resto das contas', () => {
     expect(addonsChanged([dois[1], dois[0]], dois)).toBe(true)
     expect(addonsChanged([...dois, emptyAddon()], dois)).toBe(false)
     expect(a).toBeDefined()
+  })
+})
+
+describe('o desconto ao levar junto', () => {
+  const gravado = (): AddonDraft[] => {
+    const a = emptyAddon()
+    return chooseList([{ ...a, id: 'ad1' }], a.key, 'L1')
+  }
+
+  it('o adicional novo nasce sem desconto', () => {
+    expect(emptyAddon().discountPercent).toBeNull()
+  })
+
+  it('mudar só o percentual conta como alteração; voltar ao gravado, não', () => {
+    const salvo = gravado()
+    const com10 = setDiscount(salvo, salvo[0].key, 10)
+    expect(com10[0].discountPercent).toBe(10)
+    expect(addonsChanged(com10, salvo)).toBe(true)
+    expect(addonsChanged(setDiscount(com10, salvo[0].key, null), salvo)).toBe(false)
+    expect(addonsChanged(setDiscount(com10, salvo[0].key, 15), com10)).toBe(true)
+  })
+
+  it('só o adicional da chave muda', () => {
+    const [x, y] = [emptyAddon(), emptyAddon()]
+    const r = setDiscount([x, y], y.key, 20)
+    expect(r.map(a => a.discountPercent)).toEqual([null, 20])
   })
 })

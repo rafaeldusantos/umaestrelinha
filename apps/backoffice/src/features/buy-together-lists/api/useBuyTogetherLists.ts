@@ -7,13 +7,14 @@
 import { useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
-import { listDeleteRefusal, listNameRefusal } from '@estrelinha/core/buy-together'
+import { listDeleteRefusal, listNameRefusal, type PieceProduct } from '@estrelinha/core/buy-together'
+import { normalizeOptions, normalizeVariants, toStockPolicy } from '@estrelinha/core/product'
 import { capaDaLinha } from '@/entities/product'
 import { toRows, type DraftItem } from '../model/draft'
 
 export const LIST_COLUMNS = 'id, name, updated_at'
 export const LIST_ITEM_COLUMNS =
-  'list_id, product_id, position, variant_ids, product:products(id, name, is_active, base_price, image_url, capa:images->0->>url)'
+  'list_id, product_id, position, variant_ids, product:products(id, name, is_active, base_price, image_url, capa:images->0->>url, stock_policy, stock_total, options, product_variants(id, price, is_active, stock, position))'
 export const USAGE_COLUMNS = 'list_id, product_id, product_name'
 
 export const BUY_TOGETHER_LISTS_KEY = ['buy-together', 'lists'] as const
@@ -24,6 +25,14 @@ export interface PecaDaLista {
   ativa: boolean
   imagem: string | null
   variantIds: string[]
+  /** O preço da peça sem grade. */
+  precoBase: number
+  /**
+   * A peça na forma que `resolveAddons` (`core/buy-together`) lê — política, saldo, eixos e as
+   * variações com estoque —, para a prévia do desconto no produto pular o que a loja pula. `null`
+   * quando a leitura não trouxe a peça.
+   */
+  produto: PieceProduct | null
 }
 
 export interface ListaDoCompreJunto {
@@ -43,8 +52,19 @@ interface LinhaDeItem {
   product: {
     name: string
     is_active: boolean
+    base_price: number | string | null
     image_url: string | null
     capa: string | null
+    stock_policy?: string | null
+    stock_total?: number | null
+    options?: unknown
+    product_variants?: Array<{
+      id: string
+      price: number | string | null
+      is_active: boolean
+      stock?: number | null
+      position?: number | null
+    }> | null
   } | null
 }
 
@@ -74,6 +94,24 @@ export const lerListas = async (): Promise<ListaDoCompreJunto[]> => {
       ativa: l.product?.is_active === true,
       imagem: l.product ? capaDaLinha(l.product) : null,
       variantIds: l.variant_ids ?? [],
+      precoBase: Number(l.product?.base_price ?? 0) || 0,
+      // A mesma normalização da loja (`mapDbToProduct`), para a regra ler a peça como a página lê.
+      produto: l.product
+        ? {
+            id: l.product_id,
+            stock_policy: toStockPolicy(l.product.stock_policy),
+            stock_total: Number(l.product.stock_total ?? 0) || 0,
+            options: normalizeOptions(l.product.options),
+            variants: normalizeVariants(
+              (l.product.product_variants ?? []).map(v => ({
+                ...v,
+                id: String(v.id),
+                price: v.price === null || v.price === undefined || v.price === '' ? null : Number(v.price),
+              })),
+              l.product_id,
+            ),
+          }
+        : null,
     }
     pecasPorLista.set(l.list_id, [...(pecasPorLista.get(l.list_id) ?? []), peca])
   }
