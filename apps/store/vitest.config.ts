@@ -20,6 +20,13 @@ export default defineConfig({
      */
     testTimeout: 20_000,
     /**
+     * No CI, dois workers. Com o padrão (um por núcleo) a suíte da loja satura o runner, o processo
+     * principal deixa de responder às mensagens dos workers e o vitest aborta com
+     * `[vitest-worker]: Timeout calling "onTaskUpdate"` — todos os casos verdes e o job vermelho
+     * (CI de `master`, 2026-11-07, no merge da `92`). Fora do CI, o padrão.
+     */
+    ...(process.env.CI ? { minWorkers: 1, maxWorkers: 2 } : {}),
+    /**
      * O client de `@estrelinha/supabase` LANÇA no carregamento do módulo quando estas duas faltam
      * — de propósito, para que a falta de configuração não vire fallback silencioso. Mas o `.env`
      * de cada app é gitignored, então quem fornecia os valores para o teste era a máquina de quem

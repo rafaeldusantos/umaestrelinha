@@ -1,19 +1,18 @@
--- O desconto combinado do pedido montado pelo painel na view `order_list`.
+-- Compre Junto — os descontos por item do pedido na view `order_list`.
 --
--- `order_list` é o que o detalhe do pedido do app do ateliê lê (o pedido e o endereço numa ida). A
--- coluna `orders.manual_discount` (migration `20261103120000_89-pedido-montado.sql`) não saía por ela,
--- e o resumo de valores do app mostrava o pedido montado sem a linha "Desconto combinado": as linhas
--- não fechavam com o Total. Ela passa a sair, para o app mostrar a mesma composição do painel.
+-- `order_list` é o que o detalhe do pedido do app do ateliê lê (o pedido e o endereço numa ida). As
+-- duas colunas que a migration `20261110130000_compre-junto-desconto-no-pedido.sql` acrescentou a
+-- `orders` — `buy_together_discount` (o desconto casado) e `order_bump_discount` (a oferta do
+-- checkout) — passam a sair por ela, para o resumo do pedido mostrar a mesma composição da loja.
 --
 -- `create or replace view` só aceita coluna ACRESCENTADA AO FIM: a lista abaixo é a da migration
--- `20261107160000_compre-junto-desconto-na-lista-de-pedidos.sql`, copiada sem reordenar nada, e a
--- nova entra depois de `order_bump_discount`. O motivo do desconto mora em `order_proposals`, que
--- nenhum papel do navegador lê, e por isso NÃO entra aqui.
+-- `20261028120000_82-envelope-da-cliente.sql`, copiada sem reordenar nada, e as duas novas entram
+-- depois de `material_tracking_set_by`.
 --
 -- Aditiva: nenhum dado, nenhuma policy, nenhum `grant`. A view segue `security_invoker`.
 --
--- Ordem de publicação: migration → bundle do app. O detalhe passa a pedir a coluna no `select`; sem
--- ela a leitura inteira falha.
+-- Ordem de publicação: migration → bundle do app. O detalhe passa a pedir as duas colunas no
+-- `select`; sem elas a leitura inteira falha.
 
 create or replace view public.order_list
 with (security_invoker = true) as
@@ -36,7 +35,5 @@ select
 	material_tracking_set_by,
 	-- Compre Junto (desconto da compra casada), no fim.
 	buy_together_discount,
-	order_bump_discount,
-	-- O desconto combinado do pedido montado pelo painel, no fim.
-	manual_discount
+	order_bump_discount
 from public.orders o;

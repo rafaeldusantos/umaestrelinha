@@ -20,7 +20,7 @@ import { BUY_TOGETHER_DISCOUNT_MAX, BUY_TOGETHER_DISCOUNT_MIN } from '@estrelinh
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '../../../../../..')
-const CAMINHO = resolve(ROOT, 'supabase/migrations/20261107130000_compre-junto-desconto.sql')
+const CAMINHO = resolve(ROOT, 'supabase/migrations/20261110120000_compre-junto-desconto.sql')
 
 const sql = readFileSync(CAMINHO, 'utf8')
 

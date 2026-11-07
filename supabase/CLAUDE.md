@@ -268,7 +268,7 @@ Pagamentos `/v1/payments` **não é usada em código novo** (`AD-001`).
   `supabase/operacoes/pagamento-aprovado-marca-pago.probe.sql` contra a 54442, exit 0 e só `ok —`.
 - **A URL de notificação fica só no painel do MP** — a Orders API valida o corpo por schema fechado e
   **recusa** `notification_url`.
-- **O desconto da compra casada (WI 92, migration `20261107140000`)**: o `create-payment` junta as
+- **O desconto da compra casada (WI 92, migration `20261110130000`)**: o `create-payment` junta as
   linhas da mesma peça (`joinOrderRows`, `core/payment/orderLines.ts` — a loja parte a linha mista em
   duas), lê a configuração do Compre Junto do banco (`BUY_TOGETHER_DISCOUNT_SELECT` +
   `buyTogetherDiscountConfig`, a mesma leitura da sacola) e chama `resolveOrderPricing` +

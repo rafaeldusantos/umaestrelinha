@@ -158,7 +158,7 @@ export interface DispatchEventOptions {
  *
  * Os descontos por item e o preço cheio das linhas (`buy_together_discount`,
  * `order_bump_discount`, `full_unit_price`) só existem depois da migration
- * `20261107140000_compre-junto-desconto-no-pedido.sql` — pelo mesmo motivo, a ordem de publicação
+ * `20261110130000_compre-junto-desconto-no-pedido.sql` — pelo mesmo motivo, a ordem de publicação
  * é migration → esta function.
  */
 const ORDER_COLUMNS = `

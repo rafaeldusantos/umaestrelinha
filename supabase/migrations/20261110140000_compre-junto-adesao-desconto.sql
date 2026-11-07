@@ -8,7 +8,7 @@
 --
 -- O desconto concedido de uma linha marcada é tudo o que ela deixou de custar:
 -- `(full_unit_price - unit_price) * quantity`, qualquer que seja o desconto que venceu nela (o casado,
--- a promoção ou a oferta do checkout). Desde a migration `20261107140000_compre-junto-desconto-no-pedido.sql`
+-- a promoção ou a oferta do checkout). Desde a migration `20261110130000_compre-junto-desconto-no-pedido.sql`
 -- `unit_price` é o preço COBRADO e `full_unit_price` o cheio; a linha de antes dela não tem preço
 -- cheio, e o recuo para `unit_price` faz ela contar 0. O valor continua `unit_price * quantity` — o
 -- preço pago, já líquido do desconto.
