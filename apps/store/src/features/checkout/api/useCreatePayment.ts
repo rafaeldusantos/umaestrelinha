@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import { accessFor } from '@/entities/order/model/orderAccess'
 import type { CardPaymentFormData, CreatePaymentResponse } from '@estrelinha/supabase/types'
@@ -90,8 +90,9 @@ async function extractError(error: unknown): Promise<Error> {
  * PAY-06: `idempotency_key` é um UUID NOVO por tentativa — retry de rede não
  * duplica cobrança; nova tentativa deliberada gera nova chave.
  */
-export const useCreatePayment = () =>
-  useMutation<CreatePaymentResponse, Error, CreatePaymentInput>({
+export const useCreatePayment = () => {
+  const qc = useQueryClient()
+  return useMutation<CreatePaymentResponse, Error, CreatePaymentInput>({
     mutationFn: async (input) => {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), PAYMENT_TIMEOUT_MS)
@@ -128,4 +129,15 @@ export const useCreatePayment = () =>
         clearTimeout(timer)
       }
     },
+    /**
+     * O pagamento pode ter REGRAVADO o pedido: `create-payment` recalcula e grava o total novo
+     * quando ele sai igual ou mais barato, ANTES de falar com o Mercado Pago. Quem leu o pedido
+     * antes — a tela de pagamento, `/pedido/:id`, Minha conta — ficaria um recálculo atrás,
+     * mostrando um valor que não é o do pedido. Por isso relê em toda resposta, inclusive na
+     * falha: o Mercado Pago recusar não desfaz a regravação.
+     */
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+    },
   })
+}
