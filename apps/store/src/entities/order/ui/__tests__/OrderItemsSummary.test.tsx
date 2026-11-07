@@ -342,12 +342,12 @@ describe('OrderItemsSummary — o desconto da compra casada no pedido', () => {
     const rotulos = Array.from(document.querySelectorAll('dt')).map((dt) => dt.textContent)
     expect(rotulos).toEqual([
       'Subtotal',
-      'Frete',
       'Desconto do Compre Junto',
       'Desconto progressivo',
       'Desconto da oferta',
       'Cupom FLOR',
       'Desconto PIX',
+      'Frete',
       'Total',
     ])
     expect(valorDa('Subtotal')).toBe(formatPrice(498))
@@ -378,9 +378,9 @@ describe('OrderItemsSummary — o desconto da compra casada no pedido', () => {
 
     expect(Array.from(document.querySelectorAll('dt')).map((dt) => dt.textContent)).toEqual([
       'Subtotal',
-      'Frete',
       'Cupom SAUDADE10',
       'Desconto PIX',
+      'Frete',
       'Total',
     ])
     expect(valorDa('Subtotal')).toBe(formatPrice(200))

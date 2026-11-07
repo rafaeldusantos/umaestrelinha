@@ -237,24 +237,6 @@ const OrderSummary = ({ variant }: Props) => {
           {formatPrice(subtotalBeforePromotion)}
         </span>
       </div>
-      <div className="flex items-center justify-between">
-        <span className="text-[15px] leading-[18px] text-estrelinha-ink-soft">
-          {/* RET-07 (feature 63): a retirada não tem transportadora — "Frete · Uma Estrelinha
-              Retirada no escritório" seria a loja se chamando de transportadora. */}
-          {shipping
-            ? shipping.serviceId === PICKUP_SERVICE_ID
-              ? shipping.serviceName
-              : `Frete · ${shipping.carrier} ${shipping.serviceName}`
-            : 'Frete'}
-        </span>
-        {shipping && totals.shipping === 0 ? (
-          <span className="text-[15px] font-semibold leading-[18px] text-estrelinha-primary">Grátis</span>
-        ) : (
-          <span className="text-[15px] font-medium leading-[18px] text-estrelinha-ink">
-            {shipping ? formatPrice(totals.shipping) : 'a calcular'}
-          </span>
-        )}
-      </div>
       {/* O desconto do Compre Junto: mesma linha da gaveta, mesmo valor (`AD-073`). */}
       {buyTogetherDiscount > 0 && (
         <div className="flex items-center justify-between gap-3">
@@ -304,6 +286,25 @@ const OrderSummary = ({ variant }: Props) => {
           </span>
         </div>
       )}
+      {/* O Frete fecha as linhas, depois dos descontos e do PIX: a ordem do painel do pedido. */}
+      <div className="flex items-center justify-between">
+        <span className="text-[15px] leading-[18px] text-estrelinha-ink-soft">
+          {/* RET-07 (feature 63): a retirada não tem transportadora — "Frete · Uma Estrelinha
+              Retirada no escritório" seria a loja se chamando de transportadora. */}
+          {shipping
+            ? shipping.serviceId === PICKUP_SERVICE_ID
+              ? shipping.serviceName
+              : `Frete · ${shipping.carrier} ${shipping.serviceName}`
+            : 'Frete'}
+        </span>
+        {shipping && totals.shipping === 0 ? (
+          <span className="text-[15px] font-semibold leading-[18px] text-estrelinha-primary">Grátis</span>
+        ) : (
+          <span className="text-[15px] font-medium leading-[18px] text-estrelinha-ink">
+            {shipping ? formatPrice(totals.shipping) : 'a calcular'}
+          </span>
+        )}
+      </div>
     </div>
   )
 

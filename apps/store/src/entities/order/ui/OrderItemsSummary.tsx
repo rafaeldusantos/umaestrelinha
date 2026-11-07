@@ -122,13 +122,14 @@ const OrderItemsSummary = ({ order }: OrderItemsSummaryProps) => {
 
       <dl className="flex flex-col gap-1.5 border-t border-estrelinha-line pt-3">
         <Linha rotulo="Subtotal" valor={formatPrice(resumo.subtotal)} />
+        {/* Os descontos e o PIX antes do Frete: a ordem do painel do pedido e do checkout. */}
+        {resumo.discounts.map((d) => (
+          <Linha key={d.key} rotulo={d.label} valor={`−${formatPrice(d.amount)}`} />
+        ))}
         <Linha
           rotulo="Frete"
           valor={resumo.shipping === 0 ? 'Grátis' : formatPrice(resumo.shipping)}
         />
-        {resumo.discounts.map((d) => (
-          <Linha key={d.key} rotulo={d.label} valor={`−${formatPrice(d.amount)}`} />
-        ))}
         <Linha rotulo="Total" valor={formatPrice(resumo.total)} forte />
       </dl>
     </section>
