@@ -13,6 +13,13 @@ const HORA = new Intl.DateTimeFormat('pt-BR', {
   hourCycle: 'h23',
 })
 
+const DATA = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: STORE_TIME_ZONE,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
 /** `'2026-10-21T18:32:00Z'` ⇒ `'15h32'`, no fuso da loja e com ciclo de 23 horas. */
 export function formatStoreHour(iso: string): string {
   const partes = HORA.formatToParts(new Date(iso))
@@ -29,4 +36,14 @@ export function formatStoreHour(iso: string): string {
  */
 export function formatDayMonth(dia: string): string {
   return `${dia.slice(8, 10)}/${dia.slice(5, 7)}`
+}
+
+/**
+ * `'2026-11-07T14:32:00Z'` ⇒ `'07/11/2026'`: a data de um INSTANTE, no fuso da loja (a folha de
+ * separação, "Pedido #0244 · 07/11/2026"). Meia-noite UTC ainda é o dia anterior em Brasília.
+ */
+export function formatStoreDate(iso: string): string {
+  const partes = DATA.formatToParts(new Date(iso))
+  const parte = (tipo: string): string => partes.find((p) => p.type === tipo)?.value ?? ''
+  return `${parte('day')}/${parte('month')}/${parte('year')}`
 }

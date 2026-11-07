@@ -36,12 +36,13 @@ const formatDayMonthMutante = (dia: string): string => {
 describe.each(FUSOS)('no fuso de processo %s', (fuso) => {
   let formatStoreHour: Modulo['formatStoreHour']
   let formatDayMonth: Modulo['formatDayMonth']
+  let formatStoreDate: Modulo['formatStoreDate']
 
   beforeAll(async () => {
     process.env.TZ = fuso
     deslocamentos[fuso] = new Date(0).getTimezoneOffset()
     vi.resetModules()
-    ;({ formatStoreHour, formatDayMonth } = await import('../index.ts'))
+    ;({ formatStoreHour, formatDayMonth, formatStoreDate } = await import('../index.ts'))
   })
 
   it('formatStoreHour escreve a hora de Brasília em HHhMM', () => {
@@ -60,6 +61,17 @@ describe.each(FUSOS)('no fuso de processo %s', (fuso) => {
   it('formatDayMonth escreve DD/MM por corte de texto', () => {
     expect(formatDayMonth('2026-10-21')).toBe('21/10')
     expect(formatDayMonth('2026-01-05')).toBe('05/01')
+  })
+
+  it('formatStoreDate escreve a data completa DD/MM/AAAA no fuso da loja', () => {
+    expect(formatStoreDate('2026-11-07T14:32:00Z')).toBe('07/11/2026')
+    expect(formatStoreDate('2026-01-05T12:00:00Z')).toBe('05/01/2026')
+  })
+
+  it('formatStoreDate: meia-noite UTC ainda é o dia anterior em Brasília', () => {
+    // 00:00 UTC de 01/01/2027 é 21:00 de 31/12/2026 em Brasília.
+    expect(formatStoreDate('2027-01-01T00:00:00Z')).toBe('31/12/2026')
+    expect(formatStoreDate('2026-11-08T02:59:00Z')).toBe('07/11/2026')
   })
 
   if (fuso === 'America/Sao_Paulo') {

@@ -5,6 +5,7 @@
 
 import { ArrowRight, CheckCircle2, Download, Loader2, MessageCircle, Printer } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
+import { ActionButton } from '@/shared/ui'
 import { BULK_LIMIT } from '../model/bulkMaterial'
 
 /**
@@ -27,6 +28,8 @@ interface Props {
   onMaterialReceived: () => void
   onAdvanceStatus: () => void
   onPickSlips: () => void
+  /** A folha de separação está sendo lida: o botão dela mostra o gerúndio e `aria-busy`. */
+  pickSlipsPending?: boolean
   onChargeMaterial: () => void
   onExport: () => void
   onSelectAll: () => void
@@ -34,7 +37,7 @@ interface Props {
 }
 
 const OrderBulkBar = ({
-  count, total, busy = false, progresso = null,
+  count, total, busy = false, progresso = null, pickSlipsPending = false,
   onMaterialReceived, onAdvanceStatus, onPickSlips, onChargeMaterial, onExport,
   onSelectAll, onClear,
 }: Props) => {
@@ -93,9 +96,16 @@ const OrderBulkBar = ({
         <Button size="sm" variant="outline" onClick={onAdvanceStatus} disabled={busy}>
           <ArrowRight className="mr-1 h-3.5 w-3.5" /> Avançar status
         </Button>
-        <Button size="sm" variant="outline" onClick={onPickSlips} disabled={busy}>
+        <ActionButton
+          size="sm"
+          variant="outline"
+          onClick={onPickSlips}
+          disabled={busy}
+          pending={pickSlipsPending}
+          pendingLabel="Preparando as folhas…"
+        >
           <Printer className="mr-1 h-3.5 w-3.5" /> Folhas de separação
-        </Button>
+        </ActionButton>
         <Button size="sm" variant="outline" onClick={onChargeMaterial} disabled={busy}>
           <MessageCircle className="mr-1 h-3.5 w-3.5" /> Cobrar material
         </Button>

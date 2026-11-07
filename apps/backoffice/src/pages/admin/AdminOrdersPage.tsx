@@ -74,7 +74,9 @@ import {
   proposalsViewParams,
 } from '@/features/order-list/model/queryUrl'
 import { PROPOSAL_BUILDER_PATH, ProposalsList } from '@/features/order-proposal'
-import { openPickSlips } from '@/features/pick-slip'
+import { openPickSlips, PICK_SLIP_BLOCKED } from '@/features/pick-slip'
+import { fetchPickSlipOrders, PICK_SLIP_READ_FAILED } from '@/entities/order/api/pickSlipOrders'
+import { pickSlipBatch, pickSlipLeftOutText } from '@/features/order-list/model/pickSlipBatch'
 import {
   ActionButton, AdminTable, CardSkeleton, PageHeader, Pagination, TableSkeleton, type AdminColumn,
 } from '@/shared/ui'
@@ -155,11 +157,15 @@ const AdminOrdersPage = () => {
   // anúncio do desfecho (sem toast junto), e recebe o foco: a barra de onde o lote saiu some com a
   // seleção.
   const [resumoDoLote, setResumoDoLote] = useState<{ texto: string; falhou: boolean } | null>(null)
+  // A folha de separação em curso: qual dos dois botões a pediu (o gerúndio fica só nele). Ela entra
+  // em `ocupado`, que desabilita os dois botões — é isso que impede a segunda janela.
+  const [folhaEmCurso, setFolhaEmCurso] = useState<'cabecalho' | 'barra' | null>(null)
   const caixaDoResumo = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (resumoDoLote) caixaDoResumo.current?.focus()
   }, [resumoDoLote])
-  const ocupado = busy || progresso !== null || gesto.pendente !== null || gesto.ocupado || lendoCartao !== null
+  const ocupado =
+    busy || progresso !== null || gesto.pendente !== null || gesto.ocupado || lendoCartao !== null || folhaEmCurso !== null
 
   // `PED-10` — debounce de 300 ms. Sem ele, cada tecla dispara uma consulta paginada mais seis
   // contagens; com a busca alcançando cinco colunas, isso é sete `ilike` por caractere.
@@ -433,6 +439,29 @@ const AdminOrdersPage = () => {
     }
   }
 
+  /**
+   * A folha de separação em lote: os pedidos completos (itens, fotos, endereço, observação) pelo
+   * carregador, até `PICK_SLIP_LIMIT`, num documento só. `openPickSlips` é chamada DENTRO do clique,
+   * sem `await` antes — a janela abre ali e é preenchida depois da leitura. Os que passam do teto
+   * ficam de fora, e a tela diz quantos.
+   */
+  const imprimirFolhas = async (origem: 'cabecalho' | 'barra', pedidos: AdminOrderRow[]) => {
+    const { ids, deFora } = pickSlipBatch(pedidos)
+    if (ids.length === 0) return
+    setFolhaEmCurso(origem)
+    try {
+      const desfecho = await openPickSlips(() => fetchPickSlipOrders(ids))
+      if (desfecho === 'bloqueada') toast.error(PICK_SLIP_BLOCKED)
+      else if (desfecho === 'falhou') toast.error(PICK_SLIP_READ_FAILED)
+      else if (desfecho === 'aberta') {
+        const foraDoTeto = pickSlipLeftOutText(deFora)
+        if (foraDoTeto) toast.message(foraDoTeto)
+      }
+    } finally {
+      setFolhaEmCurso(null)
+    }
+  }
+
   const cobrarMaterial = () => {
     // `Out of Scope`: régua automática de cobrança é política de relacionamento num negócio
     // memorial, e é decisão da Adri. O que a tela oferece é **um clique com o texto pronto**.
@@ -656,14 +685,16 @@ const AdminOrdersPage = () => {
             <Button variant="outline" size="sm" className="min-h-[44px] md:min-h-0" onClick={exportar} disabled={ocupado || total === 0}>
               <Download className="mr-1 h-4 w-4" /> {exportLabel(total)}
             </Button>
-            <Button
+            <ActionButton
               size="sm"
               className="min-h-[44px] md:min-h-0"
-              onClick={() => openPickSlips(selecionadas.length > 0 ? selecionadas : rows)}
+              onClick={() => void imprimirFolhas('cabecalho', selecionadas.length > 0 ? selecionadas : rows)}
               disabled={rows.length === 0 || ocupado}
+              pending={folhaEmCurso === 'cabecalho'}
+              pendingLabel="Preparando a folha…"
             >
               <Printer className="mr-1 h-4 w-4" /> Folha de separação
-            </Button>
+            </ActionButton>
           </span>
         }
       />
@@ -860,7 +891,8 @@ const AdminOrdersPage = () => {
           progresso={progresso}
           onMaterialReceived={() => void acionarLote('material')}
           onAdvanceStatus={() => void acionarLote('avancar')}
-          onPickSlips={() => openPickSlips(selecionadas)}
+          onPickSlips={() => void imprimirFolhas('barra', selecionadas)}
+          pickSlipsPending={folhaEmCurso === 'barra'}
           onChargeMaterial={cobrarMaterial}
           onExport={() => exportOrdersCsv(selecionadas)}
           onSelectAll={selecionarTodosDoFiltro}

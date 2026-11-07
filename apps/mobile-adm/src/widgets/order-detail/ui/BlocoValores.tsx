@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { formatPrice } from '@estrelinha/core/formatters'
-import { ORDER_PAYMENT_STATUS_LABELS, PAYMENT_STATUS_TONES, paymentMethodLabel } from '@estrelinha/core/orders'
-import { PICKUP_METHOD_NAME, isPickupOrder } from '@estrelinha/core/shipping'
+import {
+  ORDER_PAYMENT_STATUS_LABELS, PAYMENT_STATUS_TONES, paymentMethodLabel, shippingMethodLabel,
+} from '@estrelinha/core/orders'
 import type { PedidoDoDetalhe } from '@/entities/order'
 import Selo from '@/shared/ui/Selo'
 
@@ -23,14 +24,15 @@ const Linha = ({ rotulo, valor, forte = false, parte }: { rotulo: ReactNode; val
  * - **O Total é `orders.total`, e NUNCA é recalculado** a partir das linhas acima: o banco é o dono do
  *   que a cliente pagou, e uma soma no app seria uma segunda escrita do dinheiro (`packages/core/
  *   src/payment/**` é o dono do cálculo, e ele não é refeito aqui).
- * - O frete diz o serviço (ou "Retirada no escritório") e "grátis" com custo zero.
+ * - O frete diz o serviço (`shippingMethodLabel`, de `core` — o mesmo nome da folha de separação) e
+ *   "grátis" com custo zero.
  * - Cupom, desconto do Pix e promoção só aparecem quando > 0 (A30).
  * - O meio de pagamento (`paymentMethodLabel`, que nunca devolve o valor cru — B01) e o selo do `payment_status` — rótulo de
  *   `ORDER_PAYMENT_STATUS_LABELS`, tom de `PAYMENT_STATUS_TONES` (A15), desenhado pelo MESMO `Selo`
  *   da situação: nenhum mapa tom → classe novo.
  */
 const BlocoValores = ({ pedido }: { pedido: PedidoDoDetalhe }) => {
-  const servico = isPickupOrder(pedido) ? PICKUP_METHOD_NAME : pedido.shipping_method
+  const servico = shippingMethodLabel(pedido)
   const frete = pedido.shipping_cost ?? 0
   const desconto = pedido.discount ?? 0
   const meio = paymentMethodLabel(pedido.payment_method)

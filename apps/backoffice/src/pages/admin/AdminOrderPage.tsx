@@ -38,8 +38,9 @@ import OrderHistory from '@/features/order-detail/ui/OrderHistory'
 import { buildHistory } from '@/features/order-detail/model/history'
 import { gerundioDoStatus } from '@/features/order-detail/model/gerundio'
 import { abrirPrevia, fraseDoResultado, OUTRA_GRAVACAO, useGestoComAviso } from '@/features/order-notice'
-import { openPickSlips, type PickSlipOrder } from '@/features/pick-slip'
-import { OrderAdminNoteCard, useOrderAdminNote } from '@/features/order-admin-note'
+import { openPickSlips, PICK_SLIP_BLOCKED } from '@/features/pick-slip'
+import { fetchPickSlipOrders, PICK_SLIP_READ_FAILED } from '@/entities/order'
+import { OrderAdminNoteCard } from '@/features/order-admin-note'
 import { chargeMaterialUrl } from '@/features/order-list/model/chargeMaterial'
 import { ActionButton, OrderPageSkeleton, RecordPageHeader } from '@/shared/ui'
 import { ManualDiscountRow, ProposalOriginLine, type PedidoComOrigem } from '@/features/order-proposal'
@@ -96,10 +97,6 @@ const AdminOrderPage = () => {
 
   // Feature `88`: a previsão do aviso (`A-01`) lê as configurações de notificação (os padrões enquanto
   // a leitura não chega — os mesmos do motor) e o que a cliente JÁ recebeu deste pedido.
-  // A observação do pedido (só de quem administra): o card lê e grava sozinho; a página lê o MESMO
-  // cache para a folha de separação deste pedido.
-  const observacao = useOrderAdminNote(id)
-
   const notificacoes = useNotificationSettings()
   const enviados = useMemo(() => sentCustomerEvents(emails ?? []), [emails])
   // Um caminho para todo gesto que pode avisar a cliente: portão, uma gravação por vez, a frase do
@@ -350,9 +347,13 @@ const AdminOrderPage = () => {
           <>
             <Button
               variant="outline" size="sm" className="min-h-[44px] md:min-h-0"
-              onClick={() =>
-                openPickSlips([{ ...(order as unknown as PickSlipOrder), items, admin_note: observacao.nota?.note ?? null }])
-              }
+              onClick={async () => {
+                // A folha deste pedido é montada pelo MESMO carregador do lote (uma montagem só). A
+                // janela abre dentro do clique, antes da leitura — `openPickSlips` cuida disso.
+                const desfecho = await openPickSlips(() => fetchPickSlipOrders([order.id]))
+                if (desfecho === 'bloqueada') toast.error(PICK_SLIP_BLOCKED)
+                if (desfecho === 'falhou') toast.error(PICK_SLIP_READ_FAILED)
+              }}
             >
               <Printer className="mr-1 h-4 w-4" /> Folha de separação
             </Button>

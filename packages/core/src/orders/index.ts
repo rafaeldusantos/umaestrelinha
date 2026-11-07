@@ -113,7 +113,12 @@ export {
   type HistoryNotificationRow,
   type HistoryStatusRow,
 } from './history.ts'
-export { shippingLine, type ShippingLineInput } from './delivery.ts'
+export {
+  shippingLine,
+  shippingMethodLabel,
+  type ShippingLineInput,
+  type ShippingMethodInput,
+} from './delivery.ts'
 export {
   EMPTY_TITLE,
   ORDER_PAGE_SIZE,

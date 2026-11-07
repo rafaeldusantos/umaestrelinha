@@ -4,8 +4,8 @@
 // O QUE ISTO SUBSTITUI
 // ---------------------------------------------------------------------------------------------
 // `window.print()` imprimia a tela inteira: sidebar, filtros, paginação e o cabeçalho do navegador.
-// O que vai para a bancada precisa de outra coisa — o que separar, o que gravar, **qual material
-// esperar** e para onde mandar. Nada disso cabe num print de listagem, e metade nem estava na tela.
+// O que vai para a bancada precisa de outra coisa — o que separar (com a foto da peça), o que
+// gravar, por qual frete e para onde mandar. Nada disso cabe num print de listagem, e metade nem estava na tela.
 //
 // ---------------------------------------------------------------------------------------------
 // POR QUE UMA JANELA E NÃO UMA ROTA
@@ -18,33 +18,12 @@
 //
 // Lote gera **uma folha por pedido no mesmo documento**, separadas por quebra de página.
 
-import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
-import { MATERIAL_STATUS_LABELS, toMaterialStatus } from '@estrelinha/core/material'
-import { formatOrderNumber } from '@estrelinha/core/orders'
+import { formatOrderNumber, shippingMethodLabel } from '@estrelinha/core/orders'
+import { formatStoreDate } from '@estrelinha/core/time'
+import type { PickSlipItem, PickSlipOrder } from '@/entities/order'
 
-export interface PickSlipItem {
-  product_name: string
-  quantity: number
-  variant_label?: string | null
-  engraving_text?: string | null
-  material_kinds?: string[]
-}
-
-export interface PickSlipOrder extends AdminOrderRow {
-  items?: PickSlipItem[]
-  address_street?: string | null
-  address_number?: string | null
-  address_complement?: string | null
-  address_neighborhood?: string | null
-  address_city?: string | null
-  address_state?: string | null
-  address_zip?: string | null
-  /**
-   * A observação do pedido (`order_admin_notes`), só de quem administra. Só a folha de UM pedido a
-   * recebe — a página do pedido a passa; a folha em lote não.
-   */
-  admin_note?: string | null
-}
+// Os tipos moram em `entities/order` (o carregador da folha os devolve); a folha os reexporta.
+export type { PickSlipItem, PickSlipOrder }
 
 const escapar = (valor: unknown): string =>
   String(valor ?? '')
@@ -60,9 +39,22 @@ const endereco = (o: PickSlipOrder): string => {
   return partes.length > 0 ? partes.map(escapar).join('<br>') : '—'
 }
 
+const fotoHtml = (item: PickSlipItem): string =>
+  // A moldura existe MESMO sem foto: a linha sem foto fica alinhada com a que tem.
+  item.image
+    ? `<div class="foto"><img src="${escapar(item.image)}" alt="${escapar(item.product_name)}"></div>`
+    : '<div class="foto"></div>'
+
+/** O frete escolhido, em negrito, acima do endereço; sem frete gravado, nenhuma linha. */
+const frete = (o: PickSlipOrder): string => {
+  const rotulo = shippingMethodLabel(o)
+  return rotulo ? `<p class="frete">${escapar(rotulo)}</p>` : ''
+}
+
 const itemHtml = (item: PickSlipItem): string => `
   <tr>
     <td class="qtd">${escapar(item.quantity)}×</td>
+    <td class="celula-foto">${fotoHtml(item)}</td>
     <td>
       <strong>${escapar(item.product_name)}</strong>
       ${item.variant_label ? `<div class="sub">${escapar(item.variant_label)}</div>` : ''}
@@ -83,26 +75,20 @@ const itemHtml = (item: PickSlipItem): string => `
 const folha = (o: PickSlipOrder): string => `
   <section class="folha">
     <header>
-      <h1>Pedido ${escapar(formatOrderNumber(o.order_number))}</h1>
-      <p class="sub">${escapar(o.customer_name)} · ${new Date(o.created_at).toLocaleDateString('pt-BR')}</p>
+      <h1>Pedido ${escapar(formatOrderNumber(o.order_number))} · ${escapar(formatStoreDate(o.created_at))}</h1>
+      <p class="cliente">${escapar(o.customer_name)}</p>
     </header>
 
     <div class="bloco">
       <h2>O que separar</h2>
       <table>
-        ${(o.items ?? []).map(itemHtml).join('') || '<tr><td colspan="2" class="sub">Sem itens carregados</td></tr>'}
+        ${(o.items ?? []).map(itemHtml).join('') || '<tr><td colspan="3" class="sub">Sem itens carregados</td></tr>'}
       </table>
     </div>
 
     <div class="bloco">
-      <h2>Material esperado</h2>
-      <p>${escapar(MATERIAL_STATUS_LABELS[toMaterialStatus(o.material_status)] ?? '—')}${
-        o.material_tracking_code ? ` · envelope ${escapar(o.material_tracking_code)}` : ''
-      }</p>
-    </div>
-
-    <div class="bloco">
       <h2>Entrega</h2>
+      ${frete(o)}
       <p>${endereco(o)}</p>
     </div>
 
@@ -134,6 +120,7 @@ export const buildPickSlipHtml = (orders: PickSlipOrder[]): string => `<!doctype
   .folha { padding: 24mm 18mm; page-break-after: always; }
   .folha:last-child { page-break-after: auto; }
   h1 { font-size: 20px; margin: 0; }
+  .cliente { font-size: 17px; font-weight: 700; margin: 4px 0 0; }
   h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #555; margin: 0 0 6px; }
   header { border-bottom: 1px solid #111; padding-bottom: 8px; margin-bottom: 16px; }
   .bloco { margin-bottom: 16px; }
@@ -142,27 +129,100 @@ export const buildPickSlipHtml = (orders: PickSlipOrder[]): string => `<!doctype
   .recado { border: 1px solid #111; padding: 10px; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 6px 0; vertical-align: top; border-bottom: 1px solid #ddd; }
-  .qtd { width: 40px; font-weight: 600; }
+  .qtd { width: 48px; font-size: 18px; font-weight: 700; }
+  .celula-foto { width: 68px; }
+  .foto { width: 56px; height: 56px; border: 1px solid #999; overflow: hidden; }
+  .foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .frete { font-weight: 700; margin: 0 0 2px; }
   footer { margin-top: 24px; border-top: 1px solid #ddd; padding-top: 6px; }
   @media print { body { margin: 0; } }
 </style></head>
 <body>${orders.map(folha).join('')}</body></html>`
 
+/** O que a janela mostra enquanto a leitura dos pedidos não volta. */
+export const PICK_SLIP_PREPARING = 'Preparando a folha…'
+
+/** O aviso de quem chamou quando o navegador recusa a janela (`bloqueada`). */
+export const PICK_SLIP_BLOCKED =
+  'O navegador bloqueou a janela da folha de separação. Libere as janelas deste site e tente de novo.'
+
+/** Quanto a impressão espera pelas fotos antes de sair mesmo assim. */
+export const PICK_SLIP_IMAGE_WAIT_MS = 8000
+
+/**
+ * O desfecho, para quem chamou avisar: `aberta` (impressão disparada), `bloqueada` (o navegador
+ * recusou o popup), `falhou` (a leitura lançou; a janela foi fechada) e `vazia` (nada a imprimir).
+ */
+export type PickSlipOpenResult = 'aberta' | 'bloqueada' | 'falhou' | 'vazia'
+
+export interface OpenPickSlipsOptions {
+  /** Abre a janela. Padrão: `window.open('', '_blank')`. Injetável para teste sem navegador. */
+  abrir?: () => Window | null
+  /** Teto de espera pelas fotos antes de imprimir. Padrão: `PICK_SLIP_IMAGE_WAIT_MS`. */
+  esperaMaxMs?: number
+}
+
+const PREPARANDO_HTML = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<title>${PICK_SLIP_PREPARING}</title></head>
+<body style="font: 14px system-ui, sans-serif; color: #111; padding: 24px">${PICK_SLIP_PREPARING}</body></html>`
+
+/** Espera o `load` (ou `error`) de cada imagem ainda não carregada, com teto. */
+const esperarImagens = (doc: Document, tetoMs: number): Promise<void> => {
+  const pendentes = Array.from(doc.images ?? []).filter(img => !img.complete)
+  if (pendentes.length === 0) return Promise.resolve()
+  const todas = Promise.all(
+    pendentes.map(
+      img =>
+        new Promise<void>(resolve => {
+          img.addEventListener('load', () => resolve())
+          img.addEventListener('error', () => resolve())
+        }),
+    ),
+  ).then(() => undefined)
+  const teto = new Promise<void>(resolve => setTimeout(resolve, tetoMs))
+  return Promise.race([todas, teto])
+}
+
 /**
  * Abre a folha numa janela e dispara a impressão.
  *
- * Se o navegador bloquear o popup, devolve `false` — quem chama avisa. Falhar em silêncio faria a
- * Adri clicar de novo achando que o botão não pegou.
+ * `fonte` é a lista pronta ou a leitura assíncrona (`() => fetchPickSlipOrders(ids)`). A janela abre
+ * **antes do primeiro `await`**, ainda dentro do gesto do clique — aberta depois da leitura, o
+ * navegador a bloquearia como popup — e mostra `PICK_SLIP_PREPARING` até os pedidos chegarem. O
+ * `print()` só sai depois do `load` das fotos do documento (com teto: uma foto que não responde não
+ * trava a impressão). Falhar em silêncio faria a Adri clicar de novo achando que o botão não pegou:
+ * por isso o desfecho volta para quem chamou avisar.
  */
-export const openPickSlips = (orders: PickSlipOrder[]): boolean => {
-  if (orders.length === 0) return false
+export async function openPickSlips(
+  fonte: PickSlipOrder[] | (() => Promise<PickSlipOrder[]>),
+  opcoes: OpenPickSlipsOptions = {},
+): Promise<PickSlipOpenResult> {
+  if (Array.isArray(fonte) && fonte.length === 0) return 'vazia'
 
-  const janela = window.open('', '_blank')
-  if (!janela) return false
+  const abrir = opcoes.abrir ?? (() => window.open('', '_blank'))
+  const janela = abrir()
+  if (!janela) return 'bloqueada'
 
-  janela.document.write(buildPickSlipHtml(orders))
+  janela.document.write(PREPARANDO_HTML)
   janela.document.close()
+
+  let pedidos: PickSlipOrder[]
+  try {
+    pedidos = Array.isArray(fonte) ? fonte : await fonte()
+  } catch {
+    janela.close()
+    return 'falhou'
+  }
+  if (pedidos.length === 0) {
+    janela.close()
+    return 'vazia'
+  }
+
+  janela.document.open()
+  janela.document.write(buildPickSlipHtml(pedidos))
+  janela.document.close()
+  await esperarImagens(janela.document, opcoes.esperaMaxMs ?? PICK_SLIP_IMAGE_WAIT_MS)
   janela.focus()
   janela.print()
-  return true
+  return 'aberta'
 }

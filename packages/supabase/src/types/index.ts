@@ -340,6 +340,12 @@ export interface DbOrder {
    * (`AD-012`). Opcional porque nem toda leitura do pedido a pede no `select`.
    */
   shipping_service_id?: string | null
+  /**
+   * O nome do frete escolhido ("PAC", "SEDEX", "Retirada no escritório"). Coluna `text` desde a
+   * primeira migration de `orders`; o tipo não a declarava (`AD-012`). O nome que a tela escreve sai
+   * de `shippingMethodLabel` (`core/orders`). Opcional porque nem toda leitura a pede no `select`.
+   */
+  shipping_method?: string | null
   cancel_reason: string | null
   melhor_envio_id: string | null
   melhor_envio_label_url: string | null

@@ -6,6 +6,7 @@ export {
   runMaterialBulk, runStatusBulk, runBulk, bulkSummary, BULK_LIMIT, NEXT_STATUS,
   type BulkOutcome, type BulkOptions, type BulkStep, type BulkVerb,
 } from './model/bulkMaterial'
+export { PICK_SLIP_LIMIT, pickSlipBatch, pickSlipLeftOutText, type PickSlipBatch } from './model/pickSlipBatch'
 export { rowSummary, type RowSummary, type PrimaryActionId } from './model/rowSummary'
 // `whatsappNumber` é reexport de `normalizeBrPhone` (`@estrelinha/core/notifications`) desde a
 // feature 42 — mantido só para não quebrar consumidores; sai na 43.
