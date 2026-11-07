@@ -96,12 +96,18 @@ const OrderItemsSummary = ({ order }: OrderItemsSummaryProps) => {
                 )}
               </div>
               {preco.full != null ? (
-                <span data-testid="item-de-por" className="flex shrink-0 flex-col items-end">
-                  <s className="whitespace-nowrap text-[13px] text-estrelinha-ink-soft">
-                    {formatPrice(preco.full)}
-                  </s>
-                  <span className="whitespace-nowrap text-[15px] font-semibold text-estrelinha-ink">
-                    {formatPrice(preco.charged)}
+                // "de … por …" numa frase só para o leitor de tela; o par visível fica fora da leitura.
+                <span className="relative shrink-0">
+                  <span className="sr-only">
+                    {`de ${formatPrice(preco.full)} por ${formatPrice(preco.charged)}`}
+                  </span>
+                  <span aria-hidden="true" data-testid="item-de-por" className="flex flex-col items-end">
+                    <s className="whitespace-nowrap text-[13px] text-estrelinha-ink-soft">
+                      {formatPrice(preco.full)}
+                    </s>
+                    <span className="whitespace-nowrap text-[15px] font-semibold text-estrelinha-ink">
+                      {formatPrice(preco.charged)}
+                    </span>
                   </span>
                 </span>
               ) : (

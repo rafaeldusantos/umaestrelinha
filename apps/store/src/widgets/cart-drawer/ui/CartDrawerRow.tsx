@@ -25,7 +25,7 @@ import { companionPhrase, lowStockLabel, variantChips } from '../model/drawerFac
 interface Props {
   item: CartItem
   onNavigate: () => void
-  /** O desconto do Compre Junto desta linha — calculado por `resolveOrderPricing`, nunca aqui. */
+  /** O desconto do Compre Junto desta linha e o preço cobrado — calculados em `core`, nunca aqui. */
   buyTogether?: BuyTogetherLineFacts
 }
 
@@ -93,12 +93,20 @@ const CartDrawerRow = ({ item, onNavigate, buyTogether }: Props) => {
             {product.name}
           </Link>
           {comDesconto ? (
-            <span data-testid="preco-compre-junto" className="flex shrink-0 flex-col items-end">
-              <s className="text-[12px] leading-4 text-estrelinha-ink-soft">
-                {formatPrice(buyTogether.fullTotal)}
-              </s>
-              <span className="text-sm font-bold leading-5 text-estrelinha-primary">
-                {formatPrice(buyTogether.total)}
+            // O leitor de tela ouve "de … por …" numa frase só, como no bloco da página do produto; o
+            // par visível fica fora da leitura (sem ver o riscado, dois números soltos não dizem qual
+            // vale). O `sr-only` é `absolute`, e o `relative` o prende aqui.
+            <span className="relative shrink-0">
+              <span className="sr-only">
+                {`de ${formatPrice(buyTogether.fullTotal)} por ${formatPrice(buyTogether.total)}`}
+              </span>
+              <span aria-hidden="true" data-testid="preco-compre-junto" className="flex flex-col items-end">
+                <s className="text-[12px] leading-4 text-estrelinha-ink-soft">
+                  {formatPrice(buyTogether.fullTotal)}
+                </s>
+                <span className="text-sm font-bold leading-5 text-estrelinha-primary">
+                  {formatPrice(buyTogether.total)}
+                </span>
               </span>
             </span>
           ) : (

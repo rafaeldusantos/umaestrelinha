@@ -3,6 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Product } from '@estrelinha/supabase/types'
 import type { BuyTogetherDiscountConfig } from '@estrelinha/core/buy-together'
+import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
@@ -18,15 +19,17 @@ const leitura: { atual: { config: BuyTogetherDiscountConfig | null; mainNames: M
 vi.mock('@/entities/cart/api/useCartBuyTogether', () => ({
   useCartBuyTogether: () => leitura.atual,
 }))
+const promocoes: { atual: ProgressivePromotion[] } = { atual: [] }
 vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
-  useActivePromotions: () => ({ data: [], isLoading: false }),
+  useActivePromotions: () => ({ data: promocoes.atual, isLoading: false }),
 }))
+const oferta = { atual: { enabled: false, productId: null as string | null, percent: 0 } }
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => ({ pix_enabled: true, pix_discount_percent: 0, card_enabled: false }),
   useCheckoutSettings: () => ({
-    order_bump_enabled: false,
-    order_bump_product_id: null,
-    order_bump_discount_percent: 0,
+    order_bump_enabled: oferta.atual.enabled,
+    order_bump_product_id: oferta.atual.productId,
+    order_bump_discount_percent: oferta.atual.percent,
   }),
   useShippingSettings: () => ({
     free_shipping_enabled: false,
@@ -108,6 +111,8 @@ const linhaDaGaveta = (nome: string) =>
 
 beforeEach(() => {
   leitura.atual = configCom(10)
+  promocoes.atual = []
+  oferta.atual = { enabled: false, productId: null, percent: 0 }
   useCartStore.setState({ items: [] })
   useCartUiStore.setState({ open: false })
   useCouponStore.getState().clearCoupon()
@@ -250,5 +255,96 @@ describe('o desconto do Compre Junto na gaveta e no checkout', () => {
     )
     expect(within(resumo()).queryByTestId('summary-buy-together-note')).toBeNull()
     expect(within(resumo()).getByTestId('summary-total')).toHaveTextContent(brl(379))
+  })
+})
+
+// A promoção de 30% a partir de 2 unidades, só para a corrente.
+const trintaPorCentoEmDuas: ProgressivePromotion = {
+  id: 'promo-30',
+  discount_kind: 'percent',
+  tiers: [{ min_qty: 2, value: 30 }],
+  scope: 'categories',
+  eligibleProductIds: ['corrente'],
+  stacks_with_coupon: false,
+  created_at: '2026-01-01T00:00:00Z',
+}
+
+describe('a linha da peça mostra o preço COBRADO quando outro desconto vence o casado', () => {
+  it('a promoção vence nas duas unidades: de 158,00 por 110,60, sem "a preço cheio", e as linhas somam o Total', () => {
+    promocoes.atual = [trintaPorCentoEmDuas]
+    useCartStore.getState().addItems([
+      { product: joia },
+      { product: corrente, quantity: 2, accompanies: { mainProductId: 'joia', listId: null } },
+    ])
+    abrir()
+
+    // 79 × 0,7 = 55,30 a unidade; o casado daria 71,10 + 79,00 = 150,10.
+    const linha = linhaDaGaveta('Corrente Prata')
+    const preco = within(linha).getByTestId('preco-compre-junto')
+    expect(preco.querySelector('s')).toHaveTextContent(brl(158))
+    expect(preco).toHaveTextContent(brl(110.6))
+    expect(preco).not.toHaveTextContent(brl(150.1))
+    expect(within(linha).queryByTestId('compre-junto-misto')).toBeNull()
+    expect(linha).not.toHaveTextContent('a preço cheio')
+    expect(gaveta()).toHaveTextContent(`Total${brl(410.6)}`)
+
+    const precoDoResumo = within(resumo()).getByTestId('summary-item-price')
+    expect(precoDoResumo.querySelector('s')).toHaveTextContent(brl(158))
+    expect(precoDoResumo).toHaveTextContent(brl(110.6))
+    expect(within(resumo()).queryByText(/a preço cheio/)).toBeNull()
+    expect(within(resumo()).getByTestId('summary-total')).toHaveTextContent(brl(410.6))
+  })
+
+  it('a promoção vence: a linha diz que acompanha, sem anunciar os 10% que não valeram', () => {
+    promocoes.atual = [trintaPorCentoEmDuas]
+    useCartStore.getState().addItems([
+      { product: joia },
+      { product: corrente, quantity: 2, accompanies: { mainProductId: 'joia', listId: null } },
+    ])
+    abrir()
+    expect(within(linhaDaGaveta('Corrente Prata')).getByTestId('acompanha')).toHaveTextContent(
+      new RegExp(`^Acompanha o ${JOIA}$`),
+    )
+    expect(within(resumo()).getByTestId('summary-item-compre-junto')).toHaveTextContent(
+      new RegExp(`^Acompanha o ${JOIA}$`),
+    )
+  })
+
+  it('a oferta do checkout vence o casado: o resumo mostra de 79,00 por 63,20 e "Acompanha"', () => {
+    oferta.atual = { enabled: true, productId: 'corrente', percent: 20 }
+    useCartStore.getState().addItems([
+      { product: joia },
+      { product: corrente, accompanies: { mainProductId: 'joia', listId: null } },
+    ])
+    montar()
+
+    const precoDoResumo = within(resumo()).getByTestId('summary-item-price')
+    expect(precoDoResumo.querySelector('s')).toHaveTextContent(brl(79))
+    expect(precoDoResumo).toHaveTextContent(brl(63.2))
+    expect(within(resumo()).getByTestId('summary-item-compre-junto')).toHaveTextContent(
+      new RegExp(`^Acompanha o ${JOIA}$`),
+    )
+    expect(within(resumo()).getByTestId('summary-total')).toHaveTextContent(brl(363.2))
+  })
+})
+
+describe('o leitor de tela ouve o "de/por" da linha numa frase só', () => {
+  it('na gaveta e no resumo: "de R$ 79,00 por R$ 71,10" em sr-only, e o par visível fora da leitura', () => {
+    useCartStore.getState().addItems([
+      { product: joia },
+      { product: corrente, accompanies: { mainProductId: 'joia', listId: null } },
+    ])
+    abrir()
+
+    const naGaveta = within(linhaDaGaveta('Corrente Prata')).getByText(/^de R\$\s79,00 por R\$\s71,10$/)
+    expect(naGaveta.className.split(/\s+/)).toContain('sr-only')
+    expect(within(linhaDaGaveta('Corrente Prata')).getByTestId('preco-compre-junto')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+
+    const noResumo = within(resumo()).getByText(/^de R\$\s79,00 por R\$\s71,10$/)
+    expect(noResumo.className.split(/\s+/)).toContain('sr-only')
+    expect(within(resumo()).getByTestId('summary-item-price')).toHaveAttribute('aria-hidden', 'true')
   })
 })

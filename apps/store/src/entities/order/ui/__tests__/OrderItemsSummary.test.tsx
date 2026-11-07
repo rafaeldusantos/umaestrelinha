@@ -290,6 +290,17 @@ describe('OrderItemsSummary — o desconto da compra casada no pedido', () => {
     expect(within(bump).getByTestId('item-de-por').querySelector('s')?.textContent).toBe(formatPrice(40))
   })
 
+  it('o leitor de tela ouve "de R$ 79,00 por R$ 71,10" numa frase só, e o par visível fica fora da leitura', () => {
+    render(<OrderItemsSummary order={novo()} />)
+    const [principal, casada] = linhas()
+
+    const lido = within(casada).getByText(/^de R\$\s79,00 por R\$\s71,10$/)
+    expect(lido.className.split(/\s+/)).toContain('sr-only')
+    expect(within(casada).getByTestId('item-de-por')).toHaveAttribute('aria-hidden', 'true')
+    // A peça sem desconto continua com o preço lido normalmente, sem frase.
+    expect(within(principal).queryByText(/^de R\$/)).not.toBeInTheDocument()
+  })
+
   it('a linha mista partida em duas: uma "Acompanha o X · 10% a menos" com "de/por", outra a preço cheio', () => {
     render(<OrderItemsSummary order={novo()} />)
     const [principal, casada, avulsa] = linhas()

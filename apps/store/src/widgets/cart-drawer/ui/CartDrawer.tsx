@@ -47,8 +47,15 @@ const CartDrawer = () => {
   const count = useCartStore((s) => s.uniqueItemsCount())
   const applied = useCouponStore((s) => s.applied)
   const { default_shipping_cost } = useShippingSettings()
-  const { promotionDiscount, totals, nextTier, buyTogetherDiscount, buyTogetherLines, buyTogether } =
-    useCartPromotion()
+  const {
+    promotionDiscount,
+    totals,
+    nextTier,
+    buyTogetherDiscount,
+    buyTogetherLines,
+    buyTogether,
+    orderLines,
+  } = useCartPromotion()
 
   /**
    * `FRG-05` — o estado do frete grátis vem de `@estrelinha/core/shipping`, dono único.
@@ -224,6 +231,7 @@ const CartDrawer = () => {
                           index,
                           items,
                           buyTogetherLines,
+                          orderLines,
                           buyTogether.config,
                           buyTogether.mainNames,
                         )}

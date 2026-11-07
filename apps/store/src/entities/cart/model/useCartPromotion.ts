@@ -11,8 +11,11 @@
 import { useMemo } from 'react'
 import {
   countEligibleUnits,
+  resolveOrderLines,
   resolveOrderPricing,
   tierUnitPrice,
+  type ChargedLine,
+  type OrderPricingInput,
   type OrderPricingOutcome,
   type PricingItem,
   type ProgressiveTier,
@@ -37,6 +40,11 @@ export type CartPromotion = OrderPricingOutcome & {
    * `resolveOrderPricing`. A linha da peça a usa para dizer quanto o desconto volta a ser com a joia.
    */
   buyTogether: CartBuyTogether
+  /**
+   * O preço COBRADO de cada linha (`resolveOrderLines`, para a mesma entrada e o mesmo caminho
+   * vencedor): é ele que a linha da peça mostra no "de/por", e não o do desconto casado sozinho.
+   */
+  orderLines: ChargedLine[]
 }
 
 const NO_BUY_TOGETHER: CartBuyTogether = { config: null, mainNames: new Map() }
@@ -49,6 +57,7 @@ const NO_PROMOTION: CartPromotion = {
   discarded: null,
   nextTier: null,
   buyTogether: NO_BUY_TOGETHER,
+  orderLines: [],
 }
 
 /**
@@ -163,17 +172,20 @@ export function useCartPromotion(): CartPromotion {
     const buyTogetherInput = cartBuyTogetherInput(items, buyTogether.config)
     const pricingItems: PricingItem[] = items.map(item => cartPricingItem(item, buyTogetherInput))
 
+    const input: OrderPricingInput = {
+      items: pricingItems,
+      shipping: 0,
+      pixDiscountPercent: 0,
+      method: 'card',
+      coupon: coupon ? { type: coupon.type, value: coupon.value } : null,
+      promotions,
+      buyTogether: buyTogetherInput,
+    }
     let outcome: OrderPricingOutcome
+    let orderLines: ChargedLine[]
     try {
-      outcome = resolveOrderPricing({
-        items: pricingItems,
-        shipping: 0,
-        pixDiscountPercent: 0,
-        method: 'card',
-        coupon: coupon ? { type: coupon.type, value: coupon.value } : null,
-        promotions,
-        buyTogether: buyTogetherInput,
-      })
+      outcome = resolveOrderPricing(input)
+      orderLines = resolveOrderLines(input, outcome).lines
     } catch {
       // Total abaixo de R$ 0,01 (cupom fixo que come o subtotal inteiro): `calculateOrderTotals`
       // lança, como já lançava. A gaveta não pode quebrar por isso — o bloqueio de verdade é
@@ -181,6 +193,11 @@ export function useCartPromotion(): CartPromotion {
       return { ...NO_PROMOTION, buyTogether }
     }
 
-    return { ...outcome, nextTier: resolveNextTier(pricingItems, promotions, outcome), buyTogether }
+    return {
+      ...outcome,
+      nextTier: resolveNextTier(pricingItems, promotions, outcome),
+      buyTogether,
+      orderLines,
+    }
   }, [items, coupon, promotions, buyTogether])
 }

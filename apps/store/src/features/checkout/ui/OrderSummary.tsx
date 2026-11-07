@@ -43,6 +43,7 @@ const OrderSummary = ({ variant }: Props) => {
     promotionDiscount,
     buyTogetherDiscount,
     buyTogetherLines,
+    orderLines,
     buyTogether,
     promotionName,
     discarded,
@@ -100,12 +101,13 @@ const OrderSummary = ({ variant }: Props) => {
   const itemLines = (
     <div className="flex flex-col gap-4 px-6 py-5">
       {items.map((item, index) => {
-        // O "de/por" e as frases do Compre Junto: o valor sai de `resolveOrderPricing` (pelo
+        // O "de/por" e as frases do Compre Junto: o valor é o cobrado, de `resolveOrderLines` (pelo
         // `useCheckoutTotals`), a mesma conta da gaveta — nenhuma aqui.
         const casado = buyTogetherLineFacts(
           index,
           items,
           buyTogetherLines,
+          orderLines,
           buyTogether.config,
           buyTogether.mainNames,
         )
@@ -154,12 +156,18 @@ const OrderSummary = ({ variant }: Props) => {
           {/* `item.unitPrice`, não `product.price` — o mesmo que `CartDrawerRow` mostra: com grade os
               dois divergem, e o base faria as linhas de item não somarem o subtotal exibido. */}
           {comDesconto ? (
-            <span data-testid="summary-item-price" className="flex shrink-0 flex-col items-end">
-              <s className="text-[13px] leading-4 text-estrelinha-ink-soft">
-                {formatPrice(casado.fullTotal)}
-              </s>
-              <span className="font-heading text-base font-semibold leading-5 text-estrelinha-ink">
-                {formatPrice(casado.total)}
+            // "de … por …" numa frase só para o leitor de tela; o par visível fica fora da leitura.
+            <span className="relative shrink-0">
+              <span className="sr-only">
+                {`de ${formatPrice(casado.fullTotal)} por ${formatPrice(casado.total)}`}
+              </span>
+              <span aria-hidden="true" data-testid="summary-item-price" className="flex flex-col items-end">
+                <s className="text-[13px] leading-4 text-estrelinha-ink-soft">
+                  {formatPrice(casado.fullTotal)}
+                </s>
+                <span className="font-heading text-base font-semibold leading-5 text-estrelinha-ink">
+                  {formatPrice(casado.total)}
+                </span>
               </span>
             </span>
           ) : (
