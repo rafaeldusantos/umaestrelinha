@@ -15,6 +15,7 @@ import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
 import { BUY_BAR_H } from '@/shared/lib/storeChrome'
 import { useScrolledPast } from '@/shared/lib/useScrolledPast'
+import { useScrollDirection } from '@/shared/lib/useScrollDirection'
 
 interface Props {
   product: Product
@@ -79,7 +80,16 @@ const ProductBuyBar = ({ product, purchase, buyTogether, action, revealAfter }: 
   const conjunto = buy.bundleTotal !== null
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
-  const visivel = useScrolledPast(revealAfter)
+  const passouDaFoto = useScrolledPast(revealAfter)
+  /**
+   * A barra também entra no instante em que o header some. O header recolhe ao rolar para baixo
+   * (mesma regra de `Header`: `down` e fora do topo), e deixar o rodapé vazio até a foto sair da
+   * tela atrasava o CTA justamente quando a cliente já começou a ler. Lido do mesmo hook do
+   * header, para as duas molduras nunca discordarem de "o header sumiu?".
+   */
+  const { direction, atTop } = useScrollDirection()
+  const headerSumiu = direction === 'down' && !atTop
+  const visivel = passouDaFoto || headerSumiu
 
   /**
    * O valor no Pix na superfície onde a compra se DECIDE.

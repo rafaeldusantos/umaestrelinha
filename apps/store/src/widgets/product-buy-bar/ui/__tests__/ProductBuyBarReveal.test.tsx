@@ -121,6 +121,36 @@ describe('ProductBuyBar — a barra entra depois da foto principal', () => {
     expect(temClasse(barra(), 'translate-y-0')).toBe(false)
   })
 
+  it('entra assim que o header some, mesmo com a foto ainda à vista', () => {
+    const ancora = createRef<HTMLDivElement>()
+    const alturaDoDocumento = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight')
+    Object.defineProperty(document.documentElement, 'scrollHeight', { configurable: true, value: 3000 })
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 800 })
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      cb(0)
+      return 1
+    })
+    render(<Cena ancora={ancora} />)
+    expect(barra()).toHaveAttribute('data-revealed', 'false')
+
+    // Rola para baixo além da zona do topo: o header recolhe e a barra entra junto.
+    act(() => {
+      window.scrollY = 200
+      window.dispatchEvent(new Event('scroll'))
+    })
+    expect(barra()).toHaveAttribute('data-revealed', 'true')
+
+    // Volta ao topo: o header reaparece e a barra sai (a foto está à vista).
+    act(() => {
+      window.scrollY = 0
+      window.dispatchEvent(new Event('scroll'))
+    })
+    expect(barra()).toHaveAttribute('data-revealed', 'false')
+
+    raf.mockRestore()
+    void alturaDoDocumento
+  })
+
   it('entra quando a foto sai por CIMA da tela', () => {
     const ancora = createRef<HTMLDivElement>()
     render(<Cena ancora={ancora} />)
