@@ -96,6 +96,8 @@ interface Cenario {
   promotions?: unknown[]
   eligible?: unknown[]
   products?: unknown[]
+  /** O cupom do pedido, como `coupons` o devolve. */
+  cupom?: Record<string, unknown> | null
 }
 
 const montar = (c: Cenario = {}) => {
@@ -121,7 +123,7 @@ const montar = (c: Cenario = {}) => {
       customers: { user_id: USER_ID, cpf: '39053344705', name: 'Mariana Souza Lima' },
       store_settings: (eq: [string, unknown] | null) =>
         eq?.[1] === 'checkout' && c.checkout ? { value: c.checkout } : null,
-      coupons: null,
+      coupons: c.cupom ?? null,
     },
     lists: {
       order_items: c.linhas ?? LINHAS,
@@ -158,6 +160,7 @@ describe('create-payment — o desconto casado é recalculado pelo banco', () =>
       subtotal: 450.1,
       total: 450.1,
       pix_discount: 0,
+      discount: 0,
       promotion_id: null,
       promotion_discount: 0,
       buy_together_discount: 7.9,
@@ -268,6 +271,36 @@ describe('create-payment — a guarda do teto: recusa só quando o pedido sai ma
     expect(gravacaoDoPedido(e)?.buy_together_discount).toBe(15.8)
     const oi2 = escritasDosItens(e).updates.find((u) => u.eq?.[1] === 'oi-2')
     expect(oi2?.values).toEqual({ unit_price: 63.2 })
+  })
+
+  it('com cupom percentual, a dona subiu o percentual: a linha do cupom é regravada sobre o subtotal novo', async () => {
+    // Na criação: 300 + 71,10 + 79 = 450,10, e o cupom de 10% = 45,01. Com o casado a 20% o subtotal
+    // cobrado cai para 442,20 e o cupom passa a 44,22: é o valor que o resumo do pedido tem de
+    // mostrar, senão as linhas deixam de somar o Total.
+    const e = montar({
+      compreJunto: [adicional(20)],
+      order: { coupon_id: 'cupom-1', discount: 45.01, total: 405.09 },
+      cupom: {
+        type: 'percent',
+        value: 10,
+        active: true,
+        valid_from: null,
+        valid_until: null,
+        max_uses: null,
+        used_count: 0,
+      },
+    })
+    const response = await createPayment(e.deps, request(), pixBody)
+
+    expect(response.status).toBe(200)
+    // 442,20 − 44,22.
+    expect(cobrado(e)).toBe('397.98')
+    expect(gravacaoDoPedido(e)).toMatchObject({
+      subtotal: 442.2,
+      discount: 44.22,
+      buy_together_discount: 15.8,
+      total: 397.98,
+    })
   })
 
   it('outro desconto passou a valer no lugar do casado e o pedido saiu mais barato: segue', async () => {

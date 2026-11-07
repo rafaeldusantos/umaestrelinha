@@ -908,6 +908,8 @@ describe('create-payment — order bump + cupom percent: exibido == cobrado (BMP
         subtotal: 7.35,
         total: expectedTotal,
         pix_discount: expectedPixDiscount,
+        // A linha do cupom, recalculada sobre o subtotal com o bump: 10% de 7,35.
+        discount: 0.74,
         // 17/T9: o persist passou a incluir o par da promoção. Aqui não há promoção nenhuma, e é
         // por valor que se afirma: desconto ZERO e nenhuma campanha atribuída a este pedido.
         promotion_id: null,
@@ -940,6 +942,7 @@ describe('create-payment — order bump + cupom percent: exibido == cobrado (BMP
       subtotal: 9.8,
       total: 18.28,
       pix_discount: 0.44,
+      discount: 0.98,
       promotion_id: null,
       promotion_discount: 0,
       buy_together_discount: 0,
@@ -1059,7 +1062,15 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
    */
   const expectCharged = (
     e: ReturnType<typeof env>,
-    expected: { amount: string; total: number; pixDiscount: number; subtotal: number; bump?: number },
+    expected: {
+      amount: string
+      total: number
+      pixDiscount: number
+      subtotal: number
+      bump?: number
+      /** A linha do cupom gravada; sem cupom que valha, zero. */
+      coupon?: number
+    },
   ) => {
     const call = e.fetchDouble.calls.at(-1)!
     expect(call.url).toBe(ORDERS_ENDPOINT)
@@ -1074,6 +1085,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
       subtotal: expected.subtotal,
       total: expected.total,
       pix_discount: expected.pixDiscount,
+      discount: expected.coupon ?? 0,
       // 17/T9: nenhum destes pares tem promoção cadastrada — o par da promoção é gravado zerado.
       promotion_id: null,
       promotion_discount: 0,
@@ -1128,7 +1140,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
       // Ignorando a quantidade a base cairia para 7,35 ⇒ cupom 0,74, e a cliente pagaria
       // 25,49 (PIX) / 26,31 (cartão) — quase R$ 1 acima do exibido.
       // Subtotal com bump = 3 x 4,90 + 2,45 = 17,15 (07/T13 passou a persisti-lo).
-      expectCharged(e, { amount, total, pixDiscount, subtotal: 17.15, bump: 2.45 })
+      expectCharged(e, { amount, total, pixDiscount, subtotal: 17.15, bump: 2.45, coupon: 1.72 })
     },
   )
 
@@ -1252,7 +1264,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
 
     expect(response.status).toBe(200)
     // 7,35 − 0,74 (cupom 10%) − 0,33 (PIX 5%) + 9,90 = 16,18 — o valor medido em sandbox no T16.
-    expectCharged(e, { amount: '16.18', total: 16.18, pixDiscount: 0.33, subtotal: 7.35, bump: 2.45 })
+    expectCharged(e, { amount: '16.18', total: 16.18, pixDiscount: 0.33, subtotal: 7.35, bump: 2.45, coupon: 0.74 })
     expect(logsOf(lines).some((x) => x.status === 'coupon_invalid')).toBe(false)
   })
 
@@ -1283,7 +1295,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
     expect(response.status).toBe(200)
     // Preço cheio nos dois itens: 9,80 − 0,98 (cupom 10%) − 0,44 (PIX 5%) + 9,90 = 18,28.
     // Ligando por ausência seriam 16,18 — R$ 2,10 abaixo do exibido.
-    expectCharged(e, { amount: '18.28', total: 18.28, pixDiscount: 0.44, subtotal: 9.8 })
+    expectCharged(e, { amount: '18.28', total: 18.28, pixDiscount: 0.44, subtotal: 9.8, coupon: 0.98 })
     const entry = logsOf(lines).find((x) => x.action === 'create-payment' && x.mp_order_id)
     expect(entry.bump_applied).toBe(false)
   })
@@ -1302,7 +1314,7 @@ describe('create-payment — os outros pares loja↔servidor: cobrado == exibido
     const response = await createPayment(e.deps, paymentRequest(), pixBody)
 
     expect(response.status).toBe(200)
-    expectCharged(e, { amount: '18.28', total: 18.28, pixDiscount: 0.44, subtotal: 9.8 })
+    expectCharged(e, { amount: '18.28', total: 18.28, pixDiscount: 0.44, subtotal: 9.8, coupon: 0.98 })
     expect(Number.isFinite(Number(e.fetchDouble.calls.at(-1)!.body.total_amount))).toBe(true)
   })
 
@@ -1428,6 +1440,7 @@ describe('create-payment — desconto progressivo por quantidade (PRM-11)', () =
       subtotal,
       total: Number(amount),
       pix_discount: 0,
+      discount: 0,
       promotion_id: promotion.id,
       promotion_discount: promotion.discount,
       buy_together_discount: 0,

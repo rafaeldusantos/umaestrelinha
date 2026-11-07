@@ -788,6 +788,9 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
       subtotal: totals.subtotal,
       pix_discount: totals.pixDiscount,
       total: totals.total,
+      // A linha do cupom: incide sobre o subtotal já com os descontos por item, então muda junto com
+      // eles. Sem ela o resumo do pedido mostra o cupom da criação e as linhas deixam de somar o Total.
+      discount: totals.couponDiscount,
       // Gravados com o valor RECALCULADO, nunca com o que veio do cliente: depois do pagamento é
       // esta linha que o resumo, o e-mail e o backoffice leem.
       promotion_id: appliedPromotionId,
