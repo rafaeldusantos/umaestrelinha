@@ -34,14 +34,15 @@ vi.mock('@estrelinha/supabase/client', () => {
       return { data: null, error: null, count: 0 }
     }
     const b: Record<string, unknown> = {}
-    for (const m of ['eq', 'in', 'neq', 'ilike', 'order', 'limit', 'range']) b[m] = () => b
+    let porSlug = false
+    for (const m of ['eq', 'in', 'neq', 'ilike', 'order', 'limit', 'range']) b[m] = (col?: unknown) => ((porSlug ||= m === 'eq' && col === 'slug'), b)
     b.select = () => b
     b.insert = (p: unknown) => ((op = 'insert'), (payload = p), b)
     b.update = (p: unknown) => ((op = 'update'), (payload = p), b)
     b.upsert = (p: unknown) => ((op = 'upsert'), (payload = p), b)
     b.delete = () => ((op = 'delete'), b)
     b.maybeSingle = () => {
-      if (table === 'products' && op === 'select') return Promise.resolve({ data: h.produto, error: null })
+      if (table === 'products' && op === 'select') return Promise.resolve({ data: porSlug ? null : h.produto, error: null })
       return fim()
     }
     b.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => fim().then(ok, ko)

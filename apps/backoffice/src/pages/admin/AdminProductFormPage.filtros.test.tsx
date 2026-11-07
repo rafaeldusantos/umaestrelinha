@@ -31,6 +31,7 @@ vi.mock('@estrelinha/supabase/client', () => {
     const filtros: unknown[] = []
     let op = 'select'
     let payload: unknown
+    let porSlug = false
     const fim = () => {
       if (op !== 'select') h.diario.push({ op, table, payload, filters: filtros })
       if (op !== 'select' && h.falhar === table) return { data: null, error: { message: 'boom' }, count: 0 }
@@ -39,6 +40,7 @@ vi.mock('@estrelinha/supabase/client', () => {
     const b: Record<string, unknown> = {}
     for (const m of ['eq', 'in', 'neq', 'ilike', 'order', 'limit', 'range']) {
       b[m] = (...args: unknown[]) => {
+        if (m === 'eq' && args[0] === 'slug') porSlug = true
         filtros.push([m, ...args])
         return b
       }
@@ -50,6 +52,7 @@ vi.mock('@estrelinha/supabase/client', () => {
     b.delete = () => ((op = 'delete'), b)
     b.maybeSingle = () => {
       if (table !== 'products' || op !== 'select') return Promise.resolve(fim())
+      if (porSlug) return Promise.resolve({ data: null, error: null })
       h.leituras += 1
       if (h.falharLeituraDesde !== null && h.leituras >= h.falharLeituraDesde) {
         return Promise.resolve({ data: null, error: { message: 'boom' } })

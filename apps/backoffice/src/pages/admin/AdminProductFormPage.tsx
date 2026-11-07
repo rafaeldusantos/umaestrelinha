@@ -85,6 +85,7 @@ import {
 } from '@estrelinha/ui/alert-dialog'
 import type { DbProduct, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 import { storeUrlFor } from '@/features/product-form/lib/storeUrl'
+import { slugify, slugifyTyping, firstFreeSlug } from '@/features/product-form/lib/slug'
 
 /**
  * As 5 abas de PFM-01. `variacoes` não existe mais: a grade mora em `precos`. `midia` também não
@@ -102,7 +103,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'compre-junto', label: 'Compre junto' },
 ]
 
-const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
 /** O aviso de sucesso diz o que mudou NA LOJA, que é a pergunta de quem acabou de salvar. */
 const savedToast = (isEdit: boolean, active: boolean) =>
@@ -377,9 +377,30 @@ const AdminProductFormPage = () => {
       return
     }
     setSaving(true)
+    // URL: normaliza e, se já existe em outro produto, usa o próximo número livre — avisando a mudança.
+    const wantedSlug = slugify(form.slug || form.name)
+    let finalSlug = wantedSlug
+    try {
+      finalSlug = await firstFreeSlug(wantedSlug, async candidate => {
+        let q = supabase.from('products').select('id').eq('slug', candidate)
+        if (id) q = q.neq('id', id)
+        const { data } = await q.maybeSingle()
+        return !!data
+      })
+    } catch {
+      finalSlug = wantedSlug
+    }
+    if (finalSlug !== wantedSlug) {
+      setField('slug', finalSlug)
+      setSlugEdited(true)
+      toast({
+        title: 'A URL já existia e foi ajustada',
+        description: `"${wantedSlug}" já é de outro produto. Este produto ficou em "${finalSlug}".`,
+      })
+    }
     const payload: Record<string, unknown> = {
       name: form.name,
-      slug: form.slug || slugify(form.name),
+      slug: finalSlug,
       description: form.description,
       base_price: Number(form.price),
       original_price: form.compare_price ? Number(form.compare_price) : null,
@@ -1030,7 +1051,7 @@ const AdminProductFormPage = () => {
                   slug={form.slug || slugify(form.name)}
                   onChange={value => {
                     setSlugEdited(true)
-                    setField('slug', value)
+                    setField('slug', slugifyTyping(value))
                   }}
                   productId={id}
                   savedSlug={savedSlugRef.current}
