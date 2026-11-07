@@ -581,6 +581,8 @@ const CheckoutPage = () => {
             setCardOrderNumber(order.order_number)
           }
           payingOrderId = newOrderId
+          // O pedido com o total novo existe: o aviso do valor mudado cumpriu o papel dele.
+          setPriceChanged(null)
         } catch (err) {
           // IDN-08: o servidor recusou porque o e-mail já tem conta. É a ÚNICA falha de criação
           // que a cliente pode resolver sozinha — e o caminho é o desafio de código, não um toast
@@ -799,10 +801,11 @@ const CheckoutPage = () => {
                 piece={priceChanged.piece}
                 reason={priceChanged.reason}
                 busy={busy}
-                onConfirm={() => {
-                  setPriceChanged(null)
-                  void handleConfirm()
-                }}
+                // O aviso fica de pé até o pedido novo existir: se o servidor pedir o código (o
+                // primeiro pedido da convidada criou a conta do e-mail), ela segue vendo o total
+                // novo e o motivo do código, em vez de o aviso sumir trocado pelo desafio.
+                codeEmail={identity === 'challenge' ? contact.email : null}
+                onConfirm={() => void handleConfirm()}
                 onBackToBag={() => {
                   setPriceChanged(null)
                   useCartUiStore.getState().openCart()

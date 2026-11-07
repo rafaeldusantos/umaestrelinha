@@ -2183,6 +2183,58 @@ describe('CheckoutPage — o valor do pedido mudou (o desconto do Compre Junto)'
     expect(within(alerta).getByText('Agora').nextElementSibling).toHaveTextContent('R$ 454,05')
     expect(within(alerta).getByRole('button', { name: 'Confirmar com o novo total' })).toBeInTheDocument()
   })
+
+  it('convidada no PIX: o código pedido ao confirmar o novo total vem com o motivo, e o total novo fica à vista', async () => {
+    // O primeiro pedido criou a conta do e-mail dela; a nova confirmação cria outro pedido, e o
+    // servidor pede o código. O aviso não pode sumir trocado pelo desafio sem dizer por quê.
+    const { NeedsOtpError } = await vi.importActual<
+      typeof import('@/entities/order/api/useOrders')
+    >('@/entities/order/api/useOrders')
+    createOrderMutateAsync.mockRejectedValue(new NeedsOtpError('Este e-mail já tem cadastro.'))
+    authState.user = null
+    authState.customer = null
+    fillAll('pix')
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/checkout', state: { priceChanged: { displayedTotal: 450.1, total: 454.05, piece: 'Corrente', reason: 'buy_together' } } },
+        ]}
+      >
+        <Routes>
+          <Route path="/checkout" element={<CheckoutPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const alerta = await screen.findByRole('alert', { name: 'O valor do seu pedido mudou' })
+    fireEvent.click(within(alerta).getByRole('button', { name: 'Confirmar com o novo total' }))
+
+    expect(await screen.findByTestId('auth-code-step')).toBeInTheDocument()
+    const depois = screen.getByRole('alert', { name: 'O valor do seu pedido mudou' })
+    expect(within(depois).getByText('Agora').nextElementSibling).toHaveTextContent('R$ 454,05')
+    expect(depois).toHaveTextContent(
+      'O seu primeiro pedido criou uma conta na loja com marina@email.com. Por isso, antes de criar o pedido com o novo total, é preciso confirmar que o e-mail é seu.',
+    )
+    // O foco não cai no <body>: vai ao aviso que explica a mudança na tela.
+    expect(document.activeElement).toBe(depois)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('o par: sem o valor mudado, o 409 abre o desafio sem a frase do pedido anterior', async () => {
+    const { NeedsOtpError } = await vi.importActual<
+      typeof import('@/entities/order/api/useOrders')
+    >('@/entities/order/api/useOrders')
+    createOrderMutateAsync.mockRejectedValue(new NeedsOtpError('Este e-mail já tem cadastro.'))
+    authState.user = null
+    authState.customer = null
+    fillAll('pix')
+    renderPage()
+    fireEvent.click(cta())
+
+    expect(await screen.findByTestId('auth-code-step')).toBeInTheDocument()
+    expect(screen.queryByRole('alert', { name: 'O valor do seu pedido mudou' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/O seu primeiro pedido criou uma conta/)).not.toBeInTheDocument()
+  })
 })
 
 describe('CheckoutPage — o PIX entrega o bastão para a rota (PIX-P1-01, PIX-P1-02)', () => {
