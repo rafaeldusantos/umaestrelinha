@@ -50,6 +50,7 @@ const CartDrawer = () => {
   const {
     promotionDiscount,
     totals,
+    discarded,
     nextTier,
     buyTogetherDiscount,
     buyTogetherLines,
@@ -274,6 +275,8 @@ const CartDrawer = () => {
                   variant="drawer"
                   subtotal={subtotal}
                   shippingCost={progress.reached ? 0 : default_shipping_cost}
+                  discount={discount}
+                  notApplied={discarded === 'coupon'}
                 />
               </div>
 
