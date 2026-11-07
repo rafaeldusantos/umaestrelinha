@@ -666,6 +666,52 @@ describe('o desconto ao levar junto', () => {
     expect(previa(0)).toBe('As peças de Correntes saem de R$ 21,25 a R$ 59,50 com esta joia.')
   })
 
+  it('numa lista, a faixa deixa de fora a peça que já é adicional avulso desta joia, como a loja', async () => {
+    banco.itens = [
+      { list_id: 'l1', product_id: FITA, position: 0, variant_ids: [] },
+      { list_id: 'l1', product_id: PINGENTE, position: 1, variant_ids: [] },
+    ]
+    banco.produtos = banco.produtos.map(p => (p.id === FITA ? { ...p, base_price: 25 } : p))
+    banco.variacoes = [
+      variacao(V_PRATA, PINGENTE, 'Prata', 0),
+      { ...variacao(V_OURO, PINGENTE, 'Ouro', 1), price: 70 },
+    ]
+    // A lista vem antes na ordem, e mesmo assim a peça avulsa fica com a Fita (a escolha explícita).
+    banco.produto!.product_buy_together = [
+      adicional('ad1', 0, { kind: 'list', target_product_id: null, list_id: 'l1' }),
+      adicional('ad2', 1, { target_product_id: FITA }),
+    ]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(within(adicionalN(0)).getByText('Correntes', { selector: 'p' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('peca-escolhida-1')).toHaveTextContent('Fita de Cetim'))
+    digitar(0, '15')
+    expect(previa(0)).toBe('As peças de Correntes saem de R$ 42,50 a R$ 59,50 com esta joia.')
+    digitar(1, '15')
+    expect(previa(1)).toBe('Fita de Cetim sai a R$ 21,25 com esta joia.')
+  })
+
+  it('entre duas listas com a mesma peça, ela fica na primeira e sai da faixa da segunda', async () => {
+    banco.listas = [...banco.listas, { id: 'l3', name: 'Pingentes', updated_at: '2026-11-02T10:00:00Z' }]
+    banco.itens = [
+      { list_id: 'l1', product_id: FITA, position: 0, variant_ids: [] },
+      { list_id: 'l3', product_id: FITA, position: 0, variant_ids: [] },
+      { list_id: 'l3', product_id: PINGENTE, position: 1, variant_ids: [] },
+    ]
+    banco.produtos = banco.produtos.map(p => (p.id === FITA ? { ...p, base_price: 25 } : p))
+    banco.produto!.product_buy_together = [
+      adicional('ad1', 0, { kind: 'list', target_product_id: null, list_id: 'l1' }),
+      adicional('ad2', 1, { kind: 'list', target_product_id: null, list_id: 'l3' }),
+    ]
+    montar()
+    await abrirAba()
+    await waitFor(() => expect(within(adicionalN(1)).getByText('Pingentes', { selector: 'p' })).toBeInTheDocument())
+    digitar(0, '10')
+    digitar(1, '10')
+    expect(previa(0)).toBe('As peças de Correntes saem a R$ 22,50 com esta joia.')
+    expect(previa(1)).toBe('As peças de Pingentes saem a R$ 45,00 com esta joia.')
+  })
+
   it('mudar só o percentual grava, e o corpo leva discount_percent', async () => {
     banco.produto!.product_buy_together = [adicional('ad1', 0, { target_product_id: FITA, discount_percent: 10 })]
     montar()

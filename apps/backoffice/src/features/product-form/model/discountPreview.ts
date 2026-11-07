@@ -4,8 +4,9 @@
 // chamam a mesma). O que nasce aqui é só a FRASE do painel: por quanto a peça sai com esta joia, e,
 // quando os preços das peças oferecidas divergem, a faixa do menor ao maior.
 
-import { buyTogetherDiscountedPrice } from '@estrelinha/core/buy-together'
+import { buyTogetherDiscountedPrice, claimPieces } from '@estrelinha/core/buy-together'
 import { formatPrice } from '@estrelinha/core/formatters'
+import type { AddonDraft } from './addons'
 
 export interface PrecoDeVariacao {
   id: string
@@ -28,6 +29,32 @@ export const precosDaPeca = (
   // Liberou variações e nenhuma tem preço: não há o que prever (a loja pula o adicional).
   if (liberadas.length > 0 && variacoes.length > 0) return []
   return [precoBase]
+}
+
+/**
+ * As peças de uma lista que a loja mostra DENTRO deste adicional, nesta joia: as ativas, menos a
+ * própria joia, e menos a peça que outro adicional dela já leva — a avulsa vence a lista, e entre
+ * listas vale a ordem. A precedência é a de `core` (`claimPieces`), a mesma que a página do produto e
+ * a sacola usam, para a prévia não anunciar um preço que a cliente não encontra.
+ */
+export const pecasDaListaNestaJoia = <P extends { productId: string; ativa: boolean }>(
+  addons: readonly Pick<AddonDraft, 'key' | 'kind' | 'targetProductId' | 'listId'>[],
+  listas: readonly { id: string; pecas: readonly P[] }[],
+  mainProductId: string | null,
+  key: string,
+): P[] => {
+  const candidatos = addons.map(a => ({
+    addon: { id: a.key, kind: a.kind },
+    pieces:
+      a.kind === 'product'
+        ? a.targetProductId
+          ? [{ productId: a.targetProductId, peca: null as P | null }]
+          : []
+        : (listas.find(l => l.id === a.listId)?.pecas ?? [])
+            .filter(p => p.ativa && p.productId !== mainProductId)
+            .map(p => ({ productId: p.productId, peca: p as P | null })),
+  }))
+  return (claimPieces(candidatos).get(key) ?? []).flatMap(c => (c.peca ? [c.peca] : []))
 }
 
 /**
