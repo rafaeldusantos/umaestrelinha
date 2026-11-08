@@ -211,8 +211,9 @@ const MontarPedidoPage = () => {
   const emailDaCliente = estado.modo === 'cadastrada' ? (estado.cliente?.email ?? '') : estado.contato.email
   const [tentouNosDescontos, setTentouNosDescontos] = useState(false)
   const cupomAplicavel = useAplicarCupom()
+  // A prévia também no passo 2: o total da barra aparece assim que há peça na sacola.
   const resumo = useResumoDaMontagem(
-    passos.passo >= 3 && estado.pecas.length > 0
+    passos.passo >= 2 && estado.pecas.length > 0
       ? pedidoDoResumo(estado.pecas, estado.cupom?.codigo ?? null, estado.combinado, emailDaCliente)
       : null,
   )
@@ -322,8 +323,10 @@ const MontarPedidoPage = () => {
               ],
               resumo.previa !== null,
             )
-  // No passo 3 o motivo só aparece depois da tentativa; o botão fica ligado.
-  const motivoNaBarra = passos.passo === 3 && !tentouNosDescontos ? null : motivo
+  // No passo 3 o motivo só aparece depois da tentativa (o botão fica ligado) — menos a recusa do servidor
+  // ao desconto combinado, que vai à barra logo.
+  const motivoNaBarra =
+    passos.passo === 3 && !tentouNosDescontos ? (estado.combinado.ligado && recusaDoCombinado ? recusaDoCombinado : null) : motivo
   const continuar = () => {
     if (passos.passo === 3 && motivo !== null) {
       setTentouNosDescontos(true)
@@ -331,7 +334,7 @@ const MontarPedidoPage = () => {
     }
     passos.continuar()
   }
-  const totalNaBarra = passos.passo >= 3 && resumo.previa ? formatPrice(resumo.previa.summary.items_total) : '—'
+  const totalNaBarra = passos.passo >= 2 && estado.pecas.length > 0 && resumo.previa ? formatPrice(resumo.previa.summary.items_total) : '—'
 
   const versaoLida = achado?.proposal.version ?? null
   const gravar = async () => {
@@ -421,39 +424,48 @@ const MontarPedidoPage = () => {
 
   return (
     <div className="-mx-4 -mt-4 flex min-h-[100dvh] flex-col bg-estrelinha-ground">
-      <header className="sticky top-0 z-10 border-b border-estrelinha-line bg-estrelinha-surface px-2 pb-3 pt-2">
+      {/* Preso ao topo só em tela alta: com a fonte do sistema a 200 % numa tela baixa (ou com o teclado
+          aberto), o cabeçalho e a barra fixa juntos cobririam o campo em que se digita. */}
+      <header className="top-0 z-10 border-b border-estrelinha-line bg-estrelinha-surface px-2 pb-3 pt-2 [@media(min-height:640px)]:sticky">
         <div className="flex items-start gap-1">
           <button
             type="button"
             aria-label={FECHAR_A_MONTAGEM}
             onClick={fechar}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-estrelinha-ink hover:bg-estrelinha-ground-deep"
+            className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full text-estrelinha-ink hover:bg-estrelinha-ground-deep"
           >
             <X aria-hidden="true" className="h-6 w-6" />
           </button>
           <div className="min-w-0 flex-1 pt-1">
-            <h1 className="font-display text-xl text-estrelinha-ink">{editando !== null ? EDITAR_PEDIDO_MONTADO : MONTAR_PEDIDO}</h1>
-            <p className="text-sm text-estrelinha-ink-soft">{passoDeQuatro(passos.passo)}</p>
+            <h1 className="font-display text-[17px] text-estrelinha-ink">{editando !== null ? EDITAR_PEDIDO_MONTADO : MONTAR_PEDIDO}</h1>
+            <p className="text-[12px] text-estrelinha-ink-soft">{passoDeQuatro(passos.passo)}</p>
           </div>
         </div>
         <nav aria-label="Passos da montagem" className="mt-3 grid grid-cols-4 gap-1 px-2">
           {PASSOS_DA_MONTAGEM.map((nome, i) => {
             const n = (i + 1) as NumeroDoPasso
             const alcancavel = n <= passos.alcancado
+            const atual = n === passos.passo
+            // O atual em accent, os feitos em primária, o alcançado adiante em primária clara, o resto em line.
+            const cor = atual
+              ? 'bg-estrelinha-accent'
+              : n < passos.passo
+                ? 'bg-estrelinha-primary'
+                : alcancavel
+                  ? 'bg-estrelinha-primary/40'
+                  : 'bg-estrelinha-line'
             return (
               <button
                 key={nome}
                 type="button"
                 aria-label={`Passo ${n}: ${nome}`}
-                aria-current={n === passos.passo ? 'step' : undefined}
+                aria-current={atual ? 'step' : undefined}
                 aria-disabled={alcancavel ? undefined : 'true'}
                 onClick={() => passos.irPara(n)}
-                className="flex min-h-11 items-center"
+                className="flex min-h-[44px] flex-col items-stretch justify-center gap-1"
               >
-                <span
-                  aria-hidden="true"
-                  className={`block h-1.5 w-full rounded-full ${n <= passos.passo ? 'bg-estrelinha-primary' : alcancavel ? 'bg-estrelinha-primary/40' : 'bg-estrelinha-line'}`}
-                />
+                <span data-segmento aria-hidden="true" className={`block h-1 w-full rounded-full ${cor}`} />
+                <span className={`text-[12px] ${atual ? 'font-semibold text-estrelinha-ink' : 'text-estrelinha-ink-soft'}`}>{nome}</span>
               </button>
             )
           })}
@@ -588,7 +600,7 @@ const MontarPedidoPage = () => {
       >
         <div className="mx-auto max-w-lg space-y-2">
           {motivoNaBarra && (
-            <p id="motivo-do-bloqueio" className="text-sm text-estrelinha-ink">
+            <p id="motivo-do-bloqueio" className="text-[13px] text-estrelinha-wait">
               {motivoNaBarra}
             </p>
           )}
@@ -605,7 +617,7 @@ const MontarPedidoPage = () => {
                 disabled={!carregada || (passos.passo !== 3 && motivo !== null)}
                 aria-describedby={motivoNaBarra ? 'motivo-do-bloqueio' : undefined}
                 onClick={continuar}
-                className="min-h-12 shrink-0 rounded-sm bg-estrelinha-primary px-6 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
+                className="min-h-12 min-w-[190px] shrink-0 rounded-sm bg-estrelinha-primary px-6 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
               >
                 {CONTINUAR}
               </button>
@@ -615,7 +627,7 @@ const MontarPedidoPage = () => {
                 disabled={motivo !== null || criar.gravando || recusada}
                 aria-describedby={motivoNaBarra ? 'motivo-do-bloqueio' : undefined}
                 onClick={() => void gravar()}
-                className="min-h-12 shrink-0 rounded-sm bg-estrelinha-primary px-6 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
+                className="min-h-12 min-w-[190px] shrink-0 rounded-sm bg-estrelinha-primary px-6 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
               >
                 {editando !== null ? (criar.gravando ? SALVANDO : SALVAR_ALTERACOES) : criar.gravando ? CRIANDO_O_LINK : CRIAR_LINK}
               </button>

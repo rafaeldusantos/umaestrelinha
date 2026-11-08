@@ -153,6 +153,8 @@ const montarComPecaEDescontos = async () => {
 
 /** O que a tela desenha da montagem retomada: o passo 2 (a sacola) e o passo 3 (os descontos). */
 const conferirRetomada = async () => {
+  // Só as prévias desta abertura: as da montagem de antes ficam fora da conta.
+  const antes = fake.invocacoesDe(PREVIA).length
   expect(screen.getByText('Passo 1 de 4 · Cliente')).toBeInTheDocument()
   const aviso = screen.getByRole('status')
   expect(aviso).toHaveTextContent('Rascunho retomado: as peças e os descontos voltaram.')
@@ -172,8 +174,10 @@ const conferirRetomada = async () => {
   expect(screen.getByRole('switch', { name: /Desconto combinado/ })).toBeChecked()
   expect((screen.getByLabelText('Valor em reais') as HTMLInputElement).value).toBe('20')
   expect((screen.getByLabelText('Motivo') as HTMLInputElement).value).toBe('')
-  // A prévia retomada leva o cupom e o desconto de volta ao servidor.
-  expect(ultimoCorpo()).toMatchObject({ coupon_code: 'SAUDADE10', manual_discount: { kind: 'amount', value: 20 } })
+  // A prévia retomada leva o cupom e o desconto de volta ao servidor (o resumo confere desde o passo 2,
+  // ao lado da prévia das promoções, que vai sem eles — por isso não é a última chamada que conta).
+  const desta = fake.invocacoesDe(PREVIA).slice(antes).map((i) => (i.opcoes as { body: Parameters<typeof servidor>[0] }).body)
+  expect(desta).toContainEqual(expect.objectContaining({ coupon_code: 'SAUDADE10', manual_discount: { kind: 'amount', value: 20 } }))
 }
 
 describe('o rascunho volta depois de uma saída involuntária', () => {
