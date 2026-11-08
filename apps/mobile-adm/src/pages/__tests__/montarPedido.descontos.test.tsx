@@ -269,6 +269,22 @@ describe('passo 3 · o cupom', () => {
     expect(linhaDoResumo('resumo-cupom')).toBeNull()
     expect(texto(linhaDoResumo('resumo-itens'))).toBe('ItensR$ 120,00')
   })
+  it('o cupom recusado marca o campo como erro: aria-invalid, a recusa em aria-describedby e a borda de erro', async () => {
+    await abrirOPassoDosDescontos()
+    expect(campoDoCupom()).not.toHaveAttribute('aria-invalid')
+    expect(campoDoCupom().className.split(/\s+/)).toContain('border-estrelinha-field')
+    await mudar(campoDoCupom(), 'XYZ')
+    await clicar(aplicar())
+    await andar(50)
+    const recusa = screen.getByRole('alert')
+    expect(recusa).toHaveTextContent('Cupom inválido.')
+    const campo = campoDoCupom()
+    expect(campo).toHaveAttribute('aria-invalid', 'true')
+    expect((campo.getAttribute('aria-describedby') ?? '').split(/\s+/)).toContain(recusa.id)
+    const classes = campo.className.split(/\s+/)
+    expect(classes).toContain('border-estrelinha-alert')
+    expect(classes).not.toContain('border-estrelinha-field')
+  })
 })
 
 describe('passo 3 · o desconto combinado', () => {

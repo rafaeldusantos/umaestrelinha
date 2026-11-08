@@ -84,6 +84,7 @@ const FormularioDeEndereco = ({
         placeholder="00000-000"
         inputMode="numeric"
         autoComplete="postal-code"
+        erro={resposta?.manual ? DICA_CEP_NAO_ACHADO : null}
         aoMudar={(v) => aoMudar({ cep: maskCep(v) })}
       />
       {completo && cep.isFetching && !resposta && (
@@ -94,11 +95,6 @@ const FormularioDeEndereco = ({
       {resposta && !resposta.manual && (
         <p role="status" className="text-sm text-estrelinha-ink-soft">
           {dicaCepAchado(resposta.city, resposta.state)}
-        </p>
-      )}
-      {resposta?.manual && (
-        <p role="status" className="text-sm text-estrelinha-ink">
-          {DICA_CEP_NAO_ACHADO}
         </p>
       )}
       <Campo id={id('rua')} rotulo="Rua" marca={marcas.rua} valor={endereco.rua} travado={travado} autoComplete="address-line1" aoMudar={(v) => aoMudar({ rua: v })} />

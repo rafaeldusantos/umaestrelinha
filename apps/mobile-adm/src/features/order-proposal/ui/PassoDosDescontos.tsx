@@ -1,8 +1,11 @@
 import { useId, useState } from 'react'
 import { MANUAL_REASON_MAX } from '@estrelinha/core/proposals'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 import { AVISO_DE_ERRO, CAMPO, ROTULO } from '@/shared/ui/campo'
+
+import { BORDA_DE_ERRO } from './bordaDeErro'
 
 import {
   APLICANDO,
@@ -119,10 +122,11 @@ const PassoDosDescontos = ({
             <input
               id={`${id}-cupom`}
               aria-label="Código do cupom"
-              className={`${CAMPO} min-w-0 flex-1 uppercase`}
+              className={cn(CAMPO, 'min-w-0 flex-1 uppercase', recusaDoCupom && BORDA_DE_ERRO)}
               value={codigo}
               placeholder={DICA_DO_CUPOM}
               autoCapitalize="characters"
+              aria-invalid={recusaDoCupom ? true : undefined}
               aria-describedby={recusaDoCupom ? `${id}-recusa-do-cupom` : `${id}-regra-do-cupom`}
               onChange={(e) => setCodigo(codigoDigitado(e.target.value))}
               onKeyDown={(e) => {

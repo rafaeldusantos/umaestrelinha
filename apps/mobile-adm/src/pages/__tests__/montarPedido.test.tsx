@@ -462,6 +462,30 @@ describe('passo 1 · cliente nova', () => {
     expect(screen.getByLabelText('Rua')).toHaveValue('Rua Nova')
   })
 
+  it('o CEP não achado marca o campo como erro: aria-invalid, a frase em aria-describedby, borda e texto de erro', async () => {
+    await abrirNova()
+    await digitar('CEP', '90010000')
+    await andar(50)
+    const cepAchado = screen.getByLabelText('CEP')
+    expect(cepAchado).not.toHaveAttribute('aria-invalid')
+    expect(cepAchado.className.split(/\s+/)).toContain('border-estrelinha-field')
+    expect(cepAchado.className.split(/\s+/)).not.toContain('border-estrelinha-alert')
+
+    await digitar('CEP', '01000000')
+    await andar(50)
+    const campo = screen.getByLabelText('CEP')
+    const frase = screen.getByText('Não achei este CEP. Confira, ou preencha o endereço à mão.')
+    expect(campo).toHaveAttribute('aria-invalid', 'true')
+    expect(frase.id).not.toBe('')
+    expect((campo.getAttribute('aria-describedby') ?? '').split(/\s+/)).toContain(frase.id)
+    expect(campo).toHaveAccessibleDescription(expect.stringContaining('Não achei este CEP.'))
+    const classes = campo.className.split(/\s+/)
+    expect(classes).toContain('border-estrelinha-alert')
+    expect(classes).not.toContain('border-estrelinha-field')
+    expect(frase.className.split(/\s+/)).toContain('text-estrelinha-alert')
+    expect(frase.className.split(/\s+/)).not.toContain('text-estrelinha-ink')
+  })
+
   it('o endereço incompleto bloqueia com o motivo, e completo libera', async () => {
     await abrirNova()
     await digitar('Nome', 'Ana Souza')
