@@ -182,7 +182,7 @@ describe('passo 4 · a revisão', () => {
     expect(texto(peca)).toContain('Colar Estrela')
     expect(texto(peca)).toContain('1 un.')
     expect(texto(peca)).toContain('R$ 120,00')
-    expect(texto(screen.getByTestId('revisao-total'))).toBe('ItensR$ 120,00')
+    expect(texto(screen.getByTestId('revisao-total'))).toBe('TotalR$ 120,00')
     const cliente = screen.getByRole('region', { name: 'Cliente' })
     expect(texto(cliente)).toContain('Helena Prado')
     expect(texto(cliente)).toContain('helena@exemplo.invalid')
@@ -361,7 +361,7 @@ describe('passo 4 · Criar link', () => {
     expect(screen.getByTestId('erro-da-criacao')).toHaveTextContent(PRECOS_MUDARAM)
     expect(window.location.pathname).toBe('/pedidos/montar')
     // A revisão relida: o resumo é o do servidor, de novo pela prévia.
-    expect(texto(screen.getByTestId('revisao-total'))).toBe('ItensR$ 132,00')
+    expect(texto(screen.getByTestId('revisao-total'))).toBe('TotalR$ 132,00')
     expect(texto(within(barra()).getByTestId('total-da-barra'))).toBe('R$ 132,00')
     // Tentar de novo vai com o total relido.
     respostaDoSave = () => ok({ id: 'dddddddd-0000-4000-8000-000000000001', number: 'P-0050', version: 1, created: true, token: 'tok-novo', expires_at: '2026-11-14T12:00:00Z' })

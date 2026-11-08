@@ -151,7 +151,7 @@ describe('Cliente nova: a folha lê contato e endereço', () => {
     expect(within(f).getByText('Eu leio e preencho os campos da cliente e da entrega. Você confere tudo antes de seguir.')).toBeInTheDocument()
     expect(within(f).getByLabelText('Texto da conversa')).toHaveAttribute('placeholder', 'Cole aqui a mensagem com nome, e-mail, telefone e endereço')
     expect(within(f).getByText('O texto não fica guardado.')).toBeInTheDocument()
-    expect(within(f).getByText('0/2000')).toBeInTheDocument()
+    expect(within(f).getByText('0 / 2000')).toBeInTheDocument()
     expect(within(f).getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
     expect(lerOTexto()).toBeDisabled()
     await colar('   ')
@@ -163,7 +163,7 @@ describe('Cliente nova: a folha lê contato e endereço', () => {
     await abrirFolhaDaNova()
     await colar('a'.repeat(2100))
     expect((within(folha()!).getByLabelText('Texto da conversa') as HTMLTextAreaElement).value).toHaveLength(2000)
-    expect(within(folha()!).getByText('2000/2000')).toBeInTheDocument()
+    expect(within(folha()!).getByText('2000 / 2000')).toBeInTheDocument()
   })
 
   it('lê pela porta no escopo de contato e endereço; "Lendo o texto…" desligado durante a leitura; o sucesso fecha a folha e marca os campos', async () => {

@@ -11,10 +11,10 @@ import { AVISO_DE_ERRO, ROTULO } from '@/shared/ui/campo'
 import {
   DESCONTO_COMBINADO,
   FRETE_GRATIS,
-  ITENS,
   PROMOCAO,
   RESUMO_NAO_CONFERIDO,
   TENTAR_DE_NOVO,
+  TOTAL,
   cupomNoResumo,
   linhaDoPix,
   menos,
@@ -147,7 +147,7 @@ const PassoRevisar = ({ estado, endereco, resumo, cupom, cotacao, erroDaCriacao,
             )}
             {s.manual_discount > 0 && <Linha testId="revisao-combinado" rotulo={DESCONTO_COMBINADO} valor={menos(s.manual_discount)} />}
             <div data-testid="revisao-total" className="flex items-baseline justify-between gap-3 border-t border-estrelinha-line pt-2 text-base font-semibold text-estrelinha-ink">
-              <dt>{ITENS}</dt>
+              <dt>{TOTAL}</dt>
               <dd className="shrink-0 tabular-nums">{formatPrice(s.items_total)}</dd>
             </div>
           </dl>

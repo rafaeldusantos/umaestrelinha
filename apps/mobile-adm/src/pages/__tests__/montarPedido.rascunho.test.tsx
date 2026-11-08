@@ -144,7 +144,7 @@ const montarComPecaEDescontos = async () => {
   await clicar(screen.getByRole('button', { name: 'Aplicar' }))
   await andar(50)
   await clicar(screen.getByRole('switch', { name: /Desconto combinado/ }))
-  await mudar(screen.getByLabelText('Valor em reais'), '20')
+  await mudar(screen.getByLabelText('Desconto (R$)'), '20')
   await mudar(screen.getByLabelText('Motivo'), MOTIVO)
   await andar(100)
   expect(screen.getByRole('button', { name: 'Remover o cupom SAUDADE10' })).toBeInTheDocument()
@@ -172,7 +172,7 @@ const conferirRetomada = async () => {
   expect(screen.getByText('Passo 3 de 4 · Descontos')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Remover o cupom SAUDADE10' })).toBeInTheDocument()
   expect(screen.getByRole('switch', { name: /Desconto combinado/ })).toBeChecked()
-  expect((screen.getByLabelText('Valor em reais') as HTMLInputElement).value).toBe('20')
+  expect((screen.getByLabelText('Desconto (R$)') as HTMLInputElement).value).toBe('20')
   expect((screen.getByLabelText('Motivo') as HTMLInputElement).value).toBe('')
   // A prévia retomada leva o cupom e o desconto de volta ao servidor (o resumo confere desde o passo 2,
   // ao lado da prévia das promoções, que vai sem eles — por isso não é a última chamada que conta).

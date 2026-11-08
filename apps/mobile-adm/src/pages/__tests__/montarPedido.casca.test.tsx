@@ -214,7 +214,7 @@ describe('a barra fixa · o motivo do bloqueio e o botão', () => {
     expect(screen.getByText('Passo 3 de 4 · Descontos')).toBeInTheDocument()
     await clicar(screen.getByRole('switch', { name: /Desconto combinado/ }))
     await clicar(screen.getByRole('button', { name: 'Em %' }))
-    await mudar(screen.getByLabelText('Valor em %'), '100')
+    await mudar(screen.getByLabelText('Desconto (%)'), '100')
     expect(ultimoCorpo().manual_discount).toEqual({ kind: 'percent', value: 100 })
 
     const motivo = within(barra()).getByText('O desconto não pode zerar o pedido.')
@@ -231,7 +231,7 @@ describe('a barra fixa · o motivo do bloqueio e o botão', () => {
     await clicar(continuar())
     await andar(50)
     await clicar(screen.getByRole('switch', { name: /Desconto combinado/ }))
-    await mudar(screen.getByLabelText('Valor em reais'), '20')
+    await mudar(screen.getByLabelText('Desconto (R$)'), '20')
     expect(barra().querySelector('#motivo-do-bloqueio')).toBeNull()
   })
 })

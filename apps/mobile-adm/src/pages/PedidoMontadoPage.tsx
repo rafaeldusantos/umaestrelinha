@@ -38,6 +38,7 @@ import {
   enderecoDoMontado,
   faixaConcluida,
   faixaExpirada,
+  menos,
   nomeDaPeca,
   pecas,
   quantidade,
@@ -318,19 +319,19 @@ const PedidoMontadoPage = () => {
                 {Number(p.promotion_discount) > 0 && (
                   <div className="flex flex-wrap justify-between gap-x-3">
                     <dt>Promoção</dt>
-                    <dd className="tabular-nums">- {formatPrice(p.promotion_discount)}</dd>
+                    <dd className="tabular-nums">{menos(Number(p.promotion_discount))}</dd>
                   </div>
                 )}
                 {Number(p.coupon_discount) > 0 && (
                   <div className="flex flex-wrap justify-between gap-x-3">
                     <dt>{p.coupon_code ? `Cupom ${p.coupon_code}` : 'Cupom'}</dt>
-                    <dd className="tabular-nums">- {formatPrice(p.coupon_discount)}</dd>
+                    <dd className="tabular-nums">{menos(Number(p.coupon_discount))}</dd>
                   </div>
                 )}
                 {Number(p.manual_discount) > 0 && (
                   <div className="flex flex-wrap justify-between gap-x-3">
                     <dt>Desconto combinado</dt>
-                    <dd className="tabular-nums">- {formatPrice(p.manual_discount)}</dd>
+                    <dd className="tabular-nums">{menos(Number(p.manual_discount))}</dd>
                   </div>
                 )}
                 <div className="flex flex-wrap justify-between gap-x-3 font-medium">

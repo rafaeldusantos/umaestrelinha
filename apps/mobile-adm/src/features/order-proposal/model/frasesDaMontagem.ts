@@ -68,7 +68,7 @@ export const SEM_DADOS_NO_TEXTO =
 export const LEITURA_FORA_DO_AR = 'A leitura está fora do ar agora. Feche e preencha à mão — nada do que você já fez se perde.'
 export const LEITURAS_DEMAIS =
   'Foram muitas leituras em pouco tempo. Espere alguns minutos para ler de novo, ou preencha à mão — nada do que você já fez se perde.'
-export const contadorDoTexto = (n: number, max: number) => `${n}/${max}`
+export const contadorDoTexto = (n: number, max: number) => `${n} / ${max}`
 
 /** O nome de cada campo no aviso ("Não achei: e-mail, CPF, complemento."). */
 const NOME_DO_CAMPO: Record<CampoLido, string> = {

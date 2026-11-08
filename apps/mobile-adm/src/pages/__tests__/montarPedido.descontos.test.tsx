@@ -293,7 +293,7 @@ describe('passo 3 · o desconto combinado', () => {
     expect(screen.getByText('O valor que você acertou com ela na conversa.')).toBeInTheDocument()
     await ligarCombinado()
     expect(screen.getByRole('button', { name: 'Em reais' })).toHaveAttribute('aria-pressed', 'true')
-    await mudar(screen.getByLabelText('Valor em reais'), '20')
+    await mudar(screen.getByLabelText('Desconto (R$)'), '20')
     await mudar(screen.getByLabelText('Motivo'), 'segunda peça da família')
     expect(ultimoCorpo().manual_discount).toEqual({ kind: 'amount', value: 20 })
     expect(JSON.stringify(fake.invocacoesDe(PREVIA).map((i) => i.opcoes))).not.toContain('segunda peça da família')
@@ -301,7 +301,7 @@ describe('passo 3 · o desconto combinado', () => {
     expect(texto(linhaDoResumo('resumo-itens'))).toBe('ItensR$ 100,00')
 
     await clicar(screen.getByRole('button', { name: 'Em %' }))
-    await mudar(screen.getByLabelText('Valor em %'), '10')
+    await mudar(screen.getByLabelText('Desconto (%)'), '10')
     expect(ultimoCorpo().manual_discount).toEqual({ kind: 'percent', value: 10 })
     expect(texto(linhaDoResumo('resumo-combinado'))).toBe('Desconto combinado− R$ 12,00')
     expect(texto(linhaDoResumo('resumo-itens'))).toBe('ItensR$ 108,00')
@@ -310,7 +310,7 @@ describe('passo 3 · o desconto combinado', () => {
   it('o motivo é obrigatório, e só é cobrado depois da tentativa: "Continuar" fica ligado e não avança', async () => {
     await abrirOPassoDosDescontos()
     await ligarCombinado()
-    await mudar(screen.getByLabelText('Valor em reais'), '20')
+    await mudar(screen.getByLabelText('Desconto (R$)'), '20')
     expect(screen.getByText('0/120')).toBeInTheDocument()
     expect(screen.getByText('Só para você. A cliente não vê o motivo.')).toBeInTheDocument()
     expect(screen.getByLabelText('Motivo')).toHaveAttribute('placeholder', 'Ex.: segunda peça da família')
@@ -336,7 +336,7 @@ describe('passo 3 · o desconto combinado', () => {
   it('o desconto que zera o pedido é recusado logo, sem tentativa, e não entra na conta', async () => {
     await abrirOPassoDosDescontos()
     await ligarCombinado()
-    await mudar(screen.getByLabelText('Valor em reais'), '119,50')
+    await mudar(screen.getByLabelText('Desconto (R$)'), '119,50')
     expect(ultimoCorpo().manual_discount).toEqual({ kind: 'amount', value: 119.5 })
     expect(screen.getByRole('alert')).toHaveTextContent('O desconto não pode zerar o pedido.')
     expect(linhaDoResumo('resumo-combinado')).toBeNull()
@@ -356,12 +356,12 @@ describe('passo 3 · o resumo vivo', () => {
     const n = fake.invocacoesDe(PREVIA).length
     // A prévia de "20" fica no ar, e responde números que não são de nenhuma escolha.
     segurar = { resposta: ok({ summary: resumo({ manual_discount: 99, items_total: 21 }), coupon: null, manual_refusal: null, items_pix: null }) }
-    await mudar(screen.getByLabelText('Valor em reais'), '20')
+    await mudar(screen.getByLabelText('Desconto (R$)'), '20')
     expect(within(regiaoDoResumo()).getByRole('status')).toHaveTextContent('Conferindo o resumo…')
     expect(regiaoDoResumo()).toHaveAttribute('aria-busy', 'true')
     expect(texto(linhaDoResumo('resumo-itens'))).toBe('ItensR$ 120,00')
 
-    await mudar(screen.getByLabelText('Valor em reais'), '119,50')
+    await mudar(screen.getByLabelText('Desconto (R$)'), '119,50')
     expect(sinalDe(n)?.aborted).toBe(true)
     expect(sinalDe(n + 1)?.aborted).toBe(false)
     expect(screen.getByRole('alert')).toHaveTextContent('O desconto não pode zerar o pedido.')
@@ -377,7 +377,7 @@ describe('passo 3 · o resumo vivo', () => {
     await abrirOPassoDosDescontos()
     segurar = { resposta: rede() }
     await ligarCombinado()
-    await mudar(screen.getByLabelText('Valor em reais'), '20')
+    await mudar(screen.getByLabelText('Desconto (R$)'), '20')
     await act(async () => soltar?.())
     await andar(50)
     expect(screen.getByText('Não consegui conferir o resumo agora. Este é o último que conferi.')).toBeInTheDocument()
@@ -404,7 +404,7 @@ describe('passo 3 · a conta sem papel', () => {
     await ligarCombinado()
     recusar = true
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Valor em reais'), { target: { value: '20' } })
+      fireEvent.change(screen.getByLabelText('Desconto (R$)'), { target: { value: '20' } })
     })
     const instantes = await observar(3000)
     expect(window.location.pathname).toBe('/login')

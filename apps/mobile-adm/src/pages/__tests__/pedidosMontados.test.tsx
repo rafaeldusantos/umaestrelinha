@@ -296,6 +296,18 @@ describe('Pedido montado · o link', () => {
     expect(screen.getByTestId('total-dos-itens')).toHaveTextContent('R$ 412,50')
     expect(screen.getByText('Frete: a cliente escolhe no link.')).toBeInTheDocument()
   })
+
+  it('cada desconto sai com o sinal de menos (U+2212), nunca o hífen', async () => {
+    atual = leituraDoMontado({
+      proposal: { promotion_discount: 10, coupon_code: 'SAUDADE10', coupon_discount: 20, manual_discount: 47.19, items_total: 335.31 },
+    })
+    await abrirMontado()
+    const valorDe = (rotulo: string) =>
+      (screen.getByText(rotulo, { selector: 'dt' }).nextElementSibling?.textContent ?? '').replace(/\s+/g, ' ')
+    expect(valorDe('Promoção')).toBe('− R$ 10,00')
+    expect(valorDe('Cupom SAUDADE10')).toBe('− R$ 20,00')
+    expect(valorDe('Desconto combinado')).toBe('− R$ 47,19')
+  })
 })
 
 describe('Pedido montado · as ações por estado', () => {

@@ -107,8 +107,8 @@ export const DESCONTO_COMBINADO = 'Desconto combinado'
 export const NOTA_DO_COMBINADO = 'O valor que você acertou com ela na conversa.'
 export const EM_REAIS = 'Em reais'
 export const EM_PERCENTUAL = 'Em %'
-export const VALOR_EM_REAIS = 'Valor em reais'
-export const VALOR_EM_PERCENTUAL = 'Valor em %'
+export const VALOR_EM_REAIS = 'Desconto (R$)'
+export const VALOR_EM_PERCENTUAL = 'Desconto (%)'
 export const MOTIVO = 'Motivo'
 export const DICA_DO_MOTIVO = 'Ex.: segunda peça da família'
 export const contagemDoMotivo = (n: number): string => `${n}/${MANUAL_REASON_MAX}`
@@ -124,6 +124,7 @@ export const PROMOCAO = 'Promoção'
 export const cupomNoResumo = (codigo: string): string => `Cupom ${codigo}`
 export const FRETE_GRATIS = 'frete grátis'
 export const ITENS = 'Itens'
+export const TOTAL = 'Total'
 export const linhaDoPix = (total: number, percent: number): string =>
   `No PIX: ${formatPrice(total)} nos itens (${String(percent).replace('.', ',')}% de desconto). Frete à parte.`
 export const menos = (valor: number): string => `− ${formatPrice(valor)}`
