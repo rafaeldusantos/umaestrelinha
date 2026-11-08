@@ -357,7 +357,9 @@ describe('"Outro endereço" da cliente cadastrada: a folha lê só o endereço',
     expect(valorDe('Bairro')).toBe('Sé')
     expect(valorDe('Cidade')).toBe('São Paulo')
     expect(valorDe('UF')).toBe('SP')
-    expect(screen.getByLabelText('CEP')).toHaveAccessibleDescription('Lido do texto — confira.')
+    expect(screen.getByLabelText('CEP')).toHaveAccessibleDescription(
+      'Lido do texto — confira. Não achei este CEP. Confira, ou preencha o endereço à mão.',
+    )
     expect(within(avisoDaLeitura()!).getByText('Achei todos os campos. Não consegui conferir o CEP.')).toBeInTheDocument()
   })
 })
@@ -401,5 +403,95 @@ describe('os desfechos sem campos: a folha fica, e nada se perde', () => {
     expect(window.location.pathname).toBe('/pedidos/montar')
     expect(screen.getByText('Passo 1 de 4 · Cliente')).toBeInTheDocument()
     expect(fake.invocacoesDe(LEITURA)).toHaveLength(0)
+  })
+})
+
+describe('desistir durante "Lendo o texto…": a folha fecha, e nada do que ela digitou muda', () => {
+  const TEXTO = 'Sou a Paula Lima, paula.lima@exemplo.invalid, zap 51 98765-4321, Rua dos Andradas 100, cep 90010-000'
+  const PAULA = {
+    contact: { name: 'Paula Lima', email: 'paula.lima@exemplo.invalid', phone: '(51) 98765-4321', cpf: '' },
+    address: { cep: '90010-000', street: 'Rua dos Andradas', number: '100', complement: '', neighborhood: 'Centro', city: 'Porto Alegre', state: 'RS' },
+    found: 9,
+  }
+
+  const lendoComNomeEEmail = async () => {
+    let soltar: (v: unknown) => void = () => {}
+    responder(() => new Promise((r) => (soltar = r)), ok(CONVERSA))
+    await abrirNova()
+    await digitar('Nome', 'Ju')
+    await digitar('E-mail', 'ju.manual@exemplo.invalid')
+    await abrirFolhaDaNova()
+    await colar(TEXTO)
+    await ler()
+    expect(lerOTexto()).toHaveTextContent('Lendo o texto…')
+    return () => act(async () => soltar(ok(PAULA)))
+  }
+
+  const nadaMudou = () => {
+    expect(valorDe('Nome')).toBe('Ju')
+    expect(valorDe('E-mail')).toBe('ju.manual@exemplo.invalid')
+    expect(valorDe('Número')).toBe('')
+    expect(screen.getByLabelText('Nome')).not.toHaveAccessibleDescription()
+    expect(screen.getByLabelText('E-mail')).not.toHaveAccessibleDescription()
+    expect(avisoDaLeitura()).not.toBeInTheDocument()
+    // O cartão continua: nenhuma leitura entrou.
+    expect(screen.getByRole('region', { name: 'Tem os dados numa mensagem?' })).toBeInTheDocument()
+  }
+
+  it('"Cancelar" fecha a folha durante a leitura, e a resposta que chega depois não muda campo nem mostra o aviso', async () => {
+    const soltar = await lendoComNomeEEmail()
+    const cancelar = within(folha()!).getByRole('button', { name: 'Cancelar' })
+    expect(cancelar).toBeEnabled()
+    await clicar(cancelar)
+    await andar(100)
+    expect(folha()).not.toBeInTheDocument()
+    nadaMudou()
+
+    await soltar()
+    await andar(200)
+    expect(folha()).not.toBeInTheDocument()
+    nadaMudou()
+  })
+
+  it('Esc também fecha durante a leitura, e a resposta tardia é descartada', async () => {
+    const soltar = await lendoComNomeEEmail()
+    await act(async () => {
+      fireEvent.keyDown(folha()!, { key: 'Escape', code: 'Escape' })
+    })
+    await andar(100)
+    expect(folha()).not.toBeInTheDocument()
+
+    await soltar()
+    await andar(200)
+    nadaMudou()
+  })
+
+  it('o voltar do Android durante a leitura fecha a folha, e a resposta tardia é descartada', async () => {
+    const soltar = await lendoComNomeEEmail()
+    await voltar()
+    await andar(100)
+    expect(folha()).not.toBeInTheDocument()
+
+    await soltar()
+    await andar(200)
+    nadaMudou()
+  })
+
+  it('depois de cancelar, uma leitura nova vai à porta e preenche', async () => {
+    const soltar = await lendoComNomeEEmail()
+    await clicar(within(folha()!).getByRole('button', { name: 'Cancelar' }))
+    await andar(100)
+    await soltar()
+    await andar(100)
+
+    await abrirFolhaDaNova()
+    expect(lerOTexto()).toHaveTextContent('Ler o texto')
+    await colar('a conversa')
+    await ler()
+    await andar(100)
+    expect(fake.invocacoesDe(LEITURA)).toHaveLength(2)
+    expect(folha()).not.toBeInTheDocument()
+    expect(valorDe('Nome')).toBe('Ana Souza')
+    expect(avisoDaLeitura()).toBeInTheDocument()
   })
 })

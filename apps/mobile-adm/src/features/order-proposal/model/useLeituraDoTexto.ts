@@ -17,6 +17,11 @@ export interface LeituraDoTexto {
   ler: (texto: string, escopo: CustomerParseMode) => Promise<void>
   /** Esquece o desfecho anterior (a folha abriu de novo). */
   limpar: () => void
+  /**
+   * Desiste da leitura no ar (a folha fechou): solta a trava e "Lendo o texto…", e o que voltar
+   * depois — campos ou frase — é descartado. Só a recusa (`42501`) ainda chega à vigia.
+   */
+  cancelar: () => void
 }
 
 interface Pendente {
@@ -40,6 +45,8 @@ const fraseDoErro = (slug: string): string =>
  */
 export const useLeituraDoTexto = (aoLer: (lida: LeituraRecebida) => void): LeituraDoTexto => {
   const trava = useRef(false)
+  /** A leitura vigente: cada `ler` e cada `cancelar` a renovam, e a resposta de uma vencida não entra. */
+  const vez = useRef(0)
   const [lendo, setLendo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [erroBruto, setErroBruto] = useState<unknown>(null)
@@ -69,6 +76,7 @@ export const useLeituraDoTexto = (aoLer: (lida: LeituraRecebida) => void): Leitu
   const ler = useCallback(async (texto: string, escopo: CustomerParseMode) => {
     if (trava.current || texto.trim() === '') return
     trava.current = true
+    const minha = ++vez.current
     setLendo(true)
     setErro(null)
     let r: Awaited<ReturnType<typeof lerTextoDaConversa>>
@@ -76,13 +84,17 @@ export const useLeituraDoTexto = (aoLer: (lida: LeituraRecebida) => void): Leitu
       r = await lerTextoDaConversa(texto, escopo)
     } catch (e) {
       if (isAccessDenied(e)) {
-        trava.current = false
-        setLendo(false)
+        if (minha === vez.current) {
+          trava.current = false
+          setLendo(false)
+        }
         setErroBruto(e)
         return
       }
+      if (minha !== vez.current) return
       return terminarSemCampos(LEITURA_FORA_DO_AR)
     }
+    if (minha !== vez.current) return
     if (r.tipo === 'falhou') return terminarSemCampos(LEITURA_FORA_DO_AR)
     if (r.tipo === 'erro') return terminarSemCampos(fraseDoErro(r.slug))
     if (r.dado.encontrados === 0) return terminarSemCampos(SEM_DADOS_NO_TEXTO)
@@ -91,5 +103,13 @@ export const useLeituraDoTexto = (aoLer: (lida: LeituraRecebida) => void): Leitu
 
   const limpar = useCallback(() => setErro(null), [])
 
-  return { lendo, erro, erroBruto, ler, limpar }
+  const cancelar = useCallback(() => {
+    vez.current += 1
+    trava.current = false
+    setPendente(null)
+    setLendo(false)
+    setErro(null)
+  }, [])
+
+  return { lendo, erro, erroBruto, ler, limpar, cancelar }
 }

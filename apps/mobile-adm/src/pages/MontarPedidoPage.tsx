@@ -168,6 +168,18 @@ const MontarPedidoPage = () => {
     despachar({ tipo: 'leitura', lida })
     fecharFolhaDeLeitura.current()
   })
+  // Fechar a folha durante "Lendo o texto…" é desistir da leitura: o voltar do Android também conta.
+  const { lendo: lendoOTexto, cancelar: cancelarLeitura } = leitura
+  useEffect(() => {
+    if (!folhaDeLeitura.aberta && lendoOTexto) cancelarLeitura()
+  }, [folhaDeLeitura.aberta, lendoOTexto, cancelarLeitura])
+  const controleDaLeitura = {
+    ...folhaDeLeitura,
+    fechar: () => {
+      cancelarLeitura()
+      folhaDeLeitura.fechar()
+    },
+  }
   const [termo, setTermo] = useState('')
   const [aviso, setAviso] = useState<string[]>([])
   const folhaDaVariacao = useFolhaNaEntrada('variacao-da-peca')
@@ -646,7 +658,7 @@ const MontarPedidoPage = () => {
         aoRecusarPapel={setRecusaDaFolha}
       />
       <FolhaColarTexto
-        controle={folhaDeLeitura}
+        controle={controleDaLeitura}
         escopo={escopoDaLeitura}
         lendo={leitura.lendo}
         erro={leitura.erro}

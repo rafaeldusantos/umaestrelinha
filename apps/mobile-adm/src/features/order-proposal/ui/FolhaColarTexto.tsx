@@ -20,7 +20,8 @@ import {
 
 /**
  * A folha "Colar texto" do passo 1 — molde de `FolhaDeConfirmacao`: no histórico (o voltar do Android
- * a fecha), sem o X do canto, nada fecha enquanto lê, e o foco volta a quem abriu.
+ * a fecha), sem o X do canto, e o foco volta a quem abriu. "Cancelar", o Esc e o voltar fecham também
+ * durante a leitura: quem a usa desiste dela ao fechar (`useLeituraDoTexto().cancelar`).
  *
  * **O texto colado vive só aqui**, no estado do corpo da folha: o corpo desmonta ao fechar e leva o
  * texto junto. Nada vai a armazenamento, endereço, `history.state` ou título.
@@ -70,9 +71,7 @@ const Corpo = ({ controle, escopo, lendo, erro, aoLer }: FolhaColarTextoProps) =
       <div className="flex flex-col-reverse gap-2 min-[360px]:flex-row">
         <button
           type="button"
-          onClick={() => {
-            if (!lendo) controle.fechar()
-          }}
+          onClick={() => controle.fechar()}
           className="min-h-12 flex-1 rounded-sm px-4 text-base font-medium text-estrelinha-primary hover:bg-estrelinha-ground-deep"
         >
           {erro ? PREENCHER_A_MAO : CANCELAR}
@@ -96,7 +95,7 @@ const FolhaColarTexto = (p: FolhaColarTextoProps) => {
     <Sheet
       open={p.controle.aberta}
       onOpenChange={(abrir) => {
-        if (!abrir && !p.lendo) p.controle.fechar()
+        if (!abrir) p.controle.fechar()
       }}
     >
       <SheetContent
