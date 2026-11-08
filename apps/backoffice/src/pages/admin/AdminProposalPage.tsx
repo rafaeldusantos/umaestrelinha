@@ -1,10 +1,14 @@
 // A página de uma proposta (feature 89, `LNK-01`..`LNK-03`, `LNK-05`, `LNK-06`, `HIS-01`, `DUP-01`).
 //
-// O que ela pode fazer depende do ESTADO, e quem decide é `proposalActions` (`core`): aberta edita,
-// renova e cancela; expirada só renova; concluída leva ao pedido; duplicar vale em qualquer estado.
+// O que ela pode fazer depende do ESTADO, e quem decide é `proposalActions` (`core`): aberta edita e
+// cancela; expirada só renova o prazo; concluída leva ao pedido; duplicar vale em qualquer estado.
 // Nenhuma regra de estado é escrita aqui.
 //
-// Renovar gera link novo e mata o antigo NA HORA — o aviso está ao lado do botão e na confirmação.
+// O link vem do `get`: a function devolve o token da proposta aberta, e o cartão o mostra
+// sempre — também ao reabrir. A proposta gravada sem a cifra do token (antes da chave, ou sem ela) não
+// tem o link: o cartão oferece "Gerar link novo". Nada é guardado no navegador.
+//
+// Renovar gera link novo e mata o antigo NA HORA — a confirmação diz isso.
 // Se os preços mudaram desde a montagem, a function recusa com `prices_changed` e o total relido; a
 // Adri vê o número novo e confirma, e só então o link é renovado com os preços de hoje (`LNK-06`).
 //
@@ -17,7 +21,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatOrderNumber } from '@estrelinha/core/orders'
-import { PROPOSAL_STATE_LABELS, proposalActions } from '@estrelinha/core/proposals'
+import { PROPOSAL_STATE_LABELS, proposalActions, proposalRenewText } from '@estrelinha/core/proposals'
 import { ActionButton, InfoBanner, OrderPageSkeleton, RecordPageHeader } from '@/shared/ui'
 import { OrderAdminNoteCard } from '@/features/order-admin-note'
 import { devolverFoco, tituloDaPagina } from '@/shared/lib/foco'
@@ -33,14 +37,11 @@ import {
   ProposalNoteCard,
   RENEWED_ANNOUNCE,
   RENEW_WARNING,
-  esquecerLink,
   formatDateTime,
-  guardarLink,
-  lerLink,
   montarLink,
   useProposal,
   useProposalMutations,
-  type LinkGuardado,
+  type LinkDaProposta,
 } from '@/features/order-proposal'
 
 const LINK_DE_ACAO =
@@ -50,10 +51,13 @@ const AdminProposalPage = () => {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const avisoDaMontagem = (location.state as { aviso?: string } | null)?.aviso ?? null
+  const daMontagem = location.state as { aviso?: string; link?: LinkDaProposta } | null
+  const avisoDaMontagem = daMontagem?.aviso ?? null
   const { data, isLoading, error, refetch } = useProposal(id)
   const { renew, cancel, logSent, note } = useProposalMutations()
-  const [link, setLink] = useState<LinkGuardado | null>(() => lerLink(id))
+  // O link que acabou de nascer nesta tela (renovar) ou na montagem (criar), para a proposta gravada
+  // sem a cifra: o `get` não o devolve, e ele vive só enquanto a página está aberta.
+  const [linkNovo, setLinkNovo] = useState<LinkDaProposta | null>(() => daMontagem?.link ?? null)
   const [falha, setFalha] = useState<string | null>(null)
   const [novoTotal, setNovoTotal] = useState<number | null>(null)
   const [anuncio, setAnuncio] = useState('')
@@ -87,11 +91,19 @@ const AdminProposalPage = () => {
 
   const p = data.proposal
   const estado = data.state
-  const acoes = proposalActions(estado)
+  const aberta = estado === 'open' || estado === 'viewed'
+  // O link do `get` (o token decifrado pela function), montado com a origem da loja.
+  const linkDoServidor = data.token ? montarLink(data.token) : null
+  const linkVivo: LinkDaProposta | null = !aberta
+    ? null
+    : linkNovo ?? (linkDoServidor ? { link: linkDoServidor, expiresAt: p.expires_at } : null)
+  const acoes = proposalActions(estado, { linkAvailable: !!data.token || !!linkNovo })
 
   const renovar = async (expectedTotal?: number) => {
     const origem = document.activeElement
-    if (expectedTotal === undefined && !window.confirm(RENEW_WARNING)) return
+    const confirmacao =
+      estado === 'expired' ? proposalRenewText({ name: p.customer_name, expiresAt: p.expires_at, now: new Date() }) : RENEW_WARNING
+    if (expectedTotal === undefined && !window.confirm(confirmacao)) return
     setFalha(null)
     setAnuncio('')
     try {
@@ -99,9 +111,7 @@ const AdminProposalPage = () => {
       setNovoTotal(null)
       const montado = montarLink(r.token)
       if (montado) {
-        const guardado = { link: montado, expiresAt: r.expires_at }
-        guardarLink(p.id, guardado)
-        setLink(guardado)
+        setLinkNovo({ link: montado, expiresAt: r.expires_at })
         setAnuncio(RENEWED_ANNOUNCE)
         setFocoDepois({ alvo: 'link', origem })
       } else {
@@ -122,8 +132,7 @@ const AdminProposalPage = () => {
     setAnuncio('')
     try {
       await cancel.mutateAsync(p.id)
-      esquecerLink(p.id)
-      setLink(null)
+      setLinkNovo(null)
       setAnuncio(CANCELLED_ANNOUNCE)
       setFocoDepois({ alvo: 'titulo', origem })
     } catch (e) {
@@ -131,9 +140,6 @@ const AdminProposalPage = () => {
       setFocoDepois({ alvo: 'origem', origem })
     }
   }
-
-  // O link guardado só vale enquanto a proposta aceita a cliente.
-  const linkVivo = acoes.edit ? link : null
 
   return (
     <div>
@@ -163,7 +169,7 @@ const AdminProposalPage = () => {
             )}
             {acoes.viewOrder && p.order_id && (
               <Link className={LINK_DE_ACAO} to={`/admin/pedidos/${p.order_id}`}>
-                Ver pedido{p.order_number ? ` ${formatOrderNumber(p.order_number)}` : ''}
+                Ver o pedido{p.order_number ? ` ${formatOrderNumber(p.order_number)}` : ''}
               </Link>
             )}
           </>
@@ -178,27 +184,22 @@ const AdminProposalPage = () => {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-6">
-          {acoes.edit || estado === 'expired' ? (
-            <ProposalLinkCard
-              link={linkVivo}
-              customerName={p.customer_name}
-              customerPhone={p.customer_phone}
-              podeGerar={acoes.renew}
-              expirada={estado === 'expired'}
-              gerando={renew.isPending}
-              onGerar={() => renovar()}
-              onEnviado={(canal) => logSent.mutateAsync({ id: p.id, channel: canal })}
-            />
-          ) : null}
+          <ProposalLinkCard
+            estado={aberta ? 'aberta' : estado === 'expired' ? 'expirada' : 'encerrada'}
+            link={linkVivo}
+            semLoja={aberta && !!data.token && !linkDoServidor && !linkNovo}
+            expiresAt={p.expires_at}
+            customerName={p.customer_name}
+            customerPhone={p.customer_phone}
+            renewLabel={acoes.renew ? acoes.renewLabel : null}
+            gerando={renew.isPending}
+            onGerar={() => renovar()}
+            onEnviado={(canal) => logSent.mutateAsync({ id: p.id, channel: canal })}
+          />
 
-          {(acoes.renew || acoes.cancel) && (
+          {acoes.cancel && (
             <section aria-label="Ações da proposta" className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                {acoes.renew && linkVivo && (
-                  <ActionButton variant="outline" alvo44 pending={renew.isPending} pendingLabel="Renovando…" onClick={() => renovar()}>
-                    Renovar o prazo
-                  </ActionButton>
-                )}
                 {acoes.cancel && (
                   <ActionButton
                     variant="outline"
@@ -212,7 +213,6 @@ const AdminProposalPage = () => {
                   </ActionButton>
                 )}
               </div>
-              {acoes.renew && <p className="text-xs text-muted-foreground">{RENEW_WARNING}</p>}
             </section>
           )}
 

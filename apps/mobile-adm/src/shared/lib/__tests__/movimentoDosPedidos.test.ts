@@ -64,6 +64,25 @@ const ARQUIVOS = [
   'widgets/order-detail/ui/BlocoObservacao.tsx',
   'features/order-actions/ui/EditarObservacao.tsx',
   'features/order-actions/ui/FolhaDaObservacao.tsx',
+  // A visão Montados e o pedido montado — a lista, a página, o selo, o cartão do link e a folha
+  // de confirmação (que monta `SheetContent`).
+  'widgets/proposal-list/ui/ListaDeMontados.tsx',
+  'pages/PedidoMontadoPage.tsx',
+  'features/order-proposal/ui/SeloDoMontado.tsx',
+  'features/order-proposal/ui/CartaoDoLink.tsx',
+  'features/order-proposal/ui/FolhaDeConfirmacao.tsx',
+  // A montagem de um pedido: a página e o passo 1 (a cliente, o endereço, o campo).
+  'pages/MontarPedidoPage.tsx',
+  'features/order-proposal/ui/PassoDaCliente.tsx',
+  'features/order-proposal/ui/FormularioDeEndereco.tsx',
+  'features/order-proposal/ui/CampoDaMontagem.tsx',
+  // A folha "Colar texto" da montagem (monta `SheetContent`).
+  'features/order-proposal/ui/FolhaColarTexto.tsx',
+  // O passo 2 · Peças: a sacola e a busca, e a folha da variação (monta `SheetContent`).
+  'features/order-proposal/ui/PassoDasPecas.tsx',
+  'features/order-proposal/ui/FolhaDaVariacao.tsx',
+  // O passo 4 · Revisar (as peças, a cliente, a entrega com a prévia do frete e a observação).
+  'features/order-proposal/ui/PassoRevisar.tsx',
 ] as const
 
 /** Comentário sai antes da varredura; CRLF primeiro (`L-031`), linha e bloco na MESMA passada (`BL-027`). */
@@ -118,8 +137,8 @@ const movimentoSemPar = (fonte: string): string[] => {
 const FONTES = ARQUIVOS.map((caminho) => ({ caminho, fonte: readFileSync(resolve(SRC, caminho), 'utf8') }))
 
 describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)', () => {
-  it('ÂNCORA: os 34 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
-    expect(FONTES).toHaveLength(34)
+  it('ÂNCORA: os 47 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
+    expect(FONTES).toHaveLength(47)
     expect(FONTES.every((f) => f.fonte.length > 0)).toBe(true)
     const tokens = FONTES.flatMap((f) => movimentoDe(semComentarios(f.fonte)))
     // Medido com ESTA régua no fecho da T28: 4 tokens, 2 deles o próprio par — o `animate-pulse` do
@@ -128,8 +147,13 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
     // No B02 (T31): 8 tokens, 6 pares — os dois pares de estado do FUNDO da folha (`overlayClassName`).
     // Na `82`: os três arquivos novos não movem nada — 8 tokens, 6 pares, medidos com esta régua.
     // Com a observação do pedido: a folha traz os mesmos quatro pares de estado — 12 tokens, 10 pares.
-    expect(tokens.length).toBeGreaterThanOrEqual(12)
-    expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(10)
+    // A folha de confirmação do pedido montado traz os mesmos quatro — 16 tokens, 14 pares.
+    // A montagem não move nada: a página e o passo 1 reutilizam a folha de confirmação.
+    // A folha "Colar texto" traz os mesmos quatro pares — 20 tokens, 18 pares.
+    // O passo 2 · Peças: a folha da variação traz os mesmos quatro — 24 tokens, 22 pares (o passo não move nada).
+    // O passo 4 · Revisar não move nada — 24 tokens, 22 pares, medidos com esta régua.
+    expect(tokens.length).toBeGreaterThanOrEqual(24)
+    expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(22)
     const de = (rel: string) => movimentoDe(semComentarios(FONTES.find((f) => f.caminho === rel)!.fonte)).map((t) => t.classe)
     expect(de('shared/ui/leitura.tsx')).toEqual(expect.arrayContaining(['animate-pulse', 'animate-none']))
     expect(de('features/order-slice/ui/ChipsDeRecorte.tsx')).toEqual(expect.arrayContaining(['transition-colors', 'transition-none']))
@@ -149,6 +173,9 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
     expect(comFolha.map((f) => f.caminho)).toEqual([
       'features/order-actions/ui/FolhaDoRastreio.tsx',
       'features/order-actions/ui/FolhaDaObservacao.tsx',
+      'features/order-proposal/ui/FolhaDeConfirmacao.tsx',
+      'features/order-proposal/ui/FolhaColarTexto.tsx',
+      'features/order-proposal/ui/FolhaDaVariacao.tsx',
     ])
     for (const f of comFolha) {
       const tokens = semComentarios(f.fonte).split(/[\s"'`{}]+/)

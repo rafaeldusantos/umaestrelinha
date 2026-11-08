@@ -9,16 +9,20 @@ export const PROPOSALS_LIST_PATH = '/admin/pedidos/montados'
 
 export const NOT_EDITABLE = 'Esta proposta não pode mais ser editada.'
 export const VERSION_CONFLICT_TEXT = 'Esta proposta mudou em outra aba. Recarreguei.'
-export const LINK_WITHOUT_STORE =
-  'O link foi criado, mas a loja não está configurada neste painel para montá-lo. Gere um link novo depois de configurar a loja.'
-export const ADDRESS_SAVE_FAILED =
-  'A proposta foi gravada, mas não consegui salvar o endereço no cadastro da cliente.'
+// A frase do link sem loja tem um dono em `core`, lida também pelo app do ateliê.
+export { LINK_WITHOUT_STORE } from '@estrelinha/core/proposals'
+// uma gravação só (a proposta e o endereço juntos). A falha não deixou nada gravado. O dono é
+// `core`, lido também pelo app do ateliê.
+export { PROPOSAL_SAVE_FAILED as SAVE_FAILED } from '@estrelinha/core/proposals'
 
 // LNK-01, LNK-05
 export const NO_PHONE = 'Sem telefone — copie o link'
 export const RENEW_WARNING = 'Renovar gera um link novo. O link antigo para de funcionar na hora.'
-export const LINK_NOT_IN_MEMORY =
-  'O link só aparece logo depois de criado ou renovado. Para mandar de novo, gere um link novo — o anterior para de funcionar.'
+// a proposta gravada sem a cifra do token (antes da chave, ou sem ela) não tem como mostrar o link.
+export const LINK_UNAVAILABLE =
+  'O link desta proposta não pode ser mostrado de novo. Gere um link novo — o anterior para de funcionar.'
+// Cancelada ou concluída: o link não vale mais, e não há o que fazer com ele.
+export const LINK_CLOSED = 'Link encerrado.'
 // LNK-06
 export const LINK_EXPIRED = 'Este link venceu. Renovar gera um link novo e trava os preços de hoje.'
 // QA da 89: o que a região viva da página diz depois de renovar ou cancelar.
@@ -42,7 +46,8 @@ export const PROPOSAL_CHANNEL_LABELS: Record<string, string> = {
 }
 
 // HIS-02
-export const ORDER_ORIGIN_PREFIX = 'Montado pelo painel'
+// uma origem só, a mesma do app do ateliê — o dono é `core`.
+export { PROPOSAL_ORIGIN_LABEL as ORDER_ORIGIN_PREFIX } from '@estrelinha/core/proposals'
 export const MANUAL_DISCOUNT_LABEL = 'Desconto combinado'
 
 // LNK-04

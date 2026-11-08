@@ -155,6 +155,22 @@ const tokenSoHash = (texto: string): boolean => {
   return /token_hash\s+text\s+not\s+null\s+unique/i.test(t) && !/\btoken\s+text/i.test(t)
 }
 
+/**
+ * Desde a migration do link sempre, o banco guarda o hash E a cifra do token, nunca o token em claro: a migration
+ * que acrescenta a cifra acrescenta SÓ `token_cipher`, e nenhuma migration da pasta cria uma coluna
+ * `token` em `order_proposals` (nem por `add column`, nem na tabela).
+ */
+const hashECifraNuncaOToken = (arquivos: { nome: string; texto: string }[], nomeDaCifra: string): boolean => {
+  const daCifra = arquivos.find((a) => a.nome === nomeDaCifra)?.texto ?? ''
+  const colunasNovas = [...semComentarios(daCifra).matchAll(/alter\s+table\s+public\.order_proposals\s+add\s+column\s+if\s+not\s+exists\s+(\w+)\s+(\w+)/gi)].map(
+    (m) => `${m[1]} ${m[2]}`.toLowerCase(),
+  )
+  const tokenEmClaro = arquivos.some((a) =>
+    /alter\s+table\s+public\.order_proposals\s+add\s+column\s+(?:if\s+not\s+exists\s+)?token\s/i.test(semComentarios(a.texto)),
+  )
+  return colunasNovas.length === 1 && colunasNovas[0] === 'token_cipher text' && !tokenEmClaro
+}
+
 /** `CON-06` também no banco: um pedido por proposta. */
 const proposalIdUnico = (texto: string): boolean =>
   /alter\s+table\s+public\.orders\s+add\s+column\s+if\s+not\s+exists\s+proposal_id\s+uuid\s+unique\s+references\s+public\.order_proposals\s*\(\s*id\s*\)/i.test(
@@ -285,12 +301,14 @@ const disco = readdirSync(PASTA)
 
 /**
  * `save_order_proposal` e `create_order_from_proposal` foram RECRIADAS depois da 89 (a observação da
- * proposta). As réguas dos corpos e das permissões leem a VIGENTE de cada função — a última migration
- * que a cria —, senão continuariam medindo um arquivo que o banco já não executa: peça certa,
- * endereço errado, suíte verde. `observacaoDaPropostaSchema.test.ts` prova que a vigente é a da 89
- * mais as trocas da observação, byte a byte.
+ * proposta; e o `save` de novo na do link sempre, com a cifra do token e o endereço). As réguas dos corpos e
+ * das permissões leem a VIGENTE de cada função — a última migration que a cria —, senão continuariam
+ * medindo um arquivo que o banco já não executa: peça certa, endereço errado, suíte verde.
+ * `observacaoDaPropostaSchema.test.ts` prova que a da 95 é a da 89 mais as trocas da observação, e
+ * `linkSempreSchema.test.ts` que a vigente do `save` é a da 95 mais as trocas do link sempre, byte a byte.
  */
 const NOME_OBSERVACAO = '20261109120000_95-observacao-da-proposta.sql'
+const NOME_LINK_SEMPRE = '20261111120000_94-link-sempre-e-endereco.sql'
 
 const vigenteDa = (arquivos: { nome: string; texto: string }[], nome: string): string | null => {
   const criadoras = arquivos
@@ -306,13 +324,17 @@ const sqlDa = (nome: string): string => disco.find((a) => a.nome === vigenteDa(d
 const SAVE = sqlDa('save_order_proposal')
 const CRIAR = sqlDa('create_order_from_proposal')
 
-describe('a vigente das duas RPCs recriadas é a da observação da proposta', () => {
-  it.each(['save_order_proposal', 'create_order_from_proposal'])('%s', (nome) => {
-    expect(vigenteDa(disco, nome)).toBe(NOME_OBSERVACAO)
+describe('a vigente das duas RPCs recriadas', () => {
+  it.each([
+    ['save_order_proposal', NOME_LINK_SEMPRE],
+    ['create_order_from_proposal', NOME_OBSERVACAO],
+  ])('%s é a de %s', (nome, esperada) => {
+    expect(vigenteDa(disco, nome)).toBe(esperada)
     expect(corpo(sqlDa(nome), nome)).not.toBe('')
   })
-  it('SENSOR: sem a migration nova, a vigente volta a ser a 89', () => {
-    expect(vigenteDa(disco.filter((a) => a.nome !== NOME_OBSERVACAO), 'save_order_proposal')).toBe(NOME_89)
+  it('SENSOR: sem a migration do link sempre, a vigente do save volta a ser a da observação; sem as duas, a 89', () => {
+    expect(vigenteDa(disco.filter((a) => a.nome !== NOME_LINK_SEMPRE), 'save_order_proposal')).toBe(NOME_OBSERVACAO)
+    expect(vigenteDa(disco.filter((a) => a.nome !== NOME_LINK_SEMPRE && a.nome !== NOME_OBSERVACAO), 'save_order_proposal')).toBe(NOME_89)
   })
   it('a 89 continua sendo a vigente de `mark_order_proposal_viewed`', () => {
     expect(vigenteDa(disco, 'mark_order_proposal_viewed')).toBe(NOME_89)
@@ -469,6 +491,25 @@ describe('os `check`s da proposta', () => {
   })
   it('SENSOR: hash sem `unique` reprova', () => {
     expect(tokenSoHash(mutar(sql, 'token_hash text not null unique', 'token_hash text not null'))).toBe(false)
+  })
+
+  it('desde o link sempre: hash e cifra (`token_cipher`), nunca o token em claro (SEG-01)', () => {
+    expect(hashECifraNuncaOToken(disco, NOME_LINK_SEMPRE)).toBe(true)
+  })
+  it('SENSOR: uma coluna `token` em claro, em qualquer migration, reprova', () => {
+    const comToken = [...disco, { nome: '29991231000000_x.sql', texto: 'alter table public.order_proposals add column if not exists token text;' }]
+    expect(hashECifraNuncaOToken(comToken, NOME_LINK_SEMPRE)).toBe(false)
+  })
+  it('SENSOR: a migration da cifra acrescentando outra coluna junto reprova; sem a cifra, também', () => {
+    const daCifra = disco.find((a) => a.nome === NOME_LINK_SEMPRE)!
+    const comOutra = disco.map((a) =>
+      a === daCifra ? { ...a, texto: `${a.texto}\nalter table public.order_proposals add column if not exists token_plain text;\n` } : a,
+    )
+    expect(hashECifraNuncaOToken(comOutra, NOME_LINK_SEMPRE)).toBe(false)
+    const semCifra = disco.map((a) =>
+      a === daCifra ? { ...a, texto: mutar(a.texto, 'add column if not exists token_cipher text', 'add column if not exists token_cifra text') } : a,
+    )
+    expect(hashECifraNuncaOToken(semCifra, NOME_LINK_SEMPRE)).toBe(false)
   })
 })
 

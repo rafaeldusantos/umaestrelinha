@@ -174,7 +174,7 @@ describe('toSavePayload — o corpo do save, por igualdade', () => {
     'customer_id', 'customer_name', 'customer_email', 'customer_phone', 'customer_document',
     'address_zip', 'address_street', 'address_number', 'address_complement', 'address_neighborhood',
     'address_city', 'address_state', 'lines', 'coupon_code', 'manual_discount', 'expected_total',
-    'admin_note',
+    'admin_note', 'save_address',
   ]
 
   it('criar: só as chaves do contrato + idempotency_key; campo de tela nunca chega', () => {
@@ -209,6 +209,8 @@ describe('toSavePayload — o corpo do save, por igualdade', () => {
       manual_discount: { kind: 'percent', value: 5, reason: 'combinado' },
       expected_total: priceDraft(d, []).price.itemsTotal,
       admin_note: 'Embrulhar para presente',
+      // O endereço veio da lista da ficha (`savedId`): já está no cadastro, não vai de novo.
+      save_address: false,
     })
     for (const l of p.lines) expect(Object.keys(l).sort()).toEqual(['engraving_text', 'product_id', 'quantity', 'variant_id'])
   })
@@ -296,5 +298,39 @@ describe('useProposalDraft', () => {
     act(() => result.current.setAdminNote('  Ligar antes  '))
     expect(result.current.draft.adminNote).toBe('  Ligar antes  ')
     expect(result.current.payload().admin_note).toBe('Ligar antes')
+  })
+})
+
+describe('save_address — "Salvar no cadastro da cliente" vai no save', () => {
+  const comEndereco = (over: Partial<ProposalDraft['address']>, cliente: Partial<ProposalDraft['customer']> = {}) => {
+    const d = completo({ address: { ...emptyDraft().address, zip: '90000-000', street: 'Rua A', ...over } })
+    return { ...d, customer: { ...d.customer, ...cliente } }
+  }
+  const salva = (d: ProposalDraft) => toSavePayload(d, priceDraft(d, []), { idempotencyKey: 'k' }).save_address
+
+  it('marcada por padrão: a montagem nova com cliente salva o endereço', () => {
+    expect(emptyDraft().address.saveToCustomer).toBe(true)
+    expect(salva(comEndereco({}))).toBe(true)
+  })
+  it('desmarcada não salva', () => {
+    expect(salva(comEndereco({ saveToCustomer: false }))).toBe(false)
+  })
+  it('um endereço já salvo na ficha (escolhido da lista) não é gravado de novo', () => {
+    expect(salva(comEndereco({ savedId: 'e1', saveToCustomer: true }))).toBe(false)
+  })
+  it('sem cliente escolhida, nada vai ao cadastro', () => {
+    expect(salva(comEndereco({ saveToCustomer: true }, { mode: 'nenhuma' }))).toBe(false)
+  })
+  it('editar uma proposta não regrava o endereço sem a Adri pedir', () => {
+    const p = {
+      id: 'pid', number: 'P-0001', status: 'open', version: 1, expires_at: '2026-11-07T15:00:00Z', viewed_at: null,
+      order_id: null, order_number: null, customer_id: FICHA, customer_name: 'Ana', customer_email: 'ana@x.invalid',
+      customer_phone: null, customer_document: null, address_zip: '90000000', address_street: 'Rua A',
+      address_number: '1', address_complement: null, address_neighborhood: 'B', address_city: 'C', address_state: 'RS',
+      coupon_id: null, coupon_code: null, coupon_discount: 0, coupon_free_shipping: false, manual_discount_kind: null,
+      manual_discount_value: null, manual_discount_reason: null, manual_discount: 0, subtotal: 100, promotion_discount: 0,
+      items_total: 100, admin_note: null, created_at: '', updated_at: '', items: [], events: [],
+    } as unknown as ProposalDetail
+    expect(draftFromProposal(p, 'editar').address.saveToCustomer).toBe(false)
   })
 })

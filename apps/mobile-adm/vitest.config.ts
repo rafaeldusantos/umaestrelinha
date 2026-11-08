@@ -17,6 +17,9 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: "http://127.0.0.1:54441",
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
+      // O link do pedido montado. Fixada pelo mesmo motivo: sem ela, a suíte mediria o `.env`
+      // de quem roda. O caso "sem a loja" a apaga com `vi.stubEnv`.
+      VITE_STORE_URL: "https://loja.exemplo.invalid",
     },
   },
   resolve: {

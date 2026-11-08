@@ -7,7 +7,7 @@
 // enquanto a leitura da nova não volta.
 process.env.TZ = 'UTC'
 
-import { act, fireEvent, renderHook, screen } from '@testing-library/react'
+import { act, fireEvent, renderHook, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clienteHref } from '@/entities/customer'
@@ -20,6 +20,7 @@ import { resumo } from '@/test/resumo'
 import { CANAL_DA_LISTA } from '@/pages/PedidosPage'
 import { esquecerTermos } from '@/shared/lib/useTermoDaEntrada'
 import { definirErro, esquecerAcoes, lerErro, mostrarAviso, travar, useAviso } from '@/features/order-actions'
+import { RASCUNHO_KEY } from '@/features/order-proposal/model/rascunho'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))
 
@@ -369,5 +370,143 @@ describe('a troca de conta esquece os clientes (MAC-38, G15)', () => {
     })
     expect(screen.getByText('Marina Duarte')).toBeInTheDocument()
     expect(comDado().length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('a troca de conta esquece os pedidos montados', () => {
+  const FAMILIAS = ['atelie-montados', 'atelie-montado']
+  const comDado = () =>
+    capturado.cliente!
+      .getQueryCache()
+      .getAll()
+      .filter((q) => FAMILIAS.includes(String(q.queryKey[0])) && q.state.data !== undefined)
+  const IDM = 'cccccccc-0000-4000-8000-000000000001'
+  let pendurado = false
+  /** A function responde pela conta A até `pendurado`; depois fica no ar (o que aparecer veio da memória). */
+  const responderMontadosDeA = () => {
+    pendurado = false
+    fake.responderRpc('atelie_clock', { lido_em: LIDO_EM })
+    fake.responderRpc('store_overview', resumo())
+    const responder = (dado: unknown) => () => (pendurado ? new Promise<never>(() => {}) : { data: dado, error: null })
+    const leitura = {
+      proposal: {
+        id: IDM,
+        number: 'P-0042',
+        status: 'open',
+        version: 1,
+        expires_at: '2026-10-30T15:00:00Z',
+        order_id: null,
+        order_number: null,
+        customer_name: 'Marina Duarte',
+        customer_email: 'marina@exemplo.invalid',
+        customer_phone: null,
+        subtotal: 100,
+        promotion_discount: 0,
+        coupon_code: null,
+        coupon_discount: 0,
+        manual_discount: 0,
+        items_total: 100,
+        admin_note: null,
+        created_at: '2026-10-21T12:00:00Z',
+        items: [],
+        events: [],
+      },
+      state: 'open',
+      actions: { edit: true, renew: true, renewLabel: 'Gerar link novo', cancel: true, duplicate: true, viewOrder: false },
+      token: null,
+    }
+    fake.filaDeInvocacao('order-proposals?action=get', ...Array.from({ length: 20 }, () => responder(leitura)))
+    fake.filaDeInvocacao(
+      'order-proposals?action=renew',
+      responder({ id: IDM, number: 'P-0042', version: 2, token: 'tok-de-a', expires_at: '2026-10-30T15:00:00Z', repriced: false, summary: {} }),
+    )
+  }
+
+  it('A → B sem sair: o pedido montado de A e o link que o renovar de A gerou somem da tela e da memória', async () => {
+    responderMontadosDeA()
+    await montarApp(`/pedidos/montados/${IDM}`)
+    await andar(100)
+    expect(screen.getByText('Marina Duarte')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar link novo' }))
+    await andar(100)
+    expect(screen.getByTestId('o-link')).toHaveTextContent('#tok-de-a')
+    expect(comDado().length).toBeGreaterThan(0)
+
+    pendurado = true
+    pendurarTudo()
+    await entrarComo(B)
+    await andar(100)
+    expect(comDado()).toEqual([])
+    expect(document.body.textContent).not.toMatch(/Marina|tok-de-a|P-0042/)
+  })
+})
+
+// O rascunho da montagem (as peças e os descontos guardados neste celular) é da CONTA que o
+// guardou: a troca de conta e o sair o apagam do aparelho, e a conta nova não o retoma.
+describe('a troca de conta apaga o rascunho da montagem', () => {
+  const PECA = {
+    id: 'bbbbbbbb-0000-4000-8000-000000000001', name: 'Colar Estrela', base_price: 120, image_url: null, capa: null, is_active: true,
+    stock_policy: 'track', stock_total: 5, requires_material: false, engraving_max_chars: null, options: [],
+    weight_kg: null, width_cm: null, height_cm: null, length_cm: null,
+  }
+  const comoOPostgrest = (linhas: unknown[]) => (cadeia: { metodo: string; args: unknown[] }[]): RespostaTabela =>
+    (cadeia.find((e) => e.metodo === 'select')?.args[1] as { head?: boolean } | undefined)?.head
+      ? { data: null, error: null, count: linhas.length }
+      : { data: linhas, error: null }
+  const clicar = async (el: HTMLElement) => {
+    await act(async () => {
+      fireEvent.click(el)
+    })
+    await andar(50)
+  }
+
+  /** A conta A monta um pedido com uma peça: o rascunho fica guardado. */
+  const montarComUmaPeca = async () => {
+    fake.responderRpc('atelie_clock', { lido_em: LIDO_EM })
+    fake.responderRpc('store_overview', resumo())
+    fake.responderTabela('order_list', { data: [], error: null, count: 0 })
+    fake.filaDeInvocacao('order-proposals?action=list', ...Array.from({ length: 20 }, () => () => ({ data: { proposals: [], agora: LIDO_EM }, error: null })))
+    fake.responderTabela('customer_list', { data: [cliente({ name: 'Marina Duarte' })], error: null })
+    fake.responderTabela('addresses', { data: [], error: null })
+    fake.responderTabela('products', comoOPostgrest([PECA]))
+    fake.responderTabela('product_variants', comoOPostgrest([]))
+    await montarApp('/pedidos')
+    await andar(50)
+    await clicar(screen.getByRole('link', { name: 'Montar pedido' }))
+    await andar(50)
+    await clicar(within(screen.getByRole('list', { name: 'Clientes' })).getByRole('button', { name: /Marina Duarte/ }))
+    await clicar(within(screen.getByTestId('barra-da-montagem')).getByRole('button', { name: 'Continuar' }))
+    await andar(50)
+    await clicar(within(screen.getByRole('list', { name: 'Joias' })).getByRole('button', { name: /Colar Estrela/ }))
+    await clicar(within(screen.getByRole('dialog')).getByRole('button', { name: /^Acrescentar · / }))
+    await andar(50)
+    expect(localStorage.getItem(RASCUNHO_KEY)).toContain(PECA.id)
+  }
+
+  it('A → B sem sair: o rascunho de A sai do aparelho, e a montagem que segue na tela não o grava de novo', async () => {
+    await montarComUmaPeca()
+    pendurarTudo()
+    await entrarComo(B)
+    await andar(100)
+    expect(localStorage.getItem(RASCUNHO_KEY)).toBeNull()
+  })
+
+  it('sair: o rascunho sai do aparelho, e entrar de novo não o retoma', async () => {
+    await montarComUmaPeca()
+    await act(async () => {
+      fake.perderSessao()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(window.location.pathname).toBe('/login')
+    expect(localStorage.getItem(RASCUNHO_KEY)).toBeNull()
+  })
+
+  it('a volta da aba com o MESMO usuário mantém o rascunho', async () => {
+    await montarComUmaPeca()
+    await act(async () => {
+      fake.voltarAba()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(localStorage.getItem(RASCUNHO_KEY)).toContain(PECA.id)
   })
 })

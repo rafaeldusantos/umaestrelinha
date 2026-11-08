@@ -475,7 +475,12 @@ existia nenhuma (o termo ia cru para o Postgres).
   consumidor, e saiu — em vez de continuar exportado sem ninguém, que é como `deleteSection`
   atravessou uma feature inteira. O que restou é a **escrita** e `getProduct`, que perdeu o atalho de
   cache e caiu na consulta de uma linha **que ele já tinha escrita**.
-- **A dobra mora em `shared/lib/texto.ts`, e as três cópias dela chamam de lá.** As outras sete
+- **A dobra e a régua moram em `@estrelinha/core/product-search`** (lidas também pelo app do ateliê);
+  `shared/lib/texto.ts` e `entities/product/lib/buscarProdutos.ts` as **reexportam por referência**
+  (`app/__tests__/regrasDaMontagemNoCore.test.ts`), e os chamadores do painel não mudaram de endereço.
+  O mesmo vale para `capaDaLinha`, o mapeamento da peça de `lerPecaParaProposta`, `textoDoEstoque` e
+  `LINK_WITHOUT_STORE`, que moram em `@estrelinha/core/proposals`.
+- **As três cópias antigas da dobra chamam de `shared/lib/texto.ts`.** As outras sete
   ocorrências de `normalize('NFD')` do painel **não** foram tocadas: elas dobram o acento *e
   continuam* (juntam por hífen, recortam o que não é letra), e o que produzem é **endereço**, não
   termo de busca. Ver a dívida no [`CLAUDE.md`](../../CLAUDE.md) da raiz.
@@ -1359,7 +1364,7 @@ loja** (`StorefrontPreview` foi apagado, sem consumidor).
 combinado com motivo interno; "Criar link" grava pela function `order-proposals` e leva a
 `/admin/pedidos/montados/:id`, com o link, WhatsApp, renovar, cancelar e o histórico. A lista de Pedidos
 ganhou a aba local **"Montados"** (`?visao=montados`, fora de `ORDER_VIEWS`), e o pedido que nasceu de
-uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {motivo}".
+uma proposta mostra "Pedido montado · P-0001" (`PROPOSAL_ORIGIN_LABEL`, `core`, D-25 do WI 94) e "Desconto combinado — {motivo}".
 
 - **O resumo vem de `priceProposalDraft`** (`core/proposals`), a mesma chamada que a function refaz.
 - **Nada escreve nas tabelas da proposta pelo PostgREST**: a porta é a function (`requireAdmin`).
@@ -1382,6 +1387,13 @@ uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {m
 - **`RecordPageHeader` deixa o título e o subtítulo quebrarem no meio da palavra** (um e-mail no
   subtítulo empurrava a página de lado a 390/200 %).
 - Prova: `.specs/features/89-pedido-montado-pelo-painel/prova-navegador.md`. Sem Verifier nem QA ainda.
+- **Desde o WI 94 o link vem do `get`** (a function decifra o token da proposta aberta, com o secret
+  opcional `PROPOSAL_TOKEN_KEY`): a página mostra o link sempre, também ao reabrir, num campo só
+  leitura, com a prévia da mensagem recolhível. Nada vai ao `sessionStorage` (`linkMemory.ts` saiu). A
+  proposta sem cifra mostra `LINK_UNAVAILABLE` e "Gerar link novo" (D-28); Renovar só na expirada,
+  "Renovar prazo", confirmando com `proposalRenewText` (`core`). "Salvar no cadastro da cliente" vem
+  marcada ao montar e vai no `save` como `save_address`: o painel não escreve mais em `addresses`
+  (`gravarEnderecoDaCliente` saiu); a falha da gravação diz `SAVE_FAILED` (D-20).
 
 ## Compre Junto › Listas (`/admin/compre-junto`)
 

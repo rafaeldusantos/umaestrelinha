@@ -21,10 +21,11 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
-import { isVariantAvailable, variantLabel } from '@estrelinha/core/pricing'
-import { hasEngraving, requiresMaterial } from '@estrelinha/core/material'
-import { capaDaLinha } from './useProductCovers'
-import type { OptionValues, ProductOption, StockPolicy } from '@estrelinha/supabase/types'
+import { mapearPecaParaProposta, type LinhaDaPeca, type PecaParaProposta } from '@estrelinha/core/proposals'
+
+// O mapeamento da peça (variações, estoque, foto com recuo para a capa) tem um dono em `core`, lido
+// também pelo app do ateliê; os tipos são reexportados daqui para os chamadores do painel.
+export type { MedidasDaPeca, PecaParaProposta, VariacaoDaPeca } from '@estrelinha/core/proposals'
 
 /** As colunas da peça. Nomeadas, nunca `*` (a `description` é o grosso do catálogo e ninguém aqui a lê). */
 export const PROPOSAL_PRODUCT_COLUMNS =
@@ -38,57 +39,9 @@ export const PRODUCT_VARIANTS_KEY = ['products', 'variants'] as const
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export interface MedidasDaPeca {
-  weight_kg: number | null
-  width_cm: number | null
-  height_cm: number | null
-  length_cm: number | null
-}
-
-/** Uma variação oferecível — ativa, com o rótulo já montado. */
-export interface VariacaoDaPeca {
-  id: string
-  /** `4,5 cm · Fosco`, pela ordem dos eixos da peça (`variantLabel`). */
-  rotulo: string
-  /** O preço cheio da linha; `null` quando a variação está sem preço (o servidor recusaria). */
-  preco: number | null
-  estoque: number
-  /** Pode ser vendida agora (`isVariantAvailable` com a política da peça). */
-  disponivel: boolean
-  /** A linha grava? Só ela mostra o campo de gravação. */
-  grava: boolean
-  imagem: string | null
-  valores: OptionValues
-  peso: number | null
-}
-
-export interface PecaParaProposta {
-  id: string
-  nome: string
-  ativa: boolean
-  precoBase: number
-  imagem: string | null
-  politica: StockPolicy
-  estoqueTotal: number
-  pedeMaterial: boolean
-  limiteDeGravacao: number | null
-  medidas: MedidasDaPeca
-  /** Ativas, na ordem do cadastro. Vazio = peça sem grade (vende pelo preço base). */
-  variacoes: VariacaoDaPeca[]
-}
-
 interface ErroDeLeitura {
   message?: string
 }
-
-const numeroOuNulo = (v: unknown): number | null => {
-  if (v === null || v === undefined || v === '') return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-const politicaDe = (v: unknown): StockPolicy =>
-  v === 'none' || v === 'backorder' ? v : 'track'
 
 /**
  * Lê a peça e as variações ativas. **Falha** quando a leitura falha — nunca devolve uma peça sem
@@ -122,49 +75,7 @@ export const lerPecaParaProposta = async (
     throw new Error((erroVariacoes as ErroDeLeitura).message || 'não foi possível ler as variações')
   }
 
-  // A capa da peça: a primeira da galeria, senão a coluna antiga (o catálogo importado só tem a
-  // galeria). A variação sem foto própria mostra a capa — é a peça que a Adri está escolhendo.
-  const capa = capaDaLinha(produto as { image_url: string | null; capa: string | null })
-
-  const opcoes: ProductOption[] = Array.isArray(produto.options) ? produto.options : []
-  const politica = politicaDe(produto.stock_policy)
-
-  const variacoes: VariacaoDaPeca[] = ((linhas ?? []) as Array<Record<string, unknown>>)
-    .filter((v) => v.is_active === true)
-    .map((v) => {
-      const valores = (v.option_values ?? {}) as OptionValues
-      const estoque = Number(v.stock ?? 0) || 0
-      return {
-        id: String(v.id),
-        rotulo: variantLabel(opcoes, valores) || 'Variação sem nome',
-        preco: numeroOuNulo(v.price),
-        estoque,
-        disponivel: isVariantAvailable({ stock: estoque, is_active: true }, politica),
-        grava: hasEngraving(valores),
-        imagem: ((v.image_url as string | null) ?? '').trim() || capa,
-        valores,
-        peso: numeroOuNulo(v.weight_kg),
-      }
-    })
-
-  return {
-    id: String(produto.id),
-    nome: String(produto.name ?? ''),
-    ativa: produto.is_active !== false,
-    precoBase: Number(produto.base_price ?? 0),
-    imagem: capa,
-    politica,
-    estoqueTotal: Number(produto.stock_total ?? 0) || 0,
-    pedeMaterial: requiresMaterial(produto),
-    limiteDeGravacao: numeroOuNulo(produto.engraving_max_chars),
-    medidas: {
-      weight_kg: numeroOuNulo(produto.weight_kg),
-      width_cm: numeroOuNulo(produto.width_cm),
-      height_cm: numeroOuNulo(produto.height_cm),
-      length_cm: numeroOuNulo(produto.length_cm),
-    },
-    variacoes,
-  }
+  return mapearPecaParaProposta(produto as LinhaDaPeca, (linhas ?? []) as Array<Record<string, unknown>>)
 }
 
 export interface PecaDaProposta {

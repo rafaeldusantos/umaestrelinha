@@ -75,6 +75,7 @@ describe('o corpo de cada ação', () => {
       manual_discount: null,
       expected_total: 100,
       admin_note: 'Embrulhar para presente',
+      save_address: true,
     }
     invoke.mockResolvedValueOnce({ data: { id: ID, token: 't' }, error: null })
     await saveProposal(payload)

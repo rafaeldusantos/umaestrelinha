@@ -17,4 +17,17 @@ describe('barraNoCaminho', () => {
     expect(barraNoCaminho('/clientes/abc')).toBe(false)
     expect(barraNoCaminho('/ao-vivo-x')).toBe(true)
   })
+
+  it('o pedido montado (`/pedidos/montados/<id>`, com e sem a barra final) NÃO tem a barra; a aba Pedidos com a visão Montados tem', () => {
+    expect(barraNoCaminho('/pedidos/montados/cccccccc-0000-4000-8000-000000000001')).toBe(false)
+    expect(barraNoCaminho('/pedidos/montados/abc/')).toBe(false)
+    expect(barraNoCaminho('/pedidos')).toBe(true)
+    // Um terceiro segmento que não é o do pedido montado continua com a barra (a regra é a rota, não o prefixo).
+    expect(barraNoCaminho('/clientes/montados/abc')).toBe(true)
+  })
+
+  it('a montagem de um pedido (`/pedidos/montar`, com e sem a barra final) NÃO tem a barra: é tela cheia', () => {
+    expect(barraNoCaminho('/pedidos/montar')).toBe(false)
+    expect(barraNoCaminho('/pedidos/montar/')).toBe(false)
+  })
 })

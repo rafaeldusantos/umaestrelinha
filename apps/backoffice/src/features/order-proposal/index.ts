@@ -1,7 +1,7 @@
 export * from './api/proposalsApi'
 export * from './model/draft'
 export * from './model/useProposalDraft'
-export * from './model/linkMemory'
+export * from './model/proposalLink'
 export * from './model/copy'
 export { default as CustomerSection } from './ui/CustomerSection'
 export { default as AddressSection } from './ui/AddressSection'

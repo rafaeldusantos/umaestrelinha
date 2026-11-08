@@ -41,3 +41,4 @@ export {
 } from './ui/FolhaDaObservacao'
 export { default as EditarObservacao, ADICIONAR_OBSERVACAO, EDITAR_OBSERVACAO, type EditarObservacaoProps } from './ui/EditarObservacao'
 export type { CopiaDaObservacao } from './model/useFolhaNoHistorico'
+export { devolverFoco } from './model/foco'

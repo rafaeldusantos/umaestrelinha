@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFakeSupabase, type FakeSupabaseOptions } from '../../_shared/testing/fakes.ts'
+import { createTokenCipher, type TokenCipher } from '../../_shared/tokenCipher.ts'
 import { hashAccessToken } from '../../../../packages/core/src/checkout/guestAccess.ts'
 import { ORDER_ADMIN_NOTE_MAX } from '../../../../packages/core/src/orders/adminNote.ts'
 import {
@@ -189,6 +190,7 @@ const ACOES: Array<[string, unknown]> = [
   ['cancel', { id: PROP }],
   ['log-sent', { id: PROP, channel: 'copy' }],
   ['note', { id: PROP, admin_note: 'Embrulhar para presente' }],
+  ['preview', { lines: [{ product_id: P1, variant_id: null, quantity: 1 }], customer_email: 'maria@exemplo.invalid' }],
 ]
 
 describe('order-proposals — autorização (SEG-05)', () => {
@@ -766,6 +768,66 @@ describe('list (LNK-04)', () => {
     const f = ambiente({ listErrorByTable: { order_proposals: { message: 'x' } } })
     expect((await route(f.deps, pedir('list', {}))).status).toBe(502)
   })
+
+  it('cada proposta leva as peças resumidas (nome, foto, variação, quantidade), na ordem, com teto de 4 — e o relógio do servidor', async () => {
+    const OUTRA = 'cccccccc-0000-4000-8000-000000000002'
+    const peca = (proposal_id: string, position: number, extra: Record<string, unknown> = {}) => ({
+      proposal_id,
+      position,
+      product_name: `Peça ${position}`,
+      product_image: `https://img/${position}.webp`,
+      variant_label: null,
+      quantity: 1,
+      unit_price: 999,
+      engraving_text: 'segredo',
+      ...extra,
+    })
+    const f = ambiente({
+      lists: {
+        order_proposals: [LINHA(), LINHA({ id: OUTRA })],
+        // Fora de ordem de propósito, e com uma linha de outra proposta no meio.
+        order_proposal_items: (_eqs: unknown, _sel: string, read: any) =>
+          filtrarPorIn(
+            [
+              peca(PROP, 4),
+              peca(PROP, 1, { variant_label: 'Prata · M', quantity: 2 }),
+              peca(OUTRA, 0, { product_name: 'Anel Lua', product_image: null }),
+              peca(PROP, 0),
+              peca(PROP, 3),
+              peca(PROP, 2),
+            ],
+            read,
+          ),
+      },
+    })
+    const res = await route(f.deps, pedir('list', {}))
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    expect(corpo.agora).toBe('2026-10-31T12:00:00.000Z')
+    const [primeira, segunda] = corpo.proposals
+    expect(primeira.lines).toEqual([
+      { product_name: 'Peça 0', product_image: 'https://img/0.webp', variant_label: null, quantity: 1 },
+      { product_name: 'Peça 1', product_image: 'https://img/1.webp', variant_label: 'Prata · M', quantity: 2 },
+      { product_name: 'Peça 2', product_image: 'https://img/2.webp', variant_label: null, quantity: 1 },
+      { product_name: 'Peça 3', product_image: 'https://img/3.webp', variant_label: null, quantity: 1 },
+    ])
+    expect(primeira.lines_count).toBe(5)
+    expect(segunda.lines).toEqual([{ product_name: 'Anel Lua', product_image: null, variant_label: null, quantity: 1 }])
+    expect(segunda.lines_count).toBe(1)
+    // Uma leitura só das peças, escopada pelas propostas lidas, sem preço, gravação nem material.
+    const leituras = f.reads.filter((r) => r.table === 'order_proposal_items')
+    expect(leituras).toHaveLength(1)
+    expect(leituras[0].in).toEqual([['proposal_id', [PROP, OUTRA]]])
+    expect(leituras[0].select).not.toMatch(/price|engraving|material/)
+  })
+
+  it('a leitura das peças falha ⇒ 502, nunca cartões sem peças', async () => {
+    const f = ambiente({
+      lists: { order_proposals: [LINHA()] },
+      listErrorByTable: { order_proposal_items: { message: 'x' } },
+    })
+    expect((await route(f.deps, pedir('list', {}))).status).toBe(502)
+  })
 })
 
 describe('get', () => {
@@ -790,7 +852,9 @@ describe('get', () => {
     expect(res.status).toBe(200)
     const corpo = await res.json()
     expect(corpo.state).toBe('open')
-    expect(corpo.actions).toEqual({ edit: true, renew: true, cancel: true, duplicate: true, viewOrder: false })
+    // Sem cifra gravada (e sem chave), o link não pode ser mostrado: a aberta renova pelo "Gerar link novo".
+    expect(corpo.actions).toEqual({ edit: true, renew: true, renewLabel: 'Gerar link novo', cancel: true, duplicate: true, viewOrder: false })
+    expect(corpo.token).toBeNull()
     expect(corpo.proposal.items.map((i: any) => i.position)).toEqual([0, 1])
     expect(corpo.proposal.events).toHaveLength(1)
     // O motivo é interno à loja, mas o painel o vê (HIS-02).
@@ -1109,6 +1173,239 @@ describe('log-sent (LNK-03)', () => {
   })
 })
 
+// ---------------------------------------------------------------------------------------------
+// preview — o resumo vivo da montagem do app (sem gravar)
+// ---------------------------------------------------------------------------------------------
+
+describe('preview', () => {
+  const CUPOM_DA_PREVIA = {
+    id: CUPOM,
+    code: 'BEMVINDA',
+    type: 'percent',
+    value: 10,
+    active: true,
+    valid_from: null,
+    valid_until: null,
+    max_uses: null,
+    used_count: 0,
+    min_order: null,
+    first_order_only: false,
+  }
+  const PAGAMENTO = { value: { pix_enabled: true, pix_discount_percent: 5 } }
+
+  /** O corpo da prévia: só a escolha — as mesmas peças do `corpoNovo`, 100 + 150 × 2 = 400. */
+  const escolha = (extra: Record<string, unknown> = {}) => ({
+    lines: [
+      { product_id: P1, variant_id: null, quantity: 1 },
+      { product_id: P2, variant_id: V2A, quantity: 2, engraving_text: 'Lua' },
+    ],
+    customer_email: 'maria@exemplo.invalid',
+    ...extra,
+  })
+
+  /** O ambiente, com as tabelas que a function abriu (`from`), na ordem — inclusive as contagens. */
+  const comTabelas = (opts: FakeSupabaseOptions = {}) => {
+    const f = ambiente({
+      ...opts,
+      rows: { store_settings: PAGAMENTO, ...(opts.rows ?? {}) },
+      rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK, ...(opts.rpcByFn ?? {}) },
+    })
+    const abertas: string[] = []
+    const from = f.client.from
+    f.client.from = (tabela: string) => {
+      abertas.push(tabela)
+      return from(tabela)
+    }
+    return { ...f, abertas }
+  }
+
+  it('não chama RPC nem grava: só a pergunta do papel, e leituras', async () => {
+    const f = comTabelas({ rows: { coupons: { ...CUPOM_DA_PREVIA, first_order_only: true } }, counts: { orders: 0 } })
+    const res = await route(
+      f.deps,
+      pedir('preview', escolha({ coupon_code: 'bemvinda', manual_discount: { kind: 'amount', value: 20 } })),
+    )
+    expect(res.status).toBe(200)
+    expect(f.rpcs.map((r) => r.fn)).toEqual(['has_role'])
+    expect(tabelasEscritas(f)).toEqual([])
+    expect(new Set(f.abertas)).toEqual(new Set(['products', 'product_variants', 'coupons', 'orders', 'promotions', 'store_settings']))
+  })
+
+  it('devolve o MESMO resumo que o save gravaria, com o cupom e o desconto combinado', async () => {
+    const corpo = { coupon_code: 'BEMVINDA', manual_discount: { kind: 'amount', value: 20, reason: 'Combinado no WhatsApp' } }
+    const previa = comTabelas({ rows: { coupons: CUPOM_DA_PREVIA } })
+    const r1 = await route(previa.deps, pedir('preview', escolha(corpo)))
+    expect(r1.status).toBe(200)
+    const lido = await r1.json()
+    // 400 − 10% (40) − 20 = 340, escrito à mão.
+    expect(lido.summary).toMatchObject({ subtotal: 400, coupon_discount: 40, manual_discount: 20, items_total: 340, coupon_applied: true })
+
+    const gravando = comTabelas({ rows: { coupons: CUPOM_DA_PREVIA } })
+    const r2 = await route(gravando.deps, pedir('save', corpoNovo({ ...corpo, expected_total: 340 })))
+    expect(r2.status).toBe(200)
+    expect(lido.summary).toEqual((await r2.json()).summary)
+  })
+
+  it('devolve o cupom conferido (código, tipo, valor e se é de primeira compra) — o app não lê cupons', async () => {
+    const f = comTabelas({ rows: { coupons: { ...CUPOM_DA_PREVIA, first_order_only: true, value: 5 } }, counts: { orders: 0 } })
+    const lido = await (await route(f.deps, pedir('preview', escolha({ coupon_code: ' bemvinda ' })))).json()
+    expect(lido.coupon).toEqual({ code: 'BEMVINDA', type: 'percent', value: 5, first_order_only: true })
+    expect(f.ilikes).toEqual([['coupons', 'code', 'BEMVINDA']])
+    // Sem cupom, nada de cupom.
+    const sem = await (await route(comTabelas().deps, pedir('preview', escolha()))).json()
+    expect(sem.coupon).toBeNull()
+  })
+
+  it.each([
+    ['inexistente', null, 'Cupom inválido.'],
+    ['vencido', { valid_until: '2026-10-01T00:00:00Z' }, 'Cupom expirado.'],
+    ['pedido mínimo', { min_order: 500 }, 'Pedido mínimo de R$ 500,00.'],
+  ])('cupom %s ⇒ 422 com o texto da loja', async (_n, mudanca, texto) => {
+    const linha = mudanca === null ? null : { ...CUPOM_DA_PREVIA, ...mudanca }
+    const f = comTabelas({ rows: { coupons: linha } })
+    const res = await route(f.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA' })))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: texto, code: 'coupon_refused' })
+  })
+
+  it('cupom de primeira compra: o e-mail que já comprou é recusado com o texto da loja; o que não comprou passa', async () => {
+    const primeira = { ...CUPOM_DA_PREVIA, first_order_only: true }
+    const ja = comTabelas({ rows: { coupons: primeira }, counts: { orders: 1 } })
+    const r1 = await route(ja.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA' })))
+    expect(r1.status).toBe(422)
+    expect(await r1.json()).toEqual({ error: 'Cupom válido apenas no primeiro pedido.', code: 'coupon_refused' })
+
+    const nunca = comTabelas({ rows: { coupons: primeira }, counts: { orders: 0 } })
+    expect((await route(nunca.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA' })))).status).toBe(200)
+  })
+
+  it.each([
+    ['sem e-mail', ''],
+    ['com um e-mail que não confere', 'maria@'],
+  ])('cupom de primeira compra %s ⇒ "Este cupom pede o e-mail da cliente.", sem perguntar a orders', async (_n, email) => {
+    const f = comTabelas({ rows: { coupons: { ...CUPOM_DA_PREVIA, first_order_only: true } }, counts: { orders: 0 } })
+    const res = await route(f.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA', customer_email: email })))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'Este cupom pede o e-mail da cliente.', code: 'coupon_refused' })
+    expect(f.abertas).not.toContain('orders')
+  })
+
+  it('cupom que não é de primeira compra vale sem e-mail', async () => {
+    const f = comTabelas({ rows: { coupons: CUPOM_DA_PREVIA } })
+    const res = await route(f.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA', customer_email: '' })))
+    expect(res.status).toBe(200)
+    expect((await res.json()).summary.items_total).toBe(360)
+  })
+
+  it.each([
+    ['em reais, deixando os itens abaixo de R$ 1,00', { kind: 'amount', value: 399.5 }],
+    ['em %, de 100', { kind: 'percent', value: 100 }],
+  ])('desconto combinado %s ⇒ a recusa, e ele NÃO entra na conta', async (_n, avulso) => {
+    const f = comTabelas()
+    const res = await route(f.deps, pedir('preview', escolha({ manual_discount: avulso })))
+    expect(res.status).toBe(200)
+    const lido = await res.json()
+    expect(lido.manual_refusal).toBe('O desconto não pode zerar o pedido.')
+    expect(lido.summary).toMatchObject({ manual_discount: 0, items_total: 400 })
+  })
+
+  it('desconto combinado que cabe entra na conta, em % também, sem recusa', async () => {
+    const f = comTabelas()
+    const lido = await (await route(f.deps, pedir('preview', escolha({ manual_discount: { kind: 'percent', value: 10 } })))).json()
+    expect(lido.manual_refusal).toBeNull()
+    expect(lido.summary).toMatchObject({ manual_discount: 40, items_total: 360 })
+  })
+
+  it('o PIX: o total dos itens com o desconto do PIX da loja; PIX desligado ou sem desconto, nada', async () => {
+    const lido = await (await route(comTabelas().deps, pedir('preview', escolha()))).json()
+    // 400 − 5% = 380.
+    expect(lido.items_pix).toEqual({ percent: 5, total: 380 })
+
+    const desligado = comTabelas({ rows: { store_settings: { value: { pix_enabled: false, pix_discount_percent: 5 } } } })
+    expect((await (await route(desligado.deps, pedir('preview', escolha()))).json()).items_pix).toBeNull()
+    const semDesconto = comTabelas({ rows: { store_settings: { value: { pix_enabled: true, pix_discount_percent: 0 } } } })
+    expect((await (await route(semDesconto.deps, pedir('preview', escolha()))).json()).items_pix).toBeNull()
+  })
+
+  it('peças fora da forma ⇒ 400; o log não leva o e-mail', async () => {
+    const f = comTabelas()
+    expect((await route(f.deps, pedir('preview', { lines: 'x', customer_email: 'maria@exemplo.invalid' }))).status).toBe(400)
+    await route(f.deps, pedir('preview', escolha()))
+    for (const linha of logs) expect(linha).not.toContain('maria@exemplo.invalid')
+  })
+})
+
+describe('preview — a promoção vigente por linha', () => {
+  const promo = (over: Record<string, unknown>) => ({
+    id: 'promo-out',
+    name: 'Promoção de outubro',
+    discount_kind: 'percent',
+    scope: 'all',
+    stacks_with_coupon: false,
+    active: true,
+    valid_from: null,
+    valid_until: null,
+    created_at: '2026-01-01T00:00:00Z',
+    promotion_tiers: [{ min_qty: 2, value: 15 }],
+    ...over,
+  })
+  const previa = async (promocoes: unknown[], lines: unknown[], extra: FakeSupabaseOptions = {}) => {
+    const f = ambiente({ ...extra, lists: { promotions: promocoes, ...(extra.lists ?? {}) } })
+    const res = await route(f.deps, pedir('preview', { lines, customer_email: 'maria@exemplo.invalid' }))
+    expect(res.status).toBe(200)
+    return (await res.json()).lines
+  }
+
+  it('devolve, na ordem das peças pedidas, o nome e a porcentagem da promoção que vale para cada uma', async () => {
+    const linhas = await previa([promo({})], [
+      { product_id: P1, variant_id: null, quantity: 2 },
+      { product_id: P2, variant_id: V2A, quantity: 1 },
+    ])
+    // 3 unidades na faixa de 2 ⇒ 15% nas duas peças.
+    expect(linhas).toEqual([
+      { promotion: { name: 'Promoção de outubro', percent: 15 } },
+      { promotion: { name: 'Promoção de outubro', percent: 15 } },
+    ])
+  })
+
+  it('a peça fora do escopo da promoção, ou abaixo da faixa, fica sem promoção', async () => {
+    const soP1 = promo({ scope: 'categories' })
+    const elegiveis = { promotion_eligible_products: [{ promotion_id: 'promo-out', product_id: P1 }] }
+    expect(
+      await previa([soP1], [{ product_id: P1, variant_id: null, quantity: 2 }, { product_id: P2, variant_id: V2A, quantity: 1 }], { lists: elegiveis }),
+    ).toEqual([{ promotion: { name: 'Promoção de outubro', percent: 15 } }, { promotion: null }])
+    expect(await previa([promo({})], [{ product_id: P1, variant_id: null, quantity: 1 }])).toEqual([{ promotion: null }])
+  })
+
+  it('sem promoção vigente, nada; a de preço por unidade diz a porcentagem que ela tira', async () => {
+    expect(await previa([], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([{ promotion: null }])
+    expect(await previa([promo({ valid_until: '2026-10-01T00:00:00Z' })], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([
+      { promotion: null },
+    ])
+    // 100 → 80 por unidade: 20%.
+    const porUnidade = promo({ discount_kind: 'unit_price', promotion_tiers: [{ min_qty: 2, value: 80 }] })
+    expect(await previa([porUnidade], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([
+      { promotion: { name: 'Promoção de outubro', percent: 20 } },
+    ])
+  })
+
+  it('duas promoções com o mesmo preço: a peça fora do escopo da mais antiga diz a outra', async () => {
+    const soP1 = promo({ scope: 'categories' })
+    const todas = promo({ id: 'promo-b', name: 'Semana da saudade', created_at: '2026-02-01T00:00:00Z' })
+    const elegiveis = { promotion_eligible_products: [{ promotion_id: 'promo-out', product_id: P1 }] }
+    expect(
+      await previa([soP1, todas], [{ product_id: P1, variant_id: null, quantity: 2 }, { product_id: P2, variant_id: V2A, quantity: 1 }], { lists: elegiveis }),
+    ).toEqual([{ promotion: { name: 'Promoção de outubro', percent: 15 } }, { promotion: { name: 'Semana da saudade', percent: 15 } }])
+  })
+
+  it('duas promoções: cada peça diz a que venceu nela (o menor preço)', async () => {
+    const maior = promo({ id: 'promo-b', name: 'Semana da saudade', created_at: '2026-02-01T00:00:00Z', promotion_tiers: [{ min_qty: 2, value: 25 }] })
+    expect(await previa([promo({}), maior], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([
+      { promotion: { name: 'Semana da saudade', percent: 25 } },
+    ])
+  })
+})
+
 describe('roteamento', () => {
   it('OPTIONS responde o preflight', async () => {
     const f = ambiente()
@@ -1127,5 +1424,253 @@ describe('roteamento', () => {
     })
     expect((await route(f.deps, malformado)).status).toBe(400)
     expect(f.rpcs).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// O link sempre: a cifra do token, o `save_address` e a foto da linha
+// ---------------------------------------------------------------------------------------------
+
+/** 32 bytes fixos, em base64 — só para os testes. */
+const CHAVE = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => i + 1)))
+const OUTRA_CHAVE = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => 200 - i)))
+const TOKEN = 'tok_'.padEnd(43, 'x')
+
+describe('createTokenCipher', () => {
+  it('cifra e decifra o mesmo token, com IV novo a cada cifra', async () => {
+    const c = (await createTokenCipher(CHAVE))!
+    const a = await c.encrypt(TOKEN)
+    const b = await c.encrypt(TOKEN)
+    expect(a).not.toBe(b)
+    expect(a).not.toContain(TOKEN)
+    expect(await c.decrypt(a)).toBe(TOKEN)
+    expect(await c.decrypt(b)).toBe(TOKEN)
+  })
+
+  it('cifra de outra chave, corrompida ou de outro formato ⇒ null, nunca lança', async () => {
+    const c = (await createTokenCipher(CHAVE))!
+    const outra = (await createTokenCipher(OUTRA_CHAVE))!
+    const cifra = await outra.encrypt(TOKEN)
+    expect(await c.decrypt(cifra)).toBeNull()
+    expect(await c.decrypt(`${cifra.slice(0, -2)}AA`)).toBeNull()
+    expect(await c.decrypt('v2.abc')).toBeNull()
+    expect(await c.decrypt(null)).toBeNull()
+  })
+
+  it.each([undefined, null, '', '   ', 'curta', btoa('dezesseis bytes!')])('chave %j inutilizável ⇒ sem cifra', async (raw) => {
+    expect(await createTokenCipher(raw as string)).toBeNull()
+  })
+})
+
+describe('get — o link enquanto aberta', () => {
+  const comCifra = async (over: Record<string, unknown>, chave: TokenCipher | null) => {
+    const cifrador = (await createTokenCipher(CHAVE))!
+    const cifra = await cifrador.encrypt(TOKEN)
+    const selects: string[] = []
+    const f = ambiente({
+      rows: {
+        order_proposals: (eq: [string, unknown] | null, select: string) => {
+          selects.push(select)
+          return eq?.[1] === PROP ? LINHA({ token_cipher: cifra, token_hash: 'hash-x', ...over }) : null
+        },
+      },
+      lists: { order_proposal_items: [], order_proposal_events: [] },
+    })
+    f.deps.tokenCipher = chave
+    return { f, cifra, selects }
+  }
+
+  it.each([
+    ['aberta', {}],
+    ['vista', { viewed_at: '2026-10-31T10:00:00Z' }],
+  ])('%s com cifra e chave ⇒ devolve o token; nem a cifra nem o hash saem, e o log não carrega nenhum', async (_n, over) => {
+    const { f, cifra, selects } = await comCifra(over, await createTokenCipher(CHAVE))
+    const res = await route(f.deps, pedir('get', { id: PROP }))
+    const texto = await res.clone().text()
+    const corpo = await res.json()
+    expect(corpo.token).toBe(TOKEN)
+    expect(corpo.actions).toMatchObject({ renew: false, renewLabel: null, edit: true, cancel: true })
+    expect(corpo.proposal).not.toHaveProperty('token_cipher')
+    expect(corpo.proposal).not.toHaveProperty('token_hash')
+    expect(texto).not.toContain(cifra)
+    expect(texto).not.toContain('hash-x')
+    for (const linha of logs) {
+      expect(linha).not.toContain(TOKEN)
+      expect(linha).not.toContain(cifra)
+    }
+    // A cifra é pedida ao banco (é por ela que o link volta), e o hash não.
+    expect(selects[0]).toContain('token_cipher')
+    expect(selects[0]).not.toContain('token_hash')
+  })
+
+  it.each([
+    ['expirada', { expires_at: '2026-10-20T00:00:00Z' }, 'Renovar prazo'],
+    ['cancelada', { status: 'cancelled' }, null],
+    ['concluída', { status: 'completed' }, null],
+  ])('%s com cifra ⇒ sem token (o link morreu)', async (_n, over, rotulo) => {
+    const { f } = await comCifra(over, await createTokenCipher(CHAVE))
+    const corpo = await (await route(f.deps, pedir('get', { id: PROP }))).json()
+    expect(corpo.token).toBeNull()
+    expect(corpo.actions.renewLabel).toBe(rotulo)
+  })
+
+  it('aberta com cifra mas SEM a chave ⇒ sem token, e renovar vira "Gerar link novo"', async () => {
+    const { f } = await comCifra({}, null)
+    const corpo = await (await route(f.deps, pedir('get', { id: PROP }))).json()
+    expect(corpo.token).toBeNull()
+    expect(corpo.actions).toMatchObject({ renew: true, renewLabel: 'Gerar link novo' })
+  })
+})
+
+describe('save — a cifra e o save_address', () => {
+  it.each([
+    [true, true],
+    [false, false],
+    [undefined, false],
+    ['sim', false],
+  ])('save_address %j chega à RPC como %j', async (valor, esperado) => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    const corpo = valor === undefined ? corpoNovo() : corpoNovo({ save_address: valor })
+    expect((await route(f.deps, pedir('save', corpo))).status).toBe(200)
+    expect(argsDoSave(f.rpcs)[0].save_address).toBe(esperado)
+  })
+
+  it('com a chave, a cifra nasce junto do hash e decifra o token da resposta', async () => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    f.deps.tokenCipher = await createTokenCipher(CHAVE)
+    const corpo = await (await route(f.deps, pedir('save', corpoNovo()))).json()
+    const [p] = argsDoSave(f.rpcs)
+    expect(p.token_hash).toBe(await hashAccessToken(corpo.token))
+    expect(typeof p.token_cipher).toBe('string')
+    expect(await f.deps.tokenCipher!.decrypt(p.token_cipher)).toBe(corpo.token)
+    for (const linha of logs) {
+      expect(linha).not.toContain(corpo.token)
+      expect(linha).not.toContain(p.token_cipher)
+    }
+  })
+
+  it('sem a chave, só o hash (o comportamento de antes)', async () => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    await route(f.deps, pedir('save', corpoNovo()))
+    const [p] = argsDoSave(f.rpcs)
+    expect(p.token_hash).toEqual(expect.any(String))
+    expect(p).not.toHaveProperty('token_cipher')
+  })
+
+  it('editar não manda cifra nem hash (o link continua o mesmo)', async () => {
+    const f = ambiente({
+      rows: { order_proposals: LINHA() },
+      rpcByFn: { has_role: { data: true }, save_order_proposal: { data: { ...SAVE_OK.data, created: false } } },
+    })
+    f.deps.tokenCipher = await createTokenCipher(CHAVE)
+    await route(f.deps, pedir('save', corpoNovo({ id: PROP, version: 1, idempotency_key: undefined })))
+    const [p] = argsDoSave(f.rpcs)
+    expect(p).not.toHaveProperty('token_cipher')
+    expect(p).not.toHaveProperty('token_hash')
+  })
+})
+
+describe('renew — só a expirada, ou a aberta sem link', () => {
+  const ITENS = [{ position: 0, product_id: P1, variant_id: null, quantity: 1, unit_price: 100, engraving_text: null }]
+  const renovar = async (over: Record<string, unknown>, chave: string | null, cifraGravada: boolean) => {
+    const cifrador = (await createTokenCipher(CHAVE))!
+    const row = LINHA({ version: 1, token_cipher: cifraGravada ? await cifrador.encrypt('token-antigo'.padEnd(43, 'y')) : null, ...over })
+    const f = ambiente({
+      rows: { order_proposals: row },
+      updatedRows: { order_proposals: { id: PROP, version: 2 } },
+      lists: { order_proposal_items: ITENS },
+    })
+    f.deps.tokenCipher = chave ? await createTokenCipher(chave) : null
+    return f
+  }
+
+  it('aberta COM cifra (link disponível) ⇒ 409 not_renewable, nada lido do catálogo nem gravado', async () => {
+    const f = await renovar({}, CHAVE, true)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('not_renewable')
+    expect(f.updates).toEqual([])
+    expect(f.inserts).toEqual([])
+    expect(f.reads.find((r) => r.table === 'products')).toBeUndefined()
+  })
+
+  it('aberta SEM cifra, com a chave ⇒ renova, e a proposta sai com cifra do token novo', async () => {
+    const f = await renovar({}, CHAVE, false)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    const [u] = f.updates.filter((x) => x.table === 'order_proposals')
+    expect(u.values.token_hash).toBe(await hashAccessToken(corpo.token))
+    expect(await f.deps.tokenCipher!.decrypt(u.values.token_cipher)).toBe(corpo.token)
+  })
+
+  it('expirada com cifra ⇒ hash e cifra do MESMO token novo, no mesmo update', async () => {
+    const f = await renovar({ expires_at: '2026-10-20T00:00:00Z' }, CHAVE, true)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    const updates = f.updates.filter((x) => x.table === 'order_proposals')
+    expect(updates).toHaveLength(1)
+    expect(updates[0].values.token_hash).toBe(await hashAccessToken(corpo.token))
+    expect(await f.deps.tokenCipher!.decrypt(updates[0].values.token_cipher)).toBe(corpo.token)
+    for (const linha of logs) expect(linha).not.toContain(updates[0].values.token_cipher)
+  })
+
+  it('sem a chave ⇒ grava só o hash: a cifra antiga sai, e o `get` seguinte não devolve token', async () => {
+    const f = await renovar({}, null, true)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(200)
+    const [u] = f.updates.filter((x) => x.table === 'order_proposals')
+    expect(u.values.token_hash).toEqual(expect.any(String))
+    expect(u.values.token_cipher).toBeNull()
+  })
+
+  it('cifra de outra chave (a chave trocou) ⇒ o link não está disponível, e a aberta renova', async () => {
+    const f = await renovar({}, OUTRA_CHAVE, true)
+    expect((await route(f.deps, pedir('renew', { id: PROP }))).status).toBe(200)
+  })
+})
+
+describe('a foto gravada na linha: variação → images[0] → image_url', () => {
+  const comPecas = (produtos: any[]) =>
+    ambiente({
+      rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK },
+      lists: {
+        products: (_eqs: unknown, _sel: string, read: any) => filtrarPorIn(produtos, read),
+      },
+    })
+  const fotos = (f: ReturnType<typeof ambiente>) => argsDoSave(f.rpcs)[0].items.map((i: any) => i.product_image)
+
+  it('a leitura pede a primeira foto da galeria com o apelido `capa`', async () => {
+    const f = comPecas(PRODUTOS)
+    await route(f.deps, pedir('save', corpoNovo()))
+    const leitura = f.reads.find((r) => r.table === 'products')!
+    expect(leitura.select).toContain('capa:images->0->>url')
+  })
+
+  it('variação com foto ⇒ a dela; sem foto da variação ⇒ a primeira da galeria; sem galeria ⇒ a coluna antiga', async () => {
+    const P3 = 'aaaaaaaa-0000-4000-8000-000000000003'
+    const produtos = [
+      { ...PRODUTOS[0], capa: 'https://img/p1-galeria.webp' },
+      { ...PRODUTOS[1], capa: 'https://img/p2-galeria.webp' },
+      { ...PRODUTOS[0], id: P3, name: 'Sem galeria', capa: null },
+    ]
+    const f = comPecas(produtos)
+    const res = await route(
+      f.deps,
+      pedir(
+        'save',
+        corpoNovo({
+          lines: [
+            { product_id: P1, variant_id: null, quantity: 1 },
+            { product_id: P2, variant_id: V2A, quantity: 2, engraving_text: 'Lua' },
+            { product_id: P3, variant_id: null, quantity: 1 },
+          ],
+          expected_total: 500,
+        }),
+      ),
+    )
+    expect(res.status).toBe(200)
+    expect(fotos(f)).toEqual(['https://img/p1-galeria.webp', 'https://img/v2a.webp', 'https://img/p1.webp'])
   })
 })

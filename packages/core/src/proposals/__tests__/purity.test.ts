@@ -54,10 +54,28 @@ const entradas = ARQUIVOS.map((f) => join(DIR, f))
 describe('core/proposals — puro e alcançável pelo Deno', () => {
   const g = caminhar(entradas, disco)
 
-  it('âncora: os sete arquivos do módulo e os três vizinhos de que ele depende', () => {
-    expect(ARQUIVOS).toEqual(['index.ts', 'limits.ts', 'link.ts', 'number.ts', 'pricing.ts', 'state.ts', 'types.ts'])
+  it('âncora: os nove arquivos do módulo e os vizinhos de que ele depende', () => {
+    expect(ARQUIVOS).toEqual([
+      'index.ts',
+      'limits.ts',
+      'link.ts',
+      'number.ts',
+      'photo.ts',
+      'piece.ts',
+      'pricing.ts',
+      'state.ts',
+      'types.ts',
+    ])
     expect(g.visitados.map(rotulo)).toEqual(
-      expect.arrayContaining(['payment/pricing.ts', 'shipping/freeShipping.ts', 'time/zone.ts']),
+      expect.arrayContaining([
+        'payment/pricing.ts',
+        'shipping/freeShipping.ts',
+        'time/zone.ts',
+        'pricing/index.ts',
+        'pricing/types.ts',
+        'pricing/grid.ts',
+        'material/material.ts',
+      ]),
     )
     expect(disco(join(DIR, 'pricing.ts'))).toContain('export function proposalPricing')
   })

@@ -50,4 +50,15 @@ const Selo = ({ tom, children, dados }: SeloProps) => (
   </span>
 )
 
+/**
+ * A FAIXA de um tom (a do pedido montado concluído, em `done`): o MESMO par fundo × texto da pílula,
+ * lido do mesmo mapa — sem o ponto e no tamanho de um parágrafo. Um segundo `bg-…-soft`/`text-…`
+ * escrito na página seria o segundo dono do tom.
+ */
+export const FaixaDoTom = ({ tom, children, className, dados }: SeloProps & { className?: string }) => (
+  <p {...dados} data-tone={tom} className={`${PILULA_DO_TOM[tom]} ${className ?? ''}`}>
+    {children}
+  </p>
+)
+
 export default Selo

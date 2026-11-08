@@ -29,8 +29,12 @@ import { describe, expect, it } from 'vitest'
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = resolve(AQUI, '../../../../../..')
 
-/** Escopo literal — o painel inteiro. A régua nunca é o objeto medido (lição da `fieldBorder`). */
-const ESCOPO = ['apps/backoffice/src']
+/**
+ * Escopo literal — o painel inteiro, o app do ateliê (desde a montagem de pedido no celular, que busca
+ * peças pela MESMA regra) e o módulo de `core` que é o dono da busca. A régua nunca é o objeto medido
+ * (lição da `fieldBorder`).
+ */
+const ESCOPO = ['apps/backoffice/src', 'apps/mobile-adm/src', 'packages/core/src/product-search']
 
 const IGNORADOS = new Set(['node_modules', 'dist', '.turbo', '.temp', 'coverage', '.git'])
 const EXTENSOES = ['.ts', '.tsx']
@@ -230,7 +234,7 @@ const dobraDeBusca = (alvo: readonly Arquivo[]): Ocorrencia[] => {
 }
 
 /** O dono da dobra. */
-const DONO_DA_DOBRA = 'apps/backoffice/src/shared/lib/texto.ts'
+const DONO_DA_DOBRA = 'packages/core/src/product-search/text.ts'
 
 // ===========================================================================
 // Régua 3 — o catálogo inteiro virando lista de opções (`BUS-23`)
@@ -300,6 +304,12 @@ describe('busca de produto — âncoras da varredura (BUS-24)', () => {
     expect(producao.length).toBeGreaterThan(200)
     expect(varridos.some(a => a.rel.startsWith('apps/backoffice/src/entities/product/'))).toBe(true)
     expect(varridos.some(a => a.rel.startsWith('apps/backoffice/src/features/'))).toBe(true)
+    // O app do ateliê também: a busca de peças da montagem mora lá, e uma segunda dobra ali seria o
+    // mesmo defeito noutro app.
+    expect(varridos.filter(a => a.rel.startsWith('apps/mobile-adm/src/')).length).toBeGreaterThan(150)
+    expect(producao.some(a => a.rel === 'apps/mobile-adm/src/features/order-proposal/model/sacola.ts')).toBe(true)
+    // O dono da dobra mora em `core`: sem ele na varredura, a âncora da régua 2 mediria o vazio.
+    expect(varridos.some(a => a.rel === DONO_DA_DOBRA)).toBe(true)
     expect(producao.some(a => eTeste(a.rel))).toBe(false)
     // E este arquivo, que NOMEIA as três formas proibidas nos sensores, fica fora da produção.
     expect(producao.some(a => a.rel.endsWith('buscaDeProdutoComDonoUnico.test.ts'))).toBe(false)
@@ -424,12 +434,32 @@ describe('ninguém consulta `products` por nome fora do dono (BUS-21)', () => {
 // ===========================================================================
 
 describe('a dobra de busca tem um dono (BUS-22)', () => {
-  it('só `shared/lib/texto.ts` declara a dobra', () => {
+  it('só `core/product-search/text.ts` declara a dobra', () => {
     const fora = dobraDeBusca(producao).filter(o => o.arquivo !== DONO_DA_DOBRA)
     expect(
       fora.map(o => `${o.arquivo}:${o.linha} — ${o.texto}`),
-      'importe `dobrarTexto`/`palavrasDoTermo` de `@/shared/lib/texto`',
+      'importe `dobrarTexto`/`palavrasDoTermo` de `@/shared/lib/texto` (que reexporta `@estrelinha/core/product-search`)',
     ).toEqual([])
+  })
+
+  it('SENSOR: a dobra declarada de novo no ENDEREÇO ANTIGO do painel é acusada', () => {
+    // O endereço antigo do dono continua existindo (reexporta de `core`); se a declaração voltasse
+    // para lá, seriam dois donos — e a régua tem de dizer isso.
+    const antigo = sintetico(
+      "export const dobrarTexto = (v: string) => v.toLowerCase().normalize('NFD').replace(ACENTOS, '')",
+      'apps/backoffice/src/shared/lib/texto.ts',
+    )
+    expect(dobraDeBusca(antigo).filter(o => o.arquivo !== DONO_DA_DOBRA)).toHaveLength(1)
+  })
+
+  it('SENSOR: a dobra declarada no APP DO ATELIÊ é acusada — a busca das peças da montagem é a de `core`', () => {
+    const noApp = sintetico(
+      "export const dobrar = (v: string) => v.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')",
+      'apps/mobile-adm/src/features/order-proposal/model/sacola.ts',
+    )
+    expect(dobraDeBusca(noApp).filter(o => o.arquivo !== DONO_DA_DOBRA)).toHaveLength(1)
+    // E o app de verdade, varrido, não declara nenhuma.
+    expect(dobraDeBusca(producao.filter(a => a.rel.startsWith('apps/mobile-adm/src/')))).toEqual([])
   })
 
   it('SENSOR: a cadeia que TERMINA no acento é acusada, nas três grafias', () => {

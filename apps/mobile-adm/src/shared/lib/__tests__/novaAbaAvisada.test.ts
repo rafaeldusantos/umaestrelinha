@@ -39,12 +39,14 @@ const ARQUIVOS = todos(SRC).map((c) => ({ rel: relative(SRC, c).split('\\').join
 const ACHADOS = ARQUIVOS.flatMap((a) => linksDeAbaNova(a.fonte).map((l) => ({ ...l, rel: a.rel })))
 
 describe('todo link de aba nova avisa no nome acessível', () => {
-  it('âncora: leu os arquivos de produção e achou os quatro links conhecidos', () => {
+  it('âncora: leu os arquivos de produção e achou os cinco links conhecidos', () => {
     expect(ARQUIVOS.length).toBeGreaterThan(40)
     expect(ACHADOS.map((a) => a.rel).sort()).toEqual([
       // Feature `82` (`ENV-19`): "Ver nos Correios".
       'features/order-actions/ui/EnvelopeDaCliente.tsx',
       'features/order-actions/ui/LembreteDoEnvio.tsx',
+      // "Enviar pelo WhatsApp" do pedido montado.
+      'features/order-proposal/ui/CartaoDoLink.tsx',
       'widgets/customer-detail/ui/ContatoDaCliente.tsx',
       'widgets/order-detail/ui/BlocoCliente.tsx',
     ])

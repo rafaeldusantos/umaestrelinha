@@ -509,9 +509,15 @@ MELHOR_ENVIO_SENDER_JSON = "env(MELHOR_ENVIO_SENDER_JSON)"
 # Como gerar: `supabase/CLAUDE.md`, seção "Secrets".
 VAPID_KEYS = "env(VAPID_KEYS)"
 VAPID_SUBJECT = "env(VAPID_SUBJECT)"
-# Feature 84 — a chave da Claude API, lida SÓ pela function seo-suggest (o adaptador do SDK mora em
-# `_shared/claude.ts`). Vazia: a function responde 503 `not_configured` e o painel desabilita o botão
-# "Sugerir com IA"; nada mais muda. Servidor apenas — nenhum app a recebe.
+# A chave da cifra do token do link do pedido montado (AES-GCM, 32 bytes em base64), lida SÓ
+# pela function `order-proposals`. OPCIONAL: sem ela a function grava só o hash, como antes, e o painel
+# e o app oferecem "Gerar link novo" para mandar de novo. Com ela, o `get` devolve o link de uma
+# proposta aberta. Trocar a chave invalida as cifras gravadas (as propostas abertas voltam ao "Gerar
+# link novo"). Gerar: `openssl rand -base64 32`.
+PROPOSAL_TOKEN_KEY = "env(PROPOSAL_TOKEN_KEY)"
+# Feature 84 — a chave da Claude API, lida SÓ pelas functions seo-suggest e customer-parse (o adaptador
+# do SDK mora em `_shared/claude.ts`). Vazia: as duas respondem 503 `not_configured` — o painel
+# desabilita o botão "Sugerir com IA" e o app diz que a leitura do texto está fora do ar; nada mais muda. Servidor apenas — nenhum app a recebe.
 ANTHROPIC_API_KEY = "env(ANTHROPIC_API_KEY)"
 
 [analytics]
@@ -597,6 +603,12 @@ verify_jwt = false
 # dentro do handler — 401 sem JWT, 403 sem papel ou com `has_role` falhando —, ANTES de qualquer
 # chamada ao modelo. Com `verify_jwt = true` o gateway também recusaria o preflight OPTIONS do painel.
 [functions.seo-suggest]
+verify_jwt = false
+
+# A leitura por IA de um texto colado (contato e endereço), no app do ateliê. MESMA razão da
+# admin-users: a anon key publicada é um JWT válido do projeto e passaria pelo gateway; quem fecha a
+# porta é `requireAdmin` (`_shared/auth.ts`) dentro do handler, ANTES de qualquer chamada ao modelo.
+[functions.customer-parse]
 verify_jwt = false
 
 # Feature 89 — a proposta que o painel monta. MESMA razão da admin-users: a anon key publicada é um

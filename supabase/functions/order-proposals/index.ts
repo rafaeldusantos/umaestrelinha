@@ -1,6 +1,6 @@
 // Edge function `order-proposals` — a proposta que o painel monta (feature 89, `AD-070`).
 //
-// Actions (query param): list · get · save · renew · cancel · log-sent.
+// Actions (query param): list · get · save · renew · cancel · log-sent · note · preview.
 //
 // `verify_jwt = false` no config.toml porque a anon key pública já é um JWT válido do projeto e
 // passaria pelo gateway; a autorização real (papel admin, pela RPC canônica `has_role`) é manual em
@@ -10,9 +10,13 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { type Deps, route } from './handlers.ts'
+import { createTokenCipher } from '../_shared/tokenCipher.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+// OPCIONAL: sem a chave, ou com um valor que não é 32 bytes em base64, a cifra não existe e a
+// function grava só o hash, como antes.
+const tokenCipher = await createTokenCipher(Deno.env.get('PROPOSAL_TOKEN_KEY'))
 
 const deps: Deps = {
   // Service role: as tabelas da proposta não têm policy nenhuma (`SEG-05`), e esta function é a
@@ -21,6 +25,7 @@ const deps: Deps = {
     auth: { autoRefreshToken: false, persistSession: false },
   }),
   now: () => Date.now(),
+  tokenCipher,
 }
 
 Deno.serve((req) => route(deps, req))

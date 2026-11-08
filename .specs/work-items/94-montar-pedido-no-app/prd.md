@@ -2,7 +2,7 @@
 
 **Protótipo:** `Montar Pedido.dc.html` (este projeto). **Base:** a feature `89` (pedido montado pelo painel,
 `AD-070`/`AD-071`) e o desenho `Pedido - Montar.html` do projeto *Uma Estrelinha - Backoffice*.
-**Estado:** só planejamento e protótipo. Nada implementado.
+**Estado:** este Work Item implementa no app do ateliê o que o protótipo `Montar Pedido.dc.html` mostra. O protótipo é a referência de comportamento e de desenho; o que ele não mostra segue o que está escrito aqui.
 
 ## O que muda em relação à 89
 
@@ -21,7 +21,7 @@ montar ali mesmo. O que **não** muda — e o app herda sem reescrever:
 
 ## O que é novo
 
-1. **Montar pedido no app** — botão no topo de Pedidos, montagem em tela cheia em 4 passos (Cliente ·
+1. **Montar pedido no app** — botão no topo de Pedidos, montagem em tela cheia em 4 passos — o voltar do Android volta um passo (ou fecha a folha aberta), e no primeiro passo pede a mesma confirmação de fechar — (Cliente ·
    Peças · Descontos · Revisar), barra de baixo com o total e o botão, motivo escrito quando ele está
    bloqueado (`MON-12`).
 2. **Visão "Montados" em Pedidos** e a **tela do pedido montado** (link, WhatsApp, copiar, histórico,
@@ -45,9 +45,14 @@ montar ali mesmo. O que **não** muda — e o app herda sem reescrever:
   cliente preenche no link**.
 - Nova: cartão escuro "Tem os dados numa mensagem?" → **Colar texto da conversa**. Campos de contato
   (nome, e-mail, WhatsApp, CPF opcional) e de entrega; "Salvar no cadastro da cliente".
+- Na montagem pelo app, a Adri pode digitar, ler do texto e conferir o CPF e o endereço de entrega da
+  cliente, e ver os endereços salvos de uma cliente cadastrada — só dentro da montagem e da tela do
+  pedido montado. Fora delas (aba Clientes, detalhe do pedido), o app continua sem mostrar CPF nem
+  endereço completo. Nada disso fica guardado no celular: some ao fechar a montagem. O CPF e o endereço
+  são guardados no cadastro da cliente — são dados necessários para o processo.
 - E-mail que já tem ficha (digitado ou lido) → "já é de Juliana Prates · 2 pedidos" com **Usar a ficha
   dela** / **Corrigir o e-mail** (`MON-03`). Usar a ficha guarda o endereço lido como "Outro endereço".
-- CEP com 8 dígitos completa rua, bairro, cidade e UF pelo serviço da loja; CEP desconhecido diz isso.
+- CEP com 8 dígitos completa rua, bairro, cidade e UF pelo serviço da loja; CEP que o serviço não encontra — ou serviço de CEP fora do ar — libera rua, bairro, cidade e UF para digitar, e a tela diz que não encontrou o CEP.
 
 ### Ler os dados de uma mensagem (IA)
 - Folha com a área de texto (até 2.000 caracteres, "O texto não fica guardado.") e **Ler o texto**.
@@ -74,8 +79,8 @@ montar ali mesmo. O que **não** muda — e o app herda sem reescrever:
   desligado), gravação só se a peça aceita (mesmo teto), aviso de material, botão "Acrescentar · R$
   378,00". Editar reabre a mesma folha com "Salvar".
 - Na sacola, cada linha mostra a foto da variação escolhida — a mesma que a cliente verá no link.
-- Peça sem foto cadastrada: o quadro fica no fundo areia (`ground-deep`), como o card da loja — nunca um
-  ícone no lugar.
+- Peça sem foto cadastrada: o quadro fica no fundo areia com a estrela da marca, como as fotos do
+  detalhe do pedido e de "Joias mais pedidas" no app.
 
 ### Passo 3 · Descontos
 - Cupom com a regra e os textos da loja, considerando a cliente (`first_order_only`).
@@ -91,13 +96,17 @@ montar ali mesmo. O que **não** muda — e o app herda sem reescrever:
   resumo relido.
 
 ### Pedido montado
-- Cartão escuro com o link, **Enviar pelo WhatsApp** (só com telefone) e **Copiar link**; sem telefone,
+- Cartão escuro com o link — sempre disponível enquanto o pedido montado está aberto, também ao reabri-lo depois, no app e no painel; nunca é preciso gerar um link novo para copiar —, **Enviar pelo WhatsApp** (só com telefone) e **Copiar link**; sem telefone,
   "Sem telefone — copie o link." A mensagem do WhatsApp aparece escrita.
 - As peças aparecem com a foto, como na revisão.
+- A **observação interna** (a mesma do painel, só para quem administra) aparece e pode ser editada aqui
+  em qualquer estado; na montagem, ela é um campo opcional no passo Revisar. A cliente nunca a vê.
 - Copiar/WhatsApp registram "Link enviado · canal" no histórico.
-- Aberta: Editar, Renovar prazo (folha de confirmação; o link antigo morre), Cancelar (folha, `inkSolid`).
-  Expirada: Renovar. Concluída: "Ver o pedido #0262".
+- Aberta: Editar, Cancelar (folha, `inkSolid`). Renovar só aparece depois de o link atual expirar.
+  Expirada: Renovar prazo (folha de confirmação; o link antigo morre). Concluída: "Ver o pedido #0262".
 - Fechar a montagem com algo preenchido pede confirmação ("Nada foi gravado ainda").
+- Para o caso de o celular bloquear ou a Adri sair da tela, a montagem guarda no celular um rascunho só
+  das peças e dos descontos, sem dado da cliente.
 
 ## Plano técnico (para a spec)
 
@@ -112,17 +121,21 @@ montar ali mesmo. O que **não** muda — e o app herda sem reescrever:
 
 ## Decisões (2026-11-02)
 
-- **Política de Privacidade:** não entra nesta feature.
+- **Política de Privacidade:** não entra nesta feature (risco aceito: a lista de compartilhamentos da Política não cita o serviço de IA que lê o texto colado).
 - **"Colar texto" no Backoffice:** sim, numa feature seguinte. Esta entrega é só o app; a function e a
   regra de `core` já nascem compartilháveis para o painel não precisar de uma segunda escrita.
 - **Fotos das peças:** na seleção (catálogo, folha da variação, sacola) e na revisão, para a Adri
   conferir visualmente; também no pedido montado.
 
-## Pergunta em aberto
+## Pergunta respondida (r1)
 
-1. **"Pedido manual" é a proposta com link, ou também um pedido já pago fora do Mercado Pago?** O
-   protótipo assume a proposta (a `89` deixou "pagamento registrado pelo painel" fora, por conciliar
-   de outro jeito). Se for o segundo, é outra feature.
+1. **Pedido manual é a proposta com link.** A Adri monta, manda o link, e o pedido nasce quando a cliente
+   confere e paga no link. Registrar pelo app um pedido já pago por fora (PIX direto, dinheiro) fica fora
+   deste Work Item.
 
 ---
 Fonte: Claude Design, projeto "Uma Estrelinha - Mobile Admin" (`a780eec8-8aba-4d6e-8b4c-2c485e2750c7`), arquivo `prompts/PRD - Montar pedido no app.md`, etag `1793640158134118`, copiado em 2026-11-02.
+
+## Histórico de revisões
+
+- r1 · 2026-11-07 · escopo-implementar-ou-so-prototipo, pedido-manual-proposta-ou-pago, cpf-e-endereco-no-app, politica-de-privacidade-texto-para-ia, observacao-interna-na-montagem, montagem-perdida-se-o-app-fechar, voltar-do-android-entre-passos, cep-desconhecido-x-servico-fora, foto-ausente-estrela-ou-areia, link-nao-se-recupera-ao-reabrir

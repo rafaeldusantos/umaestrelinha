@@ -127,43 +127,6 @@ export const lerEnderecosDaCliente = async (
   return linhas.slice().sort((a, b) => Number(b.is_default) - Number(a.is_default))
 }
 
-export interface EnderecoParaGravar {
-  cep: string
-  street: string
-  number: string
-  complement: string | null
-  neighborhood: string
-  city: string
-  state: string
-}
-
-/**
- * `MON-04` — "Salvar no cadastro da cliente". Escreve em `addresses` (policy de admin), nunca nas
- * tabelas da proposta. Só existe com ficha: a convidada ganha a ficha na gravação da proposta, e é
- * com o `customer_id` que a function devolve que a página chama esta função.
- */
-export const gravarEnderecoDaCliente = async (
-  fichaId: string,
-  endereco: EnderecoParaGravar,
-  opcoes: { padrao: boolean },
-  client: any = supabase,
-): Promise<string | null> => {
-  if (!UUID.test(fichaId)) return 'A ficha da cliente não existe mais.'
-  const { error } = await client.from('addresses').insert({
-    customer_id: fichaId,
-    label: 'Casa',
-    cep: endereco.cep.replace(/\D/g, ''),
-    street: endereco.street.trim(),
-    number: endereco.number.trim(),
-    complement: endereco.complement?.trim() || null,
-    neighborhood: endereco.neighborhood.trim(),
-    city: endereco.city.trim(),
-    state: endereco.state.trim().toUpperCase(),
-    is_default: opcoes.padrao,
-  })
-  return error ? (error.message as string) || 'Não foi possível salvar o endereço.' : null
-}
-
 export const useCustomerSearch = (termo: string) => {
   const limpo = (termo ?? '').trim()
   const { data, isFetching, error } = useQuery({

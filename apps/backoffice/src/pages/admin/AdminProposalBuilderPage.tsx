@@ -19,9 +19,7 @@ import { ACTIVE_PROMOTIONS_KEY } from '@estrelinha/core/hooks/usePromotions'
 import { proposalActions } from '@estrelinha/core/proposals'
 import { ActionButton, InfoBanner, RecordPageHeader } from '@/shared/ui'
 import { PRODUCT_VARIANTS_KEY } from '@/entities/product'
-import { gravarEnderecoDaCliente } from '@/entities/customer'
 import {
-  ADDRESS_SAVE_FAILED,
   LINK_WITHOUT_STORE,
   AddressSection,
   NOT_EDITABLE,
@@ -35,11 +33,12 @@ import {
   ManualDiscountField,
   ProposalError,
   ProposalNoteField,
+  SAVE_FAILED,
   ProposalSummary,
   ShippingPreview,
   draftFromProposal,
-  guardarLink,
   montarLink,
+  type LinkDaProposta,
   proposalKey,
   useProposal,
   useProposalDraft,
@@ -98,38 +97,24 @@ const AdminProposalBuilderPage = () => {
     setFalha(null)
     try {
       const corpo = modo === 'editar' && id ? montagem.payload({ id, version: versao }) : montagem.payload()
+      // `MON-04`: "Salvar no cadastro" vai no próprio `save` (`save_address`), e a RPC grava o
+      // endereço na ficha na mesma transação. Uma gravação só: ou as duas coisas, ou nenhuma.
       const r = await save.mutateAsync(corpo)
       let aviso: string | null = null
+      let link: LinkDaProposta | null = null
       if (r.token && r.expires_at) {
-        const link = montarLink(r.token)
-        // O token só existe nesta resposta (`SEG-01`): sem a loja configurada no painel, ele se perde
-        // aqui, e a página da proposta tem de dizer por quê — senão "gere um link novo" parece defeito.
-        if (link) guardarLink(r.id, { link, expiresAt: r.expires_at })
+        const montado = montarLink(r.token)
+        // Sem a loja configurada no painel o link não se monta, e a página da proposta tem de dizer por
+        // quê — senão "gere um link novo" parece defeito. Montado, ele vai à página pela navegação:
+        // com a cifra o `get` o devolve de novo; sem ela, é o único caminho até a tela.
+        if (montado) link = { link: montado, expiresAt: r.expires_at }
         else aviso = LINK_WITHOUT_STORE
       }
-      // `MON-04`: "Salvar no cadastro" não vai no `save` (a function não tem o campo). Com a ficha
-      // que ela devolveu, o endereço entra em `addresses` pela policy de admin.
-      const a = draft.address
-      if (a.saveToCustomer && r.customer_id && a.zip.trim() && a.street.trim()) {
-        const erro = await gravarEnderecoDaCliente(
-          r.customer_id,
-          {
-            cep: a.zip,
-            street: a.street,
-            number: a.number,
-            complement: a.complement,
-            neighborhood: a.neighborhood,
-            city: a.city,
-            state: a.state,
-          },
-          { padrao: false },
-        )
-        if (erro) aviso = aviso ? `${aviso} ${ADDRESS_SAVE_FAILED}` : ADDRESS_SAVE_FAILED
-      }
-      navigate(PROPOSAL_PAGE_PATH(r.id), { state: aviso ? { aviso } : undefined })
+      navigate(PROPOSAL_PAGE_PATH(r.id), { state: aviso || link ? { ...(aviso ? { aviso } : {}), ...(link ? { link } : {}) } : undefined })
     } catch (e) {
       const erro = e as ProposalError
-      setFalha(erro?.message || 'Não consegui gravar a proposta.')
+      // a falha sem motivo próprio do servidor (a gravação que não aconteceu) diz que nada saiu.
+      setFalha(erro?.code && erro.code !== 'save_failed' ? erro.message || SAVE_FAILED : SAVE_FAILED)
       if (erro?.code === 'prices_changed') await reler()
       if (erro?.code === 'version_conflict' && id) {
         // "Recarreguei": a versão relida é outra, então o efeito de carga remonta o rascunho dela.

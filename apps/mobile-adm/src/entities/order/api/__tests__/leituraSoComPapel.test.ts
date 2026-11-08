@@ -7,7 +7,8 @@
 // grafia, não a chamada). Três réguas:
 //   1. só nove arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`,
 //      os dois hooks de pedido, a porta de escrita (`75`), desde a `76` os quatro de cliente e, desde a
-//      `79`, a porta dos avisos — allowlist literal;
+//      `79`, a porta dos avisos, a dos montados e, desde a montagem, as leituras de cliente
+//      dela — allowlist literal;
 //   2. nos dois hooks, toda referência a `supabase` é o receptor de um `.from(` (nada de passar o client
 //      adiante, nada de `const db = supabase`), e toda chamada `supabase.from(` é ALCANÇÁVEL SÓ por
 //      `lerComPapel`: ou está dentro de uma função passada a `lerComPapel(`, ou dentro de uma função
@@ -38,12 +39,41 @@ const HOOKS_DE_CLIENTE = [
   'entities/customer/api/useCliente.ts',
   'entities/customer/api/usePedidosDoCliente.ts',
   'entities/customer/api/buscarClientePorEmail.ts',
+  // A montagem de um pedido: a busca, a ficha por e-mail e os endereços salvos — as três
+  // leituras dentro de `lerComPapel(`.
+  'entities/customer/api/clientesDaMontagem.ts',
 ]
 // Feature `79` (T17): a porta dos avisos (o único `functions.invoke` do app). Não lê tabela — o vizinho
 // `escritaSoPelaPorta.test.ts` prova que nela o client só é receptor de `.functions.invoke(`; aqui a
 // régua 3 abaixo prova que ela não tem um `supabase.from(` sequer.
 const PORTA_DE_AVISOS = 'features/push-notifications/api/portaDeAvisos.ts'
-const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE, PORTA_DE_AVISOS]
+// A porta dos pedidos montados — como a dos avisos, só invoca a function (`order-proposals`);
+// a régua 3 abaixo prova que ela não tem um `supabase.from(` sequer.
+const PORTA_DE_PROPOSTAS = 'features/order-proposal/api/portaDePropostas.ts'
+// A porta da leitura do texto colado — só invoca a function (`customer-parse`); a régua 3 abaixo prova
+// que ela não tem um `supabase.from(` sequer.
+const PORTA_DE_LEITURA = 'features/order-proposal/api/portaDeLeitura.ts'
+// O catálogo da montagem (o passo 2 · Peças): as peças e as variações, as duas leituras dentro de
+// `lerComPapel(` — as funções que leem não são exportadas e só são chamadas de dentro dele.
+const CATALOGO_DA_MONTAGEM = 'entities/product/api/catalogoDaMontagem.ts'
+// A porta da cotação do passo 4 — só invoca a function (`melhor-envio?action=quote`); quem a chama é a
+// leitura `lerCotacao`, dentro de `lerComPapel(`. A régua 3 abaixo prova que ela não tem um `supabase.from(`.
+const PORTA_DA_COTACAO = 'features/order-proposal/api/portaDaCotacao.ts'
+// A configuração da retirada da prévia do passo 4 (`store_settings`): uma leitura, dentro de
+// `lerComPapel(` — a função que lê não é exportada e só é chamada de dentro dele.
+const CONFIGURACAO_DA_RETIRADA = 'features/order-proposal/api/configuracaoDaRetirada.ts'
+const IMPORTAM_O_CLIENT = [
+  LER_COM_PAPEL,
+  ...HOOKS,
+  PORTA_DE_ESCRITA,
+  ...HOOKS_DE_CLIENTE,
+  PORTA_DE_AVISOS,
+  PORTA_DE_PROPOSTAS,
+  PORTA_DE_LEITURA,
+  CATALOGO_DA_MONTAGEM,
+  PORTA_DA_COTACAO,
+  CONFIGURACAO_DA_RETIRADA,
+]
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -186,12 +216,12 @@ const lidos = arquivos(SRC).map((caminho) => {
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os nove arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
 
-  it('régua 1: só lerComPapel, os hooks de pedido e de cliente, a porta de escrita e a dos avisos importam o client — por igualdade', () => {
+  it('régua 1: só lerComPapel, os hooks de pedido e de cliente, a porta de escrita, a dos avisos, a dos montados, a da leitura do texto, a da cotação e a configuração da retirada importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -204,7 +234,7 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     expect(porArquivo.flatMap((a) => a.problemas)).toEqual([])
   })
 
-  it('régua 2 (feature 76): nos quatro hooks de cliente, toda supabase.from( só é alcançável por lerComPapel ou pelo `consultar` da janela', () => {
+  it('régua 2 (feature 76): nos hooks de cliente (os quatro da `76` e o da montagem), toda supabase.from( só é alcançável por lerComPapel ou pelo `consultar` da janela', () => {
     const porArquivo = HOOKS_DE_CLIENTE.map((rel) => medir(rel, lidos.find((l) => l.rel === rel)!.texto, { podeLer: true }))
     // Âncora CONTADA, não digitada: as chamadas `supabase.from(` que a AST acha são as mesmas que um
     // segundo olhar (o texto sem comentário) acha — e há ao menos uma por arquivo. Um parser cego
@@ -219,9 +249,51 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     expect(porArquivo.flatMap((a) => a.problemas)).toEqual([])
   })
 
-  it('régua 2 (feature 76, MAC-30): os quatro de cliente só LEEM — nenhum insert, update, upsert, delete ou rpc(', () => {
+  it('régua 2 (feature 76, MAC-30): os de cliente só LEEM — nenhum insert, update, upsert, delete ou rpc(', () => {
     const achados = HOOKS_DE_CLIENTE.flatMap((rel) => escritasEmArquivoDeCliente(rel, lidos.find((l) => l.rel === rel)!.texto))
     expect(achados).toEqual([])
+  })
+
+  it('régua 2 (montagem): no catálogo, toda supabase.from( só é alcançável por lerComPapel — e ele só lê', () => {
+    const texto = lidos.find((l) => l.rel === CATALOGO_DA_MONTAGEM)!.texto
+    const a = medir(CATALOGO_DA_MONTAGEM, texto, { podeLer: true })
+    // Âncora: as quatro leituras (a contagem e a página das peças, a contagem e a página das variações),
+    // as mesmas que o texto sem comentário mostra, e a chamada a lerComPapel.
+    const porTexto = [...texto.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '').matchAll(/\bsupabase\s*\.from\(/g)].length
+    expect(a.froms).toBe(4)
+    expect(a.froms).toBe(porTexto)
+    expect(a.chamadasLerComPapel).toBeGreaterThan(0)
+    expect(a.problemas).toEqual([])
+    expect(escritasEmArquivoDeCliente(CATALOGO_DA_MONTAGEM, texto)).toEqual([])
+  })
+
+  it('sensor (montagem): a leitura do catálogo exportada, ou chamada fora de lerComPapel, é acusada', () => {
+    const texto = lidos.find((l) => l.rel === CATALOGO_DA_MONTAGEM)!.texto
+    const exportada = texto.replace('const lerPecas = async', 'export const lerPecas = async')
+    expect(exportada).not.toBe(texto)
+    expect(medir(CATALOGO_DA_MONTAGEM, exportada, { podeLer: true }).problemas.length).toBeGreaterThan(0)
+    const solta = texto.replace('const lerCatalogo = async (): Promise<PecaParaProposta[]> => {', 'const lerCatalogo = async (): Promise<PecaParaProposta[]> => {\n  void lerVariacoes()')
+    expect(solta).not.toBe(texto)
+    expect(medir(CATALOGO_DA_MONTAGEM, solta, { podeLer: true }).problemas.length).toBeGreaterThan(0)
+  })
+
+  it('régua 2 (montagem): na configuração da retirada, a supabase.from( só é alcançável por lerComPapel — e ela só lê', () => {
+    const texto = lidos.find((l) => l.rel === CONFIGURACAO_DA_RETIRADA)!.texto
+    const a = medir(CONFIGURACAO_DA_RETIRADA, texto, { podeLer: true })
+    expect(a.froms).toBe(1)
+    expect(a.chamadasLerComPapel).toBeGreaterThan(0)
+    expect(a.problemas).toEqual([])
+    expect(escritasEmArquivoDeCliente(CONFIGURACAO_DA_RETIRADA, texto)).toEqual([])
+  })
+
+  it('sensor (montagem): a leitura da configuração exportada, ou chamada fora de lerComPapel, é acusada', () => {
+    const texto = lidos.find((l) => l.rel === CONFIGURACAO_DA_RETIRADA)!.texto
+    const exportada = texto.replace('const lerLinhas = async', 'export const lerLinhas = async')
+    expect(exportada).not.toBe(texto)
+    expect(medir(CONFIGURACAO_DA_RETIRADA, exportada, { podeLer: true }).problemas.length).toBeGreaterThan(0)
+    const solta = texto.replace('const { resultado } = await lerComPapel(() => lerLinhas())', 'const resultado = await lerLinhas()')
+    expect(solta).not.toBe(texto)
+    expect(medir(CONFIGURACAO_DA_RETIRADA, solta, { podeLer: true }).problemas.length).toBeGreaterThan(0)
   })
 
   it('régua 3 (feature 79): a porta dos avisos não lê tabela nem chama RPC', () => {
@@ -231,6 +303,27 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     // `escritaSoPelaPorta` é quem o aceita, só com o literal de `atelie-avisos`. Aqui: nenhum `from(`.
     expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
     expect(a.problemas).toHaveLength(6)
+  })
+
+  it('régua 3: a porta dos montados não lê tabela nem chama RPC — só as oito invocações (a sétima, a prévia da montagem; a oitava, o `save`)', () => {
+    const a = medir(PORTA_DE_PROPOSTAS, lidos.find((l) => l.rel === PORTA_DE_PROPOSTAS)!.texto, { podeLer: false })
+    expect(a.froms).toBe(0)
+    expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
+    expect(a.problemas).toHaveLength(8)
+  })
+
+  it('régua 3: a porta da cotação não lê tabela nem chama RPC — só a invocação', () => {
+    const a = medir(PORTA_DA_COTACAO, lidos.find((l) => l.rel === PORTA_DA_COTACAO)!.texto, { podeLer: false })
+    expect(a.froms).toBe(0)
+    expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
+    expect(a.problemas).toHaveLength(1)
+  })
+
+  it('régua 3: a porta da leitura do texto não lê tabela nem chama RPC — só a invocação', () => {
+    const a = medir(PORTA_DE_LEITURA, lidos.find((l) => l.rel === PORTA_DE_LEITURA)!.texto, { podeLer: false })
+    expect(a.froms).toBe(0)
+    expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
+    expect(a.problemas).toHaveLength(1)
   })
 
   it('régua 3: lerComPapel.ts não lê tabela — só a RPC', () => {
@@ -371,9 +464,51 @@ describe('sensores (feature 76) — os quatro de cliente só leem, e leem por le
     expect(escritasEmArquivoDeCliente(H, `${imp}// update insert rpc(\nexport const h = () => supabase.from('customer_list').select('id').eq('id', 1)\nconst x = 'delete'`)).toEqual([])
   })
 
-  it('a régua 1 acusa um QUINTO arquivo de cliente que importe o client (a igualdade tem nove, desde a 79)', () => {
+  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem quinze)', () => {
     const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
     expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
-    expect(IMPORTAM_O_CLIENT).toHaveLength(9)
+    expect(IMPORTAM_O_CLIENT).toHaveLength(15)
+  })
+})
+
+/**
+ * Régua 5 (a montagem, passo 3 · Descontos): o app NUNCA lê promoções, cupons nem pedidos crus — o
+ * resumo, o cupom e a regra de primeira compra são da prévia do servidor (`order-proposals?action=
+ * preview`). `orders` cru também fica de fora: a lista e o detalhe leem `order_list`/`order_items`.
+ * Pela AST: toda chamada `from(` (de qualquer receptor) cujo primeiro argumento é um destes literais.
+ */
+const TABELAS_DO_SERVIDOR = new Set(['promotions', 'coupons', 'orders'])
+const leiturasDoServidor = (rel: string, texto: string): { froms: number; proibidas: string[] } => {
+  const fonte = parse(rel, texto)
+  const r = { froms: 0, proibidas: [] as string[] }
+  visitar(fonte, (n) => {
+    if (!ts.isCallExpression(n)) return
+    const e = n.expression
+    const nome = ts.isPropertyAccessExpression(e) ? e.name.text : ts.isIdentifier(e) ? e.text : null
+    const alvo = n.arguments[0]
+    if (nome !== 'from' || !alvo || !ts.isStringLiteralLike(alvo)) return
+    r.froms++
+    if (TABELAS_DO_SERVIDOR.has(alvo.text)) r.proibidas.push(`${rel}:${fonte.getLineAndCharacterOfPosition(n.getStart()).line + 1} — from('${alvo.text}')`)
+  })
+  return r
+}
+
+describe('régua 5: o app não lê promoções, cupons nem pedidos crus (a montagem pergunta à prévia)', () => {
+  it('âncora: as leituras legítimas foram achadas (order_list, customer_list, products…)', () => {
+    const total = lidos.reduce((n, l) => n + leiturasDoServidor(l.rel, l.texto).froms, 0)
+    expect(total).toBeGreaterThan(15)
+  })
+
+  it('nenhum `from(` com promotions, coupons ou orders em produção', () => {
+    expect(lidos.flatMap((l) => leiturasDoServidor(l.rel, l.texto).proibidas)).toEqual([])
+  })
+
+  it('sensores: acusa as três tabelas (com o client apelidado, aspas duplas e template sem interpolação); não acusa as vizinhas nem o comentário', () => {
+    const A = 'features/order-proposal/model/qualquer.ts'
+    expect(leiturasDoServidor(A, `const x = () => supabase.from('coupons').select('*')`).proibidas).toHaveLength(1)
+    expect(leiturasDoServidor(A, `const db = supabase\nconst x = () => db.from("promotions").select('id')`).proibidas).toHaveLength(1)
+    expect(leiturasDoServidor(A, 'const x = () => supabase.from(`orders`).select(\'id\')').proibidas).toHaveLength(1)
+    expect(leiturasDoServidor(A, `const x = () => supabase.from('order_list').select('id')\nconst y = () => supabase.from('promotion_eligible_products')`).proibidas).toEqual([])
+    expect(leiturasDoServidor(A, `// supabase.from('coupons')\n/* supabase.from('orders') */\nexport const n = 1`).proibidas).toEqual([])
   })
 })

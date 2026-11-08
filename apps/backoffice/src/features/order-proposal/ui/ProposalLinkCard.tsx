@@ -1,47 +1,93 @@
 // O link da proposta e como mandá-lo (feature 89, `LNK-01`..`LNK-03`, `SEG-01`).
 //
-// O link só existe nesta aba, logo depois de criado ou renovado (`model/linkMemory.ts`): o banco
-// guarda o hash do token e não sabe remontá-lo. Sem o link em memória, o cartão diz isso e oferece
-// "Gerar link novo" (= renovar), que mata o anterior — a frase avisa.
+// Aberta: o link vem SEMPRE (a function devolve o token pelo `get`, decifrando a cifra do banco), num
+// campo só leitura que seleciona ao focar, com Copiar, WhatsApp e a prévia da mensagem. Nunca é
+// preciso gerar link novo para copiar. A proposta gravada sem a cifra (antes da chave, ou sem ela) não
+// tem como mostrar o link: o cartão diz isso e oferece "Gerar link novo" (= renovar), que mata o
+// anterior. Expirada: o link morreu, e o cartão só oferece "Renovar prazo". Cancelada ou
+// concluída: "Link encerrado", sem ação.
 //
 // O `wa.me` sai do dono único (`whatsappChatUrl`, `core`) com a mensagem de `LNK-02`
 // (`proposalWhatsappText`). Copiar e abrir o WhatsApp registram "Link enviado" (`LNK-03`); a falha
 // do registro não desfaz o envio — ela é dita, e o link já está com a Adri.
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Copy, MessageCircle } from 'lucide-react'
 import { whatsappChatUrl } from '@estrelinha/core/notifications'
-import { proposalExpiryDate, proposalWhatsappText } from '@estrelinha/core/proposals'
+import { LINK_WITHOUT_STORE, proposalExpiryDate, proposalWhatsappText } from '@estrelinha/core/proposals'
 import { ActionButton, FormCard } from '@/shared/ui'
-import type { LinkGuardado } from '../model/linkMemory'
-import { LINK_EXPIRED, LINK_NOT_IN_MEMORY, NO_PHONE } from '../model/copy'
+import type { LinkDaProposta } from '../model/proposalLink'
+import { LINK_CLOSED, LINK_EXPIRED, LINK_UNAVAILABLE, NO_PHONE } from '../model/copy'
 import type { SentChannel } from '../api/proposalsApi'
 
+export type EstadoDoLink = 'aberta' | 'expirada' | 'encerrada'
+
 interface Props {
-  link: LinkGuardado | null
+  estado: EstadoDoLink
+  /** O link montado (aberta com token e loja configurada); `null` nos outros casos. */
+  link: LinkDaProposta | null
+  /** Aberta com token, mas sem a loja configurada neste painel para montar o link. */
+  semLoja?: boolean
+  /** O prazo gravado — "Venceu em …" na expirada. */
+  expiresAt: string
   customerName: string
   customerPhone: string | null
-  /** A proposta aceita link novo (aberta ou expirada). */
-  podeGerar: boolean
-  /** O prazo venceu (`LNK-06`): o cartão oferece "Renovar", que relê e trava os preços de hoje. */
-  expirada?: boolean
+  /** O rótulo de renovar de `proposalActions` (`core`); `null` quando não se renova daqui. */
+  renewLabel: string | null
   gerando: boolean
   onGerar: () => void
   onEnviado: (canal: SentChannel) => Promise<unknown>
 }
 
-const ProposalLinkCard = ({ link, customerName, customerPhone, podeGerar, expirada = false, gerando, onGerar, onEnviado }: Props) => {
+const ProposalLinkCard = ({
+  estado,
+  link,
+  semLoja = false,
+  expiresAt,
+  customerName,
+  customerPhone,
+  renewLabel,
+  gerando,
+  onGerar,
+  onEnviado,
+}: Props) => {
   const [recado, setRecado] = useState<string | null>(null)
+  const idDoCampo = useId()
+
+  if (estado === 'encerrada') {
+    return (
+      <FormCard title="Link para a cliente" description={LINK_CLOSED}>
+        <p className="text-sm text-muted-foreground">Quem abrir o link lê que este pedido não está mais disponível.</p>
+      </FormCard>
+    )
+  }
+
+  const botaoDeGerar = renewLabel ? (
+    <ActionButton
+      variant={estado === 'expirada' ? 'default' : 'outline'}
+      alvo44
+      pending={gerando}
+      pendingLabel={estado === 'expirada' ? 'Renovando…' : 'Gerando o link…'}
+      onClick={onGerar}
+    >
+      {renewLabel}
+    </ActionButton>
+  ) : null
+
+  if (estado === 'expirada') {
+    return (
+      <FormCard title="Link para a cliente" description={`Venceu em ${proposalExpiryDate(expiresAt, true)}.`}>
+        <p className="text-sm text-muted-foreground">{LINK_EXPIRED}</p>
+        {botaoDeGerar}
+      </FormCard>
+    )
+  }
 
   if (!link) {
     return (
       <FormCard title="Link para a cliente">
-        <p className="text-sm text-muted-foreground">{expirada ? LINK_EXPIRED : LINK_NOT_IN_MEMORY}</p>
-        {podeGerar && (
-          <ActionButton variant={expirada ? 'default' : 'outline'} alvo44 pending={gerando} pendingLabel={expirada ? 'Renovando…' : 'Gerando o link…'} onClick={onGerar}>
-            {expirada ? 'Renovar' : 'Gerar link novo'}
-          </ActionButton>
-        )}
+        <p className="text-sm text-muted-foreground">{semLoja ? LINK_WITHOUT_STORE : LINK_UNAVAILABLE}</p>
+        {!semLoja && botaoDeGerar}
       </FormCard>
     )
   }
@@ -77,13 +123,18 @@ const ProposalLinkCard = ({ link, customerName, customerPhone, podeGerar, expira
   }
 
   return (
-    <FormCard
-      title="Link para a cliente"
-      description={`Vale até ${proposalExpiryDate(link.expiresAt, true)}.`}
-    >
-      <p data-testid="link-da-proposta" className="break-all rounded-lg border border-input bg-muted/30 p-3 text-sm text-foreground">
-        {link.link}
-      </p>
+    <FormCard title="Link para a cliente" description={`Vale até ${proposalExpiryDate(link.expiresAt, true)}.`}>
+      <label htmlFor={idDoCampo} className="sr-only">
+        Link para a cliente
+      </label>
+      <input
+        id={idDoCampo}
+        data-testid="link-da-proposta"
+        readOnly
+        value={link.link}
+        onFocus={(e) => e.currentTarget.select()}
+        className="h-11 w-full min-w-0 rounded-lg border border-input bg-muted/30 px-3 text-sm text-foreground"
+      />
       <div className="flex flex-wrap gap-2">
         <ActionButton alvo44 pendingLabel="Copiando…" onClick={copiar}>
           <Copy className="mr-1 h-4 w-4" aria-hidden /> Copiar link
@@ -106,6 +157,12 @@ const ProposalLinkCard = ({ link, customerName, customerPhone, podeGerar, expira
           </ActionButton>
         )}
       </div>
+      <details className="rounded-lg border border-border px-3 py-2 text-sm">
+        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-foreground">Mensagem do WhatsApp</summary>
+        <p data-testid="mensagem-do-whatsapp" className="whitespace-pre-line break-words pb-2 text-muted-foreground">
+          {texto}
+        </p>
+      </details>
       <p role="status" className="min-h-5 text-sm text-muted-foreground">
         {recado}
       </p>

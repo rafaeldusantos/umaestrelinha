@@ -11,7 +11,7 @@
 //
 // Ações (query param `action`, corpo JSON):
 //
-//   list      as propostas, com o estado derivado (`LNK-04`)
+//   list      as propostas, com o estado derivado (`LNK-04`), as peças resumidas (com teto) e o `agora`
 //   get       uma proposta inteira: linhas, histórico, estado e ações disponíveis
 //   save      criar ou editar. O servidor RECALCULA tudo pelo banco (`PRC-01`); o total que a tela
 //             mostrava é só conferido (`PRC-02`). O token do link nasce SÓ ao criar.
@@ -19,6 +19,9 @@
 //   cancel    o link passa a dizer que o pedido não está mais disponível (`LNK-05`)
 //   log-sent  "Link enviado", com o canal (`LNK-03`)
 //   note      a observação interna, em qualquer status não concluído, sem subir a versão
+//   preview   o resumo vivo da montagem do app: a MESMA `precificar` do `save`, sem RPC e sem gravar.
+//             Devolve o resumo, o cupom conferido e o PIX — o app nunca lê promoções, cupons nem
+//             pedidos
 //
 // `requireAdmin` em TODA ação, antes de qualquer leitura ou escrita (`SEG-05`).
 //
@@ -26,8 +29,13 @@
 // O token é uma credencial (`SEG-01`)
 // ---------------------------------------------------------------------------------------------
 //
-// 32 bytes aleatórios (`newAccessToken`), e o banco guarda só o SHA-256. O token existe uma vez: na
-// resposta de criar ou de renovar. Nenhuma linha de log o carrega — nem o hash.
+// 32 bytes aleatórios (`newAccessToken`). O banco guarda o SHA-256 (é por ele que a `checkout` abre a
+// proposta) e, com a chave `PROPOSAL_TOKEN_KEY` configurada, a CIFRA do token (`_shared/tokenCipher.ts`,
+// AES-GCM): com ela o `get` devolve o token de uma proposta aberta, e o painel e o app mostram o link
+// sempre, sem gerar um novo para copiar. Sem a chave, ou numa proposta gravada antes dela, o
+// token existe uma vez — na resposta de criar ou de renovar — e mandar de novo é "Gerar link novo"
+//. Nenhuma linha de log carrega o token, o hash ou a cifra, e nenhuma resposta leva o hash ou a
+// cifra.
 //
 // ---------------------------------------------------------------------------------------------
 // A regra NÃO mora aqui
@@ -40,9 +48,12 @@
 
 import {
   PROPOSAL_LINK_DAYS,
+  PROPOSAL_ZERO_REFUSAL,
   lockProposal,
+  manualDiscountRefusal,
   priceProposalDraft,
   proposalActions,
+  proposalPricing,
   proposalState,
   type ManualDiscountDraft,
   type ProposalDraftPrice,
@@ -50,7 +61,12 @@ import {
   type ProposalState,
 } from '../../../packages/core/src/proposals/index.ts'
 import { couponRefusal, couponRuleOf } from '../../../packages/core/src/coupons/rules.ts'
-import type { CouponRule, ProgressivePromotion } from '../../../packages/core/src/payment/pricing.ts'
+import {
+  resolveProgressiveTier,
+  tierUnitPrice,
+  type CouponRule,
+  type ProgressivePromotion,
+} from '../../../packages/core/src/payment/pricing.ts'
 import { isPriceError, resolveItemPrice, variantLabel } from '../../../packages/core/src/pricing/index.ts'
 import {
   engravingRefusal,
@@ -62,6 +78,8 @@ import {
 import { hashAccessToken, newAccessToken } from '../../../packages/core/src/checkout/guestAccess.ts'
 import { isValidEmail, normalizeEmail } from '../../../packages/core/src/validators/email.ts'
 import { adminNoteRefusal, normalizeAdminNote } from '../../../packages/core/src/orders/adminNote.ts'
+import { fotoDaLinha } from '../../../packages/core/src/proposals/photo.ts'
+import type { TokenCipher } from '../_shared/tokenCipher.ts'
 import { json, preflight } from '../_shared/http.ts'
 import { requireAdmin } from '../_shared/auth.ts'
 
@@ -72,6 +90,8 @@ export interface Deps {
   supabase: any
   /** Relógio injetável: prazo do link, estado derivado e cupom vencido dependem dele. */
   now: () => number
+  /** A cifra do token, com a chave do secret opcional; ausente/`null`, só o hash é gravado. */
+  tokenCipher?: TokenCipher | null
 }
 
 /**
@@ -156,6 +176,16 @@ const COLUNAS_DA_LISTA = [
   'created_at',
 ].join(', ')
 
+/**
+ * As linhas resumidas de cada proposta na `list`: o bastante para o cartão do app dizer
+ * "Nome · variação" com a foto, nunca preço, gravação ou material. Com teto por proposta
+ * (`LINHAS_NA_LISTA`); `lines_count` diz quantas são ao todo.
+ */
+const COLUNAS_DA_LINHA_NA_LISTA = ['proposal_id', 'position', 'product_name', 'product_image', 'variant_label', 'quantity'].join(', ')
+
+/** Quantas linhas cada proposta leva na `list`. */
+export const LINHAS_NA_LISTA = 4
+
 const COLUNAS_DA_LINHA = [
   'position',
   'product_id',
@@ -209,12 +239,27 @@ interface Entrada {
   email: string
 }
 
-interface Precificado {
-  price: ProposalDraftPrice<LinhaRelida>
-  coupon: { id: string; code: string } | null
+/** O cupom que passou na regra da loja, com o que a tela precisa para nomeá-lo. */
+interface CupomConferido {
+  code: string
+  type: CouponRule['type']
+  value: number
+  first_order_only: boolean
 }
 
-type Resultado<T> = { ok: true; value: T } | { ok: false; response: Response }
+/** A promoção vigente, com o nome que a montagem do app mostra ao lado da peça. */
+type PromocaoVigente = ProgressivePromotion & { name: string }
+
+interface Precificado {
+  price: ProposalDraftPrice<LinhaRelida>
+  /** As promoções vigentes que entraram na conta (só para dizer qual valeu em cada linha). */
+  promocoes: PromocaoVigente[]
+  coupon: { id: string; code: string } | null
+  /** O cupom conferido, aplicado ou não (a promoção pode tê-lo vencido); `null` sem cupom. */
+  conferido: CupomConferido | null
+}
+
+type Resultado<T> = { ok: true; value: T } | { ok: false; response: Response; code: string; error: string }
 
 /** A forma da tela para uma linha. Quantidade fora de inteiro vira `NaN` e cai na recusa de `core`. */
 function linhasDoCorpo(raw: unknown): LinhaPedida[] | null {
@@ -257,11 +302,11 @@ async function promocoesVigentes(
   deps: Deps,
   productIds: string[],
   now: Date,
-): Promise<ProgressivePromotion[]> {
+): Promise<PromocaoVigente[]> {
   const { data: promotionRows } = await deps.supabase
     .from('promotions')
     .select(
-      'id, discount_kind, scope, stacks_with_coupon, active, valid_from, valid_until, created_at, promotion_tiers(min_qty, value)',
+      'id, name, discount_kind, scope, stacks_with_coupon, active, valid_from, valid_until, created_at, promotion_tiers(min_qty, value)',
     )
 
   const vivas = (promotionRows || []).filter((p: any) => {
@@ -290,6 +335,7 @@ async function promocoesVigentes(
 
   return vivas.map((p: any) => ({
     id: String(p.id),
+    name: String(p.name ?? ''),
     discount_kind: p.discount_kind,
     tiers: (p.promotion_tiers || []).map((t: any) => ({ min_qty: Number(t.min_qty), value: Number(t.value) })),
     scope: p.scope,
@@ -299,10 +345,18 @@ async function promocoesVigentes(
   }))
 }
 
-const recusa = (error: string, code: string, status = 422): { ok: false; response: Response } => ({
+const recusa = (error: string, code: string, status = 422): { ok: false; response: Response; code: string; error: string } => ({
   ok: false,
   response: json({ error, code }, status),
+  code,
+  error,
 })
+
+/**
+ * Sem e-mail não há como perguntar "já comprou?" — o cupom de primeira compra é recusado em vez de
+ * valer às cegas. Só a prévia chega aqui sem e-mail: o `save` exige um válido antes de precificar.
+ */
+export const COUPON_NEEDS_EMAIL = 'Este cupom pede o e-mail da cliente.'
 
 /**
  * Relê preço, variação, promoção e cupom do banco e devolve o preço da montagem.
@@ -318,7 +372,9 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
   const { data: produtos, error: erroProdutos } = ids.length
     ? await deps.supabase
         .from('products')
-        .select('id, name, base_price, image_url, is_active, requires_material, material_kinds, engraving_max_chars, options')
+        .select(
+          'id, name, base_price, image_url, capa:images->0->>url, is_active, requires_material, material_kinds, engraving_max_chars, options',
+        )
         .in('id', ids)
     : { data: [], error: null }
   const { data: variacoes, error: erroVariacoes } = ids.length
@@ -400,7 +456,9 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
       list_price: preco.price,
       quantity: pedida.quantity,
       product_name: nome,
-      product_image: (variacao?.image_url || produto.image_url || null) as string | null,
+      // A foto da linha tem um dono em `core` (variação → primeira da galeria → coluna antiga), o mesmo
+      // que a montagem do painel e a do app leem: a cliente vê no link a foto que a Adri viu.
+      product_image: fotoDaLinha(variacao, produto),
       variant_label: rotulo || null,
       variant_options: valores,
       engraving_text: gravacao,
@@ -412,6 +470,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
   // O cupom (MON-07): a mesma regra da loja, sobre o subtotal cheio — o que a loja passa a
   // `validateCoupon` —, com a pergunta de primeira compra feita ao banco.
   let coupon: { id: string; code: string } | null = null
+  let conferido: CupomConferido | null = null
   let couponRule: CouponRule | null = null
   const code = (entrada.couponCode ?? '').toUpperCase().trim()
   if (code) {
@@ -420,6 +479,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     if (!row) return recusa('Cupom inválido.', 'coupon_refused')
     const subtotalCheio = round2(linhas.reduce((s, l) => s + l.list_price * (Number.isFinite(l.quantity) ? l.quantity : 0), 0))
     let motivo = couponRefusal(row, { subtotal: subtotalCheio, now })
+    if (!motivo && row.first_order_only && !entrada.email) motivo = COUPON_NEEDS_EMAIL
     if (!motivo && row.first_order_only && entrada.email) {
       const { count } = await deps.supabase
         .from('orders')
@@ -430,6 +490,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     if (motivo) return recusa(motivo, 'coupon_refused')
     coupon = { id: String(row.id), code: String(row.code) }
     couponRule = couponRuleOf(row)
+    conferido = { code: String(row.code), type: couponRule.type, value: couponRule.value, first_order_only: row.first_order_only === true }
   }
 
   const promotions = await promocoesVigentes(deps, ids, now)
@@ -441,7 +502,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
   })
   if (price.refusal) return recusa(price.refusal, 'draft_refused')
 
-  return { ok: true, value: { price, coupon: price.couponApplied ? coupon : null } }
+  return { ok: true, value: { price, promocoes: promotions, coupon: price.couponApplied ? coupon : null, conferido } }
 }
 
 /** O resumo que a tela redesenha — os mesmos números que ficam travados. */
@@ -545,25 +606,62 @@ async function list(deps: Deps, req: Request): Promise<Response> {
     for (const o of (orders ?? []) as any[]) numeroDoPedido.set(String(o.id), String(o.order_number ?? ''))
   }
 
+  // As peças de cada proposta, numa leitura só. Falhar aqui é falhar a lista: um cartão sem as
+  // peças diria "nenhuma peça" de um pedido que tem.
+  const linhasPorProposta = new Map<string, any[]>()
+  const ids = linhas.map((p) => p.id).filter(Boolean)
+  if (ids.length) {
+    const { data: itens, error: erroItens } = await deps.supabase
+      .from('order_proposal_items')
+      .select(COLUNAS_DA_LINHA_NA_LISTA)
+      .in('proposal_id', ids)
+      .order('position', { ascending: true })
+    if (erroItens) {
+      log({ action: 'order-proposals:list', status: 'items_read_failed' })
+      return json({ error: 'Não consegui ler as propostas.' }, 502)
+    }
+    for (const item of (itens ?? []) as any[]) {
+      const chave = String(item.proposal_id)
+      const doPedido = linhasPorProposta.get(chave) ?? []
+      doPedido.push(item)
+      linhasPorProposta.set(chave, doPedido)
+    }
+  }
+
   const now = new Date(deps.now())
-  const proposals = linhas.map((p) => ({
-    ...p,
-    state: estadoDe(p, now),
-    order_number: p.order_id ? (numeroDoPedido.get(String(p.order_id)) ?? null) : null,
-  }))
+  const proposals = linhas.map((p) => {
+    const todas = (linhasPorProposta.get(String(p.id)) ?? []).slice().sort((a, b) => Number(a.position) - Number(b.position))
+    return {
+      ...p,
+      state: estadoDe(p, now),
+      order_number: p.order_id ? (numeroDoPedido.get(String(p.order_id)) ?? null) : null,
+      lines: todas.slice(0, LINHAS_NA_LISTA).map((l) => ({
+        product_name: l.product_name ?? '',
+        product_image: l.product_image ?? null,
+        variant_label: l.variant_label ?? null,
+        quantity: Number(l.quantity ?? 0),
+      })),
+      lines_count: todas.length,
+    }
+  })
 
   log({ action: 'order-proposals:list', status: 'ok', total: proposals.length })
-  return json({ proposals })
+  // `agora`: o relógio do servidor, para quem desenha "montado há 2 dias" sem ler o do aparelho.
+  return json({ proposals, agora: now.toISOString() })
 }
 
 // ---------------------------------------------------------------------------------------------
 // get
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * A proposta lida, com a cifra do token (`token_cipher`) para quem decide o link. A cifra NUNCA sai
+ * numa resposta: o `get` a retira antes de devolver a linha (`semCifra`).
+ */
 async function lerProposta(deps: Deps, id: string): Promise<{ row: any | null; error: boolean }> {
   const { data, error } = await deps.supabase
     .from('order_proposals')
-    .select(COLUNAS_DA_PROPOSTA)
+    .select(`${COLUNAS_DA_PROPOSTA}, token_cipher`)
     .eq('id', id)
     .maybeSingle()
   return { row: data ?? null, error: !!error }
@@ -577,6 +675,23 @@ async function lerLinhas(deps: Deps, id: string): Promise<any[] | null> {
     .order('position', { ascending: true })
   if (error) return null
   return ((data ?? []) as any[]).slice().sort((a, b) => Number(a.position) - Number(b.position))
+}
+
+/** A linha sem credencial: nem a cifra nem o hash saem, mesmo que uma leitura futura os traga. */
+const semCifra = (row: any) => {
+  const { token_cipher: _cifra, token_hash: _hash, idempotency_key: _chave, ...resto } = row ?? {}
+  return resto
+}
+
+/**
+ * O token do link desta proposta, quando ele pode ser mostrado: aberta (ou vista), com cifra gravada e
+ * a chave configurada que a decifra. Qualquer outra coisa ⇒ `null` — a proposta vencida, cancelada ou
+ * concluída nunca devolve o link (o link morreu), e a sem cifra cai no "Gerar link novo".
+ */
+async function tokenDisponivel(deps: Deps, row: any, state: ProposalState): Promise<string | null> {
+  if (state !== 'open' && state !== 'viewed') return null
+  if (!deps.tokenCipher || typeof row?.token_cipher !== 'string' || !row.token_cipher) return null
+  return await deps.tokenCipher.decrypt(row.token_cipher)
 }
 
 async function get(deps: Deps, req: Request, body: any): Promise<Response> {
@@ -631,11 +746,14 @@ async function get(deps: Deps, req: Request, body: any): Promise<Response> {
   }
 
   const state = estadoDe(row, new Date(deps.now()))
-  log({ action: 'order-proposals:get', status: 'ok', proposal_id: id })
+  const token = await tokenDisponivel(deps, row, state)
+  log({ action: 'order-proposals:get', status: 'ok', proposal_id: id, link: token ? 'available' : 'unavailable' })
   return json({
-    proposal: { ...row, items, events: eventosComAutor, order_number: orderNumber },
+    proposal: { ...semCifra(row), items, events: eventosComAutor, order_number: orderNumber },
     state,
-    actions: proposalActions(state),
+    actions: proposalActions(state, { linkAvailable: token !== null }),
+    // O token, só da aberta com cifra: quem desenha monta o link com a origem da loja.
+    token,
   })
 }
 
@@ -742,8 +860,13 @@ async function save(deps: Deps, req: Request, body: any): Promise<Response> {
   } else {
     p.idempotency_key = chave
     p.token_hash = await hashAccessToken(token as string)
+    // Com a chave configurada, a cifra nasce junto do hash; sem ela, só o hash.
+    if (deps.tokenCipher) p.token_cipher = await deps.tokenCipher.encrypt(token as string)
     p.expires_at = expiresAt
   }
+  // "Salvar no cadastro da cliente" grava o endereço em `addresses` NA MESMA transação da
+  // proposta (a RPC); o painel e o app não escrevem mais em `addresses` pelo navegador.
+  p.save_address = body?.save_address === true
 
   const { data, error } = await deps.supabase.rpc('save_order_proposal', { p })
   if (error) {
@@ -809,7 +932,12 @@ async function renew(deps: Deps, req: Request, body: any): Promise<Response> {
   if (!row) return json({ error: NOT_FOUND, code: 'not_found' }, 404)
 
   const now = new Date(deps.now())
-  if (!proposalActions(estadoDe(row, now)).renew) {
+  // Renovar é da expirada — e da aberta cujo link não pode ser mostrado (sem cifra, ou sem a
+  // chave que a decifra): para ela, renovar é o único jeito de ter link. A aberta com link
+  // disponível recusa: trocar o link dela mataria o que a cliente já recebeu, sem precisar.
+  const estado = estadoDe(row, now)
+  const linkAvailable = (await tokenDisponivel(deps, row, estado)) !== null
+  if (!proposalActions(estado, { linkAvailable }).renew) {
     return json({ error: 'Esta proposta não pode ser renovada.', code: 'not_renewable' }, 409)
   }
 
@@ -864,6 +992,9 @@ async function renew(deps: Deps, req: Request, body: any): Promise<Response> {
     .from('order_proposals')
     .update({
       token_hash: await hashAccessToken(token),
+      // A cifra no MESMO update do hash: as duas sempre descrevem o mesmo token. Sem a chave, a cifra
+      // antiga sai (ela seria de um token que acabou de morrer).
+      token_cipher: deps.tokenCipher ? await deps.tokenCipher.encrypt(token) : null,
       expires_at: expiresAt,
       // O link novo ainda não foi aberto por ninguém.
       viewed_at: null,
@@ -1064,6 +1195,114 @@ async function logSent(deps: Deps, req: Request, body: any): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// preview — o resumo vivo da montagem do app, sem gravar
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * O motivo do desconto combinado não decide dinheiro: ele é do histórico, e quem o exige é a tela (e o
+ * `save`, ao gravar). A prévia não o recebe nem o guarda; a regra de `core` só confere que há um, e
+ * este texto fixo ocupa o lugar dele dentro desta função.
+ */
+const MOTIVO_DA_PREVIA = 'prévia'
+
+/**
+ * A recusa do desconto combinado antes da conta: o valor fora da forma (a regra de `core`) e o
+ * percentual de 100 ou mais, que zeraria o pedido — a mesma frase da recusa de A-12.
+ */
+function recusaDoCombinado(manual: ManualDiscountDraft): string | null {
+  if (manual.kind === 'percent' && Number.isFinite(manual.value) && manual.value >= 100) return PROPOSAL_ZERO_REFUSAL
+  return manualDiscountRefusal(manual)
+}
+
+/**
+ * O PIX dos itens, pela MESMA conta da página do link e do `create-payment` (`proposalPricing` sobre
+ * o travado, frete zero): `null` com o PIX desligado, sem desconto, ou com a leitura falhando — a
+ * linha simplesmente não aparece.
+ */
+async function pixDosItens(deps: Deps, p: Precificado): Promise<{ percent: number; total: number } | null> {
+  const { data, error } = await deps.supabase.from('store_settings').select('value').eq('key', 'payment').maybeSingle()
+  if (error) return null
+  const pagamento = (data?.value ?? {}) as { pix_enabled?: unknown; pix_discount_percent?: unknown }
+  const percent = Number(pagamento.pix_discount_percent ?? 0)
+  if (pagamento.pix_enabled === false || !(percent > 0) || percent >= 100) return null
+  if (p.price.lockedLines.length === 0) return null
+  const total = proposalPricing(lockProposal(p.price), { shipping: 0, method: 'pix', pixDiscountPercent: percent, freeShipping: null }).total
+  return { percent, total }
+}
+
+/**
+ * A promoção que valeu em cada linha, na ordem das peças pedidas — para a montagem do app mostrar
+ * "<nome> · 15%" ao lado da peça. Só exibição: o preço travado da linha (`unit_price`) já é o da conta.
+ * A linha cujo preço não caiu (sem promoção, abaixo da faixa, fora do escopo, ou o cupom que venceu a
+ * promoção) fica `null`. Qual promoção: a que dá aquele preço na linha, pelas mesmas regras de
+ * `core` (a faixa alcançada e o preço por faixa); no empate de preço, a mais antiga.
+ */
+function promocaoDasLinhas(p: Precificado): Array<{ promotion: { name: string; percent: number } | null }> {
+  const valeu = p.price.winner === 'promotion' || p.price.winner === 'both'
+  const itens = p.price.lockedLines.map(({ line }) => ({ product_id: line.product_id, unit_price: line.list_price, quantity: line.quantity }))
+  const candidatas = valeu
+    ? p.promocoes.flatMap((promo) => {
+        const faixa = resolveProgressiveTier(itens, promo)
+        return faixa ? [{ promo, faixa }] : []
+      })
+    : []
+  return p.price.lockedLines.map(({ line, unit_price }) => {
+    if (!(unit_price < line.list_price)) return { promotion: null }
+    const quem = candidatas
+      .filter(({ promo }) => promo.scope === 'all' || promo.eligibleProductIds.includes(line.product_id))
+      .filter(({ promo, faixa }) => tierUnitPrice(line.list_price, promo.discount_kind, faixa.value) === unit_price)
+      .sort((a, b) => (a.promo.created_at === b.promo.created_at ? (a.promo.id < b.promo.id ? -1 : 1) : a.promo.created_at < b.promo.created_at ? -1 : 1))[0]
+    if (!quem) return { promotion: null }
+    const percent =
+      quem.promo.discount_kind === 'percent' ? quem.faixa.value : Math.round((1 - unit_price / line.list_price) * 100)
+    return { promotion: { name: quem.promo.name, percent } }
+  })
+}
+
+/**
+ * A montagem do app manda só a escolha (peças, cupom, desconto combinado, e-mail) e recebe o
+ * resumo que o `save` travaria — a mesma `precificar`, sem RPC e sem gravar. O cupom recusado volta
+ * 422 com o texto da loja (o app não o aplica). O desconto combinado recusado (itens abaixo de R$ 1,00,
+ * ou percentual de 100) NÃO entra na conta: a resposta é o resumo sem ele, com `manual_refusal`.
+ */
+async function preview(deps: Deps, req: Request, body: any): Promise<Response> {
+  const auth = await exigirAdmin(deps, req)
+  if (!auth.ok) return json({ error: auth.error }, auth.status)
+
+  const linhas = linhasDoCorpo(body?.lines)
+  if (linhas === null) return json({ error: 'Confira as peças da proposta.', code: 'bad_lines' }, 400)
+
+  // E-mail ausente ou que não confere é "sem e-mail" — e o cupom de primeira compra pede um.
+  const emailLido = normalizeEmail(texto(body?.customer_email))
+  const email = isValidEmail(emailLido) ? emailLido : ''
+  const couponCode = typeof body?.coupon_code === 'string' ? body.coupon_code : null
+  const avulso = avulsoDoCorpo(body?.manual_discount)
+  const manual = avulso ? { kind: avulso.kind, value: avulso.value, reason: MOTIVO_DA_PREVIA } : null
+
+  let manualRefusal = manual ? recusaDoCombinado(manual) : null
+  let precificado = await precificar(deps, { lines: linhas, couponCode, manual: manualRefusal ? null : manual, email })
+  if (!precificado.ok && manual && !manualRefusal && precificado.code === 'draft_refused' && precificado.error === PROPOSAL_ZERO_REFUSAL) {
+    // O combinado zerou os itens: a conta volta sem ele, e a recusa vai junto.
+    manualRefusal = PROPOSAL_ZERO_REFUSAL
+    precificado = await precificar(deps, { lines: linhas, couponCode, manual: null, email })
+  }
+  if (!precificado.ok) {
+    log({ action: 'order-proposals:preview', status: 'refused', code: precificado.code })
+    return precificado.response
+  }
+
+  const itemsPix = await pixDosItens(deps, precificado.value)
+  log({ action: 'order-proposals:preview', status: 'ok', manual_refused: manualRefusal !== null })
+  return json({
+    summary: resumo(precificado.value),
+    coupon: precificado.value.conferido,
+    manual_refusal: manualRefusal,
+    items_pix: itemsPix,
+    lines: promocaoDasLinhas(precificado.value),
+  })
+}
+
+// ---------------------------------------------------------------------------------------------
 // Roteamento
 // ---------------------------------------------------------------------------------------------
 
@@ -1099,9 +1338,11 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
         return await logSent(deps, req, body)
       case 'note':
         return await note(deps, req, body)
+      case 'preview':
+        return await preview(deps, req, body)
       default:
         log({ action: `order-proposals:${action}`, status: 'unknown_action' })
-        return json({ error: 'Ação desconhecida. Use: list, get, save, renew, cancel, log-sent, note' }, 400)
+        return json({ error: 'Ação desconhecida. Use: list, get, save, renew, cancel, log-sent, note, preview' }, 400)
     }
   } catch (err) {
     log({ action: `order-proposals:${action}`, status: 'error', message: err instanceof Error ? err.message : String(err) })

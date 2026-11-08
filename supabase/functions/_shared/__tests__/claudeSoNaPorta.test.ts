@@ -15,10 +15,10 @@ import { describe, expect, it } from 'vitest'
  *  1. O pacote do SDK é importado SÓ por `_shared/claude.ts`, e na versão exata. Uma segunda
  *     importação, ou uma versão solta, faria duas integrações conviverem — e a `BL-001`/`BL-014`
  *     abririam a terceira.
- *  2. `_shared/claude.ts` é importado SÓ pelo `index.ts` da `seo-suggest`. O vitest nunca o carrega
+ *  2. `_shared/claude.ts` é importado SÓ pelos `index.ts` da `seo-suggest` e da `customer-parse`. O vitest nunca o carrega
  *     (o especificador `npm:` não resolve no Node), então um handler que o importasse derrubaria a
  *     suíte — e outro index que o importasse seria fiação sem prova.
- *  3. Esse `index.ts` CHAMA `createClaudeJson(` — a metade da fiação que o vitest não alcança.
+ *  3. Cada um desses `index.ts` CHAMA `createClaudeJson(` — a metade da fiação que o vitest não alcança.
  *
  * Este arquivo carrega o nome do pacote nas constantes e nos sensores: é um dos dois guardas que
  * podem (o outro é `claudeSoNoServidor.test.ts`, na suíte da loja).
@@ -30,7 +30,7 @@ const REPO = resolve(FUNCTIONS, '../..')
 const PACOTE = '@anthropic-ai/sdk'
 const VERSAO = 'npm:@anthropic-ai/sdk@1.3.0'
 const ADAPTADOR = '_shared/claude.ts'
-const INDEXES = ['seo-suggest/index.ts']
+const INDEXES = ['customer-parse/index.ts', 'seo-suggest/index.ts']
 
 interface Arquivo {
   nome: string
@@ -116,7 +116,7 @@ describe('claudeSoNaPorta — âncoras', () => {
   it('a varredura leu as functions e os apps (contagem)', () => {
     expect(funcoes.length).toBeGreaterThanOrEqual(40)
     expect(funcoes.map((a) => a.nome)).toEqual(
-      expect.arrayContaining([ADAPTADOR, ...INDEXES, '_shared/claudePort.ts', '_shared/claudeRequest.ts', '_shared/claudeError.ts', 'seo-suggest/handlers.ts']),
+      expect.arrayContaining([ADAPTADOR, ...INDEXES, '_shared/claudePort.ts', '_shared/claudeRequest.ts', '_shared/claudeError.ts', 'seo-suggest/handlers.ts', 'customer-parse/handlers.ts']),
     )
     expect(foraDasFunctions.length).toBeGreaterThanOrEqual(500)
     expect(foraDasFunctions.some((a) => a.nome.startsWith('apps/backoffice/src/'))).toBe(true)
@@ -138,7 +138,7 @@ describe('claudeSoNaPorta — as réguas', () => {
     expect(especificadores(adaptador.fonte).filter((s) => s.includes(PACOTE))).toEqual([VERSAO])
   })
 
-  it('2. `_shared/claude.ts` só é importado pelo `index.ts` da seo-suggest', () => {
+  it('2. `_shared/claude.ts` só é importado pelos `index.ts` da seo-suggest e da customer-parse', () => {
     const importadores = funcoes
       .filter((a) => especificadores(a.fonte, a.nome).some((s) => apontaParaOAdaptador(a.nome, s)))
       .map((a) => a.nome)

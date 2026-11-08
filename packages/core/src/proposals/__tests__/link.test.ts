@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { GUEST_ACCESS_DAYS } from '../../checkout/guestAccess.ts'
 import { PROPOSAL_LINK_DAYS } from '../limits.ts'
 import { formatProposalNumber } from '../number.ts'
-import { firstName, PROPOSAL_PATH, proposalExpiryDate, proposalLink, proposalWhatsappText } from '../link.ts'
+import { firstName, PROPOSAL_ORIGIN_LABEL, PROPOSAL_PATH, PROPOSAL_SAVE_FAILED, proposalExpiryDate, proposalLink, proposalRenewText, proposalWhatsappText } from '../link.ts'
 
 describe('proposalLink — o token vai no fragmento (A-15, SEG-02)', () => {
   it('origem + caminho + #token, sem query', () => {
@@ -142,5 +142,37 @@ describe('dono único do caminho e do prazo', () => {
   it('sensor — a segunda declaração no link.ts seria acusada; em comentário, não', () => {
     expect(declaraCaminho(`${ler('link.ts')}\nexport const PROPOSAL_PATH = '/pedido-montado'\n`)).toBe(true)
     expect(declaraCaminho(ler('link.ts') + `\n// const PROPOSAL_PATH = 'x'`.replace(/\/\/[^\n\r]*/g, ''))).toBe(false)
+  })
+})
+
+describe('proposalRenewText — a confirmação de renovar o prazo', () => {
+  // 31/10 venceu; renovando em 07/11 às 12h de Brasília, o link novo vale até 14/11.
+  const AGORA = new Date('2026-11-07T15:00:00Z')
+
+  it('a frase do gate, palavra por palavra, com o primeiro nome', () => {
+    expect(proposalRenewText({ name: '  Maria Clara ', expiresAt: '2026-10-31T15:00:00Z', now: AGORA })).toBe(
+      'O link venceu em 31/10. Os preços são conferidos de novo e sai um link novo, que vale até 14/11. Mande o novo para Maria.',
+    )
+  })
+
+  it('o prazo novo é o de PROPOSAL_LINK_DAYS a partir de agora', () => {
+    const texto = proposalRenewText({ name: 'Ana', expiresAt: '2026-10-31T15:00:00Z', now: AGORA, linkDays: 1 })
+    expect(texto).toContain('que vale até 08/11.')
+  })
+
+  it('sem nome, "a cliente" — nunca "para ."', () => {
+    expect(proposalRenewText({ name: null, expiresAt: '2026-10-31T15:00:00Z', now: AGORA })).toMatch(/Mande o novo para a cliente\.$/)
+  })
+})
+
+describe('PROPOSAL_ORIGIN_LABEL — uma origem só', () => {
+  it('é "Pedido montado"', () => {
+    expect(PROPOSAL_ORIGIN_LABEL).toBe('Pedido montado')
+  })
+})
+
+describe('PROPOSAL_SAVE_FAILED — uma gravação só', () => {
+  it('diz que nada foi enviado', () => {
+    expect(PROPOSAL_SAVE_FAILED).toBe('Não consegui gravar o pedido. Nada foi enviado à cliente. Tente de novo.')
   })
 })

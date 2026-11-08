@@ -1,6 +1,10 @@
 export {
   PEDIDOS_PATH,
+  ehVisaoMontados,
   lerDestinoDePedidos,
+  montadosHref,
+  montarPedidoHref,
+  pedidoMontadoHref,
   pedidoHref,
   pedidosHref,
   recorteDoEndereco,

@@ -32,6 +32,17 @@ const ROOT = resolve(HERE, '../../../../../..')
 const PASTA = resolve(ROOT, 'supabase/migrations')
 const NOME_89 = '20261103120000_89-pedido-montado.sql'
 const NOME_NOVA = '20261109120000_95-observacao-da-proposta.sql'
+/**
+ * A migration do link sempre recriou `save_order_proposal` de novo (a cifra do token e o endereço). A vigente do `save`
+ * passou a ser a dele, e `linkSempreSchema.test.ts` prova que ela é a da 95 mais as trocas do 94, byte
+ * a byte — então as réguas da observação valem para ela, e este guarda as aplica à vigente também.
+ */
+const NOME_LINK_SEMPRE = '20261111120000_94-link-sempre-e-endereco.sql'
+const VIGENTE_DO_SAVE: Record<NomeDaFuncaoVigente, string> = {
+  save_order_proposal: NOME_LINK_SEMPRE,
+  create_order_from_proposal: NOME_NOVA,
+}
+type NomeDaFuncaoVigente = 'save_order_proposal' | 'create_order_from_proposal'
 
 const ler = (nome: string): string => readFileSync(resolve(PASTA, nome), 'utf8').replace(/\r\n/g, '\n')
 const DA_89 = ler(NOME_89)
@@ -179,11 +190,11 @@ describe('âncoras', () => {
     expect(disco.length).toBeGreaterThan(70)
   })
 
-  it.each(FUNCOES)('a vigente de $nome é a migration nova', ({ nome }) => {
-    expect(vigente(disco, nome)).toBe(NOME_NOVA)
+  it.each(FUNCOES)('a vigente de $nome é a esperada (a do `save` é a do link sempre)', ({ nome }) => {
+    expect(vigente(disco, nome)).toBe(VIGENTE_DO_SAVE[nome])
   })
-  it.each(FUNCOES)('SENSOR: sem a nova, a vigente de $nome volta a ser a 89', ({ nome }) => {
-    expect(vigente(disco.filter((a) => a.nome !== NOME_NOVA), nome)).toBe(NOME_89)
+  it.each(FUNCOES)('SENSOR: sem a 95 e as posteriores, a vigente de $nome volta a ser a 89', ({ nome }) => {
+    expect(vigente(disco.filter((a) => a.nome !== NOME_NOVA && a.nome !== NOME_LINK_SEMPRE), nome)).toBe(NOME_89)
   })
 })
 
@@ -220,6 +231,11 @@ describe('a coluna `order_proposals.admin_note`', () => {
 describe('`save_order_proposal`', () => {
   it("'admin_note' está em `v_fora` — a nota não é conteúdo e não sobe a versão", () => {
     expect(notaForaDoConteudo(NOVA)).toBe(true)
+  })
+  it("na VIGENTE do `save` (a do link sempre) a nota continua fora do conteúdo e fora do update que sobe a versão", () => {
+    const daVigente = ler(VIGENTE_DO_SAVE.save_order_proposal)
+    expect(notaForaDoConteudo(daVigente)).toBe(true)
+    expect(updateDeConteudoSemNota(daVigente)).toBe(true)
   })
   it("SENSOR: sem 'admin_note' em `v_fora` reprova", () => {
     expect(notaForaDoConteudo(mutar(NOVA, ", 'updated_at', 'admin_note'\n", ", 'updated_at'\n"))).toBe(false)

@@ -65,3 +65,29 @@ export const recorteDoEndereco = (search: string): OrderSlice => lerDestinoDePed
 
 /** O endereço do detalhe de um pedido (`MAP-20`, `MAP-52`). */
 export const pedidoHref = (id: string): string => `${PEDIDOS_PATH}/${encodeURIComponent(id)}`
+
+/**
+ * A visão "Montados": os pedidos montados pelo ateliê, que ainda NÃO são pedidos — por
+ * isso fica fora de `ORDER_VIEWS` (não é recorte de `orders`, e `recorteDoEndereco` não a entende).
+ * Mesmo parâmetro, mesmo dono: `?visao=montados`. Bloco no endereço vence, como nas visões.
+ */
+const VISAO_MONTADOS = 'montados'
+
+/** O endereço da visão "Montados". */
+export const montadosHref = (): string => `${PEDIDOS_PATH}?${new URLSearchParams({ [PARAM_VISAO]: VISAO_MONTADOS })}`
+
+/** O `location.search` é o da visão "Montados"? */
+export const ehVisaoMontados = (search: string): boolean => {
+  const p = new URLSearchParams(search)
+  return p.get(PARAM_BLOCO) === null && p.get(PARAM_VISAO) === VISAO_MONTADOS
+}
+
+/** O endereço de um pedido montado: `/pedidos/montados/<id>`. */
+export const pedidoMontadoHref = (id: string): string => `${PEDIDOS_PATH}/montados/${encodeURIComponent(id)}`
+
+/**
+ * A montagem de um pedido: uma rota só, `/pedidos/montar`. Os quatro passos são entradas do
+ * histórico NESTE endereço, com o número do passo no `history.state` (nunca na URL, nunca dado da
+ * cliente) — o voltar do Android recua um passo.
+ */
+export const montarPedidoHref = (): string => `${PEDIDOS_PATH}/montar`
