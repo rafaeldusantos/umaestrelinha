@@ -81,6 +81,13 @@ const http = (status: number, corpo: unknown) => ({
   }),
 })
 
+const OPCOES_DA_COTACAO = [
+  { id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 5 },
+  { id: 2, name: 'SEDEX', company: 'Correios', price: '35.50', delivery_time: 2, delivery_range: { min: 1, max: 2 } },
+]
+/** O que a cotação devolve neste teste (o padrão: PAC e SEDEX). */
+let opcoesDaCotacao: unknown[] = OPCOES_DA_COTACAO
+
 /** O servidor, escrito à mão: o total dos itens de agora (muda quando o preço "muda no servidor"). */
 let totalDoServidor = 120
 let respostaDoSave: () => RespostaInvocacao | Promise<RespostaInvocacao> = () => ok({ id: 'dddddddd-0000-4000-8000-000000000001', number: 'P-0050', version: 1, created: true, token: 'tok-novo', expires_at: '2026-11-14T12:00:00Z' })
@@ -118,15 +125,8 @@ beforeEach(() => {
   fake.responderTabela('order_list', { data: [], error: null, count: 0 })
   fake.filaDeInvocacao('order-proposals?action=list', ...Array.from({ length: 40 }, () => () => ok({ proposals: [], agora: AGORA })))
   fake.filaDeInvocacao(PREVIA, ...Array.from({ length: 80 }, () => () => ok({ summary: resumo(totalDoServidor), coupon: null, manual_refusal: null, items_pix: { percent: 5, total: totalDoServidor * 0.95 } })))
-  fake.filaDeInvocacao(
-    COTACAO,
-    ...Array.from({ length: 20 }, () => () =>
-      ok([
-        { id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 5 },
-        { id: 2, name: 'SEDEX', company: 'Correios', price: '35.50', delivery_time: 2, delivery_range: { min: 1, max: 2 } },
-      ]),
-    ),
-  )
+  opcoesDaCotacao = OPCOES_DA_COTACAO
+  fake.filaDeInvocacao(COTACAO, ...Array.from({ length: 20 }, () => () => ok(opcoesDaCotacao)))
   fake.filaDeInvocacao(SAVE, ...Array.from({ length: 10 }, () => () => respostaDoSave()))
   // A ficha por e-mail da cliente nova (Clara) não existe; o resto lista as duas cadastradas.
   fake.responderTabela('customer_list', (cadeia: Elo[]) => {
@@ -215,6 +215,57 @@ describe('passo 4 · a revisão', () => {
     const opcoes = screen.getAllByTestId('opcao-de-entrega').map(texto)
     expect(opcoes).toEqual(['PAC · 5 dias úteisR$ 20,00', 'SEDEX · 1 a 2 dias úteisR$ 35,50'])
     expect(screen.getByText('Prévia. A cliente escolhe a entrega no link.')).toBeInTheDocument()
+  })
+
+  describe('a retirada no escritório na prévia', () => {
+    const ESCRITORIO = { street: 'Rua do Ateliê', number: '45', complement: 'sala 2', neighborhood: 'Moinhos', city: 'Porto Alegre', state: 'RS', zip: '90570000' }
+    const RETIRADA = 'Retirada no escritórioEscritório - Uma Estrelinha - Rua do Ateliê, Moinhos, Porto Alegre/RSgrátis'
+    const configuracao = (pickup_enabled: boolean) =>
+      fake.responderTabela('store_settings', {
+        data: [
+          { key: 'shipping', value: { pickup_enabled } },
+          { key: 'material', value: ESCRITORIO },
+        ],
+        error: null,
+      })
+
+    it('CEP do RS com a retirada ligada e o escritório completo: as opções do Melhor Envio e "Retirada no escritório", grátis', async () => {
+      configuracao(true)
+      await abrirARevisao()
+      await andar(50)
+      expect(screen.getAllByTestId('opcao-de-entrega').map(texto)).toEqual(['PAC · 5 dias úteisR$ 20,00', 'SEDEX · 1 a 2 dias úteisR$ 35,50', RETIRADA])
+      expect(screen.getByText('Prévia. A cliente escolhe a entrega no link.')).toBeInTheDocument()
+    })
+
+    it('CEP do RS com a cotação sem opção: a retirada sozinha, sem "Nenhuma entrega disponível"', async () => {
+      configuracao(true)
+      opcoesDaCotacao = []
+      await abrirARevisao()
+      await andar(50)
+      expect(screen.getAllByTestId('opcao-de-entrega').map(texto)).toEqual([RETIRADA])
+      expect(screen.queryByText('Nenhuma entrega disponível para este CEP.')).toBeNull()
+    })
+
+    it('CEP de fora do RS: sem a retirada, mesmo ligada', async () => {
+      configuracao(true)
+      fake.responderTabela('addresses', (cadeia: Elo[]) => {
+        const eq = cadeia.find((e) => e.metodo === 'eq')
+        return { data: eq?.args[1] === ID_HELENA ? [{ ...ENDERECO_DA_HELENA, cep: '01310-100', city: 'São Paulo', state: 'SP' }] : [], error: null }
+      })
+      await abrirARevisao()
+      await andar(50)
+      expect(texto(screen.getByTestId('entrega-da-revisao'))).toContain('01310-100')
+      expect(screen.getAllByTestId('opcao-de-entrega').map(texto)).toEqual(['PAC · 5 dias úteisR$ 20,00', 'SEDEX · 1 a 2 dias úteisR$ 35,50'])
+      expect(screen.queryByText(/Retirada no escritório/)).toBeNull()
+    })
+
+    it('CEP do RS com a retirada desligada: sem a retirada', async () => {
+      configuracao(false)
+      await abrirARevisao()
+      await andar(50)
+      expect(screen.getAllByTestId('opcao-de-entrega').map(texto)).toEqual(['PAC · 5 dias úteisR$ 20,00', 'SEDEX · 1 a 2 dias úteisR$ 35,50'])
+      expect(screen.queryByText(/Retirada no escritório/)).toBeNull()
+    })
   })
 
   it('sem endereço (a cliente preenche no link): nenhuma cotação, e a frase do link', async () => {

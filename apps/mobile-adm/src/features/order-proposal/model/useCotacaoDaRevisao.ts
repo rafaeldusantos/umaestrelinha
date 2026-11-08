@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { retryUnlessDenied } from '@estrelinha/core/hooks/useStoreOverview'
+import { pickupAvailable, pickupLocation } from '@estrelinha/core/shipping'
 import type { ShippingQuote } from '@estrelinha/supabase/types'
 
 import { lerComPapel } from '@/shared/api/lerComPapel'
 
+import { lerConfiguracaoDaRetirada } from '../api/configuracaoDaRetirada'
 import { cotarFrete } from '../api/portaDaCotacao'
 import { corpoDaCotacao, enderecoCotavel } from './revisao'
 import type { EnderecoDigitado } from './montagem'
@@ -17,6 +19,7 @@ import type { LinhaDaSacola } from './sacola'
  */
 export const COTACAO_DA_MONTAGEM_KEY = 'atelie-montagem-cotacao'
 export const RELOGIO_DA_MONTAGEM_KEY = 'atelie-montagem-relogio'
+export const RETIRADA_DA_MONTAGEM_KEY = 'atelie-montagem-retirada'
 
 const FALHA_DA_COTACAO = 'Não consegui cotar o frete.'
 
@@ -42,6 +45,25 @@ export const useCotacaoDaRevisao = (endereco: EnderecoDigitado | null, pecas: re
     retry: retryUnlessDenied,
   })
   return { pronta, consulta }
+}
+
+/**
+ * A retirada no escritório na prévia: a linha do escritório quando ela vale para o CEP da entrega, ou
+ * `null`. A regra é de `core/shipping` (`pickupAvailable`, o mesmo dono da loja, do painel e da function
+ * `checkout`); a configuração vem de `lerConfiguracaoDaRetirada`, dentro de `lerComPapel`. Lida só com a
+ * prévia pronta (`habilitada`), junto da cotação — a recusa do papel chega à página pela cotação, que
+ * passa pela mesma confirmação. Enquanto não chega (ou falha), a retirada não aparece.
+ */
+export const useRetiradaDaRevisao = (endereco: EnderecoDigitado | null, habilitada: boolean): string | null => {
+  const { data } = useQuery({
+    queryKey: [RETIRADA_DA_MONTAGEM_KEY],
+    queryFn: lerConfiguracaoDaRetirada,
+    enabled: habilitada,
+    staleTime: 5 * 60 * 1000,
+    retry: retryUnlessDenied,
+  })
+  if (!habilitada || !data) return null
+  return pickupAvailable({ enabled: data.ligada, material: data.escritorio, cep: endereco?.cep }) ? pickupLocation(data.escritorio) : null
 }
 
 /** O instante do servidor (o dia de "o link vale até…"), pela mesma confirmação de papel das leituras. */

@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { ORDER_ADMIN_NOTE_MAX, adminNoteLength } from '@estrelinha/core/orders'
+import { PICKUP_METHOD_NAME } from '@estrelinha/core/shipping'
 import { maskPhone } from '@estrelinha/core/validators'
 import type { ShippingQuote } from '@estrelinha/supabase/types'
 
@@ -41,6 +42,7 @@ import {
   prazoDaOpcao,
 } from '../model/revisao'
 import { pecasNaSacola, tituloDaSacola } from '../model/sacola'
+import { useRetiradaDaRevisao } from '../model/useCotacaoDaRevisao'
 import type { ResumoDaMontagemNaTela } from '../model/useResumoDaMontagem'
 
 export interface PassoRevisarProps {
@@ -103,6 +105,9 @@ const PassoRevisar = ({ estado, endereco, resumo, cupom, cotacao, erroDaCriacao,
   const email = cadastrada ? estado.cliente.email : estado.contato.email
   const telefone = cadastrada ? (estado.cliente.phone ?? '') : estado.contato.whatsapp
   const freteGratis = s?.coupon_free_shipping === true
+  // A retirada não é cotação (não passa pelo Melhor Envio): entra na prévia ao lado das opções.
+  const retirada = useRetiradaDaRevisao(endereco, cotacao.pronta)
+  const opcoes = cotacao.opcoes ?? []
 
   return (
     <section aria-label="Revisar" className="space-y-4">
@@ -173,21 +178,35 @@ const PassoRevisar = ({ estado, endereco, resumo, cupom, cotacao, erroDaCriacao,
           <div data-testid="previa-do-frete" aria-live="polite" className="space-y-1.5 border-t border-estrelinha-line pt-3">
             {cotacao.carregando ? (
               <p className="text-sm text-estrelinha-ink-soft">{COTANDO}</p>
-            ) : cotacao.falhou ? (
-              <p className="text-sm text-estrelinha-ink">{COTACAO_FALHOU}</p>
-            ) : (cotacao.opcoes ?? []).length === 0 ? (
-              <p className="text-sm text-estrelinha-ink-soft">{SEM_ENTREGA_PARA_O_CEP}</p>
             ) : (
-              <ul aria-label="Opções de entrega" className="space-y-1.5">
-                {(cotacao.opcoes ?? []).map((q) => (
-                  <li key={q.id} data-testid="opcao-de-entrega" className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-                    <span className="min-w-0 [overflow-wrap:anywhere]">
-                      {q.name} · {prazoDaOpcao(q)}
-                    </span>
-                    <span className="shrink-0 tabular-nums">{freteGratis ? GRATIS : formatPrice(Number.parseFloat(q.price))}</span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {cotacao.falhou && <p className="text-sm text-estrelinha-ink">{COTACAO_FALHOU}</p>}
+                {!cotacao.falhou && opcoes.length === 0 && !retirada && (
+                  <p className="text-sm text-estrelinha-ink-soft">{SEM_ENTREGA_PARA_O_CEP}</p>
+                )}
+                {((!cotacao.falhou && opcoes.length > 0) || retirada) && (
+                  <ul aria-label="Opções de entrega" className="space-y-1.5">
+                    {!cotacao.falhou &&
+                      opcoes.map((q) => (
+                        <li key={q.id} data-testid="opcao-de-entrega" className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+                          <span className="min-w-0 [overflow-wrap:anywhere]">
+                            {q.name} · {prazoDaOpcao(q)}
+                          </span>
+                          <span className="shrink-0 tabular-nums">{freteGratis ? GRATIS : formatPrice(Number.parseFloat(q.price))}</span>
+                        </li>
+                      ))}
+                    {retirada && (
+                      <li data-testid="opcao-de-entrega" className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+                        <span className="min-w-0 flex-1">
+                          <span className="block">{PICKUP_METHOD_NAME}</span>
+                          <span className="block text-xs text-estrelinha-ink-soft [overflow-wrap:anywhere]">{retirada}</span>
+                        </span>
+                        <span className="shrink-0">{GRATIS}</span>
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </>
             )}
             <p className="text-xs text-estrelinha-ink-soft">{PREVIA_DO_FRETE}</p>
           </div>

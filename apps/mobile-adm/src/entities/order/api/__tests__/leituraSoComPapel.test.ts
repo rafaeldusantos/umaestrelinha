@@ -59,6 +59,9 @@ const CATALOGO_DA_MONTAGEM = 'entities/product/api/catalogoDaMontagem.ts'
 // A porta da cotação do passo 4 — só invoca a function (`melhor-envio?action=quote`); quem a chama é a
 // leitura `lerCotacao`, dentro de `lerComPapel(`. A régua 3 abaixo prova que ela não tem um `supabase.from(`.
 const PORTA_DA_COTACAO = 'features/order-proposal/api/portaDaCotacao.ts'
+// A configuração da retirada da prévia do passo 4 (`store_settings`): uma leitura, dentro de
+// `lerComPapel(` — a função que lê não é exportada e só é chamada de dentro dele.
+const CONFIGURACAO_DA_RETIRADA = 'features/order-proposal/api/configuracaoDaRetirada.ts'
 const IMPORTAM_O_CLIENT = [
   LER_COM_PAPEL,
   ...HOOKS,
@@ -69,6 +72,7 @@ const IMPORTAM_O_CLIENT = [
   PORTA_DE_LEITURA,
   CATALOGO_DA_MONTAGEM,
   PORTA_DA_COTACAO,
+  CONFIGURACAO_DA_RETIRADA,
 ]
 
 const arquivos = (dir: string): string[] =>
@@ -212,12 +216,12 @@ const lidos = arquivos(SRC).map((caminho) => {
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os treze arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
 
-  it('régua 1: só lerComPapel, os hooks de pedido e de cliente, a porta de escrita, a dos avisos, a dos montados, a da leitura do texto e a da cotação importam o client — por igualdade', () => {
+  it('régua 1: só lerComPapel, os hooks de pedido e de cliente, a porta de escrita, a dos avisos, a dos montados, a da leitura do texto, a da cotação e a configuração da retirada importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -271,6 +275,25 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     const solta = texto.replace('const lerCatalogo = async (): Promise<PecaParaProposta[]> => {', 'const lerCatalogo = async (): Promise<PecaParaProposta[]> => {\n  void lerVariacoes()')
     expect(solta).not.toBe(texto)
     expect(medir(CATALOGO_DA_MONTAGEM, solta, { podeLer: true }).problemas.length).toBeGreaterThan(0)
+  })
+
+  it('régua 2 (montagem): na configuração da retirada, a supabase.from( só é alcançável por lerComPapel — e ela só lê', () => {
+    const texto = lidos.find((l) => l.rel === CONFIGURACAO_DA_RETIRADA)!.texto
+    const a = medir(CONFIGURACAO_DA_RETIRADA, texto, { podeLer: true })
+    expect(a.froms).toBe(1)
+    expect(a.chamadasLerComPapel).toBeGreaterThan(0)
+    expect(a.problemas).toEqual([])
+    expect(escritasEmArquivoDeCliente(CONFIGURACAO_DA_RETIRADA, texto)).toEqual([])
+  })
+
+  it('sensor (montagem): a leitura da configuração exportada, ou chamada fora de lerComPapel, é acusada', () => {
+    const texto = lidos.find((l) => l.rel === CONFIGURACAO_DA_RETIRADA)!.texto
+    const exportada = texto.replace('const lerLinhas = async', 'export const lerLinhas = async')
+    expect(exportada).not.toBe(texto)
+    expect(medir(CONFIGURACAO_DA_RETIRADA, exportada, { podeLer: true }).problemas.length).toBeGreaterThan(0)
+    const solta = texto.replace('const { resultado } = await lerComPapel(() => lerLinhas())', 'const resultado = await lerLinhas()')
+    expect(solta).not.toBe(texto)
+    expect(medir(CONFIGURACAO_DA_RETIRADA, solta, { podeLer: true }).problemas.length).toBeGreaterThan(0)
   })
 
   it('régua 3 (feature 79): a porta dos avisos não lê tabela nem chama RPC', () => {
@@ -441,10 +464,10 @@ describe('sensores (feature 76) — os quatro de cliente só leem, e leem por le
     expect(escritasEmArquivoDeCliente(H, `${imp}// update insert rpc(\nexport const h = () => supabase.from('customer_list').select('id').eq('id', 1)\nconst x = 'delete'`)).toEqual([])
   })
 
-  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem catorze)', () => {
+  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem quinze)', () => {
     const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
     expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
-    expect(IMPORTAM_O_CLIENT).toHaveLength(14)
+    expect(IMPORTAM_O_CLIENT).toHaveLength(15)
   })
 })
 

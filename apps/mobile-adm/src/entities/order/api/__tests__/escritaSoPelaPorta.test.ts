@@ -82,7 +82,8 @@ const IMPORTAM_O_CLIENT = [
   // O catálogo da montagem (as peças e as variações). Só lê, dentro de `lerComPapel`.
   'entities/product/api/catalogoDaMontagem.ts',
   // A porta da cotação do passo 4. Não lê tabela nem chama RPC — só invoca `melhor-envio?action=quote`.
-  PORTA_DA_COTACAO,
+  PORTA_DA_COTACAO,  // A configuração da retirada do passo 4 (`store_settings`). Só lê, dentro de `lerComPapel`.
+  'features/order-proposal/api/configuracaoDaRetirada.ts',
 ]
 const COMANDOS_DE_TABELA = new Set(['update', 'insert', 'upsert'])
 
@@ -202,7 +203,7 @@ const lidos = arquivos(SRC).map((caminho) => ({ rel: relative(SRC, caminho).spli
 const textoDe = (rel: string) => lidos.find((l) => l.rel === rel)!.texto
 
 describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
-  it('âncora: o app foi lido, com as portas e os catorze importadores do client', () => {
+  it('âncora: o app foi lido, com as portas e os quinze importadores do client', () => {
     expect(lidos.length).toBeGreaterThan(80)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -211,7 +212,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     expect(lidos.flatMap((l) => escritasProibidas(l.rel, l.texto))).toEqual([])
   })
 
-  it('régua 2: só catorze arquivos importam o client — por igualdade', () => {
+  it('régua 2: só quinze arquivos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
