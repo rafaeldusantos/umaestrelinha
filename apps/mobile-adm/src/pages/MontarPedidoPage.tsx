@@ -1,8 +1,10 @@
 import { useCallback, useReducer, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { CustomerParseMode } from '@estrelinha/core/customers'
+import type { PecaParaProposta } from '@estrelinha/core/proposals'
 
 import { useClientesDaMontagem, useEnderecosSalvos, useFichaPorEmail, nomeDoCliente, type ClienteDaMontagem } from '@/entities/customer'
+import { useCatalogoDaMontagem } from '@/entities/product'
 import { useRecusaDePapel } from '@/features/access-check'
 import {
   FECHAR_A_MONTAGEM,
@@ -28,6 +30,15 @@ import {
   montagemPreenchida,
   montagemVazia,
   motivoDoPassoCliente,
+  motivoDoPassoPecas,
+  FolhaDaVariacao,
+  PassoDasPecas,
+  PECA_ACRESCENTADA,
+  PECA_ATUALIZADA,
+  PECA_REMOVIDA,
+  linhaDaEscolha,
+  pecaEVariacao,
+  type LinhaDaSacola,
   reduzirMontagem,
   usePassosDaMontagem,
   type Entrega,
@@ -50,6 +61,9 @@ import { useFolhaNaEntrada, type FolhaNaEntrada } from '@/shared/lib/useFolhaNaE
  *   `customer-parse` — contato e endereço em Cliente nova, só o endereço em "Outro endereço" da
  *   cadastrada — e o resultado só preenche a memória da tela, com "Desfazer". Nada é gravado pela
  *   leitura; a recusa da porta entra na MESMA vigia das leituras.
+ * - **O passo 2 · Peças**: a busca pela regra de `core` sobre o catálogo lido uma vez (`lerComPapel`), a
+ *   folha da variação no histórico (o voltar a fecha) e a sacola com a foto de cada variação. A quantidade
+ *   não passa do estoque somando a mesma variação já na sacola. Nenhuma promoção entra na conta aqui.
  * - **Nada fica no aparelho**: o estado é memória desta tela. As leituras passam por
  *   `lerComPapel`; a recusa (`42501`) entra na vigia da `72`, e enquanto ela vale nenhum dado de cliente
  *   é desenhado.
@@ -71,16 +85,21 @@ const MontarPedidoPage = () => {
   })
   const [termo, setTermo] = useState('')
   const [aviso, setAviso] = useState<string[]>([])
+  const folhaDaVariacao = useFolhaNaEntrada('variacao-da-peca')
+  const [escolha, setEscolha] = useState<{ peca: PecaParaProposta; linha: LinhaDaSacola | null } | null>(null)
+  const [geracaoDaBusca, setGeracaoDaBusca] = useState(0)
+  const proximaChave = useRef(0)
   const refDoEmail = useRef<HTMLInputElement>(null)
 
   const naBusca = estado.modo === 'cadastrada' && !estado.cliente
   const busca = useClientesDaMontagem(termo, naBusca)
   const enderecos = useEnderecosSalvos(estado.modo === 'cadastrada' ? (estado.cliente?.fichaId ?? null) : null)
   const ficha = useFichaPorEmail(estado.modo === 'nova' ? estado.contato.email : '')
+  const catalogo = useCatalogoDaMontagem(passos.passo === 2)
 
   const recusada = useRecusaDePapel(
-    [busca.error, enderecos.error, ficha.error, leitura.erroBruto],
-    (naBusca ? !!busca.data && !busca.isError : true) && !enderecos.isError && !ficha.isError,
+    [busca.error, enderecos.error, ficha.error, leitura.erroBruto, catalogo.error],
+    (naBusca ? !!busca.data && !busca.isError : true) && !enderecos.isError && !ficha.isError && !catalogo.isError,
   )
 
   // A entrega de quem ainda não escolheu: a cadastrada no endereço padrão (ou no link, sem endereço
@@ -104,7 +123,24 @@ const MontarPedidoPage = () => {
   const motivo =
     passos.passo === 1
       ? motivoDoPassoCliente(estado, { entregaEfetiva, temFicha: fichaDoEmail !== null })
-      : null
+      : passos.passo === 2
+        ? motivoDoPassoPecas(estado)
+        : null
+
+  const abrirPeca = (peca: PecaParaProposta, linha: LinhaDaSacola | null) => {
+    setEscolha({ peca, linha })
+    folhaDaVariacao.abrir()
+  }
+
+  const confirmarPeca: Parameters<typeof FolhaDaVariacao>[0]['aoConfirmar'] = ({ variacao, quantidade, gravacao }) => {
+    if (!escolha) return
+    const chave = escolha.linha?.chave ?? `linha-${(proximaChave.current += 1)}`
+    const linha = linhaDaEscolha(chave, escolha.peca, variacao, quantidade, gravacao)
+    despachar(escolha.linha ? { tipo: 'atualizar-peca', linha } : { tipo: 'acrescentar-peca', linha })
+    setAviso([escolha.linha ? PECA_ATUALIZADA : PECA_ACRESCENTADA, pecaEVariacao(linha)])
+    setGeracaoDaBusca((g) => g + 1)
+    folhaDaVariacao.fechar()
+  }
 
   const usarFicha = useCallback(
     (c: ClienteDaMontagem) => {
@@ -216,7 +252,28 @@ const MontarPedidoPage = () => {
             }}
           />
         )}
-        {passos.passo > 1 && (
+        {passos.passo === 2 && !recusada && (
+          <PassoDasPecas
+            sacola={estado.pecas}
+            catalogo={{
+              dado: catalogo.data,
+              carregando: catalogo.isPending,
+              falhou: catalogo.isError && !catalogo.data,
+              tentarDeNovo: () => void catalogo.refetch(),
+            }}
+            geracaoDaBusca={geracaoDaBusca}
+            aoEscolherPeca={(peca) => abrirPeca(peca, null)}
+            aoEditar={(linha) => {
+              const peca = catalogo.data?.find((p) => p.id === linha.pecaId)
+              if (peca) abrirPeca(peca, linha)
+            }}
+            aoRemover={(linha) => {
+              despachar({ tipo: 'remover-peca', chave: linha.chave })
+              setAviso([PECA_REMOVIDA])
+            }}
+          />
+        )}
+        {passos.passo > 2 && (
           <section aria-label={PASSOS_DA_MONTAGEM[passos.passo - 1]}>
             <h2 className="font-display text-lg text-estrelinha-ink">{PASSOS_DA_MONTAGEM[passos.passo - 1]}</h2>
           </section>
@@ -254,6 +311,13 @@ const MontarPedidoPage = () => {
         </div>
       </div>
 
+      <FolhaDaVariacao
+        controle={folhaDaVariacao}
+        peca={escolha?.peca ?? null}
+        editando={escolha?.linha ?? null}
+        sacola={estado.pecas}
+        aoConfirmar={confirmarPeca}
+      />
       <FolhaColarTexto
         controle={folhaDeLeitura}
         escopo={escopoDaLeitura}

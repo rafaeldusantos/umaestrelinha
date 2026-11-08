@@ -53,7 +53,10 @@ const PORTA_DE_PROPOSTAS = 'features/order-proposal/api/portaDePropostas.ts'
 // A porta da leitura do texto colado — só invoca a function (`customer-parse`); a régua 3 abaixo prova
 // que ela não tem um `supabase.from(` sequer.
 const PORTA_DE_LEITURA = 'features/order-proposal/api/portaDeLeitura.ts'
-const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE, PORTA_DE_AVISOS, PORTA_DE_PROPOSTAS, PORTA_DE_LEITURA]
+// O catálogo da montagem (o passo 2 · Peças): as peças e as variações, as duas leituras dentro de
+// `lerComPapel(` — as funções que leem não são exportadas e só são chamadas de dentro dele.
+const CATALOGO_DA_MONTAGEM = 'entities/product/api/catalogoDaMontagem.ts'
+const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE, PORTA_DE_AVISOS, PORTA_DE_PROPOSTAS, PORTA_DE_LEITURA, CATALOGO_DA_MONTAGEM]
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -196,7 +199,7 @@ const lidos = arquivos(SRC).map((caminho) => {
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os doze arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os treze arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -232,6 +235,29 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
   it('régua 2 (feature 76, MAC-30): os de cliente só LEEM — nenhum insert, update, upsert, delete ou rpc(', () => {
     const achados = HOOKS_DE_CLIENTE.flatMap((rel) => escritasEmArquivoDeCliente(rel, lidos.find((l) => l.rel === rel)!.texto))
     expect(achados).toEqual([])
+  })
+
+  it('régua 2 (montagem): no catálogo, toda supabase.from( só é alcançável por lerComPapel — e ele só lê', () => {
+    const texto = lidos.find((l) => l.rel === CATALOGO_DA_MONTAGEM)!.texto
+    const a = medir(CATALOGO_DA_MONTAGEM, texto, { podeLer: true })
+    // Âncora: as quatro leituras (a contagem e a página das peças, a contagem e a página das variações),
+    // as mesmas que o texto sem comentário mostra, e a chamada a lerComPapel.
+    const porTexto = [...texto.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '').matchAll(/\bsupabase\s*\.from\(/g)].length
+    expect(a.froms).toBe(4)
+    expect(a.froms).toBe(porTexto)
+    expect(a.chamadasLerComPapel).toBeGreaterThan(0)
+    expect(a.problemas).toEqual([])
+    expect(escritasEmArquivoDeCliente(CATALOGO_DA_MONTAGEM, texto)).toEqual([])
+  })
+
+  it('sensor (montagem): a leitura do catálogo exportada, ou chamada fora de lerComPapel, é acusada', () => {
+    const texto = lidos.find((l) => l.rel === CATALOGO_DA_MONTAGEM)!.texto
+    const exportada = texto.replace('const lerPecas = async', 'export const lerPecas = async')
+    expect(exportada).not.toBe(texto)
+    expect(medir(CATALOGO_DA_MONTAGEM, exportada, { podeLer: true }).problemas.length).toBeGreaterThan(0)
+    const solta = texto.replace('const lerCatalogo = async (): Promise<PecaParaProposta[]> => {', 'const lerCatalogo = async (): Promise<PecaParaProposta[]> => {\n  void lerVariacoes()')
+    expect(solta).not.toBe(texto)
+    expect(medir(CATALOGO_DA_MONTAGEM, solta, { podeLer: true }).problemas.length).toBeGreaterThan(0)
   })
 
   it('régua 3 (feature 79): a porta dos avisos não lê tabela nem chama RPC', () => {
@@ -395,9 +421,9 @@ describe('sensores (feature 76) — os quatro de cliente só leem, e leem por le
     expect(escritasEmArquivoDeCliente(H, `${imp}// update insert rpc(\nexport const h = () => supabase.from('customer_list').select('id').eq('id', 1)\nconst x = 'delete'`)).toEqual([])
   })
 
-  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem doze)', () => {
+  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem treze)', () => {
     const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
     expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
-    expect(IMPORTAM_O_CLIENT).toHaveLength(12)
+    expect(IMPORTAM_O_CLIENT).toHaveLength(13)
   })
 })

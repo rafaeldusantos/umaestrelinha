@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { montagemVazia, reduzirMontagem, type LeituraRecebida } from '../montagem'
+import type { LinhaDaSacola } from '../sacola'
 
 const LIDA: LeituraRecebida = {
   escopo: 'contact_and_address',
@@ -16,12 +17,13 @@ describe('desfazer a leitura', () => {
     const antes = reduzirMontagem(montagemVazia(), { tipo: 'modo', modo: 'nova' })
     const lida = reduzirMontagem(antes, { tipo: 'leitura', lida: LIDA })
     expect(lida.contato.nome).toBe('Ana Souza')
-    const comPecas = { ...lida, pecas: 3 }
+    const linha: LinhaDaSacola = { chave: 'l1', pecaId: 'p1', variacaoId: null, quantidade: 3, gravacao: '', nome: 'Pingente', rotulo: null, foto: null, preco: 100, pedeMaterial: false }
+    const comPecas = { ...lida, pecas: [linha] }
     const desfeita = reduzirMontagem(comPecas, { tipo: 'desfazer-leitura' })
     expect(desfeita.contato.nome).toBe('')
     expect(desfeita.endereco.numero).toBe('')
     expect(desfeita.leitura).toBeNull()
     expect(desfeita.marcas).toEqual([])
-    expect(desfeita.pecas).toBe(3)
+    expect(desfeita.pecas).toEqual([linha])
   })
 })

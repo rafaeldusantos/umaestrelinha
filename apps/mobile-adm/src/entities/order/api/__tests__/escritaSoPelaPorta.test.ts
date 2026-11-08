@@ -73,6 +73,8 @@ const IMPORTAM_O_CLIENT = [
   PORTA_DE_PROPOSTAS,
   // A porta da leitura do texto colado. Não lê tabela nem chama RPC — só invoca `customer-parse`.
   PORTA_DE_LEITURA,
+  // O catálogo da montagem (as peças e as variações). Só lê, dentro de `lerComPapel`.
+  'entities/product/api/catalogoDaMontagem.ts',
 ]
 const COMANDOS_DE_TABELA = new Set(['update', 'insert', 'upsert'])
 
@@ -192,7 +194,7 @@ const lidos = arquivos(SRC).map((caminho) => ({ rel: relative(SRC, caminho).spli
 const textoDe = (rel: string) => lidos.find((l) => l.rel === rel)!.texto
 
 describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
-  it('âncora: o app foi lido, com as portas e os doze importadores do client', () => {
+  it('âncora: o app foi lido, com as portas e os treze importadores do client', () => {
     expect(lidos.length).toBeGreaterThan(80)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -201,7 +203,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     expect(lidos.flatMap((l) => escritasProibidas(l.rel, l.texto))).toEqual([])
   })
 
-  it('régua 2: só doze arquivos importam o client — por igualdade', () => {
+  it('régua 2: só treze arquivos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })

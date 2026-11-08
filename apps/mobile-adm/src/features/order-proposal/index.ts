@@ -37,3 +37,6 @@ export { default as PassoDaCliente, type PassoDaClienteProps, type BuscaDaMontag
 export * from './model/frasesDaMontagem'
 export { useLeituraDoTexto, type LeituraDoTexto } from './model/useLeituraDoTexto'
 export { default as FolhaColarTexto, type FolhaColarTextoProps } from './ui/FolhaColarTexto'
+export * from './model/sacola'
+export { default as PassoDasPecas, type PassoDasPecasProps, type CatalogoDoPasso } from './ui/PassoDasPecas'
+export { default as FolhaDaVariacao, type FolhaDaVariacaoProps } from './ui/FolhaDaVariacao'

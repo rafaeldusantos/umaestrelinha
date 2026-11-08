@@ -105,6 +105,10 @@ describe('o registro dos pedidos montados é memorial — âncoras', () => {
         'pages/MontarPedidoPage.tsx',
         // A folha "Colar texto".
         'features/order-proposal/ui/FolhaColarTexto.tsx',
+        // O passo 2 · Peças: a sacola, a busca e a folha da variação.
+        'features/order-proposal/model/sacola.ts',
+        'features/order-proposal/ui/PassoDasPecas.tsx',
+        'features/order-proposal/ui/FolhaDaVariacao.tsx',
       ]),
     )
     expect(ESCOPO.length).toBeGreaterThanOrEqual(8)
@@ -129,6 +133,10 @@ describe('o registro dos pedidos montados é memorial — âncoras', () => {
       'Tem os dados numa mensagem?',
       'A leitura está fora do ar agora. Feche e preencha à mão — nada do que você já fez se perde.',
       'Lido do texto — confira.',
+      // O passo 2 · Peças.
+      'Acrescente ao menos uma peça.',
+      'Pede material da cliente. Depois de pago, o pedido entra na fila de material como os da loja.',
+      'Opcional. Deixe em branco se ela preferir a peça sem gravação.',
     ])
       expect(junto).toContain(frase)
   })

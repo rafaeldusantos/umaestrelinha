@@ -3,6 +3,8 @@ import type { CepField, CustomerParseMode, ParsedAddress, ParsedContact } from '
 
 import type { ClienteDaMontagem } from '@/entities/customer'
 
+import { MOTIVO_SEM_PECA, pecasNaSacola, type LinhaDaSacola } from './sacola'
+
 /**
  * O estado da MONTAGEM de um pedido no app — memória da tela, e só dela: nada vai ao
  * servidor nem ao armazenamento do aparelho (o rascunho é de outra tarefa), e tudo some ao fechar a
@@ -48,8 +50,8 @@ export interface EstadoDaMontagem {
   endereco: EnderecoDigitado
   salvarNoCadastro: boolean
   contato: ContatoDigitado
-  /** As peças (os passos 2 a 4 entram depois): aqui só a contagem que a barra desenha. */
-  pecas: number
+  /** A sacola (o passo 2): as linhas escolhidas, na ordem em que entraram. */
+  pecas: LinhaDaSacola[]
   /** A última leitura de um texto colado — o aviso do passo 1 —, ou `null`. */
   leitura: LeituraNaTela | null
   /** Os campos que a leitura preencheu e a Adri ainda não editou ("Lido do texto — confira."). */
@@ -93,7 +95,7 @@ export const montagemVazia = (): EstadoDaMontagem => ({
   endereco: ENDERECO_VAZIO,
   salvarNoCadastro: true,
   contato: CONTATO_VAZIO,
-  pecas: 0,
+  pecas: [],
   leitura: null,
   marcas: [],
   antesDaLeitura: null,
@@ -114,6 +116,10 @@ export type AcaoDaMontagem =
   | { tipo: 'leitura'; lida: LeituraRecebida }
   /** "Desfazer": volta exatamente ao estado de antes da última leitura. */
   | { tipo: 'desfazer-leitura' }
+  /** O passo 2: acrescentar uma linha à sacola, trocar a linha da mesma chave (editar), tirar uma linha. */
+  | { tipo: 'acrescentar-peca'; linha: LinhaDaSacola }
+  | { tipo: 'atualizar-peca'; linha: LinhaDaSacola }
+  | { tipo: 'remover-peca'; chave: string }
 
 export const cepCompleto = (cep: string): boolean => stripCep(cep).length === 8
 
@@ -192,6 +198,12 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
       return estado.antesDaLeitura ? { ...estado.antesDaLeitura, pecas: estado.pecas } : estado
     case 'salvar-no-cadastro':
       return { ...estado, salvarNoCadastro: acao.valor }
+    case 'acrescentar-peca':
+      return { ...estado, pecas: [...estado.pecas, acao.linha] }
+    case 'atualizar-peca':
+      return { ...estado, pecas: estado.pecas.map((l) => (l.chave === acao.linha.chave ? acao.linha : l)) }
+    case 'remover-peca':
+      return { ...estado, pecas: estado.pecas.filter((l) => l.chave !== acao.chave) }
     case 'usar-ficha': {
       const comEndereco = cepCompleto(estado.endereco.cep)
       // A leitura vira leitura só de endereço: as marcas de contato saem junto (e, sem o endereço, todas).
@@ -218,7 +230,7 @@ export const montagemPreenchida = (e: EstadoDaMontagem): boolean =>
   e.cliente !== null ||
   e.contato.nome.trim() !== '' ||
   e.contato.email.trim() !== '' ||
-  e.pecas > 0 ||
+  e.pecas.length > 0 ||
   stripCep(e.endereco.cep) !== ''
 
 /** O endereço digitado tem CEP, rua, número, bairro, cidade e UF (o complemento é opcional). */
@@ -230,6 +242,9 @@ export const MOTIVO_FALTA_O_NOME = 'Falta o nome da cliente.'
 export const MOTIVO_FALTA_O_EMAIL = 'Falta o e-mail da cliente — é por ele que o pedido chega a ela.'
 export const MOTIVO_CONFIRA_O_EMAIL = 'Confira o e-mail da cliente.'
 export const MOTIVO_EMAIL_COM_FICHA = 'Este e-mail já tem ficha. Use a ficha dela ou corrija o e-mail.'
+/** O motivo do bloqueio do passo 2, ou `null`: a sacola precisa de ao menos uma peça. */
+export const motivoDoPassoPecas = (e: EstadoDaMontagem): string | null => (e.pecas.length === 0 ? MOTIVO_SEM_PECA : null)
+
 export const MOTIVO_COMPLETE_O_ENDERECO = "Complete o endereço, ou escolha 'A cliente preenche no link'."
 
 /**
@@ -266,6 +281,8 @@ export const ENDERECO_LIDO_FICOU_COMO_OUTRO = 'O endereço lido do texto ficou c
 export const ENTREGA_NO_PADRAO = 'A entrega veio no endereço padrão dela.'
 
 export const passoDeQuatro = (n: NumeroDoPasso): string => `Passo ${n} de 4 · ${PASSOS_DA_MONTAGEM[n - 1]}`
-export const itensDaBarra = (pecas: number): string =>
-  pecas === 0 ? NENHUMA_PECA : `Itens · ${pecas === 1 ? '1 peça' : `${pecas} peças`} · frete à parte`
+export const itensDaBarra = (sacola: readonly LinhaDaSacola[]): string => {
+  const pecas = pecasNaSacola(sacola)
+  return pecas === 0 ? NENHUMA_PECA : `Itens · ${pecas === 1 ? '1 peça' : `${pecas} peças`} · frete à parte`
+}
 

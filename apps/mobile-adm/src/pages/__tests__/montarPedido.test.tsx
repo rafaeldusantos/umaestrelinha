@@ -49,6 +49,18 @@ const filtrar = (cadeia: Elo[]) => {
   return CLIENTES.filter((c) => condicoes.some((k) => casa(String((c as Record<string, unknown>)[k.col] ?? ''), k.padrao)))
 }
 
+// O catálogo do passo 2: uma peça sem grade, para o passo poder seguir (ele pede ao menos uma peça).
+const PECA = {
+  id: 'bbbbbbbb-0000-4000-8000-000000000001', name: 'Colar Estrela', base_price: 120, image_url: null, capa: null, is_active: true,
+  stock_policy: 'track', stock_total: 5, requires_material: false, engraving_max_chars: null, options: [],
+  weight_kg: null, width_cm: null, height_cm: null, length_cm: null,
+}
+/** Como o PostgREST responde: a contagem no `head`, a página pelo `range`. */
+const comoOPostgrest = (linhas: unknown[]) => (cadeia: Elo[]) =>
+  (cadeia.find((e) => e.metodo === 'select')?.args[1] as { head?: boolean } | undefined)?.head
+    ? { data: null, error: null, count: linhas.length }
+    : { data: linhas, error: null }
+
 const CEPS: Record<string, unknown> = {
   '90010000': { logradouro: 'Rua dos Andradas', bairro: 'Centro Histórico', localidade: 'Porto Alegre', uf: 'RS' },
 }
@@ -92,6 +104,8 @@ beforeEach(() => {
   fake.responderTabela('order_list', { data: [], error: null, count: 0 })
   fake.filaDeInvocacao('order-proposals?action=list', ...Array.from({ length: 40 }, () => () => ({ data: { proposals: [], agora: AGORA }, error: null })))
   fake.responderTabela('customer_list', (cadeia) => ({ data: filtrar(cadeia), error: null }))
+  fake.responderTabela('products', comoOPostgrest([PECA]))
+  fake.responderTabela('product_variants', comoOPostgrest([]))
   fake.responderTabela('addresses', (cadeia) => {
     const id = cadeia.find((e) => e.metodo === 'eq' && e.args[0] === 'customer_id')?.args[1] as string
     return { data: ENDERECOS[id] ?? [], error: null }
@@ -181,6 +195,9 @@ describe('o voltar do Android e o fechar', () => {
     await abrirPelaListaDePedidos()
     await escolher('Helena Prado')
     await clicar(continuar())
+    // O passo 2 pede ao menos uma peça para seguir.
+    await clicar(within(screen.getByRole('list', { name: 'Joias' })).getByRole('button', { name: /Colar Estrela/ }))
+    await clicar(within(screen.getByRole('dialog')).getByRole('button', { name: /^Acrescentar · / }))
     await clicar(continuar())
     expect(screen.getByText('Passo 3 de 4 · Descontos')).toBeInTheDocument()
     await voltar()

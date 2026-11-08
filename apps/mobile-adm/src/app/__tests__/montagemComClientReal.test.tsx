@@ -191,3 +191,55 @@ describe('a porta da leitura do texto colado, sobre o client real', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(FORA_DO_AR)
   })
 })
+
+describe('o catálogo do passo 2 · Peças, sobre o client real', () => {
+  const PRODUCTS = '/rest/v1/products'
+  const NOME_DA_JOIA = 'Joia Que Ninguém Deve Ver'
+  const CATALOGO = {
+    ...TABELAS,
+    products: ok([{ id: '00000000-0000-4000-c094-000000000888', name: NOME_DA_JOIA, base_price: 100, capa: null, image_url: null, is_active: true, stock_policy: 'track', stock_total: 2, options: [] }]),
+    product_variants: ok([]),
+  }
+
+  /** O passo 1 com a cliente escolhida e o endereço padrão — pronto para "Continuar". */
+  const prontaParaAsPecas = async () => {
+    const r = real.criar({ sessao: 'valida', papel: 'admin', cadastro: 'ok', rpc: { atelie_clock: RELOGIO_OK }, tabelas: CATALOGO })
+    window.history.pushState({ usr: { doApp: true, passoDaMontagem: 0 }, key: 'montar', idx: 0 }, '', '/pedidos/montar')
+    render(<App />)
+    for (let i = 0; i < 60 && !screen.queryByRole('button', { name: new RegExp(NOME_DELA) }); i++) await andar(50)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(NOME_DELA) }))
+    for (let i = 0; i < 60 && !document.body.textContent?.includes(RUA_DELA); i++) await andar(50)
+    return r
+  }
+
+  it('conta sem papel na leitura do catálogo: RPC 403 `42501` ⇒ a recusa, e nenhuma peça em instante nenhum', async () => {
+    const r = await prontaParaAsPecas()
+    expect(r.quantos(PRODUCTS)).toBe(0)
+    r.estado.rpc.atelie_clock = RECUSA_403
+    r.estado.papel = 'not-admin'
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    const instantes: string[] = [document.body.textContent ?? '']
+    for (let feito = 0; feito < 4000; feito += 50) {
+      await andar(50)
+      instantes.push(document.body.textContent ?? '')
+    }
+    expect(r.quantos(PRODUCTS)).toBeGreaterThan(0)
+    expect(window.location.pathname).toBe('/login')
+    expect(screen.getByText(SEM_ACESSO)).toBeInTheDocument()
+    expect(instantes.findIndex((t) => t.includes(NOME_DA_JOIA))).toBe(-1)
+  })
+
+  it('a RPC com a rede caída na leitura do catálogo ⇒ a falha do bloco, NUNCA a recusa', async () => {
+    const r = await prontaParaAsPecas()
+    r.estado.rpc.atelie_clock = 'rede'
+    const papelAntes = r.quantos(ROLES)
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    for (let feito = 0; feito < 4000; feito += 50) await andar(50)
+    expect(r.quantos(PRODUCTS)).toBeGreaterThan(0)
+    expect(window.location.pathname).toBe('/pedidos/montar')
+    expect(screen.queryByText(SEM_ACESSO)).toBeNull()
+    expect(screen.getByText(FALHA_DE_LEITURA)).toBeInTheDocument()
+    expect(r.quantos(ROLES)).toBe(papelAntes)
+    expect(document.body.textContent).not.toContain(NOME_DA_JOIA)
+  })
+})
