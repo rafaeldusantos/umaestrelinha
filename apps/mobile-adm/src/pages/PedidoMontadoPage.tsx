@@ -1,6 +1,7 @@
-import { useCallback, useEffect, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
+import { cn } from '@estrelinha/ui/lib/utils'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { whatsappChatUrl } from '@estrelinha/core/notifications'
 import { formatOrderNumber, formatShortDate } from '@estrelinha/core/orders'
@@ -8,7 +9,7 @@ import { proposalLink, proposalRenewText, proposalWhatsappText } from '@estrelin
 
 import { montadosHref, montarPedidoHref, pedidoHref } from '@/entities/order'
 import { useRecusaDePapel } from '@/features/access-check'
-import { FolhaDaObservacao, useRecusaDaAcao } from '@/features/order-actions'
+import { FolhaDaObservacao, publicarAlturaDoRodape, registrarRodape, useRecusaDaAcao } from '@/features/order-actions'
 import {
   AGORA_NAO,
   CANCELAR_ESTE_PEDIDO,
@@ -53,8 +54,11 @@ import {
 } from '@/features/order-proposal'
 import { origemDaLoja } from '@/shared/config/loja'
 import { useFolhaNaEntrada } from '@/shared/lib/useFolhaNaEntrada'
+import { RESERVA_DO_RODAPE, RODAPE_NO_FIM } from '@/shared/ui/alturas'
+import { BOTAO_SECUNDARIO } from '@/shared/ui/campo'
 import FotoDaPeca from '@/shared/ui/FotoDaPeca'
 import PullToRefresh from '@/shared/ui/PullToRefresh'
+import { FaixaDoTom } from '@/shared/ui/Selo'
 import { FalhaDoBloco, LinhaDeFrescor, Traco } from '@/shared/ui/leitura'
 
 const ROTULO_DO_CARTAO = 'font-body text-[11px] font-semibold uppercase tracking-[.1em] text-estrelinha-ink-soft'
@@ -85,6 +89,37 @@ const BotaoVoltar = () => {
     >
       <ChevronLeft aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={1.5} />
     </button>
+  )
+}
+
+/**
+ * O rodapé fixo do pedido montado (a ação principal da concluída, "Ver o pedido #0262"): o MESMO
+ * desenho e a mesma altura publicada do rodapé da ação do pedido (`RodapeDaAcao`), para o aviso subir
+ * acima dele e a reserva no fim do conteúdo não deixar o Histórico por baixo.
+ */
+const RodapeDoMontado = ({ children }: { children: ReactNode }) => {
+  const caixa = useRef<HTMLDivElement>(null)
+  useEffect(() => registrarRodape(), [])
+  useEffect(() => {
+    const el = caixa.current
+    if (!el) return
+    publicarAlturaDoRodape(el.getBoundingClientRect().height)
+    if (typeof ResizeObserver === 'undefined') return
+    const observador = new ResizeObserver(() => publicarAlturaDoRodape(el.getBoundingClientRect().height))
+    observador.observe(el)
+    return () => observador.disconnect()
+  }, [])
+  return (
+    <>
+      <div data-testid="reserva-do-rodape-do-montado" aria-hidden="true" className={`${RESERVA_DO_RODAPE} shrink-0`} />
+      <div
+        ref={caixa}
+        data-testid="rodape-do-montado"
+        className={`fixed inset-x-0 z-30 bg-estrelinha-surface px-4 pt-3 shadow-[0_-1px_0_0_theme(colors.estrelinha.line)] ${RODAPE_NO_FIM}`}
+      >
+        <div className="mx-auto max-w-lg">{children}</div>
+      </div>
+    </>
   )
 }
 
@@ -230,11 +265,11 @@ const PedidoMontadoPage = () => {
               />
             )}
             {estado === 'completed' && (
-              <p data-testid="faixa-do-montado" className="rounded-lg bg-estrelinha-ground-deep p-4 text-sm text-estrelinha-ink [overflow-wrap:anywhere]">
+              <FaixaDoTom tom="done" dados={{ 'data-testid': 'faixa-do-montado' }} className="rounded-md p-4 text-sm [overflow-wrap:anywhere]">
                 {faixaConcluida(p.customer_name).antes}
                 <strong>{formatOrderNumber(p.order_number)}</strong>
                 {faixaConcluida(p.customer_name).depois}
-              </p>
+              </FaixaDoTom>
             )}
             {estado === 'expired' && (
               <p data-testid="faixa-do-montado" className="rounded-lg bg-estrelinha-ground-deep p-4 text-sm text-estrelinha-ink [overflow-wrap:anywhere]">
@@ -332,20 +367,32 @@ const PedidoMontadoPage = () => {
             </Cartao>
 
             <Cartao id="historico" titulo={HISTORICO}>
-              <ol aria-label="Histórico do pedido montado" className="space-y-2">
+              <ol aria-label="Histórico do pedido montado">
                 {[...p.events]
                   .sort((a, b) => b.created_at.localeCompare(a.created_at))
-                  .map((e, i) => (
-                    <li key={`${e.kind}-${e.created_at}-${i}`} data-testid="evento-do-montado" className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-                      <span className="font-medium">{rotuloDoEvento(e)}</span>
+                  .map((e, i, todos) => (
+                    <li
+                      key={`${e.kind}-${e.created_at}-${i}`}
+                      data-testid="evento-do-montado"
+                      className="relative flex flex-wrap items-baseline justify-between gap-x-3 pb-3 pl-5 text-sm last:pb-0"
+                    >
+                      <span className="font-medium">{rotuloDoEvento(e, p.order_number)}</span>
                       <span className="text-xs text-estrelinha-ink-soft [overflow-wrap:anywhere]">{formatShortDate(e.created_at)}</span>
+                      <span
+                        aria-hidden="true"
+                        data-parte="ponto"
+                        className={`absolute left-0 top-[6px] h-2 w-2 rounded-full ${i === 0 ? 'bg-estrelinha-accent' : 'bg-estrelinha-line'}`}
+                      />
+                      {i < todos.length - 1 && (
+                        <span aria-hidden="true" data-parte="fio" className="absolute bottom-0 left-[3px] top-[16px] w-px bg-estrelinha-line" />
+                      )}
                     </li>
                   ))}
               </ol>
             </Cartao>
 
             {(achado.actions?.edit || achado.actions?.cancel) && (
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2">
+              <div className="flex flex-col gap-1">
                 {achado.actions?.edit && (
                   <button
                     type="button"
@@ -354,7 +401,7 @@ const PedidoMontadoPage = () => {
                       marcarEdicao(id)
                       navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: 0 } })
                     }}
-                    className="min-h-12 w-full rounded-sm bg-estrelinha-ink px-4 text-base font-medium text-estrelinha-on-primary"
+                    className={cn(BOTAO_SECUNDARIO, 'border border-estrelinha-primary px-4 text-base')}
                   >
                     {EDITAR}
                   </button>
@@ -363,7 +410,7 @@ const PedidoMontadoPage = () => {
                   <button
                     type="button"
                     onClick={() => abrirFolha(folhaCancelar)}
-                    className="min-h-12 w-full rounded-sm border border-estrelinha-alert px-4 text-base font-medium text-estrelinha-alert"
+                    className="min-h-12 w-full rounded-sm bg-transparent px-4 text-center text-base font-medium text-estrelinha-alert hover:bg-estrelinha-alert-soft"
                   >
                     {CANCELAR_ESTE_PEDIDO}
                   </button>
@@ -380,13 +427,15 @@ const PedidoMontadoPage = () => {
               </button>
             )}
             {achado.actions?.viewOrder && p.order_id && (
-              <Link
-                to={pedidoHref(p.order_id)}
-                state={{ doApp: true }}
-                className="flex min-h-12 w-full items-center justify-center rounded-sm bg-estrelinha-primary px-4 text-base font-medium text-estrelinha-on-primary"
-              >
-                {verOPedido(p.order_number)}
-              </Link>
+              <RodapeDoMontado>
+                <Link
+                  to={pedidoHref(p.order_id)}
+                  state={{ doApp: true }}
+                  className="flex min-h-12 w-full items-center justify-center rounded-sm bg-estrelinha-primary px-4 py-2 text-center text-base font-medium text-estrelinha-on-primary hover:bg-estrelinha-primary-strong [overflow-wrap:anywhere]"
+                >
+                  {verOPedido(p.order_number)}
+                </Link>
+              </RodapeDoMontado>
             )}
 
             <FolhaDeConfirmacao

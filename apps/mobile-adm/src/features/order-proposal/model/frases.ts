@@ -142,9 +142,9 @@ const EVENTOS: readonly (readonly [EventoDoMontado['kind'], string])[] = [
   ['created', 'Pedido montado'],
   ['edited', 'Editado'],
   ['link_sent', 'Link enviado'],
-  ['viewed', 'Visto pela cliente'],
-  ['renewed', 'Prazo renovado'],
-  ['cancelled', 'Cancelado'],
+  ['viewed', 'Aberto pela cliente'],
+  ['renewed', 'Prazo renovado · link novo, o anterior parou de funcionar'],
+  ['cancelled', 'Cancelado por você'],
   ['completed', 'Concluído pela cliente'],
 ]
 const CANAIS: readonly (readonly [CanalDoEnvio, string])[] = [
@@ -152,11 +152,16 @@ const CANAIS: readonly (readonly [CanalDoEnvio, string])[] = [
   ['copy', 'copiado'],
 ]
 
-/** "Link enviado · WhatsApp", "Link enviado · copiado", "Pedido montado"… */
-export const rotuloDoEvento = (e: Pick<EventoDoMontado, 'kind' | 'channel'>): string => {
+/**
+ * "Link enviado · WhatsApp", "Link enviado · copiado", "Pedido montado"… A conclusão leva o número do
+ * pedido que ela virou ("Concluído pela cliente · pedido #0262"), quando a leitura o traz.
+ */
+export const rotuloDoEvento = (e: Pick<EventoDoMontado, 'kind' | 'channel'>, numeroDoPedido?: string | null): string => {
   const base = EVENTOS.find(([k]) => k === e.kind)?.[1] ?? 'Atualizado'
   const canal = e.channel ? CANAIS.find(([c]) => c === e.channel)?.[1] : null
-  return canal ? `${base} · ${canal}` : base
+  if (canal) return `${base} · ${canal}`
+  const pedido = e.kind === 'completed' ? formatOrderNumber(numeroDoPedido) : ''
+  return pedido ? `${base} · pedido ${pedido}` : base
 }
 
 // As ações

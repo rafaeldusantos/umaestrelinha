@@ -1,7 +1,6 @@
 import { LINK_WITHOUT_STORE, RENEW_WITHOUT_LINK_LABEL } from '@estrelinha/core/proposals'
 
 import { nomeDoLinkExterno } from '@/shared/config/novaAba'
-import { WHATSAPP_FUNDO, WHATSAPP_TEXTO } from '@/shared/config/whatsapp'
 
 import { COPIAR_LINK, ENVIAR_PELO_WHATSAPP, LINK_SEM_CIFRA, MENSAGEM_DO_WHATSAPP, SEM_TELEFONE, linkPara, valeAte } from '../model/frases'
 
@@ -15,6 +14,12 @@ import { COPIAR_LINK, ENVIAR_PELO_WHATSAPP, LINK_SEM_CIFRA, MENSAGEM_DO_WHATSAPP
  * - **Sem a loja configurada** (`VITE_STORE_URL`): a frase `LINK_WITHOUT_STORE` de `core`.
  * - O WhatsApp é um link de verdade (`<a target="_blank">`), não um `window.open`: o navegador não o
  *   bloqueia, e o toque registra o envio.
+ * - **O desenho é o do protótipo** (Montar Pedido, o pedido montado): sobretítulo de 11 px, a caixa do
+ *   link com borda translúcida na fonte do corpo, o WhatsApp no verde da paleta com texto `ink` em
+ *   display (ink sobre `whatsapp` passa de 4,5:1 — ao contrário do branco, que é por isso que o lembrete
+ *   do pedido usa o verde-escuro), "Copiar link" translúcido sobre `ink`. Os tons sobre `ink` que o
+ *   protótipo nomeia (`on-ink-border`, `on-ink-surface`) não existem no preset: são o branco a 12 % e a
+ *   10 %, como em `AgoraNaLoja`.
  */
 export type ConteudoDoLink =
   | { tipo: 'link'; link: string; mensagem: string; whatsapp: string | null; expiraEm: string }
@@ -31,8 +36,8 @@ export interface CartaoDoLinkProps {
 
 const CartaoDoLink = ({ nome, conteudo, travado, aoEnviar, aoGerarLinkNovo }: CartaoDoLinkProps) => (
   <>
-    <section aria-labelledby="cartao-do-link" data-testid="cartao-do-link" className="space-y-3 rounded-lg bg-estrelinha-ink p-4 text-estrelinha-on-primary">
-      <h2 id="cartao-do-link" className="font-display text-base font-bold [overflow-wrap:anywhere]">
+    <section aria-labelledby="cartao-do-link" data-testid="cartao-do-link" className="space-y-3 rounded-lg bg-estrelinha-ink p-[18px] text-estrelinha-on-primary">
+      <h2 id="cartao-do-link" className="font-body text-[11px] font-semibold uppercase tracking-[.1em] text-white/80 [overflow-wrap:anywhere]">
         {linkPara(nome)}
       </h2>
       {conteudo.tipo === 'sem-loja' && <p className="text-sm [overflow-wrap:anywhere]">{LINK_WITHOUT_STORE}</p>}
@@ -53,7 +58,7 @@ const CartaoDoLink = ({ nome, conteudo, travado, aoEnviar, aoGerarLinkNovo }: Ca
       )}
       {conteudo.tipo === 'link' && (
         <>
-          <p data-testid="o-link" className="rounded-md bg-estrelinha-on-primary/10 p-3 font-mono text-sm [overflow-wrap:anywhere]">
+          <p data-testid="o-link" className="rounded-md border border-white/[.12] bg-white/10 p-3 text-sm [overflow-wrap:anywhere]">
             {conteudo.link}
           </p>
           {conteudo.whatsapp ? (
@@ -63,8 +68,7 @@ const CartaoDoLink = ({ nome, conteudo, travado, aoEnviar, aoGerarLinkNovo }: Ca
               rel="noopener noreferrer"
               aria-label={nomeDoLinkExterno(ENVIAR_PELO_WHATSAPP)}
               onClick={() => aoEnviar('whatsapp')}
-              style={{ backgroundColor: WHATSAPP_FUNDO, color: WHATSAPP_TEXTO }}
-              className="flex min-h-12 w-full items-center justify-center rounded-sm px-4 py-2 text-center text-base font-medium [overflow-wrap:anywhere]"
+              className="flex min-h-12 w-full items-center justify-center rounded-sm bg-estrelinha-whatsapp px-4 py-2 text-center font-display text-[15px] font-bold text-estrelinha-ink [overflow-wrap:anywhere]"
             >
               {ENVIAR_PELO_WHATSAPP}
             </a>
@@ -77,11 +81,11 @@ const CartaoDoLink = ({ nome, conteudo, travado, aoEnviar, aoGerarLinkNovo }: Ca
             onClick={() => {
               if (!travado) aoEnviar('copy')
             }}
-            className="min-h-12 w-full rounded-sm bg-estrelinha-on-primary px-4 text-base font-medium text-estrelinha-ink aria-disabled:opacity-70"
+            className="min-h-12 w-full rounded-sm border border-white/[.12] bg-white/10 px-4 text-base font-medium text-estrelinha-on-primary aria-disabled:opacity-70"
           >
             {COPIAR_LINK}
           </button>
-          <p className="text-xs [overflow-wrap:anywhere]">{valeAte(conteudo.expiraEm)}</p>
+          <p className="text-[13px] font-light [overflow-wrap:anywhere]">{valeAte(conteudo.expiraEm)}</p>
         </>
       )}
     </section>
@@ -93,7 +97,7 @@ const CartaoDoLink = ({ nome, conteudo, travado, aoEnviar, aoGerarLinkNovo }: Ca
         >
           {MENSAGEM_DO_WHATSAPP}
         </h2>
-        <p data-testid="mensagem-do-whatsapp" className="mt-2 whitespace-pre-line text-sm [overflow-wrap:anywhere]">
+        <p data-testid="mensagem-do-whatsapp" className="mt-2 whitespace-pre-line rounded-md bg-estrelinha-ground-deep p-3 text-sm [overflow-wrap:anywhere]">
           {conteudo.mensagem}
         </p>
       </section>
