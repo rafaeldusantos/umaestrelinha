@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { useAuthContext } from '@estrelinha/auth'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { adminNoteRefusal } from '@estrelinha/core/orders'
@@ -50,6 +50,7 @@ import {
   PECA_ACRESCENTADA,
   PECA_ATUALIZADA,
   PECA_REMOVIDA,
+  PRAZO_DA_CONFIRMACAO_MS,
   linhaDaEscolha,
   pecaEVariacao,
   type LinhaDaSacola,
@@ -182,6 +183,22 @@ const MontarPedidoPage = () => {
   }
   const [termo, setTermo] = useState('')
   const [aviso, setAviso] = useState<string[]>([])
+  // A confirmação da sacola é um toast sobre a barra: some sozinha no prazo, e ao trocar de passo. A
+  // `chave` muda a cada confirmação, então uma nova reinicia o prazo e o prazo da velha não a apaga.
+  const [confirmacao, setConfirmacao] = useState<{ chave: number; linhas: string[] } | null>(null)
+  const mostrarConfirmacao = (linhas: string[]) => {
+    setAviso([])
+    setConfirmacao((c) => ({ chave: (c?.chave ?? 0) + 1, linhas }))
+  }
+  const chaveDaConfirmacao = confirmacao?.chave ?? null
+  useEffect(() => {
+    if (chaveDaConfirmacao === null) return
+    const prazo = setTimeout(() => setConfirmacao((c) => (c?.chave === chaveDaConfirmacao ? null : c)), PRAZO_DA_CONFIRMACAO_MS)
+    return () => clearTimeout(prazo)
+  }, [chaveDaConfirmacao])
+  useEffect(() => {
+    setConfirmacao(null)
+  }, [passos.passo])
   const folhaDaVariacao = useFolhaNaEntrada('variacao-da-peca')
   const [escolha, setEscolha] = useState<{ peca: PecaParaProposta; linha: LinhaDaSacola | null } | null>(null)
   const [geracaoDaBusca, setGeracaoDaBusca] = useState(0)
@@ -387,7 +404,7 @@ const MontarPedidoPage = () => {
     const chave = escolha.linha?.chave ?? `linha-${(proximaChave.current += 1)}`
     const linha = linhaDaEscolha(chave, escolha.peca, variacao, quantidade, gravacao)
     despachar(escolha.linha ? { tipo: 'atualizar-peca', linha } : { tipo: 'acrescentar-peca', linha })
-    setAviso([escolha.linha ? PECA_ATUALIZADA : PECA_ACRESCENTADA, pecaEVariacao(linha)])
+    mostrarConfirmacao([escolha.linha ? PECA_ATUALIZADA : PECA_ACRESCENTADA, pecaEVariacao(linha)])
     setGeracaoDaBusca((g) => g + 1)
     folhaDaVariacao.fechar()
   }
@@ -557,7 +574,7 @@ const MontarPedidoPage = () => {
             }}
             aoRemover={(linha) => {
               despachar({ tipo: 'remover-peca', chave: linha.chave })
-              setAviso([PECA_REMOVIDA])
+              mostrarConfirmacao([PECA_REMOVIDA])
             }}
             promocoes={promocoesDaSacola}
           />
@@ -610,6 +627,23 @@ const MontarPedidoPage = () => {
         data-testid="barra-da-montagem"
         className="fixed inset-x-0 bottom-0 z-10 border-t border-estrelinha-line bg-estrelinha-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
+        {confirmacao && (
+          <div role="status" aria-live="polite" aria-atomic="true" className="pointer-events-none absolute inset-x-0 bottom-full mb-2 px-4">
+            <div
+              data-parte="cartao"
+              className="mx-auto flex max-w-lg items-start gap-2 rounded-md bg-estrelinha-ink px-4 py-3 text-sm text-estrelinha-surface shadow-lg [overflow-wrap:anywhere]"
+            >
+              <Check aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-estrelinha-accent" />
+              <div className="min-w-0">
+                {confirmacao.linhas.map((l, i) => (
+                  <p key={l} className={i === 0 ? 'font-semibold' : undefined}>
+                    {l}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mx-auto max-w-lg space-y-2">
           {motivoNaBarra && (
             <p id="motivo-do-bloqueio" className="text-[13px] text-estrelinha-wait">

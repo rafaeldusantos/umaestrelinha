@@ -373,6 +373,40 @@ describe('passo 2 · a sacola', () => {
   })
 })
 
+describe('passo 2 · a confirmação da peça', () => {
+  it('flutua sobre a barra, em tinta com o check dourado, e some sozinha em cerca de 3 s', async () => {
+    await abrirOPassoDasPecas()
+    await abrirPeca('Colar Estrela')
+    await clicar(confirmar())
+    const aviso = within(barra()).getByRole('status')
+    expect(aviso).toHaveTextContent('Peça acrescentada.')
+    expect(aviso).toHaveTextContent('Colar Estrela')
+    const cartao = aviso.querySelector('[data-parte="cartao"]')
+    expect(tokens(cartao)).toContain('bg-estrelinha-ink')
+    expect(tokens(cartao?.querySelector('svg') ?? null)).toContain('text-estrelinha-accent')
+    // Nada da confirmação no topo do conteúdo.
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+
+    await andar(2500)
+    expect(screen.queryByText('Peça acrescentada.')).toBeInTheDocument()
+    await andar(1000)
+    expect(screen.queryByText('Peça acrescentada.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('trocar de passo apaga a confirmação: ela não segue para Descontos', async () => {
+    await abrirOPassoDasPecas()
+    await abrirPeca('Colar Estrela')
+    await clicar(confirmar())
+    expect(screen.getByText('Peça acrescentada.')).toBeInTheDocument()
+    await clicar(continuar())
+    await andar(50)
+    expect(screen.getByText('Passo 3 de 4 · Descontos')).toBeInTheDocument()
+    expect(screen.queryByText('Peça acrescentada.')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Colar Estrela$/)).not.toBeInTheDocument()
+  })
+})
+
 describe('passo 2 · a folha da variação segue o protótipo', () => {
   it('o chip escolhido, o aviso de material e a linha de estoque com as classes e os textos do protótipo', async () => {
     await abrirOPassoDasPecas()

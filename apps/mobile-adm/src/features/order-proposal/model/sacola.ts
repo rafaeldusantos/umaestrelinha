@@ -176,6 +176,8 @@ export const salvarPor = (valor: number): string => `Salvar · ${formatPrice(val
 export const PECA_ACRESCENTADA = 'Peça acrescentada.'
 export const PECA_ATUALIZADA = 'Peça atualizada.'
 export const PECA_REMOVIDA = 'Peça removida.'
+/** Quanto a confirmação da sacola (acrescentada, atualizada, removida) fica sobre a barra: o toast do protótipo. */
+export const PRAZO_DA_CONFIRMACAO_MS = 3200
 export const pecaEVariacao = (l: Pick<LinhaDaSacola, 'nome' | 'rotulo'>): string => (l.rotulo ? `${l.nome} · ${l.rotulo}` : l.nome)
 export const gravacaoDaLinha = (texto: string): string => `Gravação: ${texto}`
 export const quantidadeVezesPreco = (q: number, preco: number): string => `${q} × ${formatPrice(preco)}`
