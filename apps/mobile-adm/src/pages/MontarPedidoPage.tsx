@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { useAuthContext } from '@estrelinha/auth'
 import { formatPrice } from '@estrelinha/core/formatters'
@@ -8,7 +7,6 @@ import type { CustomerParseMode } from '@estrelinha/core/customers'
 import type { PecaParaProposta } from '@estrelinha/core/proposals'
 
 import { useClientesDaMontagem, useEnderecosSalvos, useFichaPorEmail, nomeDoCliente, type ClienteDaMontagem } from '@/entities/customer'
-import { pedidoMontadoHref } from '@/entities/order'
 import { useCatalogoDaMontagem } from '@/entities/product'
 import { useRecusaDePapel } from '@/features/access-check'
 import {
@@ -93,7 +91,7 @@ import {
   useRelogioDaMontagem,
 } from '@/features/order-proposal'
 import { FalhaDoBloco, Traco } from '@/shared/ui/leitura'
-import { useFolhaNaEntrada, type FolhaNaEntrada } from '@/shared/lib/useFolhaNaEntrada'
+import { useFolhaNaEntrada } from '@/shared/lib/useFolhaNaEntrada'
 
 /** Uma chave de idempotência por montagem: o segundo toque em "Criar link" devolve a mesma proposta. */
 const chaveNova = (): string =>
@@ -143,7 +141,6 @@ const chaveNova = (): string =>
  */
 
 const MontarPedidoPage = () => {
-  const navigate = useNavigate()
   const { user } = useAuthContext()
   const [estado, despachar] = useReducer(reduzirMontagem, undefined, montagemVazia)
   // Editar: a proposta que o pedido montado marcou — lida ao montar, e esquecida.
@@ -361,7 +358,7 @@ const MontarPedidoPage = () => {
       aviso: { titulo: LINK_CRIADO, texto: agoraEhSoMandar(corpo.customer_name) },
       link: salvo.token && salvo.expires_at ? { id: salvo.id, token: salvo.token, expires_at: salvo.expires_at } : null,
     })
-    navigate(pedidoMontadoHref(salvo.id), { replace: true })
+    passos.concluirNoMontado(salvo.id)
   }
 
   const abrirPeca = (peca: PecaParaProposta, linha: LinhaDaSacola | null) => {
@@ -411,8 +408,16 @@ const MontarPedidoPage = () => {
     passos.sair(folhaAberta)
   }
 
-  // Da sentinela (o voltar no passo 1, com algo preenchido): a mesma pergunta, sem entrada própria.
-  const folhaDaSentinela: FolhaNaEntrada = { aberta: passos.perguntandoNaSentinela, abrir: () => {}, fechar: passos.voltarAoPrimeiro }
+  // Da sentinela (o voltar no passo 1, com algo preenchido): o passo 1 voltou, e a MESMA folha de sair
+  // abre por cima dele, numa entrada própria — o voltar com ela aberta a fecha.
+  const perguntarAoSair = passos.perguntarAoSair
+  const abrirFolhaDeSair = folhaDeSair.abrir
+  useEffect(() => {
+    if (!perguntarAoSair) return
+    passos.perguntaAtendida()
+    abrirFolhaDeSair()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perguntarAoSair])
 
   return (
     <div className="-mx-4 -mt-4 flex min-h-[100dvh] flex-col bg-estrelinha-ground">
@@ -645,17 +650,6 @@ const MontarPedidoPage = () => {
         erro={null}
         aoConfirmar={() => descartarESair(true)}
         alternativa={comRascunho ? { rotulo: GUARDAR_RASCUNHO, aoEscolher: () => guardarESair(true) } : undefined}
-      />
-      <FolhaDeConfirmacao
-        controle={folhaDaSentinela}
-        titulo={SAIR_TITULO}
-        frase={comRascunho ? SAIR_FRASE_COM_RASCUNHO : SAIR_FRASE}
-        manter={CONTINUAR_MONTANDO}
-        confirmar={comRascunho ? DESCARTAR : SAIR}
-        travado={false}
-        erro={null}
-        aoConfirmar={() => descartarESair(false)}
-        alternativa={comRascunho ? { rotulo: GUARDAR_RASCUNHO, aoEscolher: () => guardarESair(false) } : undefined}
       />
     </div>
   )
