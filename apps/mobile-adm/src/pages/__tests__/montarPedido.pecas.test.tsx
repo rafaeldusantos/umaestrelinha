@@ -107,7 +107,7 @@ const buscarJoia = async (termo: string) => {
   })
   await andar(400)
 }
-const texto = (el: Element) => (el.textContent ?? '').replace(/ /g, ' ')
+const texto = (el: Element) => (el.textContent ?? '').replace(/\u00a0/g, ' ')
 
 const barra = () => screen.getByTestId('barra-da-montagem')
 const continuar = () => within(barra()).getByRole('button', { name: 'Continuar' })
