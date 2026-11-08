@@ -215,6 +215,7 @@ assere.
 | `atelie-avisos` | `false` | as inscrições do **aviso no celular** da dona (feature `79`, `AD-062`) — `config · status · subscribe · events · unsubscribe · test`, `requireAdmin` em toda ação; a única escrita em `push_subscriptions`, que não tem policy de cliente |
 | `order-proposals` | `false` | o **pedido montado pelo painel** (feature `89`, `AD-070`) — `list · get · save · renew · cancel · log-sent · note`, `requireAdmin` em toda ação; a única escrita em `order_proposals*` (RLS sem policy), por RPC. O banco guarda o **hash** do token e, com o secret opcional `PROPOSAL_TOKEN_KEY`, a **cifra** (AES-GCM, WI 94): o `get` devolve o token da proposta aberta; sem a chave (ou na proposta sem cifra) o token só sai na resposta de `save`/`renew`. Nunca o token em claro no banco, nunca o hash ou a cifra numa resposta ou log |
 | `visit` | `false` | grava uma **visita única** por navegador por dia (feature `71`, `AD-055`). A loja chama com **só** a chave publicável, e o handler **não lê** `Authorization` |
+| `customer-parse` | `false` | lê contato e endereço de um **texto colado** (a conversa do WhatsApp) para a montagem de pedido do app do ateliê (WI 94) — `POST { text, mode }`, `requireAdmin` antes de tudo; **não grava nada** e não guarda o texto |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
 loja é um JWT válido que qualquer pessoa lê no bundle. Onde há papel a exigir, a checagem é **manual**
@@ -527,6 +528,28 @@ convidada e para quem tem sessão.
 - ⚠️ **`functions serve --env-file` não isola os secrets**: o `[edge_runtime.secrets]` do `config.toml`
   completa com o `.env` da raiz o que o arquivo não traz (na prova da `89`, o Melhor Envio de produção
   e o Mercado Pago de teste). Para conter, ponha no arquivo um valor inválido para cada chave externa.
+
+### `customer-parse` — a leitura do texto colado (WI 94)
+
+- **`POST { text, mode }`**, `mode` em `contact_and_address` (Cliente nova) ou `address` ("Outro
+  endereço" de quem já tem ficha — a leitura nunca troca dados de uma ficha que existe). Responde 200
+  `{ contact?, address, found }` (`contact` só no primeiro modo; `found` 0 = texto sem dados), 503
+  `not_configured` (sem `ANTHROPIC_API_KEY`), 502 `upstream` (prazo de 15 s, 5xx, rede do modelo), 422
+  `refusal`/`truncated`/`invalid`, 429 `limited`, 413 `too_long` (acima de 2.000 caracteres), 400
+  `bad_request` e 401/403 do `requireAdmin`. O corpo de erro é `{ reason: '<slug>' }`.
+- **A ordem é requisito**: o papel primeiro (nada antes do `requireAdmin` toca o modelo nem o teto), a
+  chave ausente responde 503, o teto é **por conta** (30 leituras a cada 10 minutos, por isolate), e só
+  então o corpo é lido.
+- **O que o modelo devolve passa pela conferência de `core`** (`packages/core/src/customers/parse.ts`,
+  `parseCustomerText`/`parsedFieldCount`): e-mail que passa na régua da loja, telefone com 10 ou 11
+  dígitos, CPF com o dígito certo, CEP com 8 dígitos, UF que existe; o resto volta vazio. O modelo é
+  `claude-haiku-5-5` (`prompt.ts`), pela porta `_shared/claude.ts` — a mesma da `seo-suggest`.
+- **Nada fica**: o log leva só o tamanho, o modo, o desfecho e o uso de tokens — nunca o texto nem o que
+  foi lido. A ficha e o endereço só nascem quando a montagem cria o link.
+- **Quem chama**: só o app do ateliê, pela porta `apps/mobile-adm/src/features/order-proposal/api/portaDeLeitura.ts`
+  (nome literal `'customer-parse'`, guardado por `escritaSoPelaPorta.test.ts`). O app junta a leitura
+  com o serviço de CEP por `mergeCep` (`core/customers/mergeCep.ts`, "o CEP manda"). O Backoffice não a
+  chama.
 
 ### `visit` — a visita única (feature `71`, `AD-055`)
 
@@ -932,6 +955,8 @@ Todos no `.env` da **raiz** (ver `.env.example`), resolvidos no local por `[edge
 `SUPABASE_SERVICE_ROLE_KEY` · `MERCADO_PAGO_ACCESS_TOKEN` · `MERCADO_PAGO_WEBHOOK_SECRET` ·
 `RESEND_API_KEY` · `RESEND_SENDER_NAME` · `RESEND_SENDER_EMAIL` · `RESEND_DEV_REDIRECT_TO` · `STORE_PUBLIC_URL` · `NUVEMSHOP_*` ·
 `MELHOR_ENVIO_TOKEN` · `MELHOR_ENVIO_ENV` · `MELHOR_ENVIO_SENDER_JSON` · `VAPID_KEYS` · `VAPID_SUBJECT` ·
+`ANTHROPIC_API_KEY` (opcional: lida só pela `seo-suggest` e pela `customer-parse`; ausente, as duas respondem
+503 `not_configured` e nada mais muda) ·
 `PROPOSAL_TOKEN_KEY` (opcional, WI 94: a chave da cifra do token do link do pedido montado; ausente, só
 o hash é gravado e o link sai só na resposta de criar/renovar — fora da lista obrigatória do deploy)
 

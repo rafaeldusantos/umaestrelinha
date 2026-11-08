@@ -131,3 +131,63 @@ describe('os endereços salvos da cliente escolhida, sobre o client real', () =>
     expect(instantes.findIndex((t) => t.includes(RUA_DELA))).toBe(-1)
   })
 })
+
+describe('a porta da leitura do texto colado, sobre o client real', () => {
+  const FUNCTION_DA_LEITURA = '/functions/v1/customer-parse'
+  const FORA_DO_AR = 'A leitura está fora do ar agora. Feche e preencha à mão — nada do que você já fez se perde.'
+  const FORBIDDEN: RespostaRpcReal = { status: 403, corpo: { error: 'forbidden' } }
+
+  /** Cliente nova, a folha aberta e um texto colado — pronto para "Ler o texto". */
+  const prepararLeitura = async (leitura: RespostaRpcReal) => {
+    const r = abrir(RELOGIO_OK)
+    r.estado.functions = { 'customer-parse': leitura }
+    for (let i = 0; i < 60 && !screen.queryByRole('button', { name: 'Cliente nova' }); i++) await andar(50)
+    fireEvent.click(screen.getByRole('button', { name: 'Cliente nova' }))
+    await andar(50)
+    fireEvent.click(screen.getByRole('button', { name: 'Colar texto da conversa' }))
+    await andar(50)
+    fireEvent.change(screen.getByLabelText('Texto da conversa'), { target: { value: 'Oi, sou a Clarice' } })
+    await andar(50)
+    return r
+  }
+  const lerEObservar = async (ms: number) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Ler o texto' }))
+    const instantes: string[] = [document.body.textContent ?? '']
+    for (let feito = 0; feito < ms; feito += 50) {
+      await andar(50)
+      instantes.push(document.body.textContent ?? '')
+    }
+    return instantes
+  }
+
+  it('conta sem papel: a porta em 403 e `atelie_clock` 403 `42501` ⇒ a recusa, e a frase de falha em instante nenhum', async () => {
+    const r = await prepararLeitura(FORBIDDEN)
+    r.estado.rpc.atelie_clock = RECUSA_403
+    r.estado.papel = 'not-admin'
+    const instantes = await lerEObservar(4000)
+    expect(r.quantos(FUNCTION_DA_LEITURA)).toBe(1)
+    expect(window.location.pathname).toBe('/login')
+    expect(screen.getByText(SEM_ACESSO)).toBeInTheDocument()
+    expect(instantes.findIndex((t) => t.includes(FORA_DO_AR))).toBe(-1)
+  })
+
+  it('a porta em 403 com o relógio de pé ⇒ a falha da leitura, nunca a recusa', async () => {
+    const r = await prepararLeitura(FORBIDDEN)
+    await lerEObservar(2000)
+    expect(r.quantos(FUNCTION_DA_LEITURA)).toBe(1)
+    expect(window.location.pathname).toBe('/pedidos/montar')
+    expect(screen.queryByText(SEM_ACESSO)).toBeNull()
+    expect(screen.getByRole('alert')).toHaveTextContent(FORA_DO_AR)
+  })
+
+  it('a rede caída na porta ⇒ a falha da leitura, sem perguntar o papel', async () => {
+    const r = await prepararLeitura('rede')
+    const relogioAntes = r.quantos(RPC_RELOGIO)
+    await lerEObservar(2000)
+    expect(r.quantos(FUNCTION_DA_LEITURA)).toBe(1)
+    expect(r.quantos(RPC_RELOGIO)).toBe(relogioAntes)
+    expect(window.location.pathname).toBe('/pedidos/montar')
+    expect(screen.queryByText(SEM_ACESSO)).toBeNull()
+    expect(screen.getByRole('alert')).toHaveTextContent(FORA_DO_AR)
+  })
+})

@@ -33,7 +33,9 @@
 // linha com o termo num arquivo de cliente — a régua 1b aceita essa e mais nenhuma) e o rótulo do campo
 // do documento em `features/order-proposal/ui/PassoDaCliente.tsx`. As duas listas novas de colunas
 // (`COLUNAS_DA_MONTAGEM`, sem documento; `COLUNAS_DO_ENDERECO_SALVO`) foram conferidas no banco local
-// em 2026-11-07. Sensor: as mesmas linhas noutro arquivo são acusadas.
+// em 2026-11-07. Sensor: as mesmas linhas noutro arquivo são acusadas. Desde a folha "Colar texto", mais
+// duas: a leitura que leva o documento lido ao campo (`model/montagem.ts`) e o nome do campo no aviso
+// "Não achei: …" (`model/frasesDaMontagem.ts`).
 //
 // Escopo: `apps/mobile-adm/src`, só produção. Os arquivos de fixtura (`src/test/`) ficam de fora: são
 // dado sintético de teste.
@@ -81,6 +83,13 @@ const PERMITIDAS = [
   // A montagem de um pedido: a leitura dos endereços salvos e o rótulo do documento.
   { rel: 'entities/customer/api/clientesDaMontagem.ts', texto: ".from('addresses')" },
   { rel: 'features/order-proposal/ui/PassoDaCliente.tsx', texto: 'rotulo="CPF (opcional)"' },
+  // A leitura de um texto colado (a folha "Colar texto" da montagem): o documento lido vai para o campo
+  // do documento, e o aviso nomeia o campo que faltou. Nada disso sai da memória da tela.
+  {
+    rel: 'features/order-proposal/model/montagem.ts',
+    texto: "const pares: [keyof ContatoDigitado, string][] = [['nome', c.name], ['email', c.email], ['whatsapp', c.phone], ['documento', c.cpf]]",
+  },
+  { rel: 'features/order-proposal/model/frasesDaMontagem.ts', texto: "documento: 'CPF'," },
 ]
 const permitida = (rel: string, linha: string) => PERMITIDAS.some((p) => p.rel === rel && p.texto === linha.trim())
 

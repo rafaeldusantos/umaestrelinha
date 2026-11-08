@@ -50,7 +50,10 @@ const PORTA_DE_AVISOS = 'features/push-notifications/api/portaDeAvisos.ts'
 // A porta dos pedidos montados — como a dos avisos, só invoca a function (`order-proposals`);
 // a régua 3 abaixo prova que ela não tem um `supabase.from(` sequer.
 const PORTA_DE_PROPOSTAS = 'features/order-proposal/api/portaDePropostas.ts'
-const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE, PORTA_DE_AVISOS, PORTA_DE_PROPOSTAS]
+// A porta da leitura do texto colado — só invoca a function (`customer-parse`); a régua 3 abaixo prova
+// que ela não tem um `supabase.from(` sequer.
+const PORTA_DE_LEITURA = 'features/order-proposal/api/portaDeLeitura.ts'
+const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE, PORTA_DE_AVISOS, PORTA_DE_PROPOSTAS, PORTA_DE_LEITURA]
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -193,12 +196,12 @@ const lidos = arquivos(SRC).map((caminho) => {
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os onze arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os doze arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
 
-  it('régua 1: só lerComPapel, os hooks de pedido e de cliente, a porta de escrita, a dos avisos e a dos montados importam o client — por igualdade', () => {
+  it('régua 1: só lerComPapel, os hooks de pedido e de cliente, a porta de escrita, a dos avisos, a dos montados e a da leitura do texto importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -245,6 +248,13 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     expect(a.froms).toBe(0)
     expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
     expect(a.problemas).toHaveLength(6)
+  })
+
+  it('régua 3: a porta da leitura do texto não lê tabela nem chama RPC — só a invocação', () => {
+    const a = medir(PORTA_DE_LEITURA, lidos.find((l) => l.rel === PORTA_DE_LEITURA)!.texto, { podeLer: false })
+    expect(a.froms).toBe(0)
+    expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
+    expect(a.problemas).toHaveLength(1)
   })
 
   it('régua 3: lerComPapel.ts não lê tabela — só a RPC', () => {
@@ -385,9 +395,9 @@ describe('sensores (feature 76) — os quatro de cliente só leem, e leem por le
     expect(escritasEmArquivoDeCliente(H, `${imp}// update insert rpc(\nexport const h = () => supabase.from('customer_list').select('id').eq('id', 1)\nconst x = 'delete'`)).toEqual([])
   })
 
-  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem onze)', () => {
+  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem doze)', () => {
     const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
     expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
-    expect(IMPORTAM_O_CLIENT).toHaveLength(11)
+    expect(IMPORTAM_O_CLIENT).toHaveLength(12)
   })
 })

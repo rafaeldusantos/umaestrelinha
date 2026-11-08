@@ -543,11 +543,25 @@ passo 1 é `ui/PassoDaCliente.tsx` (com `FormularioDeEndereco` e `CampoDaMontage
   número, bairro, cidade e UF (D-21).
 - **E-mail com ficha** (`MON-03`): o aviso "… já é de <nome> · N pedidos." com "Usar a ficha dela" (vira
   a cadastrada; com CEP de 8 dígitos o endereço digitado fica como "Outro endereço") e "Corrigir o
-  e-mail" (foca o campo). O cartão "Tem os dados numa mensagem?" e "Colar de uma mensagem" são da folha
-  "Colar texto" (tarefa 06); os passos 2 a 4 têm só o esqueleto.
-- **Provas**: `pages/__tests__/montarPedido.test.tsx` (a página real) e
-  `app/__tests__/montagemComClientReal.test.tsx` (a conta sem papel na busca e nos endereços ⇒ a recusa e
-  nenhum dado dela; rede caída é falha). Layout (44 px, sem rolagem lateral) é da QA, em navegador.
+  e-mail" (foca o campo). Os passos 2 a 4 têm só o esqueleto.
+- **"Colar texto"** (a leitura de um texto colado): em Cliente nova, o cartão escuro "Tem os dados numa
+  mensagem?" (some depois de uma leitura); em "Outro endereço" da cadastrada, "Colar de uma mensagem".
+  A folha (`ui/FolhaColarTexto.tsx`, no histórico por `useFolhaNaEntrada('colar-texto')`) corta o texto em
+  2.000 na digitação, e o texto vive SÓ no estado do corpo dela (desmonta ao fechar). A leitura é a porta
+  `api/portaDeLeitura.ts` (nome literal `'customer-parse'`, a tradução das portas; o que volta passa de
+  novo por `parseCustomerText`), e `model/useLeituraDoTexto.ts` espera o MESMO `useCepLookup` (a mesma
+  chave de cache do formulário) e junta por `mergeCep` — "o CEP manda". O escopo é `contact_and_address`
+  em Cliente nova e `address` em "Outro endereço" (a ficha nunca muda). O resultado entra no redutor
+  (`{ tipo: 'leitura' }`, `aplicarLeitura`): preenche só o que achou, marca cada campo ("Lido do texto —
+  confira."; o CEP conferido, "Lido do texto — conferido no serviço de CEP."; editar tira a marca, o
+  serviço de CEP completando não), e guarda o estado de antes — "Desfazer" volta a ele, exatamente. O
+  aviso do passo 1 (`resumoDaLeitura`) conta os campos, nomeia os que faltaram e diz o que o CEP conferiu.
+  Sem dados (e o 422), fora do ar (503, 502, rede) e o limite (429) deixam a folha aberta com a frase, e
+  "Cancelar" vira "Preencher à mão". A recusa da porta (só o `42501` de `conferirPapel`) entra na MESMA
+  vigia das leituras da página. Nada é gravado pela leitura.
+- **Provas**: `pages/__tests__/montarPedido.test.tsx` e `montarPedido.colarTexto.test.tsx` (a página real) e
+  `app/__tests__/montagemComClientReal.test.tsx` (a conta sem papel na busca, nos endereços e na porta da
+  leitura ⇒ a recusa e nenhum dado dela; rede caída é falha). Layout (44 px, sem rolagem lateral) é da QA, em navegador.
 
 ## PWA — só a casca
 
@@ -645,7 +659,7 @@ passo 1 é `ui/PassoDaCliente.tsx` (com `FormularioDeEndereco` e `CampoDaMontage
 | `enderecoDePedidosComDonoUnico.test.ts` | `src/entities/order/__tests__` | (feature `74`) o endereço de Pedidos lido ou escrito fora de `pedidosHref.ts` |
 | `regraDePedidoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `74`) mapa ou `case` com vocabulário de visão/status/pagamento/meio (importado de `core`), ou predicado de recorte, fora de `core` |
 | `movimentoDosPedidos.test.ts` | idem | (feature `74`) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos arquivos de UI da `74` e da `75` (28, escopo literal); desde a `75` vê a variante de estado (`data-[state=open]:`) e só a cobre com o par do MESMO estado, e exige os dois pares em todo arquivo que monta `SheetContent`. Âncora 8 tokens / 6 pares (B02) |
-| `escritaSoPelaPorta.test.ts` | `src/entities/order/api/__tests__` | (feature `75`, pela AST) escrita de tabela, `functions.invoke` ou `rpc(` fora de `lerComPapel.ts`; o client importado fora da lista literal (desde o WI 94, onze arquivos — a montagem lê clientes por `clientesDaMontagem.ts`), ou usado como receptor na porta; `INVOCACAO_ACEITA` é um mapa POR PORTA (avisos e montados), e o nome de uma porta na outra é acusado |
+| `escritaSoPelaPorta.test.ts` | `src/entities/order/api/__tests__` | (feature `75`, pela AST) escrita de tabela, `functions.invoke` ou `rpc(` fora de `lerComPapel.ts`; o client importado fora da lista literal (desde o WI 94, doze arquivos — a montagem lê clientes por `clientesDaMontagem.ts`, e a leitura do texto colado é `portaDeLeitura.ts`), ou usado como receptor na porta; `INVOCACAO_ACEITA` é um mapa POR PORTA (avisos, montados e a leitura, só `'customer-parse'`), e o nome de uma porta na outra é acusado |
 | `fraseDaAcaoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `75`, pela AST, sem allowlist) as frases fixas da ação escritas no app |
 | `acoesComClientReal.test.tsx` | `src/app/__tests__` | (feature `75`, sobre o client REAL) PATCH `[]` + `atelie_clock` 403 ⇒ a recusa e nenhuma confirmação (lida por passo e por `MutationObserver`); `not_admin` ⇒ recusa; 500 ⇒ falha; a conferência sem rede ⇒ nem recusa nem reconferência; o que vai no PATCH do rastreio |
 | `escritaNoArnes.test.ts` | `src/test/__tests__` | (feature `75`) os dois arneses (`fakeSupabase` e `clientReal`) deixando de registrar a escrita (valores, cadeia, método, corpo) |

@@ -76,6 +76,8 @@ const ARQUIVOS = [
   'features/order-proposal/ui/PassoDaCliente.tsx',
   'features/order-proposal/ui/FormularioDeEndereco.tsx',
   'features/order-proposal/ui/CampoDaMontagem.tsx',
+  // A folha "Colar texto" da montagem (monta `SheetContent`).
+  'features/order-proposal/ui/FolhaColarTexto.tsx',
 ] as const
 
 /** Comentário sai antes da varredura; CRLF primeiro (`L-031`), linha e bloco na MESMA passada (`BL-027`). */
@@ -130,8 +132,8 @@ const movimentoSemPar = (fonte: string): string[] => {
 const FONTES = ARQUIVOS.map((caminho) => ({ caminho, fonte: readFileSync(resolve(SRC, caminho), 'utf8') }))
 
 describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)', () => {
-  it('ÂNCORA: os 43 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
-    expect(FONTES).toHaveLength(43)
+  it('ÂNCORA: os 44 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
+    expect(FONTES).toHaveLength(44)
     expect(FONTES.every((f) => f.fonte.length > 0)).toBe(true)
     const tokens = FONTES.flatMap((f) => movimentoDe(semComentarios(f.fonte)))
     // Medido com ESTA régua no fecho da T28: 4 tokens, 2 deles o próprio par — o `animate-pulse` do
@@ -142,8 +144,9 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
     // Com a observação do pedido: a folha traz os mesmos quatro pares de estado — 12 tokens, 10 pares.
     // A folha de confirmação do pedido montado traz os mesmos quatro — 16 tokens, 14 pares.
     // A montagem não move nada: a página e o passo 1 reutilizam a folha de confirmação.
-    expect(tokens.length).toBeGreaterThanOrEqual(16)
-    expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(14)
+    // A folha "Colar texto" traz os mesmos quatro pares — 20 tokens, 18 pares.
+    expect(tokens.length).toBeGreaterThanOrEqual(20)
+    expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(18)
     const de = (rel: string) => movimentoDe(semComentarios(FONTES.find((f) => f.caminho === rel)!.fonte)).map((t) => t.classe)
     expect(de('shared/ui/leitura.tsx')).toEqual(expect.arrayContaining(['animate-pulse', 'animate-none']))
     expect(de('features/order-slice/ui/ChipsDeRecorte.tsx')).toEqual(expect.arrayContaining(['transition-colors', 'transition-none']))
@@ -164,6 +167,7 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
       'features/order-actions/ui/FolhaDoRastreio.tsx',
       'features/order-actions/ui/FolhaDaObservacao.tsx',
       'features/order-proposal/ui/FolhaDeConfirmacao.tsx',
+      'features/order-proposal/ui/FolhaColarTexto.tsx',
     ])
     for (const f of comFolha) {
       const tokens = semComentarios(f.fonte).split(/[\s"'`{}]+/)

@@ -103,6 +103,8 @@ describe('o registro dos pedidos montados é memorial — âncoras', () => {
         'features/order-proposal/model/montagem.ts',
         'features/order-proposal/ui/PassoDaCliente.tsx',
         'pages/MontarPedidoPage.tsx',
+        // A folha "Colar texto".
+        'features/order-proposal/ui/FolhaColarTexto.tsx',
       ]),
     )
     expect(ESCOPO.length).toBeGreaterThanOrEqual(8)
@@ -123,6 +125,10 @@ describe('o registro dos pedidos montados é memorial — âncoras', () => {
       'Sair sem criar o link?',
       'Nada foi gravado ainda. A montagem se perde ao sair.',
       "Complete o endereço, ou escolha 'A cliente preenche no link'.",
+      // A folha "Colar texto".
+      'Tem os dados numa mensagem?',
+      'A leitura está fora do ar agora. Feche e preencha à mão — nada do que você já fez se perde.',
+      'Lido do texto — confira.',
     ])
       expect(junto).toContain(frase)
   })

@@ -50,7 +50,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
 | `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) e, desde a `74` (`AD-058`), **`views.ts`** (`ORDER_VIEWS`, `viewPredicate`, `OrderSlice`, `applyOrderSlice`), **`search.ts`** (`buildOrderSearchCondition`, `SEARCH_DEBOUNCE_MS`), **`row.ts`**, **`rowSummary.ts`**, **`nextStep.ts`**, **`history.ts`** (`buildHistory`), **`delivery.ts`** (`shippingLine`), **`list.ts`** (página, cursor, `listCountLine`, `emptyHint`, `isOrderId`) e `PAYMENT_METHOD_LABELS`/`PAYMENT_STATUS_TONES` em `labels.ts` | loja, painel, app do ateliê, migration (cópia SQL guardada) |
-| `./customers` | **os recortes e o "em aberto"** (`CUSTOMER_SLICES`, `RETURNING_CUSTOMER_RULE`, `OPEN_CUSTOMER_RULE`, `openOrdersSqlFilter`), `customerCursorFilter`, `customerOrdersCondition`/`directoryEmailCondition` (vínculo exato) e `escapeLike`/`ilikeContains`/`ilikeExact` (feature `76`, `AD-060`/`AD-061`) | app do ateliê, painel (reexporta `voltaram`) |
+| `./customers` | **os recortes e o "em aberto"** (`CUSTOMER_SLICES`, `RETURNING_CUSTOMER_RULE`, `OPEN_CUSTOMER_RULE`, `openOrdersSqlFilter`), `customerCursorFilter`, `customerOrdersCondition`/`directoryEmailCondition` (vínculo exato) e `escapeLike`/`ilikeContains`/`ilikeExact` (feature `76`, `AD-060`/`AD-061`); e, desde o WI 94, **`parse.ts`** (`parseCustomerText`, `parsedFieldCount`, `CUSTOMER_PARSE_TEXT_MAX`, `CUSTOMER_PARSE_MODES`, os tipos `ParsedCustomer`/`ParsedContact`/`ParsedAddress`) e **`mergeCep.ts`** (`mergeCep` — "o CEP manda") | app do ateliê, painel (reexporta `voltaram`), edge function `customer-parse` |
 | `./notifications` (a previsão) | **`notice.ts`** (feature `88`, `AD-069`): `customerNoticeFor(trigger, orderAfter, settings, sentEvents)` → `{ send, alreadySent }`, a mesma composição do motor (`eventsForTrigger` → público `customer` → ligado no e-mail → `orderStateFailure` → e-mail presente → ainda não `sent`), e `sentCustomerEvents(rows)` (só `email` + `sent` + público `customer`). Folha alcançável pelo Deno. O painel decide "pergunto?" só por ela (`avisoComDonoUnico.test.ts`, `AVS-17`) | painel (a página do pedido, a lista, o portão de aviso) |
 | `./order-actions` | **a escrita do pedido** (feature `75`, `AD-059`): `writeOrderStatus`, `writeTrackingCode`, `writeMaterialStatus`, `triggerOrderNotification` e a ação composta do app `runAppAction` — client e notificador INJETADOS, efeito conferido por `.select('id')` | painel (`useAdminOrders`, `notifyOrder`), app do ateliê (`gravarAcao`) |
 | `./stats` | **`StoreMovement`** (movido da `71`; desde a `83` com a chave `acessos`: `StoreAccess`), **`counterNotes.ts`** (as três notas do contador — "Contando desde", o teto, o contador parado — e `formatCount`, subidas do painel na `83`, que as reexporta por referência), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
@@ -458,6 +458,18 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
   ainda não o usa (`BL-052`).
 - **O cursor** (`customerCursorFilter`) são as strings do servidor, com microssegundos, em três ramos (mais
   antigo; mesma data com `id` maior; os nulos). `whatsappChatUrl` mora em `notifications/phone.ts`.
+- **A leitura de um texto colado (WI 94) tem as regras aqui, e dois leitores**: `parse.ts` é a conferência
+  do que o modelo devolveu na function `customer-parse` — o que não confere (e-mail fora da régua da
+  loja, telefone sem 10 ou 11 dígitos, CPF com dígito errado, CEP sem 8 dígitos, UF que não existe) vira
+  vazio, nunca um valor "quase certo" —, e o app a reaplica sobre a resposta da porta
+  (`portaDeLeitura.ts`). `CUSTOMER_PARSE_TEXT_MAX` (2.000) é o teto que a folha corta na digitação e a
+  function recusa. No modo `address`, `contact` é `null`: a leitura nunca troca dados de uma ficha que
+  existe. Importa só as folhas de `validators` por caminho com `.ts` (alcançável pelo Deno).
+- **`mergeCep(address, answer)`** é "o CEP manda": com o serviço conhecendo o CEP, rua, bairro, cidade e
+  UF vêm dele; campo vazio na resposta (CEP de cidade) ou serviço sem resposta (`null`, `manual`) deixam
+  o que já estava. Número e complemento são sempre do texto. Devolve `fromCep`, o que o aviso do app
+  conta ("O CEP conferiu rua, bairro e cidade."). Lido pela leitura do texto **e** pelo formulário de
+  endereço da montagem do app — as duas junções do serviço de CEP com o que já está escrito são esta.
 
 ## `order-actions` — a escrita do pedido tem UM dono (feature `75`, `AD-059`)
 

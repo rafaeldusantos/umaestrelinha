@@ -1,4 +1,5 @@
 import { isValidEmail, normalizeEmail, stripCep } from '@estrelinha/core/validators'
+import type { CepField, CustomerParseMode, ParsedAddress, ParsedContact } from '@estrelinha/core/customers'
 
 import type { ClienteDaMontagem } from '@/entities/customer'
 
@@ -49,6 +50,36 @@ export interface EstadoDaMontagem {
   contato: ContatoDigitado
   /** As peças (os passos 2 a 4 entram depois): aqui só a contagem que a barra desenha. */
   pecas: number
+  /** A última leitura de um texto colado — o aviso do passo 1 —, ou `null`. */
+  leitura: LeituraNaTela | null
+  /** Os campos que a leitura preencheu e a Adri ainda não editou ("Lido do texto — confira."). */
+  marcas: CampoLido[]
+  /** O estado de antes da última leitura — é para onde "Desfazer" volta, exatamente (menos as peças, que ficam). */
+  antesDaLeitura: EstadoDaMontagem | null
+}
+
+/** Um campo do passo 1 que a leitura de um texto pode preencher. */
+export type CampoLido = keyof ContatoDigitado | keyof EnderecoDigitado
+
+export const CAMPOS_DE_CONTATO_LIDOS: readonly CampoLido[] = ['nome', 'email', 'whatsapp', 'documento']
+export const CAMPOS_DE_ENDERECO_LIDOS: readonly CampoLido[] = ['cep', 'rua', 'numero', 'complemento', 'bairro', 'cidade', 'uf']
+
+/** O que a leitura de um texto entregou, já com o CEP conferido no serviço (`mergeCep`). */
+export interface LeituraRecebida {
+  escopo: CustomerParseMode
+  contato: ParsedContact | null
+  endereco: ParsedAddress
+  /** Os campos que vieram do serviço de CEP. */
+  conferidos: CepField[]
+}
+
+/** O resumo da leitura que o aviso do passo 1 desenha. */
+export interface LeituraNaTela {
+  escopo: CustomerParseMode
+  achados: CampoLido[]
+  conferidos: CepField[]
+  /** O texto trouxe um CEP, e o serviço não o conferiu. */
+  cepSemConferencia: boolean
 }
 
 export const ENDERECO_VAZIO: EnderecoDigitado = { cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '' }
@@ -63,6 +94,9 @@ export const montagemVazia = (): EstadoDaMontagem => ({
   salvarNoCadastro: true,
   contato: CONTATO_VAZIO,
   pecas: 0,
+  leitura: null,
+  marcas: [],
+  antesDaLeitura: null,
 })
 
 export type AcaoDaMontagem =
@@ -70,13 +104,65 @@ export type AcaoDaMontagem =
   | { tipo: 'escolher-cliente'; cliente: ClienteDaMontagem }
   | { tipo: 'trocar-cliente' }
   | { tipo: 'entrega'; entrega: Entrega; enderecoSalvoId?: string | null }
-  | { tipo: 'endereco'; campos: Partial<EnderecoDigitado> }
+  /** `origem: 'cep'`: o serviço de CEP completou — não é edição da Adri, e as marcas ficam. */
+  | { tipo: 'endereco'; campos: Partial<EnderecoDigitado>; origem?: 'cep' }
   | { tipo: 'contato'; campos: Partial<ContatoDigitado> }
   | { tipo: 'salvar-no-cadastro'; valor: boolean }
   /** "Usar a ficha dela": a nova vira a cadastrada; com CEP completo, o endereço digitado vira "Outro endereço". */
   | { tipo: 'usar-ficha'; cliente: ClienteDaMontagem }
+  /** A leitura de um texto colado preencheu o que achou. */
+  | { tipo: 'leitura'; lida: LeituraRecebida }
+  /** "Desfazer": volta exatamente ao estado de antes da última leitura. */
+  | { tipo: 'desfazer-leitura' }
 
 export const cepCompleto = (cep: string): boolean => stripCep(cep).length === 8
+
+const SEM_LEITURA = { leitura: null, marcas: [] as CampoLido[], antesDaLeitura: null }
+
+/** Editar um campo tira a marca dele. */
+const semAsMarcasDe = (marcas: CampoLido[], campos: object): CampoLido[] => {
+  const editados = new Set(Object.keys(campos))
+  return marcas.some((m) => editados.has(m)) ? marcas.filter((m) => !editados.has(m)) : marcas
+}
+
+/**
+ * Aplica a leitura: preenche SÓ o que ela achou (o resto fica como estava), marca esses campos, e
+ * guarda o estado de antes para o "Desfazer". No escopo `address` o contato nunca muda — a leitura não
+ * troca dados de uma ficha que existe.
+ */
+export const aplicarLeitura = (estado: EstadoDaMontagem, lida: LeituraRecebida): EstadoDaMontagem => {
+  const achados: CampoLido[] = []
+  const contato = { ...estado.contato }
+  if (lida.escopo === 'contact_and_address' && lida.contato) {
+    const c = lida.contato
+    const pares: [keyof ContatoDigitado, string][] = [['nome', c.name], ['email', c.email], ['whatsapp', c.phone], ['documento', c.cpf]]
+    for (const [campo, valor] of pares) if (valor !== '') {
+      contato[campo] = valor
+      achados.push(campo)
+    }
+  }
+  const endereco = { ...estado.endereco }
+  const e = lida.endereco
+  const paresDoEndereco: [keyof EnderecoDigitado, string][] = [
+    ['cep', e.cep], ['rua', e.street], ['numero', e.number], ['complemento', e.complement], ['bairro', e.neighborhood], ['cidade', e.city], ['uf', e.state],
+  ]
+  let achouEndereco = false
+  for (const [campo, valor] of paresDoEndereco) if (valor !== '') {
+    endereco[campo] = valor
+    achados.push(campo)
+    achouEndereco = true
+  }
+  return {
+    ...estado,
+    contato,
+    endereco,
+    entrega: achouEndereco ? 'outro' : estado.entrega,
+    enderecoSalvoId: achouEndereco ? null : estado.enderecoSalvoId,
+    marcas: [...new Set([...estado.marcas, ...achados])],
+    leitura: { escopo: lida.escopo, achados, conferidos: lida.conferidos, cepSemConferencia: e.cep !== '' && lida.conferidos.length === 0 },
+    antesDaLeitura: estado,
+  }
+}
 
 export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem): EstadoDaMontagem => {
   switch (acao.tipo) {
@@ -85,19 +171,31 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
       // Trocar o segmento limpa a cliente, o endereço e as marcas.
       return { ...montagemVazia(), modo: acao.modo, pecas: estado.pecas, entrega: acao.modo === 'nova' ? 'outro' : null }
     case 'escolher-cliente':
-      return { ...estado, cliente: acao.cliente, entrega: null, enderecoSalvoId: null, endereco: ENDERECO_VAZIO, salvarNoCadastro: true }
+      return { ...estado, cliente: acao.cliente, entrega: null, enderecoSalvoId: null, endereco: ENDERECO_VAZIO, salvarNoCadastro: true, ...SEM_LEITURA }
     case 'trocar-cliente':
-      return { ...estado, cliente: null, entrega: null, enderecoSalvoId: null, endereco: ENDERECO_VAZIO, salvarNoCadastro: true }
+      return { ...estado, cliente: null, entrega: null, enderecoSalvoId: null, endereco: ENDERECO_VAZIO, salvarNoCadastro: true, ...SEM_LEITURA }
     case 'entrega':
-      return { ...estado, entrega: acao.entrega, enderecoSalvoId: acao.enderecoSalvoId ?? null }
+      // Sair de "Outro endereço" deixa a leitura para trás: o aviso falaria de campos que não estão na tela.
+      return { ...estado, entrega: acao.entrega, enderecoSalvoId: acao.enderecoSalvoId ?? null, ...(acao.entrega === 'outro' ? {} : SEM_LEITURA) }
     case 'endereco':
-      return { ...estado, endereco: { ...estado.endereco, ...acao.campos } }
+      return {
+        ...estado,
+        endereco: { ...estado.endereco, ...acao.campos },
+        marcas: acao.origem === 'cep' ? estado.marcas : semAsMarcasDe(estado.marcas, acao.campos),
+      }
     case 'contato':
-      return { ...estado, contato: { ...estado.contato, ...acao.campos } }
+      return { ...estado, contato: { ...estado.contato, ...acao.campos }, marcas: semAsMarcasDe(estado.marcas, acao.campos) }
+    case 'leitura':
+      return aplicarLeitura(estado, acao.lida)
+    case 'desfazer-leitura':
+      // Volta o passo 1 ao estado de antes da leitura; as peças são de outro passo e ficam como estão.
+      return estado.antesDaLeitura ? { ...estado.antesDaLeitura, pecas: estado.pecas } : estado
     case 'salvar-no-cadastro':
       return { ...estado, salvarNoCadastro: acao.valor }
     case 'usar-ficha': {
       const comEndereco = cepCompleto(estado.endereco.cep)
+      // A leitura vira leitura só de endereço: as marcas de contato saem junto (e, sem o endereço, todas).
+      const doEndereco = (campos: CampoLido[]) => (comEndereco ? campos.filter((c) => CAMPOS_DE_ENDERECO_LIDOS.includes(c)) : [])
       return {
         ...estado,
         modo: 'cadastrada',
@@ -106,6 +204,10 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
         enderecoSalvoId: null,
         endereco: comEndereco ? estado.endereco : ENDERECO_VAZIO,
         contato: CONTATO_VAZIO,
+        marcas: doEndereco(estado.marcas),
+        leitura:
+          estado.leitura && comEndereco ? { ...estado.leitura, escopo: 'address', achados: doEndereco(estado.leitura.achados) } : null,
+        antesDaLeitura: comEndereco ? estado.antesDaLeitura : null,
       }
     }
   }

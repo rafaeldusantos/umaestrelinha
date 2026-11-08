@@ -202,6 +202,10 @@ describe('nenhum dado de cliente fora da tela (MAC-28) — âncoras', () => {
       'features/order-proposal/model/usePassosDaMontagem.ts',
       'features/order-proposal/ui/PassoDaCliente.tsx',
       'pages/MontarPedidoPage.tsx',
+      // A folha "Colar texto": o texto colado só vive na memória dela.
+      'features/order-proposal/ui/FolhaColarTexto.tsx',
+      'features/order-proposal/model/useLeituraDoTexto.ts',
+      'features/order-proposal/api/portaDeLeitura.ts',
     ])
       expect(rels).toContain(r)
     expect(rels.some((r) => r.includes('__tests__/'))).toBe(false)

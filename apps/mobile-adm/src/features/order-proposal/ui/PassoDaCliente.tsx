@@ -1,4 +1,5 @@
 import type { ReactNode, Ref } from 'react'
+import { MessageSquareText } from 'lucide-react'
 import { CUSTOMER_SEARCH_DEBOUNCE_MS } from '@estrelinha/core/customers'
 import { maskCpf, maskPhone } from '@estrelinha/core/validators'
 
@@ -16,8 +17,16 @@ import {
   avisoDaFicha,
   enderecoEmLinha,
   linhaDaCliente,
+  TEM_OS_DADOS_NUMA_MENSAGEM,
+  COLE_A_CONVERSA,
+  COLAR_TEXTO_DA_CONVERSA,
+  LIDO_DO_TEXTO,
+  LIDO_E_CONFERIDO_NO_CEP,
+  LER_OUTRO_TEXTO,
+  DESFAZER,
+  resumoDaLeitura,
 } from '../model/frasesDaMontagem'
-import type { AcaoDaMontagem, Entrega, EstadoDaMontagem, ModoDaCliente } from '../model/montagem'
+import type { AcaoDaMontagem, CampoLido, EnderecoDigitado, Entrega, EstadoDaMontagem, ModoDaCliente } from '../model/montagem'
 import Campo from './CampoDaMontagem'
 import FormularioDeEndereco from './FormularioDeEndereco'
 
@@ -33,6 +42,12 @@ import FormularioDeEndereco from './FormularioDeEndereco'
  *   aparelho.
  *
  * A leitura e o motivo do bloqueio são da página (a barra de baixo precisa deles); aqui só o desenho.
+ *
+ * **A leitura de um texto colado** (a folha é da página): em Cliente nova, o cartão escuro "Tem os dados
+ * numa mensagem?" (some depois de uma leitura); em "Outro endereço" da cadastrada, "Colar de uma
+ * mensagem" no formulário. Depois da leitura, o aviso no topo conta os campos, nomeia os que faltaram e
+ * oferece "Ler outro texto" e "Desfazer"; cada campo preenchido diz "Lido do texto — confira." até ser
+ * editado.
  */
 
 const ROTULO_DO_CARTAO = 'font-body text-[11px] font-semibold uppercase tracking-[.1em] text-estrelinha-ink-soft'
@@ -43,7 +58,7 @@ const Cartao = ({ titulo, acao, escuro = false, children }: { titulo: string; ac
     className={escuro ? 'rounded-lg bg-estrelinha-ink p-4 text-estrelinha-on-primary' : 'rounded-lg border border-estrelinha-line bg-estrelinha-surface p-4'}
   >
     <div className="flex flex-wrap items-center justify-between gap-x-3">
-      <h2 className={ROTULO_DO_CARTAO}>{titulo}</h2>
+      <h2 className={escuro ? 'font-display text-lg text-estrelinha-on-primary' : ROTULO_DO_CARTAO}>{titulo}</h2>
       {acao}
     </div>
     <div className="mt-2 space-y-3">{children}</div>
@@ -82,6 +97,45 @@ export interface PassoDaClienteProps {
   busca: BuscaDaMontagem
   refDoEmail: Ref<HTMLInputElement>
   aoCorrigirEmail: () => void
+  /** Abre a folha da leitura no escopo da tela: contato e endereço (nova) ou só endereço (cadastrada). */
+  aoColarTexto: (escopo: 'contact_and_address' | 'address') => void
+  aoDesfazerLeitura: () => void
+}
+
+/** A linha de baixo de cada campo que a leitura preencheu e a Adri ainda não editou. */
+const marcaDe = (estado: EstadoDaMontagem, campo: CampoLido): string | null => {
+  if (!estado.marcas.includes(campo)) return null
+  return campo === 'cep' && (estado.leitura?.conferidos.length ?? 0) > 0 ? LIDO_E_CONFERIDO_NO_CEP : LIDO_DO_TEXTO
+}
+
+const marcasDoEndereco = (estado: EstadoDaMontagem): Partial<Record<keyof EnderecoDigitado, string>> => {
+  const marcas: Partial<Record<keyof EnderecoDigitado, string>> = {}
+  for (const campo of ['cep', 'rua', 'numero', 'complemento', 'bairro', 'cidade', 'uf'] as const) {
+    const m = marcaDe(estado, campo)
+    if (m) marcas[campo] = m
+  }
+  return marcas
+}
+
+const AvisoDaLeitura = ({ estado, aoLerOutro, aoDesfazer }: { estado: EstadoDaMontagem; aoLerOutro: () => void; aoDesfazer: () => void }) => {
+  if (!estado.leitura) return null
+  const [linha1, linha2] = resumoDaLeitura(estado.leitura)
+  return (
+    <section aria-label="Leitura do texto" className="space-y-3 rounded-md border border-estrelinha-line bg-estrelinha-ground-deep p-3">
+      <div role="status" className="space-y-1 text-sm text-estrelinha-ink">
+        <p className="font-medium">{linha1}</p>
+        <p className="break-words">{linha2}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={aoLerOutro} className="min-h-12 flex-1 rounded-sm px-4 text-sm font-medium text-estrelinha-primary">
+          {LER_OUTRO_TEXTO}
+        </button>
+        <button type="button" onClick={aoDesfazer} className="min-h-12 flex-1 rounded-sm px-4 text-sm font-medium text-estrelinha-primary">
+          {DESFAZER}
+        </button>
+      </div>
+    </section>
+  )
 }
 
 const Segmento = ({ modo, aoTrocar }: { modo: ModoDaCliente; aoTrocar: (m: ModoDaCliente) => void }) => (
@@ -151,7 +205,13 @@ const BuscaDeCliente = ({ busca, aoEscolher }: { busca: BuscaDaMontagem; aoEscol
   )
 }
 
-const EntregaDaCadastrada = ({ estado, despachar, entregaEfetiva, enderecos }: Pick<PassoDaClienteProps, 'estado' | 'despachar' | 'entregaEfetiva' | 'enderecos'>) => {
+const EntregaDaCadastrada = ({
+  estado,
+  despachar,
+  entregaEfetiva,
+  enderecos,
+  aoColarTexto,
+}: Pick<PassoDaClienteProps, 'estado' | 'despachar' | 'entregaEfetiva' | 'enderecos' | 'aoColarTexto'>) => {
   if (enderecos.carregando) {
     return (
       <div aria-busy="true" aria-label="Carregando endereços" className="space-y-2">
@@ -197,6 +257,9 @@ const EntregaDaCadastrada = ({ estado, despachar, entregaEfetiva, enderecos }: P
         <FormularioDeEndereco
           prefixo="outro"
           endereco={estado.endereco}
+          marcas={marcasDoEndereco(estado)}
+          aoColar={() => aoColarTexto('address')}
+          aoCompletarPeloCep={(campos) => despachar({ tipo: 'endereco', campos, origem: 'cep' })}
           aoMudar={(campos) => despachar({ tipo: 'endereco', campos })}
           salvarNoCadastro={estado.salvarNoCadastro}
           aoTrocarSalvar={(valor) => despachar({ tipo: 'salvar-no-cadastro', valor })}
@@ -213,6 +276,11 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
   return (
     <div className="space-y-4">
       <Segmento modo={estado.modo} aoTrocar={(modo) => despachar({ tipo: 'modo', modo })} />
+      <AvisoDaLeitura
+        estado={estado}
+        aoLerOutro={() => p.aoColarTexto(estado.leitura?.escopo ?? 'contact_and_address')}
+        aoDesfazer={p.aoDesfazerLeitura}
+      />
       {estado.modo === 'cadastrada' ? (
         estado.cliente ? (
           <>
@@ -233,7 +301,13 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
               </div>
             </Cartao>
             <Cartao titulo="Entrega">
-              <EntregaDaCadastrada estado={estado} despachar={despachar} entregaEfetiva={p.entregaEfetiva} enderecos={p.enderecos} />
+              <EntregaDaCadastrada
+                estado={estado}
+                despachar={despachar}
+                entregaEfetiva={p.entregaEfetiva}
+                enderecos={p.enderecos}
+                aoColarTexto={p.aoColarTexto}
+              />
             </Cartao>
           </>
         ) : (
@@ -241,8 +315,23 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
         )
       ) : (
         <>
+          {!estado.leitura && (
+            <Cartao titulo={TEM_OS_DADOS_NUMA_MENSAGEM} escuro>
+              <div className="flex items-start gap-3">
+                <MessageSquareText aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0" />
+                <p className="min-w-0 flex-1 break-words text-sm">{COLE_A_CONVERSA}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => p.aoColarTexto('contact_and_address')}
+                className="min-h-12 w-full rounded-sm bg-estrelinha-surface px-4 text-base font-medium text-estrelinha-ink"
+              >
+                {COLAR_TEXTO_DA_CONVERSA}
+              </button>
+            </Cartao>
+          )}
           <Cartao titulo="Contato">
-            <Campo id="nova-nome" rotulo="Nome" placeholder="Como ela assina" autoComplete="name" valor={contato.nome} aoMudar={(v) => despachar({ tipo: 'contato', campos: { nome: v } })} />
+            <Campo id="nova-nome" rotulo="Nome" marca={marcaDe(estado, 'nome')} placeholder="Como ela assina" autoComplete="name" valor={contato.nome} aoMudar={(v) => despachar({ tipo: 'contato', campos: { nome: v } })} />
             <Campo
               id="nova-email"
               rotulo="E-mail"
@@ -250,6 +339,7 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
               inputMode="email"
               autoComplete="email"
               referencia={p.refDoEmail}
+              marca={marcaDe(estado, 'email')}
               valor={contato.email}
               aoMudar={(v) => despachar({ tipo: 'contato', campos: { email: v } })}
             />
@@ -276,6 +366,7 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
               placeholder="(51) 99999-9999"
               inputMode="tel"
               autoComplete="tel"
+              marca={marcaDe(estado, 'whatsapp')}
               valor={contato.whatsapp}
               aoMudar={(v) => despachar({ tipo: 'contato', campos: { whatsapp: maskPhone(v) } })}
             />
@@ -283,6 +374,7 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
               id="nova-documento"
               rotulo="CPF (opcional)"
               placeholder="000.000.000-00"
+              marca={marcaDe(estado, 'documento')}
               inputMode="numeric"
               valor={contato.documento}
               aoMudar={(v) => despachar({ tipo: 'contato', campos: { documento: maskCpf(v) } })}
@@ -295,6 +387,8 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
                 <FormularioDeEndereco
                   prefixo="nova"
                   endereco={estado.endereco}
+                  marcas={marcasDoEndereco(estado)}
+                  aoCompletarPeloCep={(campos) => despachar({ tipo: 'endereco', campos, origem: 'cep' })}
                   aoMudar={(campos) => despachar({ tipo: 'endereco', campos })}
                   salvarNoCadastro={estado.salvarNoCadastro}
                   aoTrocarSalvar={(valor) => despachar({ tipo: 'salvar-no-cadastro', valor })}

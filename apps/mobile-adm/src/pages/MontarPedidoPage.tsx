@@ -1,5 +1,6 @@
 import { useCallback, useReducer, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import type { CustomerParseMode } from '@estrelinha/core/customers'
 
 import { useClientesDaMontagem, useEnderecosSalvos, useFichaPorEmail, nomeDoCliente, type ClienteDaMontagem } from '@/entities/customer'
 import { useRecusaDePapel } from '@/features/access-check'
@@ -18,6 +19,9 @@ import {
   passoDeQuatro,
   itensDaBarra,
   FolhaDeConfirmacao,
+  FolhaColarTexto,
+  LEITURA_DESFEITA,
+  useLeituraDoTexto,
   PASSOS_DA_MONTAGEM,
   PassoDaCliente,
   cepCompleto,
@@ -42,6 +46,10 @@ import { useFolhaNaEntrada, type FolhaNaEntrada } from '@/shared/lib/useFolhaNaE
  * - **O voltar do Android** recua um passo; no primeiro, pergunta antes de sair (a sentinela de
  *   `usePassosDaMontagem`). O "x" com algo preenchido pergunta também ("Sair sem criar o link?"), por
  *   uma folha no histórico (o voltar a fecha); sem nada, fecha direto.
+ * - **"Colar texto"**: a folha da leitura (no histórico; o voltar a fecha) lê pela porta
+ *   `customer-parse` — contato e endereço em Cliente nova, só o endereço em "Outro endereço" da
+ *   cadastrada — e o resultado só preenche a memória da tela, com "Desfazer". Nada é gravado pela
+ *   leitura; a recusa da porta entra na MESMA vigia das leituras.
  * - **Nada fica no aparelho**: o estado é memória desta tela. As leituras passam por
  *   `lerComPapel`; a recusa (`42501`) entra na vigia da `72`, e enquanto ela vale nenhum dado de cliente
  *   é desenhado.
@@ -52,6 +60,15 @@ const MontarPedidoPage = () => {
   const preenchida = montagemPreenchida(estado)
   const passos = usePassosDaMontagem(preenchida)
   const folhaDeSair = useFolhaNaEntrada('sair-da-montagem')
+  const folhaDeLeitura = useFolhaNaEntrada('colar-texto')
+  const [escopoDaLeitura, setEscopoDaLeitura] = useState<CustomerParseMode>('contact_and_address')
+  const fecharFolhaDeLeitura = useRef(folhaDeLeitura.fechar)
+  fecharFolhaDeLeitura.current = folhaDeLeitura.fechar
+  const leitura = useLeituraDoTexto((lida) => {
+    setAviso([])
+    despachar({ tipo: 'leitura', lida })
+    fecharFolhaDeLeitura.current()
+  })
   const [termo, setTermo] = useState('')
   const [aviso, setAviso] = useState<string[]>([])
   const refDoEmail = useRef<HTMLInputElement>(null)
@@ -62,7 +79,7 @@ const MontarPedidoPage = () => {
   const ficha = useFichaPorEmail(estado.modo === 'nova' ? estado.contato.email : '')
 
   const recusada = useRecusaDePapel(
-    [busca.error, enderecos.error, ficha.error],
+    [busca.error, enderecos.error, ficha.error, leitura.erroBruto],
     (naBusca ? !!busca.data && !busca.isError : true) && !enderecos.isError && !ficha.isError,
   )
 
@@ -97,6 +114,12 @@ const MontarPedidoPage = () => {
     },
     [estado.endereco.cep],
   )
+
+  const abrirLeitura = (escopo: CustomerParseMode) => {
+    setEscopoDaLeitura(escopo)
+    leitura.limpar()
+    folhaDeLeitura.abrir()
+  }
 
   const fechar = () => {
     if (preenchida) folhaDeSair.abrir()
@@ -186,6 +209,11 @@ const MontarPedidoPage = () => {
               refDoEmail.current?.focus()
               refDoEmail.current?.select()
             }}
+            aoColarTexto={abrirLeitura}
+            aoDesfazerLeitura={() => {
+              despachar({ tipo: 'desfazer-leitura' })
+              setAviso(LEITURA_DESFEITA)
+            }}
           />
         )}
         {passos.passo > 1 && (
@@ -226,6 +254,13 @@ const MontarPedidoPage = () => {
         </div>
       </div>
 
+      <FolhaColarTexto
+        controle={folhaDeLeitura}
+        escopo={escopoDaLeitura}
+        lendo={leitura.lendo}
+        erro={leitura.erro}
+        aoLer={(texto) => void leitura.ler(texto, escopoDaLeitura)}
+      />
       <FolhaDeConfirmacao
         controle={folhaDeSair}
         titulo={SAIR_TITULO}

@@ -39,8 +39,10 @@ const LER_COM_PAPEL = 'shared/api/lerComPapel.ts'
 const PORTA = 'features/order-actions/api/gravarAcao.ts'
 /** Feature `79` (T17): a porta dos avisos, que invoca a edge function `atelie-avisos`. */
 const PORTA_DE_AVISOS = 'features/push-notifications/api/portaDeAvisos.ts'
-/** A porta dos pedidos montados: a outra, e última, que invoca uma function (`order-proposals`). */
+/** A porta dos pedidos montados: a outra que invoca uma function (`order-proposals`). */
 const PORTA_DE_PROPOSTAS = 'features/order-proposal/api/portaDePropostas.ts'
+/** A porta da leitura de um texto colado (a folha "Colar texto" da montagem): invoca `customer-parse`. */
+const PORTA_DE_LEITURA = 'features/order-proposal/api/portaDeLeitura.ts'
 /**
  * O nome aceito no `invoke`, POR PORTA: literal, a function da porta e uma das ações dela. O nome de uma
  * porta na outra é acusado.
@@ -48,9 +50,11 @@ const PORTA_DE_PROPOSTAS = 'features/order-proposal/api/portaDePropostas.ts'
 const INVOCACAO_ACEITA: Record<string, RegExp> = {
   [PORTA_DE_AVISOS]: /^atelie-avisos\?action=(config|status|subscribe|events|unsubscribe|test)$/,
   [PORTA_DE_PROPOSTAS]: /^order-proposals\?action=(list|get|renew|cancel|log-sent|note)$/,
+  // A function tem uma ação só: o nome literal, sem `?action=`.
+  [PORTA_DE_LEITURA]: /^customer-parse$/,
 }
 /** As invocações de cada porta (uma por ação) — a âncora da régua 2. */
-const INVOCACOES_POR_PORTA: Record<string, number> = { [PORTA_DE_AVISOS]: 6, [PORTA_DE_PROPOSTAS]: 6 }
+const INVOCACOES_POR_PORTA: Record<string, number> = { [PORTA_DE_AVISOS]: 6, [PORTA_DE_PROPOSTAS]: 6, [PORTA_DE_LEITURA]: 1 }
 const IMPORTAM_O_CLIENT = [
   LER_COM_PAPEL,
   'entities/order/api/useListaDePedidos.ts',
@@ -67,6 +71,8 @@ const IMPORTAM_O_CLIENT = [
   PORTA_DE_AVISOS,
   // A porta dos pedidos montados. Não lê tabela nem chama RPC — só invoca `order-proposals`.
   PORTA_DE_PROPOSTAS,
+  // A porta da leitura do texto colado. Não lê tabela nem chama RPC — só invoca `customer-parse`.
+  PORTA_DE_LEITURA,
 ]
 const COMANDOS_DE_TABELA = new Set(['update', 'insert', 'upsert'])
 
@@ -186,7 +192,7 @@ const lidos = arquivos(SRC).map((caminho) => ({ rel: relative(SRC, caminho).spli
 const textoDe = (rel: string) => lidos.find((l) => l.rel === rel)!.texto
 
 describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
-  it('âncora: o app foi lido, com as portas e os onze importadores do client', () => {
+  it('âncora: o app foi lido, com as portas e os doze importadores do client', () => {
     expect(lidos.length).toBeGreaterThan(80)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -195,7 +201,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     expect(lidos.flatMap((l) => escritasProibidas(l.rel, l.texto))).toEqual([])
   })
 
-  it('régua 2: só onze arquivos importam o client — por igualdade', () => {
+  it('régua 2: só doze arquivos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -296,6 +302,16 @@ describe('sensores — a régua acusa a escrita à mão e não acusa o que não 
     }
     expect(escritasProibidas(PORTA_DE_AVISOS, inv("'order-proposals?action=list'"))).toEqual([`${PORTA_DE_AVISOS}:2 functions.invoke`])
     expect(escritasProibidas(ARQ, inv("'order-proposals?action=list'"))).toEqual([`${ARQ}:2 functions.invoke`])
+  })
+
+  it('na porta da leitura do texto, só `customer-parse` literal; com ação, noutra porta ou em template, acusado', () => {
+    const inv = (nome: string) => `${imp}export const f = () => supabase.functions.invoke(${nome}, { body: {} })`
+    expect(escritasProibidas(PORTA_DE_LEITURA, inv("'customer-parse'"))).toEqual([])
+    for (const nome of ["'customer-parse?action=parse'", "'order-proposals?action=list'", '`customer-parse`', 'nome']) {
+      expect(escritasProibidas(PORTA_DE_LEITURA, inv(nome))).toEqual([`${PORTA_DE_LEITURA}:2 functions.invoke`])
+    }
+    expect(escritasProibidas(PORTA_DE_PROPOSTAS, inv("'customer-parse'"))).toEqual([`${PORTA_DE_PROPOSTAS}:2 functions.invoke`])
+    expect(escritasProibidas(ARQ, inv("'customer-parse'"))).toEqual([`${ARQ}:2 functions.invoke`])
   })
 
   it('feature 79: a régua 2 da porta dos avisos enxerga `from`, `rpc` e o client passado adiante', () => {
