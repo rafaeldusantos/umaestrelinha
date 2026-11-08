@@ -3,7 +3,8 @@ import { supabase } from '@estrelinha/supabase/client'
 import { invocar, traduzir, type LeitorDoErro, type RespostaDaPorta } from '@/shared/api/traduzir'
 
 import type { PedidoDoResumo } from '../model/descontos'
-import type { CanalDoEnvio, LeituraDoMontado, ListaDeMontados, MontadoRenovado, PreviaDaMontagem } from '../model/tipos'
+import type { CorpoDoSave } from '../model/revisao'
+import type { CanalDoEnvio, LeituraDoMontado, ListaDeMontados, MontadoRenovado, MontadoSalvo, PreviaDaMontagem } from '../model/tipos'
 
 /**
  * A porta dos pedidos montados: o app fala com a edge function `order-proposals` SÓ por
@@ -75,3 +76,12 @@ export const gravarObservacaoDoMontado = async (
  */
 export const conferirResumo = async (pedido: PedidoDoResumo, signal?: AbortSignal): Promise<RespostaDePropostas<PreviaDaMontagem>> =>
   traduzir(await invocar(() => supabase.functions.invoke('order-proposals?action=preview', { body: pedido, signal })), lerErro)
+
+/**
+ * Criar ou editar o pedido montado — a ÚNICA gravação da montagem: a proposta, a ficha nova e o
+ * endereço salvo (`save_address`) nascem juntos, numa transação no servidor. Criar leva a chave de
+ * idempotência; editar, o `id` e a `version` lidos (o link continua o mesmo). O total é só conferido:
+ * diferente do que o servidor recalcula ⇒ 409 `prices_changed` com o resumo relido.
+ */
+export const salvarMontado = async (corpo: CorpoDoSave): Promise<RespostaDePropostas<MontadoSalvo>> =>
+  traduzir(await invocar(() => supabase.functions.invoke('order-proposals?action=save', { body: corpo })), lerErro)

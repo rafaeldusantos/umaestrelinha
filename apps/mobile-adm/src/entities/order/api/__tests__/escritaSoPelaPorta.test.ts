@@ -43,19 +43,24 @@ const PORTA_DE_AVISOS = 'features/push-notifications/api/portaDeAvisos.ts'
 const PORTA_DE_PROPOSTAS = 'features/order-proposal/api/portaDePropostas.ts'
 /** A porta da leitura de um texto colado (a folha "Colar texto" da montagem): invoca `customer-parse`. */
 const PORTA_DE_LEITURA = 'features/order-proposal/api/portaDeLeitura.ts'
+/** A porta da prévia do frete da montagem (o passo 4): invoca só a cotação da `melhor-envio`. */
+const PORTA_DA_COTACAO = 'features/order-proposal/api/portaDaCotacao.ts'
 /**
  * O nome aceito no `invoke`, POR PORTA: literal, a function da porta e uma das ações dela. O nome de uma
  * porta na outra é acusado.
  */
 const INVOCACAO_ACEITA: Record<string, RegExp> = {
   [PORTA_DE_AVISOS]: /^atelie-avisos\?action=(config|status|subscribe|events|unsubscribe|test)$/,
-  // `preview`: o resumo vivo da montagem (o passo 3) — não grava nada.
-  [PORTA_DE_PROPOSTAS]: /^order-proposals\?action=(list|get|renew|cancel|log-sent|note|preview)$/,
+  // `preview`: o resumo vivo da montagem (o passo 3) — não grava nada. `save`: "Criar link" e o Editar
+  // da montagem (o passo 4) — a ÚNICA gravação da montagem.
+  [PORTA_DE_PROPOSTAS]: /^order-proposals\?action=(list|get|renew|cancel|log-sent|note|preview|save)$/,
   // A function tem uma ação só: o nome literal, sem `?action=`.
   [PORTA_DE_LEITURA]: /^customer-parse$/,
+  // A cotação, e só ela: `create`, `print` e `tracking` da mesma function são do painel.
+  [PORTA_DA_COTACAO]: /^melhor-envio\?action=quote$/,
 }
 /** As invocações de cada porta (uma por ação) — a âncora da régua 2. */
-const INVOCACOES_POR_PORTA: Record<string, number> = { [PORTA_DE_AVISOS]: 6, [PORTA_DE_PROPOSTAS]: 7, [PORTA_DE_LEITURA]: 1 }
+const INVOCACOES_POR_PORTA: Record<string, number> = { [PORTA_DE_AVISOS]: 6, [PORTA_DE_PROPOSTAS]: 8, [PORTA_DE_LEITURA]: 1, [PORTA_DA_COTACAO]: 1 }
 const IMPORTAM_O_CLIENT = [
   LER_COM_PAPEL,
   'entities/order/api/useListaDePedidos.ts',
@@ -76,6 +81,8 @@ const IMPORTAM_O_CLIENT = [
   PORTA_DE_LEITURA,
   // O catálogo da montagem (as peças e as variações). Só lê, dentro de `lerComPapel`.
   'entities/product/api/catalogoDaMontagem.ts',
+  // A porta da cotação do passo 4. Não lê tabela nem chama RPC — só invoca `melhor-envio?action=quote`.
+  PORTA_DA_COTACAO,
 ]
 const COMANDOS_DE_TABELA = new Set(['update', 'insert', 'upsert'])
 
@@ -195,7 +202,7 @@ const lidos = arquivos(SRC).map((caminho) => ({ rel: relative(SRC, caminho).spli
 const textoDe = (rel: string) => lidos.find((l) => l.rel === rel)!.texto
 
 describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
-  it('âncora: o app foi lido, com as portas e os treze importadores do client', () => {
+  it('âncora: o app foi lido, com as portas e os catorze importadores do client', () => {
     expect(lidos.length).toBeGreaterThan(80)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -204,7 +211,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     expect(lidos.flatMap((l) => escritasProibidas(l.rel, l.texto))).toEqual([])
   })
 
-  it('régua 2: só treze arquivos importam o client — por igualdade', () => {
+  it('régua 2: só catorze arquivos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -222,7 +229,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     (porta, invocacoes) => {
       const r = clientNaPortaDeAvisos(porta, textoDe(porta))
       // Âncora: uma invocação por ação (avisos: config, status, subscribe, events, unsubscribe, test;
-      // montados: list, get, renew, cancel, log-sent, note, preview).
+      // montados: list, get, renew, cancel, log-sent, note, preview, save; cotação: quote).
       expect(r.invocacoes).toBe(invocacoes)
       expect(r.outros).toEqual([])
     },
@@ -297,7 +304,7 @@ describe('sensores — a régua acusa a escrita à mão e não acusa o que não 
 
   it('na porta dos montados, só `order-proposals?action=<ação dela>`; o nome de uma porta na outra é acusado', () => {
     const inv = (nome: string) => `${imp}export const f = () => supabase.functions.invoke(${nome}, { body: {} })`
-    for (const acao of ['list', 'get', 'renew', 'cancel', 'log-sent', 'note', 'preview']) {
+    for (const acao of ['list', 'get', 'renew', 'cancel', 'log-sent', 'note', 'preview', 'save']) {
       expect(escritasProibidas(PORTA_DE_PROPOSTAS, inv(`'order-proposals?action=${acao}'`))).toEqual([])
     }
     for (const nome of ["'order-proposals?action=apagar'", "'order-proposals'", "'atelie-avisos?action=config'", '`order-proposals?action=${acao}`']) {
@@ -315,6 +322,16 @@ describe('sensores — a régua acusa a escrita à mão e não acusa o que não 
     }
     expect(escritasProibidas(PORTA_DE_PROPOSTAS, inv("'customer-parse'"))).toEqual([`${PORTA_DE_PROPOSTAS}:2 functions.invoke`])
     expect(escritasProibidas(ARQ, inv("'customer-parse'"))).toEqual([`${ARQ}:2 functions.invoke`])
+  })
+
+  it('na porta da cotação, só `melhor-envio?action=quote` literal; as ações do painel, noutra porta ou em template, acusado', () => {
+    const inv = (nome: string) => `${imp}export const f = () => supabase.functions.invoke(${nome}, { body: {} })`
+    expect(escritasProibidas(PORTA_DA_COTACAO, inv("'melhor-envio?action=quote'"))).toEqual([])
+    for (const nome of ["'melhor-envio?action=create'", "'melhor-envio'", "'order-proposals?action=save'", '`melhor-envio?action=${acao}`']) {
+      expect(escritasProibidas(PORTA_DA_COTACAO, inv(nome))).toEqual([`${PORTA_DA_COTACAO}:2 functions.invoke`])
+    }
+    expect(escritasProibidas(PORTA_DE_PROPOSTAS, inv("'melhor-envio?action=quote'"))).toEqual([`${PORTA_DE_PROPOSTAS}:2 functions.invoke`])
+    expect(escritasProibidas(ARQ, inv("'melhor-envio?action=quote'"))).toEqual([`${ARQ}:2 functions.invoke`])
   })
 
   it('feature 79: a régua 2 da porta dos avisos enxerga `from`, `rpc` e o client passado adiante', () => {

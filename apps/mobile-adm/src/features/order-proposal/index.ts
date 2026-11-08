@@ -46,3 +46,29 @@ export type { PreviaDaMontagem, ResumoDaMontagem } from './model/tipos'
 export { useResumoDaMontagem, type ResumoDaMontagemNaTela } from './model/useResumoDaMontagem'
 export { useAplicarCupom, type AplicarCupom } from './model/useAplicarCupom'
 export { default as PassoDosDescontos, type PassoDosDescontosProps } from './ui/PassoDosDescontos'
+export {
+  ALTERACOES_SALVAS,
+  CARREGANDO_O_MONTADO,
+  CRIANDO_O_LINK,
+  CRIAR_LINK,
+  EDITAR_PEDIDO_MONTADO,
+  LINK_CRIADO,
+  NOTA_DO_EDITAR,
+  O_LINK_CONTINUA,
+  SALVAR_ALTERACOES,
+  agoraEhSoMandar,
+  corpoDoSave,
+  enderecoDaEntrega,
+  montagemDoMontado,
+  motivoDaRevisao,
+  notaDaRevisao,
+  type AlvoDoSave,
+  type CorpoDoSave,
+} from './model/revisao'
+export { salvarMontado } from './api/portaDePropostas'
+export { cotarFrete } from './api/portaDaCotacao'
+export type { MontadoSalvo } from './model/tipos'
+export { useCriarLink, type CriarLink } from './model/useCriarLink'
+export { lerCotacao, useCotacaoDaRevisao, useRelogioDaMontagem, COTACAO_DA_MONTAGEM_KEY, RELOGIO_DA_MONTAGEM_KEY } from './model/useCotacaoDaRevisao'
+export { marcarEdicao, edicaoMarcada, esquecerEdicao, deixarDesfecho, type DesfechoDaGravacao } from './model/montadoEmEdicao'
+export { default as PassoRevisar, type PassoRevisarProps } from './ui/PassoRevisar'

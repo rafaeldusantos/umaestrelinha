@@ -12,7 +12,7 @@ import App from '@/app/App'
 import { real, type RespostaRpcReal } from '@/test/clientReal'
 import { SEM_ACESSO } from '@/pages/LoginPage'
 import { FALHA_DE_LEITURA } from '@/shared/ui/leitura'
-import { conferirResumo } from '@/features/order-proposal'
+import { conferirResumo, lerCotacao, salvarMontado, type CorpoDoSave } from '@/features/order-proposal'
 import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/clientReal')).supabaseProxy }))
@@ -298,5 +298,138 @@ describe('a porta da prévia do passo 3 · Descontos, sobre o client real', () =
     const r = criar('rede', RELOGIO_OK)
     await expect(conferirResumo(ESCOLHA)).resolves.toMatchObject({ tipo: 'falhou' })
     expect(r.quantos(RPC_RELOGIO)).toBe(0)
+  })
+})
+
+describe('a gravação do passo 4 (`save`), sobre o client real', () => {
+  // Como a prévia acima: a prova é a da PORTA que "Criar link" chama, sobre o supabase-js real. Que a
+  // recusa leva a tela à vigia (no "Criar link" e na prévia do frete), e que a falha diz "nada foi
+  // enviado", é provado pela página real, em `pages/__tests__/montarPedido.revisar.test.tsx`
+  // (describe "a conta que perde o papel no passo 4").
+  const FUNCTION_DO_SAVE = '/functions/v1/order-proposals'
+  const FORBIDDEN: RespostaRpcReal = { status: 403, corpo: { error: 'forbidden' } }
+  const CORPO: CorpoDoSave = {
+    idempotency_key: 'chave-da-montagem',
+    customer_id: ID_DELA,
+    customer_name: NOME_DELA,
+    customer_email: EMAIL_DELA,
+    customer_phone: null,
+    customer_document: null,
+    address_zip: '90010000',
+    address_street: RUA_DELA,
+    address_number: '1',
+    address_complement: null,
+    address_neighborhood: 'Centro',
+    address_city: 'Porto Alegre',
+    address_state: 'RS',
+    lines: [{ product_id: '00000000-0000-4000-c094-000000000999', variant_id: null, quantity: 1, engraving_text: null }],
+    coupon_code: null,
+    manual_discount: null,
+    expected_total: 120,
+    admin_note: null,
+    save_address: true,
+  }
+  const criar = (save: RespostaRpcReal | 'rede', relogio: RespostaRpcReal | 'rede') =>
+    real.criar({
+      sessao: 'valida',
+      papel: 'admin',
+      cadastro: 'ok',
+      rpc: { atelie_clock: relogio },
+      functions: { 'order-proposals': { porAcao: { save: save as RespostaRpcReal } } },
+    })
+
+  it('par: o `save` em 200 volta a proposta, pela ação literal `save`, com o corpo inteiro e sem perguntar o papel', async () => {
+    const r = criar(ok({ id: 'p1', number: 'P-0050', version: 1, created: true, token: 't', expires_at: '2026-11-14T12:00:00Z' }), RELOGIO_OK)
+    await expect(salvarMontado(CORPO)).resolves.toMatchObject({ tipo: 'ok', dado: { id: 'p1', token: 't' } })
+    const chamada = r.chamadas.find((c) => c.caminho === FUNCTION_DO_SAVE)
+    expect(chamada?.busca).toBe('?action=save')
+    expect(chamada?.corpo).toEqual(CORPO)
+    expect(r.quantos(RPC_RELOGIO)).toBe(0)
+  })
+
+  it('conta sem papel: o `save` em 403 e `atelie_clock` 403 `42501` ⇒ a recusa (lançada), não a falha', async () => {
+    const r = criar(FORBIDDEN, RECUSA_403)
+    const erro = await salvarMontado(CORPO).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(isAccessDenied(erro)).toBe(true)
+    expect(r.quantos(FUNCTION_DO_SAVE)).toBe(1)
+    expect(r.quantos(RPC_RELOGIO)).toBe(1)
+  })
+
+  it('o `save` em 403 com o relógio de pé ⇒ a falha, nunca a recusa', async () => {
+    criar(FORBIDDEN, RELOGIO_OK)
+    await expect(salvarMontado(CORPO)).resolves.toMatchObject({ tipo: 'falhou' })
+  })
+
+  it('o preço mudado (409 `prices_changed`) volta como erro com a frase da function, nunca como recusa', async () => {
+    const r = criar({ status: 409, corpo: { error: 'Os preços mudaram enquanto você montava. Confira o resumo.', code: 'prices_changed', summary: { items_total: 132 } } }, RELOGIO_OK)
+    await expect(salvarMontado(CORPO)).resolves.toMatchObject({
+      tipo: 'erro',
+      slug: 'prices_changed',
+      frase: 'Os preços mudaram enquanto você montava. Confira o resumo.',
+    })
+    expect(r.quantos(RPC_RELOGIO)).toBe(0)
+  })
+
+  it('a rede caída no `save` ⇒ a falha, sem perguntar o papel', async () => {
+    const r = criar('rede', RELOGIO_OK)
+    await expect(salvarMontado(CORPO)).resolves.toMatchObject({ tipo: 'falhou' })
+    expect(r.quantos(RPC_RELOGIO)).toBe(0)
+  })
+})
+
+describe('a prévia do frete do passo 4 (a cotação), sobre o client real', () => {
+  // A cotação é pública na function: quem recusa a conta sem papel é a confirmação que sai junto da
+  // leitura (`lerComPapel`, `atelie_clock` ⇒ `42501`).
+  const FUNCTION_DA_COTACAO = '/functions/v1/melhor-envio'
+  const CORPO = { postal_code_to: '90010000', products: [{ id: 'p', width: 11, height: 2, length: 16, weight: 0.1, insurance_value: 120, quantity: 1 }] }
+  const OPCOES = [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 5 }]
+  const criar = (cotacao: RespostaRpcReal | 'rede', relogio: RespostaRpcReal | 'rede') =>
+    real.criar({
+      sessao: 'valida',
+      papel: 'admin',
+      cadastro: 'ok',
+      rpc: { atelie_clock: relogio },
+      functions: { 'melhor-envio': { porAcao: { quote: cotacao as RespostaRpcReal } } },
+    })
+
+  it('par: com o papel de pé, as opções voltam, pela ação literal `quote`, com o corpo da cotação', async () => {
+    const r = criar(ok(OPCOES), RELOGIO_OK)
+    await expect(lerCotacao(CORPO)).resolves.toEqual(OPCOES)
+    const chamada = r.chamadas.find((c) => c.caminho === FUNCTION_DA_COTACAO)
+    expect(chamada?.busca).toBe('?action=quote')
+    expect(chamada?.corpo).toEqual(CORPO)
+    expect(r.quantos(RPC_RELOGIO)).toBe(1)
+  })
+
+  it('conta sem papel: a cotação em 200 e `atelie_clock` 403 `42501` ⇒ a recusa, e nenhuma opção', async () => {
+    criar(ok(OPCOES), RECUSA_403)
+    const erro = await lerCotacao(CORPO).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(isAccessDenied(erro)).toBe(true)
+  })
+
+  it('a rede caída na cotação ⇒ a falha, nunca a recusa', async () => {
+    criar('rede', RELOGIO_OK)
+    const erro = await lerCotacao(CORPO).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(erro).toBeInstanceOf(Error)
+    expect(isAccessDenied(erro)).toBe(false)
+  })
+
+  it('a rede caída na confirmação ⇒ a falha, nunca a recusa', async () => {
+    criar(ok(OPCOES), 'rede')
+    const erro = await lerCotacao(CORPO).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(erro).not.toBeNull()
+    expect(isAccessDenied(erro)).toBe(false)
   })
 })

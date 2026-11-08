@@ -35,9 +35,14 @@ export interface ListaDeMontados {
   agora: string
 }
 
-/** Uma peça do pedido montado, como a revisão a mostra. */
+/** Uma peça do pedido montado, como a revisão a mostra — e como Editar a devolve à montagem. */
 export interface PecaDoMontado {
   position: number
+  product_id: string
+  variant_id: string | null
+  /** O preço cheio travado da linha (o `unit_price` é com a promoção). */
+  list_price: number | null
+  requires_material: boolean | null
   product_name: string
   product_image: string | null
   variant_label: string | null
@@ -64,6 +69,8 @@ export interface PedidoMontado {
   expires_at: string
   order_id: string | null
   order_number: string | null
+  /** A ficha da cliente, quando o pedido montado tem uma. */
+  customer_id: string | null
   customer_name: string
   customer_email: string
   customer_phone: string | null
@@ -79,6 +86,9 @@ export interface PedidoMontado {
   promotion_discount: number
   coupon_code: string | null
   coupon_discount: number
+  manual_discount_kind: 'amount' | 'percent' | null
+  manual_discount_value: number | null
+  manual_discount_reason: string | null
   manual_discount: number
   items_total: number
   admin_note: string | null
@@ -122,4 +132,14 @@ export interface PreviaDaMontagem {
   manual_refusal: string | null
   /** O PIX dos itens, ou `null` (PIX desligado ou sem desconto). */
   items_pix: { percent: number; total: number } | null
+}
+
+/** A resposta do `save`: a proposta gravada e — só ao criar — o token do link e o prazo. */
+export interface MontadoSalvo {
+  id: string
+  number: string
+  version: number
+  created: boolean
+  token: string | null
+  expires_at: string | null
 }

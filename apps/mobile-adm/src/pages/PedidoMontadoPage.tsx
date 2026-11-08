@@ -6,7 +6,7 @@ import { whatsappChatUrl } from '@estrelinha/core/notifications'
 import { formatOrderNumber, formatShortDate } from '@estrelinha/core/orders'
 import { proposalLink, proposalRenewText, proposalWhatsappText } from '@estrelinha/core/proposals'
 
-import { montadosHref, pedidoHref } from '@/entities/order'
+import { montadosHref, montarPedidoHref, pedidoHref } from '@/entities/order'
 import { useRecusaDePapel } from '@/features/access-check'
 import { FolhaDaObservacao, useRecusaDaAcao } from '@/features/order-actions'
 import {
@@ -16,6 +16,7 @@ import {
   CANCELAR_PEDIDO,
   CLIENTE,
   CartaoDoLink,
+  EDITAR,
   EDITAR_OBSERVACAO,
   FAIXA_CANCELADA,
   FRETE_NO_LINK,
@@ -32,6 +33,7 @@ import {
   VOLTAR_PARA_MONTADOS,
   cancelarTitulo,
   documentoDoMontado,
+  marcarEdicao,
   enderecoDoMontado,
   faixaConcluida,
   faixaExpirada,
@@ -112,12 +114,15 @@ const conteudoDoLink = (d: MontadoAchado, renovado: { token: string; expires_at:
  *   `LINK_WITHOUT_STORE`.
  * - **As ações são as de `actions`** (`proposalActions`, do servidor): aberta ⇒ Cancelar; expirada ⇒
  *   Renovar prazo (a folha com `proposalRenewText`); concluída ⇒ "Ver o pedido #0262"; cancelada ⇒
- *   nenhuma. "Editar" é de outra tarefa.
+ *   nenhuma. "Editar" (aberta ou vista) marca a proposta e abre a montagem, que chega preenchida pelo
+ *   `get` e salva no mesmo link; o desfecho ("Alterações salvas.", "Link criado." com o link da
+ *   criação) chega pelo aviso desta tela.
  * - **A observação interna** é editável em qualquer estado não concluído (a ação `note`).
  * - **As folhas moram no histórico** (`useFolhaNaEntrada`): o voltar do Android as fecha.
  */
 const PedidoMontadoPage = () => {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
   const montado = useMontado(id)
   const acoes = useAcoesDoMontado(id)
   const recusaDaAcao = useRecusaDaAcao(acoes.erroBruto, montado.dataUpdatedAt)
@@ -339,14 +344,31 @@ const PedidoMontadoPage = () => {
               </ol>
             </Cartao>
 
-            {achado.actions?.cancel && (
-              <button
-                type="button"
-                onClick={() => abrirFolha(folhaCancelar)}
-                className="min-h-12 w-full rounded-sm border border-estrelinha-alert px-4 text-base font-medium text-estrelinha-alert"
-              >
-                {CANCELAR_ESTE_PEDIDO}
-              </button>
+            {(achado.actions?.edit || achado.actions?.cancel) && (
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2">
+                {achado.actions?.edit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (acoes.travado) return
+                      marcarEdicao(id)
+                      navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: 0 } })
+                    }}
+                    className="min-h-12 w-full rounded-sm bg-estrelinha-ink px-4 text-base font-medium text-estrelinha-on-primary"
+                  >
+                    {EDITAR}
+                  </button>
+                )}
+                {achado.actions?.cancel && (
+                  <button
+                    type="button"
+                    onClick={() => abrirFolha(folhaCancelar)}
+                    className="min-h-12 w-full rounded-sm border border-estrelinha-alert px-4 text-base font-medium text-estrelinha-alert"
+                  >
+                    {CANCELAR_ESTE_PEDIDO}
+                  </button>
+                )}
+              </div>
             )}
             {renovarExpirada && achado.actions.renewLabel && (
               <button

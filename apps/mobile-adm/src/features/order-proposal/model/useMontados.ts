@@ -54,10 +54,11 @@ const lerDetalhe = async (id: string): Promise<DetalheDoMontado> => {
   return { tipo: 'achou', lido_em, ...r.dado }
 }
 
-export const useMontado = (id: string) =>
+export const useMontado = (id: string, { habilitada = true }: { habilitada?: boolean } = {}) =>
   useQuery({
     queryKey: chaveDoMontado(id),
     queryFn: () => lerDetalhe(id),
+    enabled: habilitada,
     staleTime: 0,
     refetchOnWindowFocus: true,
     retry: retryUnlessDenied,

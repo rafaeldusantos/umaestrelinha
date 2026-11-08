@@ -1,10 +1,14 @@
-import { useCallback, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
+import { useAuthContext } from '@estrelinha/auth'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { adminNoteRefusal } from '@estrelinha/core/orders'
 import type { CustomerParseMode } from '@estrelinha/core/customers'
 import type { PecaParaProposta } from '@estrelinha/core/proposals'
 
 import { useClientesDaMontagem, useEnderecosSalvos, useFichaPorEmail, nomeDoCliente, type ClienteDaMontagem } from '@/entities/customer'
+import { pedidoMontadoHref } from '@/entities/order'
 import { useCatalogoDaMontagem } from '@/entities/product'
 import { useRecusaDePapel } from '@/features/access-check'
 import {
@@ -50,12 +54,42 @@ import {
   usePassosDaMontagem,
   type Entrega,
   type NumeroDoPasso,
+  ALTERACOES_SALVAS,
+  CARREGANDO_O_MONTADO,
+  CRIANDO_O_LINK,
+  CRIAR_LINK,
+  EDITAR_PEDIDO_MONTADO,
+  LINK_CRIADO,
+  NOTA_DO_EDITAR,
+  O_LINK_CONTINUA,
+  PassoRevisar,
+  SALVANDO,
+  SALVAR_ALTERACOES,
+  agoraEhSoMandar,
+  corpoDoSave,
+  deixarDesfecho,
+  edicaoMarcada,
+  enderecoDaEntrega,
+  esquecerEdicao,
+  montagemDoMontado,
+  motivoDaRevisao,
+  notaDaRevisao,
+  useCotacaoDaRevisao,
+  useCriarLink,
+  useMontado,
+  useRelogioDaMontagem,
 } from '@/features/order-proposal'
+import { FalhaDoBloco, Traco } from '@/shared/ui/leitura'
 import { useFolhaNaEntrada, type FolhaNaEntrada } from '@/shared/lib/useFolhaNaEntrada'
 
+/** Uma chave de idempotência por montagem: o segundo toque em "Criar link" devolve a mesma proposta. */
+const chaveNova = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `montagem-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+
 /**
- * A montagem de um pedido no app — a casca dos quatro passos e o
- * passo 1. Os passos 2 a 4 entram depois; aqui só o esqueleto deles.
+ * A montagem de um pedido no app — a casca dos quatro passos.
  *
  * - **Tela cheia**, sem a barra de abas (`barraNoCaminho`): o "x" (fechar), o título, "Passo n de 4 ·
  *   <nome>" e o indicador de quatro segmentos, que só navega até o passo mais alto alcançado.
@@ -75,13 +109,34 @@ import { useFolhaNaEntrada, type FolhaNaEntrada } from '@/shared/lib/useFolhaNaE
  *   (`order-proposals?action=preview`), a cada mudança, com a anterior cancelada. O app não lê
  *   promoções, cupons nem pedidos: manda a escolha e recebe o resumo. "Continuar" fica ligado; tocar
  *   com bloqueio marca a tentativa, e só então o motivo aparece.
+ * - **O passo 4 · Revisar**: as peças primeiro (com a foto), a cliente e a entrega com a prévia do
+ *   frete (`melhor-envio?action=quote`, pela porta da cotação, dentro de `lerComPapel`), cada bloco
+ *   com "Alterar", e a observação interna. "Criar link" é a ÚNICA gravação (`order-proposals?action=save`):
+ *   a proposta, a ficha nova e o endereço salvo (`save_address`) nascem juntos. Preço mudado no servidor
+ *   ⇒ a frase da function no topo, e o resumo e a sacola relidos; outra falha ⇒ "nada foi enviado".
+ *   Gravado, abre o pedido montado com "Link criado.".
+ * - **Editar**: o pedido montado marca a proposta (`marcarEdicao`) e abre esta tela; a montagem chega
+ *   preenchida pelo `get` (peças, cliente, entrega, descontos, observação), e salvar mantém o link
+ *   ("Alterações salvas."), voltando ao pedido montado.
  * - **Nada fica no aparelho**: o estado é memória desta tela. As leituras passam por
  *   `lerComPapel`; a recusa (`42501`) entra na vigia da `72`, e enquanto ela vale nenhum dado de cliente
  *   é desenhado.
  */
 
 const MontarPedidoPage = () => {
+  const navigate = useNavigate()
+  const { user } = useAuthContext()
   const [estado, despachar] = useReducer(reduzirMontagem, undefined, montagemVazia)
+  // Editar: a proposta que o pedido montado marcou — lida ao montar, e esquecida.
+  const [editando] = useState(edicaoMarcada)
+  useEffect(() => {
+    esquecerEdicao()
+  }, [])
+  const montado = useMontado(editando ?? '', { habilitada: editando !== null })
+  const [carregada, setCarregada] = useState(editando === null)
+  const [cupomGravado, setCupomGravado] = useState<string | null>(null)
+  const chaveDoSave = useRef<string>(chaveNova())
+  const criar = useCriarLink()
   const preenchida = montagemPreenchida(estado)
   const passos = usePassosDaMontagem(preenchida)
   const folhaDeSair = useFolhaNaEntrada('sair-da-montagem')
@@ -107,6 +162,14 @@ const MontarPedidoPage = () => {
   const enderecos = useEnderecosSalvos(estado.modo === 'cadastrada' ? (estado.cliente?.fichaId ?? null) : null)
   const ficha = useFichaPorEmail(estado.modo === 'nova' ? estado.contato.email : '')
   const catalogo = useCatalogoDaMontagem(passos.passo === 2)
+  const achado = montado.data?.tipo === 'achou' ? montado.data : null
+  useEffect(() => {
+    if (carregada || !achado) return
+    const { estado: reaberta, cupom } = montagemDoMontado(achado)
+    despachar({ tipo: 'carregar', estado: reaberta })
+    setCupomGravado(cupom)
+    setCarregada(true)
+  }, [carregada, achado])
 
   // O passo 3: a prévia confere a escolha de agora (o e-mail da cliente decide o cupom de primeira compra).
   const emailDaCliente = estado.modo === 'cadastrada' ? (estado.cliente?.email ?? '') : estado.contato.email
@@ -129,15 +192,56 @@ const MontarPedidoPage = () => {
     }
   }
 
+  // Editar: o cupom gravado volta como CÓDIGO e é conferido de novo pela prévia (a regra pode ter mudado).
+  useEffect(() => {
+    if (!carregada || !cupomGravado || estado.pecas.length === 0) return
+    setCupomGravado(null)
+    const { coupon_code: _semCupom, ...base } = pedidoDoResumo(estado.pecas, null, estado.combinado, emailDaCliente)
+    void cupomAplicavel.aplicar(cupomGravado, base).then((cupom) => {
+      if (cupom) despachar({ tipo: 'cupom', cupom })
+    })
+  }, [carregada, cupomGravado, estado.pecas, estado.combinado, emailDaCliente, cupomAplicavel])
+
+  // O passo 4: o endereço da entrega (o digitado, o salvo, ou nenhum — a cliente preenche no link), a
+  // prévia do frete e o relógio do servidor da nota do prazo.
+  const enderecoDaRevisao = enderecoDaEntrega(estado, entregaEfetivaDe(), enderecos.data)
+  const cotacao = useCotacaoDaRevisao(enderecoDaRevisao, estado.pecas, passos.passo === 4)
+  const relogio = useRelogioDaMontagem(passos.passo === 4 && editando === null)
+
   const recusada = useRecusaDePapel(
-    [busca.error, enderecos.error, ficha.error, leitura.erroBruto, catalogo.error, resumo.erroBruto, cupomAplicavel.erroBruto],
-    (naBusca ? !!busca.data && !busca.isError : true) && !enderecos.isError && !ficha.isError && !catalogo.isError,
+    [
+      busca.error,
+      enderecos.error,
+      ficha.error,
+      leitura.erroBruto,
+      catalogo.error,
+      resumo.erroBruto,
+      cupomAplicavel.erroBruto,
+      montado.error,
+      cotacao.consulta.error,
+      relogio.error,
+      criar.erroBruto,
+    ],
+    (naBusca ? !!busca.data && !busca.isError : true) && !enderecos.isError && !ficha.isError && !catalogo.isError && !montado.isError,
   )
+
+  // O preço mudou no servidor: o resumo e a sacola relidos (o catálogo traz o preço cheio de hoje).
+  const mudancasVistas = useRef(0)
+  useEffect(() => {
+    if (criar.precosMudaram === mudancasVistas.current) return
+    mudancasVistas.current = criar.precosMudaram
+    resumo.tentarDeNovo()
+    void catalogo.refetch().then((r) => {
+      if (r.data) despachar({ tipo: 'reprecificar', catalogo: r.data })
+    })
+  }, [criar.precosMudaram, resumo, catalogo])
 
   // A entrega de quem ainda não escolheu: a cadastrada no endereço padrão (ou no link, sem endereço
   // salvo — a convidada nunca tem); a nova informa agora.
-  const semEndereco = estado.cliente !== null && estado.cliente.fichaId === null
-  const entregaEfetiva: Entrega | null =
+  const entregaEfetiva: Entrega | null = entregaEfetivaDe()
+  function entregaEfetivaDe(): Entrega | null {
+    const semEndereco = estado.cliente !== null && estado.cliente.fichaId === null
+    return (
     estado.entrega ??
     (estado.modo === 'nova'
       ? 'outro'
@@ -150,6 +254,9 @@ const MontarPedidoPage = () => {
               ? 'padrao'
               : 'link'
             : null)
+    )
+  }
+  const semEndereco = estado.cliente !== null && estado.cliente.fichaId === null
   const fichaDoEmail = !recusada && estado.modo === 'nova' ? (ficha.data ?? null) : null
 
   const motivo =
@@ -159,7 +266,15 @@ const MontarPedidoPage = () => {
         ? motivoDoPassoPecas(estado)
         : passos.passo === 3
           ? motivoDoPassoDescontos(estado.combinado, recusaDoCombinado)
-          : null
+          : motivoDaRevisao(
+              [
+                motivoDoPassoCliente(estado, { entregaEfetiva, temFicha: fichaDoEmail !== null }),
+                motivoDoPassoPecas(estado),
+                motivoDoPassoDescontos(estado.combinado, recusaDoCombinado),
+                adminNoteRefusal(estado.observacao),
+              ],
+              resumo.previa !== null,
+            )
   // No passo 3 o motivo só aparece depois da tentativa; o botão fica ligado.
   const motivoNaBarra = passos.passo === 3 && !tentouNosDescontos ? null : motivo
   const continuar = () => {
@@ -170,6 +285,33 @@ const MontarPedidoPage = () => {
     passos.continuar()
   }
   const totalNaBarra = passos.passo >= 3 && resumo.previa ? formatPrice(resumo.previa.summary.items_total) : '—'
+
+  const versaoLida = achado?.proposal.version ?? null
+  const gravar = async () => {
+    if (motivo !== null || !resumo.previa) return
+    const corpo = corpoDoSave(estado, {
+      entrega: entregaEfetiva,
+      salvos: enderecos.data,
+      totalEsperado: resumo.previa.summary.items_total,
+      alvo: editando !== null && versaoLida !== null ? { tipo: 'editar', id: editando, versao: versaoLida } : { tipo: 'criar', chave: chaveDoSave.current },
+    })
+    const salvo = await criar.gravar(corpo)
+    if (!salvo) return
+    const conta = user?.id ?? null
+    if (editando !== null) {
+      deixarDesfecho({ id: salvo.id, conta, aviso: { titulo: ALTERACOES_SALVAS, texto: O_LINK_CONTINUA }, link: null })
+      // De volta ao pedido montado de onde Editar saiu (a entrada antes da sentinela da montagem).
+      passos.sair()
+      return
+    }
+    deixarDesfecho({
+      id: salvo.id,
+      conta,
+      aviso: { titulo: LINK_CRIADO, texto: agoraEhSoMandar(corpo.customer_name) },
+      link: salvo.token && salvo.expires_at ? { id: salvo.id, token: salvo.token, expires_at: salvo.expires_at } : null,
+    })
+    navigate(pedidoMontadoHref(salvo.id), { replace: true })
+  }
 
   const abrirPeca = (peca: PecaParaProposta, linha: LinhaDaSacola | null) => {
     setEscolha({ peca, linha })
@@ -222,7 +364,7 @@ const MontarPedidoPage = () => {
             <X aria-hidden="true" className="h-6 w-6" />
           </button>
           <div className="min-w-0 flex-1 pt-1">
-            <h1 className="font-display text-xl text-estrelinha-ink">{MONTAR_PEDIDO}</h1>
+            <h1 className="font-display text-xl text-estrelinha-ink">{editando !== null ? EDITAR_PEDIDO_MONTADO : MONTAR_PEDIDO}</h1>
             <p className="text-sm text-estrelinha-ink-soft">{passoDeQuatro(passos.passo)}</p>
           </div>
         </div>
@@ -258,7 +400,17 @@ const MontarPedidoPage = () => {
             ))}
           </div>
         )}
-        {passos.passo === 1 && !recusada && (
+        {!carregada && !recusada && (
+          montado.isError ? (
+            <FalhaDoBloco tentarDeNovo={() => void montado.refetch()} />
+          ) : (
+            <div data-testid="montagem-carregando" aria-busy="true" aria-label={CARREGANDO_O_MONTADO} className="space-y-3">
+              <Traco className="h-24 w-full" />
+              <Traco className="h-40 w-full" />
+            </div>
+          )
+        )}
+        {passos.passo === 1 && carregada && !recusada && (
           <PassoDaCliente
             estado={estado}
             despachar={(acao) => {
@@ -340,10 +492,23 @@ const MontarPedidoPage = () => {
             aoMudarCombinado={(campos) => despachar({ tipo: 'combinado', campos })}
           />
         )}
-        {passos.passo > 3 && (
-          <section aria-label={PASSOS_DA_MONTAGEM[passos.passo - 1]}>
-            <h2 className="font-display text-lg text-estrelinha-ink">{PASSOS_DA_MONTAGEM[passos.passo - 1]}</h2>
-          </section>
+        {passos.passo === 4 && carregada && !recusada && (
+          <PassoRevisar
+            estado={estado}
+            endereco={enderecoDaRevisao}
+            resumo={resumo}
+            cupom={estado.cupom}
+            cotacao={{
+              pronta: cotacao.pronta,
+              carregando: cotacao.consulta.isPending,
+              falhou: cotacao.consulta.isError,
+              opcoes: cotacao.consulta.data,
+            }}
+            erroDaCriacao={criar.erro}
+            nota={editando !== null ? NOTA_DO_EDITAR : notaDaRevisao(relogio.data ?? null)}
+            aoAlterar={(n) => passos.irPara(n)}
+            aoMudarObservacao={(texto) => despachar({ tipo: 'observacao', texto })}
+          />
         )}
         <div aria-hidden="true" className="h-40" />
       </div>
@@ -365,15 +530,25 @@ const MontarPedidoPage = () => {
                 {totalNaBarra}
               </p>
             </div>
-            {passos.passo < 4 && (
+            {passos.passo < 4 ? (
               <button
                 type="button"
-                disabled={passos.passo !== 3 && motivo !== null}
+                disabled={!carregada || (passos.passo !== 3 && motivo !== null)}
                 aria-describedby={motivoNaBarra ? 'motivo-do-bloqueio' : undefined}
                 onClick={continuar}
                 className="min-h-12 shrink-0 rounded-sm bg-estrelinha-primary px-6 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
               >
                 {CONTINUAR}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={motivo !== null || criar.gravando || recusada}
+                aria-describedby={motivoNaBarra ? 'motivo-do-bloqueio' : undefined}
+                onClick={() => void gravar()}
+                className="min-h-12 shrink-0 rounded-sm bg-estrelinha-primary px-6 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
+              >
+                {editando !== null ? (criar.gravando ? SALVANDO : SALVAR_ALTERACOES) : criar.gravando ? CRIANDO_O_LINK : CRIAR_LINK}
               </button>
             )}
           </div>

@@ -1,10 +1,11 @@
 import { isValidEmail, normalizeEmail, stripCep } from '@estrelinha/core/validators'
 import type { CepField, CustomerParseMode, ParsedAddress, ParsedContact } from '@estrelinha/core/customers'
+import type { PecaParaProposta } from '@estrelinha/core/proposals'
 
 import type { ClienteDaMontagem } from '@/entities/customer'
 
 import { COMBINADO_DESLIGADO, type CupomAplicado, type DescontoCombinado } from './descontos'
-import { MOTIVO_SEM_PECA, pecasNaSacola, type LinhaDaSacola } from './sacola'
+import { MOTIVO_SEM_PECA, linhaRelida, pecasNaSacola, type LinhaDaSacola } from './sacola'
 
 /**
  * O estado da MONTAGEM de um pedido no app — memória da tela, e só dela: nada vai ao
@@ -63,6 +64,8 @@ export interface EstadoDaMontagem {
   marcas: CampoLido[]
   /** O estado de antes da última leitura — é para onde "Desfazer" volta, exatamente (menos as peças, que ficam). */
   antesDaLeitura: EstadoDaMontagem | null
+  /** A observação interna (o passo 4), como está no campo. Só para quem administra; a cliente nunca a vê. */
+  observacao: string
 }
 
 /** Um campo do passo 1 que a leitura de um texto pode preencher. */
@@ -106,6 +109,7 @@ export const montagemVazia = (): EstadoDaMontagem => ({
   leitura: null,
   marcas: [],
   antesDaLeitura: null,
+  observacao: '',
 })
 
 export type AcaoDaMontagem =
@@ -130,6 +134,12 @@ export type AcaoDaMontagem =
   /** O passo 3: aplicar (ou tirar, com `null`) o cupom; mudar os campos do desconto combinado. */
   | { tipo: 'cupom'; cupom: CupomAplicado | null }
   | { tipo: 'combinado'; campos: Partial<DescontoCombinado> }
+  /** O passo 4: a observação interna. */
+  | { tipo: 'observacao'; texto: string }
+  /** Editar: a montagem reaberta de um pedido montado, inteira. */
+  | { tipo: 'carregar'; estado: EstadoDaMontagem }
+  /** Os preços mudaram no servidor: as linhas passam a mostrar o preço (e a foto) relidos do catálogo. */
+  | { tipo: 'reprecificar'; catalogo: readonly PecaParaProposta[] }
 
 export const cepCompleto = (cep: string): boolean => stripCep(cep).length === 8
 
@@ -191,6 +201,7 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
         pecas: estado.pecas,
         cupom: estado.cupom,
         combinado: estado.combinado,
+        observacao: estado.observacao,
         entrega: acao.modo === 'nova' ? 'outro' : null,
       }
     case 'escolher-cliente':
@@ -214,7 +225,7 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
       // Volta o passo 1 ao estado de antes da leitura; as peças e os descontos são de outros passos e
       // ficam como estão.
       return estado.antesDaLeitura
-        ? { ...estado.antesDaLeitura, pecas: estado.pecas, cupom: estado.cupom, combinado: estado.combinado }
+        ? { ...estado.antesDaLeitura, pecas: estado.pecas, cupom: estado.cupom, combinado: estado.combinado, observacao: estado.observacao }
         : estado
     case 'salvar-no-cadastro':
       return { ...estado, salvarNoCadastro: acao.valor }
@@ -228,6 +239,12 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
       return { ...estado, cupom: acao.cupom }
     case 'combinado':
       return { ...estado, combinado: { ...estado.combinado, ...acao.campos } }
+    case 'observacao':
+      return { ...estado, observacao: acao.texto }
+    case 'carregar':
+      return acao.estado
+    case 'reprecificar':
+      return { ...estado, pecas: estado.pecas.map((l) => linhaRelida(l, acao.catalogo)) }
     case 'usar-ficha': {
       const comEndereco = cepCompleto(estado.endereco.cep)
       // A leitura vira leitura só de endereço: as marcas de contato saem junto (e, sem o endereço, todas).

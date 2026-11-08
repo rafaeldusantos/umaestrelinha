@@ -6,6 +6,7 @@ import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 import { cancelarMontado, gravarObservacaoDoMontado, registrarEnvio, renovarMontado, type RespostaDePropostas } from '../api/portaDePropostas'
 import { CANCELADO, ENVIO_NAO_REGISTRADO, FALHOU, NAO_COPIOU, OBSERVACAO_SALVA, RENOVADO, abrindoWhatsapp, linkCopiado } from './frases'
 import type { CanalDoEnvio } from './tipos'
+import { tomarDesfecho } from './montadoEmEdicao'
 import { MONTADOS_KEY, chaveDoMontado } from './useMontados'
 
 /** O aviso de uma ação que deu certo (o título e a linha de baixo), desenhado na região viva da tela. */
@@ -62,12 +63,20 @@ export const useAcoesDoMontado = (id: string): AcoesDoMontado => {
   const [travado, setTravado] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [erroBruto, setErroBruto] = useState<unknown>(null)
-  const [aviso, setAviso] = useState<AvisoDoMontado | null>(null)
-  const [renovado, setRenovado] = useState<(LinkRenovado & { conta: string | null }) | null>(null)
+  // O desfecho que a montagem deixou para este pedido montado (o aviso de "Link criado." e, ao criar, o
+  // link da resposta do `save`) — lido uma vez, na primeira renderização.
+  const [desfecho] = useState(() => tomarDesfecho(id, conta))
+  const [aviso, setAviso] = useState<AvisoDoMontado | null>(desfecho?.aviso ?? null)
+  const [renovado, setRenovado] = useState<(LinkRenovado & { conta: string | null }) | null>(
+    desfecho?.link ? { ...desfecho.link, conta } : null,
+  )
   const [precosMudados, setPrecosMudados] = useState<PrecosMudados | null>(null)
 
   // Trocou a conta: o que esta tela guardava da anterior some.
+  const contaVista = useRef(conta)
   useEffect(() => {
+    if (contaVista.current === conta) return
+    contaVista.current = conta
     setRenovado(null)
     setAviso(null)
     setErro(null)

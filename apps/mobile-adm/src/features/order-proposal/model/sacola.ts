@@ -2,6 +2,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { normalizeEngraving } from '@estrelinha/core/material'
 import { buscarProdutos, type ProdutoDoPool, type ResultadoDaBusca } from '@estrelinha/core/product-search'
 import type { PecaParaProposta, VariacaoDaPeca } from '@estrelinha/core/proposals'
+import type { QuoteDimensions } from '@estrelinha/core/shipping'
 
 /**
  * A SACOLA da montagem (o passo 2 · Peças) — memória da tela, pura: as linhas, a conta do estoque que
@@ -28,6 +29,8 @@ export interface LinhaDaSacola {
   /** O preço cheio de uma unidade. */
   preco: number
   pedeMaterial: boolean
+  /** As medidas da peça (o peso da variação, quando ela tem), para a prévia do frete; `null` = as padrão. */
+  medidas: QuoteDimensions | null
 }
 
 /** A variação de uma peça pelo id, ou `null` (peça sem grade, ou id que saiu do catálogo). */
@@ -91,7 +94,28 @@ export const linhaDaEscolha = (
   foto: variacao ? variacao.imagem : peca.imagem,
   preco: precoDaEscolha(peca, variacao) ?? 0,
   pedeMaterial: peca.pedeMaterial,
+  medidas: { ...peca.medidas, weight_kg: variacao?.peso ?? peca.medidas.weight_kg },
 })
+
+/**
+ * A linha com o que o catálogo RELIDO diz dela: o preço cheio, a foto, o nome e as medidas de hoje. A
+ * peça (ou a variação) que saiu do catálogo fica como estava — o servidor a recusa ao gravar.
+ */
+export const linhaRelida = (l: LinhaDaSacola, catalogo: readonly PecaParaProposta[]): LinhaDaSacola => {
+  const peca = catalogo.find((p) => p.id === l.pecaId)
+  if (!peca) return l
+  const variacao = variacaoDe(peca, l.variacaoId)
+  if (l.variacaoId !== null && !variacao) return l
+  const preco = precoDaEscolha(peca, variacao)
+  return {
+    ...l,
+    nome: peca.nome || l.nome,
+    rotulo: variacao ? variacao.rotulo : l.rotulo,
+    foto: variacao ? variacao.imagem : peca.imagem,
+    preco: preco ?? l.preco,
+    medidas: { ...peca.medidas, weight_kg: variacao?.peso ?? peca.medidas.weight_kg },
+  }
+}
 
 /** Quantas peças a sacola tem (somando as quantidades). */
 export const pecasNaSacola = (sacola: readonly LinhaDaSacola[]): number => sacola.reduce((n, l) => n + l.quantidade, 0)

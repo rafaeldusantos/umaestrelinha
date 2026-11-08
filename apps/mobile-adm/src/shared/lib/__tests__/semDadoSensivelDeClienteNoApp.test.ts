@@ -35,7 +35,9 @@
 // (`COLUNAS_DA_MONTAGEM`, sem documento; `COLUNAS_DO_ENDERECO_SALVO`) foram conferidas no banco local
 // em 2026-11-07. Sensor: as mesmas linhas noutro arquivo são acusadas. Desde a folha "Colar texto", mais
 // duas: a leitura que leva o documento lido ao campo (`model/montagem.ts`) e o nome do campo no aviso
-// "Não achei: …" (`model/frasesDaMontagem.ts`).
+// "Não achei: …" (`model/frasesDaMontagem.ts`). Desde o passo 4 · Revisar, três linhas exatas de
+// `model/revisao.ts`: a chave do documento no corpo do `save` (a declaração e o valor — o documento vai ao
+// cadastro da cliente NESTA gravação) e a leitura do documento gravado de volta ao campo, no Editar.
 //
 // Escopo: `apps/mobile-adm/src`, só produção. Os arquivos de fixtura (`src/test/`) ficam de fora: são
 // dado sintético de teste.
@@ -90,6 +92,10 @@ const PERMITIDAS = [
     texto: "const pares: [keyof ContatoDigitado, string][] = [['nome', c.name], ['email', c.email], ['whatsapp', c.phone], ['documento', c.cpf]]",
   },
   { rel: 'features/order-proposal/model/frasesDaMontagem.ts', texto: "documento: 'CPF'," },
+  // O passo 4: o documento no corpo do `save` (a declaração e o valor) e o Editar devolvendo o gravado ao campo.
+  { rel: 'features/order-proposal/model/revisao.ts', texto: 'customer_document: string | null' },
+  { rel: 'features/order-proposal/model/revisao.ts', texto: 'customer_document: cadastrada ? null : ouNulo(stripCpf(estado.contato.documento)),' },
+  { rel: 'features/order-proposal/model/revisao.ts', texto: "documento: p.customer_document ? maskCpf(p.customer_document) : ''," },
 ]
 const permitida = (rel: string, linha: string) => PERMITIDAS.some((p) => p.rel === rel && p.texto === linha.trim())
 
@@ -172,10 +178,18 @@ describe('régua 1 — os termos sensíveis não aparecem no app', () => {
   })
 
   it('as exceções do pedido montado existem UMA vez cada, e nenhum outro arquivo do pedido montado cita o termo', () => {
-    for (const p of PERMITIDAS.slice(1)) {
-      const a = PRODUCAO.find((x) => x.rel === p.rel)!
-      expect(a.codigo.split('\n').filter((l) => TERMOS.test(l)).map((l) => l.trim())).toEqual([p.texto])
+    // Por arquivo: as linhas com o termo são EXATAMENTE as permitidas para ele, uma vez cada.
+    for (const rel of new Set(PERMITIDAS.slice(1).map((p) => p.rel))) {
+      const a = PRODUCAO.find((x) => x.rel === rel)!
+      const doArquivo = PERMITIDAS.filter((p) => p.rel === rel).map((p) => p.texto)
+      expect(a.codigo.split('\n').filter((l) => TERMOS.test(l)).map((l) => l.trim()).sort()).toEqual([...doArquivo].sort())
     }
+  })
+
+  it('sensor das exceções do passo 4: as linhas do `save` noutro arquivo, ou uma linha a mais no dono, são acusadas', () => {
+    expect(termosEm([{ rel: 'entities/customer/api/useCliente.ts', codigo: '    customer_document: cadastrada ? null : ouNulo(stripCpf(estado.contato.documento)),' }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'features/order-proposal/model/revisao.ts', codigo: '    customer_document: cadastrada ? null : ouNulo(stripCpf(estado.contato.documento)),' }])).toEqual([])
+    expect(termosEm([{ rel: 'features/order-proposal/model/revisao.ts', codigo: "  .select('cpf')" }])).toHaveLength(1)
   })
 
   it('sensor das exceções do pedido montado: a mesma linha na aba Clientes, ou noutro arquivo do pedido montado, é acusada', () => {

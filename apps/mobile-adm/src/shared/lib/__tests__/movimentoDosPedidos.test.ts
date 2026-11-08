@@ -81,6 +81,8 @@ const ARQUIVOS = [
   // O passo 2 · Peças: a sacola e a busca, e a folha da variação (monta `SheetContent`).
   'features/order-proposal/ui/PassoDasPecas.tsx',
   'features/order-proposal/ui/FolhaDaVariacao.tsx',
+  // O passo 4 · Revisar (as peças, a cliente, a entrega com a prévia do frete e a observação).
+  'features/order-proposal/ui/PassoRevisar.tsx',
 ] as const
 
 /** Comentário sai antes da varredura; CRLF primeiro (`L-031`), linha e bloco na MESMA passada (`BL-027`). */
@@ -135,8 +137,8 @@ const movimentoSemPar = (fonte: string): string[] => {
 const FONTES = ARQUIVOS.map((caminho) => ({ caminho, fonte: readFileSync(resolve(SRC, caminho), 'utf8') }))
 
 describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)', () => {
-  it('ÂNCORA: os 46 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
-    expect(FONTES).toHaveLength(46)
+  it('ÂNCORA: os 47 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
+    expect(FONTES).toHaveLength(47)
     expect(FONTES.every((f) => f.fonte.length > 0)).toBe(true)
     const tokens = FONTES.flatMap((f) => movimentoDe(semComentarios(f.fonte)))
     // Medido com ESTA régua no fecho da T28: 4 tokens, 2 deles o próprio par — o `animate-pulse` do
@@ -149,6 +151,7 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
     // A montagem não move nada: a página e o passo 1 reutilizam a folha de confirmação.
     // A folha "Colar texto" traz os mesmos quatro pares — 20 tokens, 18 pares.
     // O passo 2 · Peças: a folha da variação traz os mesmos quatro — 24 tokens, 22 pares (o passo não move nada).
+    // O passo 4 · Revisar não move nada — 24 tokens, 22 pares, medidos com esta régua.
     expect(tokens.length).toBeGreaterThanOrEqual(24)
     expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(22)
     const de = (rel: string) => movimentoDe(semComentarios(FONTES.find((f) => f.caminho === rel)!.fonte)).map((t) => t.classe)
