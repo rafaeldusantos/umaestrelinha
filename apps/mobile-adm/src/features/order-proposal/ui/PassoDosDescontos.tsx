@@ -192,7 +192,7 @@ const PassoDosDescontos = ({
                   type="button"
                   aria-pressed={combinado.tipo === tipo}
                   onClick={() => aoMudarCombinado({ tipo })}
-                  className={`min-h-11 rounded-sm text-sm font-medium ${combinado.tipo === tipo ? 'bg-estrelinha-primary text-estrelinha-on-primary' : 'text-estrelinha-ink'}`}
+                  className={`min-h-11 rounded-[8px] border-2 text-sm font-medium ${combinado.tipo === tipo ? 'border-estrelinha-primary bg-estrelinha-primary text-estrelinha-on-primary' : 'border-estrelinha-field text-estrelinha-ink'}`}
                 >
                   {rotulo}
                 </button>

@@ -64,7 +64,7 @@ const FolhaDeConfirmacao = ({ controle, titulo, frase, manter, confirmar, travad
               onClick={() => {
                 if (!travado) controle.fechar()
               }}
-              className="min-h-12 flex-1 rounded-sm px-4 text-base font-medium text-estrelinha-primary hover:bg-estrelinha-ground-deep"
+              className="min-h-12 flex-1 rounded-sm border border-estrelinha-primary px-4 text-base font-medium text-estrelinha-primary hover:bg-estrelinha-ground-deep"
             >
               {manter}
             </button>

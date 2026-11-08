@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fake } from '@/test/fakeSupabase'
 import { montarApp } from '@/test/montarApp'
-import { AGORA, ID_ABERTO, ID_PEDIDO, evento, leituraDoMontado } from '@/test/montados'
+import { AGORA, ID_ABERTO, ID_PEDIDO, evento, leituraDoMontado, montadoNaLista } from '@/test/montados'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))
 
@@ -196,5 +196,38 @@ describe('Pedido montado · a aberta segue o protótipo', () => {
     })
     await andar(50)
     expect(screen.getByRole('dialog', { name: 'Cancelar P-0042?' })).toBeInTheDocument()
+  })
+})
+
+describe('Pedido montado · as medidas do protótipo', () => {
+  it('a foto da peça é 48 × 60', async () => {
+    atual = leituraDoMontado()
+    await abrirMontado()
+    const fotos = screen.getAllByTestId('peca-do-montado').map((p) => within(p).getByTestId('foto-da-peca'))
+    expect(fotos.length).toBeGreaterThan(0)
+    for (const foto of fotos) {
+      expect(foto.style.width).toBe('48px')
+      expect(foto.style.height).toBe('60px')
+    }
+  })
+
+  it('"Manter" da folha de cancelar é o secundário, com contorno', async () => {
+    atual = leituraDoMontado()
+    await abrirMontado()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar este pedido' }))
+    })
+    await andar(50)
+    const manter = within(screen.getByRole('dialog', { name: 'Cancelar P-0042?' })).getByRole('button', { name: 'Manter' })
+    expect(temClasse(manter, 'border', 'border-estrelinha-primary', 'text-estrelinha-primary', 'min-h-12')).toBe(true)
+  })
+
+  it('o cartão de Montados tem 10 px entre as partes (`gap-2.5`, nunca `gap-2`)', async () => {
+    sempre('list', () => ({ proposals: [montadoNaLista()], agora: AGORA }))
+    await montarApp('/pedidos?visao=montados')
+    await andar(50)
+    const [cartao] = screen.getAllByTestId('cartao-do-montado')
+    expect(temClasse(cartao, 'flex', 'flex-col', 'gap-2.5')).toBe(true)
+    expect(semClasse(cartao, 'gap-2')).toBe(true)
   })
 })

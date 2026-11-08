@@ -69,7 +69,7 @@ const ListaDeMontados = ({ dado, falhou, tentarDeNovo }: ListaDeMontadosProps) =
               to={pedidoMontadoHref(m.id)}
               state={{ doApp: true }}
               data-testid="cartao-do-montado"
-              className="flex min-h-11 flex-col gap-2 text-estrelinha-ink"
+              className="flex min-h-11 flex-col gap-2.5 text-estrelinha-ink"
             >
               <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                 <span className="font-display text-[15px] font-bold [overflow-wrap:anywhere]">{m.number}</span>

@@ -301,7 +301,7 @@ const PedidoMontadoPage = () => {
               <ul className="space-y-3">
                 {p.items.map((item) => (
                   <li key={item.position} data-testid="peca-do-montado" className="flex items-start gap-3">
-                    <FotoDaPeca foto={item.product_image} tamanho={56} altura={70} />
+                    <FotoDaPeca foto={item.product_image} tamanho={48} altura={60} />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium [overflow-wrap:anywhere]">
                         {[nomeDaPeca(item), quantidade(item.quantity)].join(' · ')}

@@ -425,3 +425,26 @@ describe('passo 3 · a conta sem papel', () => {
     expect(instantes.findIndex((t) => t.includes('Não consegui conferir o cupom agora'))).toBe(-1)
   })
 })
+
+describe('passo 3 · as medidas do seletor "Em reais / Em %"', () => {
+  const classes = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
+  const confere = (escolhida: string, desligada: string) => {
+    const e = classes(screen.getByRole('button', { name: escolhida }))
+    const d = classes(screen.getByRole('button', { name: desligada }))
+    // O escolhido tem raio 8 (nunca o `rounded-sm` de 6); o desligado, borda de 2 px `field`.
+    expect(e).toContain('rounded-[8px]')
+    expect(e).not.toContain('rounded-sm')
+    expect(e).toContain('bg-estrelinha-primary')
+    expect(d).toEqual(expect.arrayContaining(['border-2', 'border-estrelinha-field', 'rounded-[8px]']))
+    expect(d).not.toContain('bg-estrelinha-primary')
+    expect(d).toContain('min-h-11')
+  }
+
+  it('o escolhido com raio 8, o desligado com borda 2 px `field` — e trocam ao trocar', async () => {
+    await abrirOPassoDosDescontos()
+    await ligarCombinado()
+    confere('Em reais', 'Em %')
+    await clicar(screen.getByRole('button', { name: 'Em %' }))
+    confere('Em %', 'Em reais')
+  })
+})

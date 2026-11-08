@@ -72,7 +72,7 @@ const Corpo = ({ controle, escopo, lendo, erro, aoLer }: FolhaColarTextoProps) =
         <button
           type="button"
           onClick={() => controle.fechar()}
-          className="min-h-12 flex-1 rounded-sm px-4 text-base font-medium text-estrelinha-primary hover:bg-estrelinha-ground-deep"
+          className="min-h-12 flex-1 rounded-sm border border-estrelinha-primary px-4 text-base font-medium text-estrelinha-primary hover:bg-estrelinha-ground-deep"
         >
           {erro ? PREENCHER_A_MAO : CANCELAR}
         </button>
