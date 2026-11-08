@@ -1,5 +1,6 @@
 import { useCallback, useReducer, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import { formatPrice } from '@estrelinha/core/formatters'
 import type { CustomerParseMode } from '@estrelinha/core/customers'
 import type { PecaParaProposta } from '@estrelinha/core/proposals'
 
@@ -39,6 +40,12 @@ import {
   linhaDaEscolha,
   pecaEVariacao,
   type LinhaDaSacola,
+  PassoDosDescontos,
+  motivoDoPassoDescontos,
+  pecasNaSacola,
+  pedidoDoResumo,
+  useAplicarCupom,
+  useResumoDaMontagem,
   reduzirMontagem,
   usePassosDaMontagem,
   type Entrega,
@@ -64,6 +71,10 @@ import { useFolhaNaEntrada, type FolhaNaEntrada } from '@/shared/lib/useFolhaNaE
  * - **O passo 2 · Peças**: a busca pela regra de `core` sobre o catálogo lido uma vez (`lerComPapel`), a
  *   folha da variação no histórico (o voltar a fecha) e a sacola com a foto de cada variação. A quantidade
  *   não passa do estoque somando a mesma variação já na sacola. Nenhuma promoção entra na conta aqui.
+ * - **O passo 3 · Descontos**: o cupom e o desconto combinado, e o resumo vivo pela prévia do servidor
+ *   (`order-proposals?action=preview`), a cada mudança, com a anterior cancelada. O app não lê
+ *   promoções, cupons nem pedidos: manda a escolha e recebe o resumo. "Continuar" fica ligado; tocar
+ *   com bloqueio marca a tentativa, e só então o motivo aparece.
  * - **Nada fica no aparelho**: o estado é memória desta tela. As leituras passam por
  *   `lerComPapel`; a recusa (`42501`) entra na vigia da `72`, e enquanto ela vale nenhum dado de cliente
  *   é desenhado.
@@ -97,8 +108,29 @@ const MontarPedidoPage = () => {
   const ficha = useFichaPorEmail(estado.modo === 'nova' ? estado.contato.email : '')
   const catalogo = useCatalogoDaMontagem(passos.passo === 2)
 
+  // O passo 3: a prévia confere a escolha de agora (o e-mail da cliente decide o cupom de primeira compra).
+  const emailDaCliente = estado.modo === 'cadastrada' ? (estado.cliente?.email ?? '') : estado.contato.email
+  const [tentouNosDescontos, setTentouNosDescontos] = useState(false)
+  const cupomAplicavel = useAplicarCupom()
+  const resumo = useResumoDaMontagem(
+    passos.passo >= 3 && estado.pecas.length > 0
+      ? pedidoDoResumo(estado.pecas, estado.cupom?.codigo ?? null, estado.combinado, emailDaCliente)
+      : null,
+  )
+  const recusaDoCombinado = resumo.previa?.manual_refusal ?? null
+  // O cupom aplicado que a prévia passou a recusar (as peças ou o e-mail mudaram): sai, com o texto da loja.
+  const recusaDoCupomVivo = resumo.recusa?.slug === 'coupon_refused' ? resumo.recusa.frase : null
+  const [recusaVista, setRecusaVista] = useState<string | null>(null)
+  if (recusaDoCupomVivo !== recusaVista) {
+    setRecusaVista(recusaDoCupomVivo)
+    if (recusaDoCupomVivo && estado.cupom) {
+      despachar({ tipo: 'cupom', cupom: null })
+      cupomAplicavel.recusar(recusaDoCupomVivo)
+    }
+  }
+
   const recusada = useRecusaDePapel(
-    [busca.error, enderecos.error, ficha.error, leitura.erroBruto, catalogo.error],
+    [busca.error, enderecos.error, ficha.error, leitura.erroBruto, catalogo.error, resumo.erroBruto, cupomAplicavel.erroBruto],
     (naBusca ? !!busca.data && !busca.isError : true) && !enderecos.isError && !ficha.isError && !catalogo.isError,
   )
 
@@ -125,7 +157,19 @@ const MontarPedidoPage = () => {
       ? motivoDoPassoCliente(estado, { entregaEfetiva, temFicha: fichaDoEmail !== null })
       : passos.passo === 2
         ? motivoDoPassoPecas(estado)
-        : null
+        : passos.passo === 3
+          ? motivoDoPassoDescontos(estado.combinado, recusaDoCombinado)
+          : null
+  // No passo 3 o motivo só aparece depois da tentativa; o botão fica ligado.
+  const motivoNaBarra = passos.passo === 3 && !tentouNosDescontos ? null : motivo
+  const continuar = () => {
+    if (passos.passo === 3 && motivo !== null) {
+      setTentouNosDescontos(true)
+      return
+    }
+    passos.continuar()
+  }
+  const totalNaBarra = passos.passo >= 3 && resumo.previa ? formatPrice(resumo.previa.summary.items_total) : '—'
 
   const abrirPeca = (peca: PecaParaProposta, linha: LinhaDaSacola | null) => {
     setEscolha({ peca, linha })
@@ -273,7 +317,30 @@ const MontarPedidoPage = () => {
             }}
           />
         )}
-        {passos.passo > 2 && (
+        {passos.passo === 3 && !recusada && (
+          <PassoDosDescontos
+            cupom={estado.cupom}
+            combinado={estado.combinado}
+            pecas={pecasNaSacola(estado.pecas)}
+            resumo={resumo}
+            aplicando={cupomAplicavel.aplicando}
+            recusaDoCupom={cupomAplicavel.recusa}
+            recusaDoCombinado={recusaDoCombinado}
+            tentou={tentouNosDescontos}
+            aoAplicar={async (codigo) => {
+              const { coupon_code: _semCupom, ...escolha } = pedidoDoResumo(estado.pecas, null, estado.combinado, emailDaCliente)
+              const cupom = await cupomAplicavel.aplicar(codigo, escolha)
+              if (cupom) despachar({ tipo: 'cupom', cupom })
+              return cupom !== null
+            }}
+            aoRemoverCupom={() => {
+              despachar({ tipo: 'cupom', cupom: null })
+              cupomAplicavel.recusar(null)
+            }}
+            aoMudarCombinado={(campos) => despachar({ tipo: 'combinado', campos })}
+          />
+        )}
+        {passos.passo > 3 && (
           <section aria-label={PASSOS_DA_MONTAGEM[passos.passo - 1]}>
             <h2 className="font-display text-lg text-estrelinha-ink">{PASSOS_DA_MONTAGEM[passos.passo - 1]}</h2>
           </section>
@@ -286,22 +353,24 @@ const MontarPedidoPage = () => {
         className="fixed inset-x-0 bottom-0 z-10 border-t border-estrelinha-line bg-estrelinha-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         <div className="mx-auto max-w-lg space-y-2">
-          {motivo && (
+          {motivoNaBarra && (
             <p id="motivo-do-bloqueio" className="text-sm text-estrelinha-ink">
-              {motivo}
+              {motivoNaBarra}
             </p>
           )}
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm text-estrelinha-ink-soft">{itensDaBarra(estado.pecas)}</p>
-              <p className="font-display text-lg text-estrelinha-ink">—</p>
+              <p data-testid="total-da-barra" className="font-display text-lg text-estrelinha-ink">
+                {totalNaBarra}
+              </p>
             </div>
             {passos.passo < 4 && (
               <button
                 type="button"
-                disabled={motivo !== null}
-                aria-describedby={motivo ? 'motivo-do-bloqueio' : undefined}
-                onClick={passos.continuar}
+                disabled={passos.passo !== 3 && motivo !== null}
+                aria-describedby={motivoNaBarra ? 'motivo-do-bloqueio' : undefined}
+                onClick={continuar}
                 className="min-h-12 shrink-0 rounded-sm bg-estrelinha-primary px-6 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
               >
                 {CONTINUAR}

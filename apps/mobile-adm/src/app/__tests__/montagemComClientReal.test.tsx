@@ -12,6 +12,8 @@ import App from '@/app/App'
 import { real, type RespostaRpcReal } from '@/test/clientReal'
 import { SEM_ACESSO } from '@/pages/LoginPage'
 import { FALHA_DE_LEITURA } from '@/shared/ui/leitura'
+import { conferirResumo } from '@/features/order-proposal'
+import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/clientReal')).supabaseProxy }))
 
@@ -241,5 +243,60 @@ describe('o catálogo do passo 2 · Peças, sobre o client real', () => {
     expect(screen.getByText(FALHA_DE_LEITURA)).toBeInTheDocument()
     expect(r.quantos(ROLES)).toBe(papelAntes)
     expect(document.body.textContent).not.toContain(NOME_DA_JOIA)
+  })
+})
+
+describe('a porta da prévia do passo 3 · Descontos, sobre o client real', () => {
+  // O passo 3 não se alcança por este arnês (o catálogo do passo 2 lê a contagem no cabeçalho
+  // `Content-Range`, que o `fetch` falso não devolve): a prova aqui é a da PORTA que a tela chama, sobre
+  // o supabase-js real. Que a recusa que ela lança leva a tela à vigia (no resumo vivo e no "Aplicar")
+  // é provado pela página real, em `pages/__tests__/montarPedido.descontos.test.tsx`.
+  const FUNCTION_DA_PREVIA = '/functions/v1/order-proposals'
+  const FORBIDDEN: RespostaRpcReal = { status: 403, corpo: { error: 'forbidden' } }
+  const ESCOLHA = {
+    lines: [{ product_id: '00000000-0000-4000-c094-000000000999', variant_id: null, quantity: 1, engraving_text: null }],
+    coupon_code: null,
+    manual_discount: null,
+    customer_email: EMAIL_DELA,
+  }
+  const criar = (previa: RespostaRpcReal, relogio: RespostaRpcReal | 'rede') =>
+    real.criar({
+      sessao: 'valida',
+      papel: 'admin',
+      cadastro: 'ok',
+      rpc: { atelie_clock: relogio },
+      functions: { 'order-proposals': { porAcao: { preview: previa } } },
+    })
+
+  it('par: a prévia em 200 volta o resumo, pela ação literal `preview`, sem perguntar o papel', async () => {
+    const r = criar(ok({ summary: { items_total: 120 }, coupon: null, manual_refusal: null, items_pix: null }), RELOGIO_OK)
+    const resposta = await conferirResumo(ESCOLHA)
+    expect(resposta).toMatchObject({ tipo: 'ok', dado: { summary: { items_total: 120 } } })
+    const chamada = r.chamadas.find((c) => c.caminho === FUNCTION_DA_PREVIA)
+    expect(chamada?.busca).toBe('?action=preview')
+    expect(chamada?.corpo).toEqual(ESCOLHA)
+    expect(r.quantos(RPC_RELOGIO)).toBe(0)
+  })
+
+  it('conta sem papel: a prévia em 403 e `atelie_clock` 403 `42501` ⇒ a recusa (lançada), não a falha', async () => {
+    const r = criar(FORBIDDEN, RECUSA_403)
+    const erro = await conferirResumo(ESCOLHA).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(isAccessDenied(erro)).toBe(true)
+    expect(r.quantos(FUNCTION_DA_PREVIA)).toBe(1)
+    expect(r.quantos(RPC_RELOGIO)).toBe(1)
+  })
+
+  it('a prévia em 403 com o relógio de pé ⇒ a falha, nunca a recusa', async () => {
+    criar(FORBIDDEN, RELOGIO_OK)
+    await expect(conferirResumo(ESCOLHA)).resolves.toMatchObject({ tipo: 'falhou' })
+  })
+
+  it('a rede caída na prévia ⇒ a falha, sem perguntar o papel', async () => {
+    const r = criar('rede', RELOGIO_OK)
+    await expect(conferirResumo(ESCOLHA)).resolves.toMatchObject({ tipo: 'falhou' })
+    expect(r.quantos(RPC_RELOGIO)).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 // Edge function `order-proposals` — a proposta que o painel monta (feature 89, `AD-070`).
 //
-// Actions (query param): list · get · save · renew · cancel · log-sent.
+// Actions (query param): list · get · save · renew · cancel · log-sent · note · preview.
 //
 // `verify_jwt = false` no config.toml porque a anon key pública já é um JWT válido do projeto e
 // passaria pelo gateway; a autorização real (papel admin, pela RPC canônica `has_role`) é manual em

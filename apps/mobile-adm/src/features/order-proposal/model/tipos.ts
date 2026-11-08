@@ -101,3 +101,25 @@ export interface MontadoRenovado {
   token: string
   expires_at: string
 }
+
+/** O resumo da montagem, como a prévia (`preview`) o devolve — os números que o `save` travaria. */
+export interface ResumoDaMontagem {
+  subtotal: number
+  promotion_discount: number
+  coupon_discount: number
+  coupon_applied: boolean
+  coupon_free_shipping: boolean
+  coupon_discarded: boolean
+  manual_discount: number
+  items_total: number
+}
+
+/** A resposta da prévia: o resumo, o cupom conferido, a recusa do desconto combinado e o PIX dos itens. */
+export interface PreviaDaMontagem {
+  summary: ResumoDaMontagem
+  coupon: { code: string; type: 'percent' | 'fixed' | 'free_shipping'; value: number; first_order_only: boolean } | null
+  /** O desconto combinado recusado (ele não entrou na conta), ou `null`. */
+  manual_refusal: string | null
+  /** O PIX dos itens, ou `null` (PIX desligado ou sem desconto). */
+  items_pix: { percent: number; total: number } | null
+}

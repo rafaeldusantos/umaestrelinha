@@ -49,12 +49,13 @@ const PORTA_DE_LEITURA = 'features/order-proposal/api/portaDeLeitura.ts'
  */
 const INVOCACAO_ACEITA: Record<string, RegExp> = {
   [PORTA_DE_AVISOS]: /^atelie-avisos\?action=(config|status|subscribe|events|unsubscribe|test)$/,
-  [PORTA_DE_PROPOSTAS]: /^order-proposals\?action=(list|get|renew|cancel|log-sent|note)$/,
+  // `preview`: o resumo vivo da montagem (o passo 3) — não grava nada.
+  [PORTA_DE_PROPOSTAS]: /^order-proposals\?action=(list|get|renew|cancel|log-sent|note|preview)$/,
   // A function tem uma ação só: o nome literal, sem `?action=`.
   [PORTA_DE_LEITURA]: /^customer-parse$/,
 }
 /** As invocações de cada porta (uma por ação) — a âncora da régua 2. */
-const INVOCACOES_POR_PORTA: Record<string, number> = { [PORTA_DE_AVISOS]: 6, [PORTA_DE_PROPOSTAS]: 6, [PORTA_DE_LEITURA]: 1 }
+const INVOCACOES_POR_PORTA: Record<string, number> = { [PORTA_DE_AVISOS]: 6, [PORTA_DE_PROPOSTAS]: 7, [PORTA_DE_LEITURA]: 1 }
 const IMPORTAM_O_CLIENT = [
   LER_COM_PAPEL,
   'entities/order/api/useListaDePedidos.ts',
@@ -221,7 +222,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     (porta, invocacoes) => {
       const r = clientNaPortaDeAvisos(porta, textoDe(porta))
       // Âncora: uma invocação por ação (avisos: config, status, subscribe, events, unsubscribe, test;
-      // montados: list, get, renew, cancel, log-sent, note).
+      // montados: list, get, renew, cancel, log-sent, note, preview).
       expect(r.invocacoes).toBe(invocacoes)
       expect(r.outros).toEqual([])
     },
@@ -296,7 +297,7 @@ describe('sensores — a régua acusa a escrita à mão e não acusa o que não 
 
   it('na porta dos montados, só `order-proposals?action=<ação dela>`; o nome de uma porta na outra é acusado', () => {
     const inv = (nome: string) => `${imp}export const f = () => supabase.functions.invoke(${nome}, { body: {} })`
-    for (const acao of ['list', 'get', 'renew', 'cancel', 'log-sent', 'note']) {
+    for (const acao of ['list', 'get', 'renew', 'cancel', 'log-sent', 'note', 'preview']) {
       expect(escritasProibidas(PORTA_DE_PROPOSTAS, inv(`'order-proposals?action=${acao}'`))).toEqual([])
     }
     for (const nome of ["'order-proposals?action=apagar'", "'order-proposals'", "'atelie-avisos?action=config'", '`order-proposals?action=${acao}`']) {

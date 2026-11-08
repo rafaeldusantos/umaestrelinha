@@ -190,6 +190,7 @@ const ACOES: Array<[string, unknown]> = [
   ['cancel', { id: PROP }],
   ['log-sent', { id: PROP, channel: 'copy' }],
   ['note', { id: PROP, admin_note: 'Embrulhar para presente' }],
+  ['preview', { lines: [{ product_id: P1, variant_id: null, quantity: 1 }], customer_email: 'maria@exemplo.invalid' }],
 ]
 
 describe('order-proposals — autorização (SEG-05)', () => {
@@ -1169,6 +1170,168 @@ describe('log-sent (LNK-03)', () => {
   it('falha ao gravar o evento ⇒ 500', async () => {
     const f = ambiente({ rows: { order_proposals: LINHA() }, insertErrorByTable: { order_proposal_events: { message: 'x' } } })
     expect((await route(f.deps, pedir('log-sent', { id: PROP, channel: 'copy' }))).status).toBe(500)
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// preview — o resumo vivo da montagem do app (sem gravar)
+// ---------------------------------------------------------------------------------------------
+
+describe('preview', () => {
+  const CUPOM_DA_PREVIA = {
+    id: CUPOM,
+    code: 'BEMVINDA',
+    type: 'percent',
+    value: 10,
+    active: true,
+    valid_from: null,
+    valid_until: null,
+    max_uses: null,
+    used_count: 0,
+    min_order: null,
+    first_order_only: false,
+  }
+  const PAGAMENTO = { value: { pix_enabled: true, pix_discount_percent: 5 } }
+
+  /** O corpo da prévia: só a escolha — as mesmas peças do `corpoNovo`, 100 + 150 × 2 = 400. */
+  const escolha = (extra: Record<string, unknown> = {}) => ({
+    lines: [
+      { product_id: P1, variant_id: null, quantity: 1 },
+      { product_id: P2, variant_id: V2A, quantity: 2, engraving_text: 'Lua' },
+    ],
+    customer_email: 'maria@exemplo.invalid',
+    ...extra,
+  })
+
+  /** O ambiente, com as tabelas que a function abriu (`from`), na ordem — inclusive as contagens. */
+  const comTabelas = (opts: FakeSupabaseOptions = {}) => {
+    const f = ambiente({
+      ...opts,
+      rows: { store_settings: PAGAMENTO, ...(opts.rows ?? {}) },
+      rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK, ...(opts.rpcByFn ?? {}) },
+    })
+    const abertas: string[] = []
+    const from = f.client.from
+    f.client.from = (tabela: string) => {
+      abertas.push(tabela)
+      return from(tabela)
+    }
+    return { ...f, abertas }
+  }
+
+  it('não chama RPC nem grava: só a pergunta do papel, e leituras', async () => {
+    const f = comTabelas({ rows: { coupons: { ...CUPOM_DA_PREVIA, first_order_only: true } }, counts: { orders: 0 } })
+    const res = await route(
+      f.deps,
+      pedir('preview', escolha({ coupon_code: 'bemvinda', manual_discount: { kind: 'amount', value: 20 } })),
+    )
+    expect(res.status).toBe(200)
+    expect(f.rpcs.map((r) => r.fn)).toEqual(['has_role'])
+    expect(tabelasEscritas(f)).toEqual([])
+    expect(new Set(f.abertas)).toEqual(new Set(['products', 'product_variants', 'coupons', 'orders', 'promotions', 'store_settings']))
+  })
+
+  it('devolve o MESMO resumo que o save gravaria, com o cupom e o desconto combinado', async () => {
+    const corpo = { coupon_code: 'BEMVINDA', manual_discount: { kind: 'amount', value: 20, reason: 'Combinado no WhatsApp' } }
+    const previa = comTabelas({ rows: { coupons: CUPOM_DA_PREVIA } })
+    const r1 = await route(previa.deps, pedir('preview', escolha(corpo)))
+    expect(r1.status).toBe(200)
+    const lido = await r1.json()
+    // 400 − 10% (40) − 20 = 340, escrito à mão.
+    expect(lido.summary).toMatchObject({ subtotal: 400, coupon_discount: 40, manual_discount: 20, items_total: 340, coupon_applied: true })
+
+    const gravando = comTabelas({ rows: { coupons: CUPOM_DA_PREVIA } })
+    const r2 = await route(gravando.deps, pedir('save', corpoNovo({ ...corpo, expected_total: 340 })))
+    expect(r2.status).toBe(200)
+    expect(lido.summary).toEqual((await r2.json()).summary)
+  })
+
+  it('devolve o cupom conferido (código, tipo, valor e se é de primeira compra) — o app não lê cupons', async () => {
+    const f = comTabelas({ rows: { coupons: { ...CUPOM_DA_PREVIA, first_order_only: true, value: 5 } }, counts: { orders: 0 } })
+    const lido = await (await route(f.deps, pedir('preview', escolha({ coupon_code: ' bemvinda ' })))).json()
+    expect(lido.coupon).toEqual({ code: 'BEMVINDA', type: 'percent', value: 5, first_order_only: true })
+    expect(f.ilikes).toEqual([['coupons', 'code', 'BEMVINDA']])
+    // Sem cupom, nada de cupom.
+    const sem = await (await route(comTabelas().deps, pedir('preview', escolha()))).json()
+    expect(sem.coupon).toBeNull()
+  })
+
+  it.each([
+    ['inexistente', null, 'Cupom inválido.'],
+    ['vencido', { valid_until: '2026-10-01T00:00:00Z' }, 'Cupom expirado.'],
+    ['pedido mínimo', { min_order: 500 }, 'Pedido mínimo de R$ 500,00.'],
+  ])('cupom %s ⇒ 422 com o texto da loja', async (_n, mudanca, texto) => {
+    const linha = mudanca === null ? null : { ...CUPOM_DA_PREVIA, ...mudanca }
+    const f = comTabelas({ rows: { coupons: linha } })
+    const res = await route(f.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA' })))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: texto, code: 'coupon_refused' })
+  })
+
+  it('cupom de primeira compra: o e-mail que já comprou é recusado com o texto da loja; o que não comprou passa', async () => {
+    const primeira = { ...CUPOM_DA_PREVIA, first_order_only: true }
+    const ja = comTabelas({ rows: { coupons: primeira }, counts: { orders: 1 } })
+    const r1 = await route(ja.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA' })))
+    expect(r1.status).toBe(422)
+    expect(await r1.json()).toEqual({ error: 'Cupom válido apenas no primeiro pedido.', code: 'coupon_refused' })
+
+    const nunca = comTabelas({ rows: { coupons: primeira }, counts: { orders: 0 } })
+    expect((await route(nunca.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA' })))).status).toBe(200)
+  })
+
+  it.each([
+    ['sem e-mail', ''],
+    ['com um e-mail que não confere', 'maria@'],
+  ])('cupom de primeira compra %s ⇒ "Este cupom pede o e-mail da cliente.", sem perguntar a orders', async (_n, email) => {
+    const f = comTabelas({ rows: { coupons: { ...CUPOM_DA_PREVIA, first_order_only: true } }, counts: { orders: 0 } })
+    const res = await route(f.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA', customer_email: email })))
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'Este cupom pede o e-mail da cliente.', code: 'coupon_refused' })
+    expect(f.abertas).not.toContain('orders')
+  })
+
+  it('cupom que não é de primeira compra vale sem e-mail', async () => {
+    const f = comTabelas({ rows: { coupons: CUPOM_DA_PREVIA } })
+    const res = await route(f.deps, pedir('preview', escolha({ coupon_code: 'BEMVINDA', customer_email: '' })))
+    expect(res.status).toBe(200)
+    expect((await res.json()).summary.items_total).toBe(360)
+  })
+
+  it.each([
+    ['em reais, deixando os itens abaixo de R$ 1,00', { kind: 'amount', value: 399.5 }],
+    ['em %, de 100', { kind: 'percent', value: 100 }],
+  ])('desconto combinado %s ⇒ a recusa, e ele NÃO entra na conta', async (_n, avulso) => {
+    const f = comTabelas()
+    const res = await route(f.deps, pedir('preview', escolha({ manual_discount: avulso })))
+    expect(res.status).toBe(200)
+    const lido = await res.json()
+    expect(lido.manual_refusal).toBe('O desconto não pode zerar o pedido.')
+    expect(lido.summary).toMatchObject({ manual_discount: 0, items_total: 400 })
+  })
+
+  it('desconto combinado que cabe entra na conta, em % também, sem recusa', async () => {
+    const f = comTabelas()
+    const lido = await (await route(f.deps, pedir('preview', escolha({ manual_discount: { kind: 'percent', value: 10 } })))).json()
+    expect(lido.manual_refusal).toBeNull()
+    expect(lido.summary).toMatchObject({ manual_discount: 40, items_total: 360 })
+  })
+
+  it('o PIX: o total dos itens com o desconto do PIX da loja; PIX desligado ou sem desconto, nada', async () => {
+    const lido = await (await route(comTabelas().deps, pedir('preview', escolha()))).json()
+    // 400 − 5% = 380.
+    expect(lido.items_pix).toEqual({ percent: 5, total: 380 })
+
+    const desligado = comTabelas({ rows: { store_settings: { value: { pix_enabled: false, pix_discount_percent: 5 } } } })
+    expect((await (await route(desligado.deps, pedir('preview', escolha()))).json()).items_pix).toBeNull()
+    const semDesconto = comTabelas({ rows: { store_settings: { value: { pix_enabled: true, pix_discount_percent: 0 } } } })
+    expect((await (await route(semDesconto.deps, pedir('preview', escolha()))).json()).items_pix).toBeNull()
+  })
+
+  it('peças fora da forma ⇒ 400; o log não leva o e-mail', async () => {
+    const f = comTabelas()
+    expect((await route(f.deps, pedir('preview', { lines: 'x', customer_email: 'maria@exemplo.invalid' }))).status).toBe(400)
+    await route(f.deps, pedir('preview', escolha()))
+    for (const linha of logs) expect(linha).not.toContain('maria@exemplo.invalid')
   })
 })
 

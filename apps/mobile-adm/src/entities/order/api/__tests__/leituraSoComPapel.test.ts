@@ -269,11 +269,11 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     expect(a.problemas).toHaveLength(6)
   })
 
-  it('régua 3: a porta dos montados não lê tabela nem chama RPC — só as seis invocações', () => {
+  it('régua 3: a porta dos montados não lê tabela nem chama RPC — só as sete invocações (a sétima, a prévia da montagem)', () => {
     const a = medir(PORTA_DE_PROPOSTAS, lidos.find((l) => l.rel === PORTA_DE_PROPOSTAS)!.texto, { podeLer: false })
     expect(a.froms).toBe(0)
     expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
-    expect(a.problemas).toHaveLength(6)
+    expect(a.problemas).toHaveLength(7)
   })
 
   it('régua 3: a porta da leitura do texto não lê tabela nem chama RPC — só a invocação', () => {
@@ -425,5 +425,47 @@ describe('sensores (feature 76) — os quatro de cliente só leem, e leem por le
     const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
     expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
     expect(IMPORTAM_O_CLIENT).toHaveLength(13)
+  })
+})
+
+/**
+ * Régua 5 (a montagem, passo 3 · Descontos): o app NUNCA lê promoções, cupons nem pedidos crus — o
+ * resumo, o cupom e a regra de primeira compra são da prévia do servidor (`order-proposals?action=
+ * preview`). `orders` cru também fica de fora: a lista e o detalhe leem `order_list`/`order_items`.
+ * Pela AST: toda chamada `from(` (de qualquer receptor) cujo primeiro argumento é um destes literais.
+ */
+const TABELAS_DO_SERVIDOR = new Set(['promotions', 'coupons', 'orders'])
+const leiturasDoServidor = (rel: string, texto: string): { froms: number; proibidas: string[] } => {
+  const fonte = parse(rel, texto)
+  const r = { froms: 0, proibidas: [] as string[] }
+  visitar(fonte, (n) => {
+    if (!ts.isCallExpression(n)) return
+    const e = n.expression
+    const nome = ts.isPropertyAccessExpression(e) ? e.name.text : ts.isIdentifier(e) ? e.text : null
+    const alvo = n.arguments[0]
+    if (nome !== 'from' || !alvo || !ts.isStringLiteralLike(alvo)) return
+    r.froms++
+    if (TABELAS_DO_SERVIDOR.has(alvo.text)) r.proibidas.push(`${rel}:${fonte.getLineAndCharacterOfPosition(n.getStart()).line + 1} — from('${alvo.text}')`)
+  })
+  return r
+}
+
+describe('régua 5: o app não lê promoções, cupons nem pedidos crus (a montagem pergunta à prévia)', () => {
+  it('âncora: as leituras legítimas foram achadas (order_list, customer_list, products…)', () => {
+    const total = lidos.reduce((n, l) => n + leiturasDoServidor(l.rel, l.texto).froms, 0)
+    expect(total).toBeGreaterThan(15)
+  })
+
+  it('nenhum `from(` com promotions, coupons ou orders em produção', () => {
+    expect(lidos.flatMap((l) => leiturasDoServidor(l.rel, l.texto).proibidas)).toEqual([])
+  })
+
+  it('sensores: acusa as três tabelas (com o client apelidado, aspas duplas e template sem interpolação); não acusa as vizinhas nem o comentário', () => {
+    const A = 'features/order-proposal/model/qualquer.ts'
+    expect(leiturasDoServidor(A, `const x = () => supabase.from('coupons').select('*')`).proibidas).toHaveLength(1)
+    expect(leiturasDoServidor(A, `const db = supabase\nconst x = () => db.from("promotions").select('id')`).proibidas).toHaveLength(1)
+    expect(leiturasDoServidor(A, 'const x = () => supabase.from(`orders`).select(\'id\')').proibidas).toHaveLength(1)
+    expect(leiturasDoServidor(A, `const x = () => supabase.from('order_list').select('id')\nconst y = () => supabase.from('promotion_eligible_products')`).proibidas).toEqual([])
+    expect(leiturasDoServidor(A, `// supabase.from('coupons')\n/* supabase.from('orders') */\nexport const n = 1`).proibidas).toEqual([])
   })
 })

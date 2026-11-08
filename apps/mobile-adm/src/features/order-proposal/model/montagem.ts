@@ -3,6 +3,7 @@ import type { CepField, CustomerParseMode, ParsedAddress, ParsedContact } from '
 
 import type { ClienteDaMontagem } from '@/entities/customer'
 
+import { COMBINADO_DESLIGADO, type CupomAplicado, type DescontoCombinado } from './descontos'
 import { MOTIVO_SEM_PECA, pecasNaSacola, type LinhaDaSacola } from './sacola'
 
 /**
@@ -52,6 +53,10 @@ export interface EstadoDaMontagem {
   contato: ContatoDigitado
   /** A sacola (o passo 2): as linhas escolhidas, na ordem em que entraram. */
   pecas: LinhaDaSacola[]
+  /** O cupom aplicado (o passo 3), já conferido pela prévia; `null` sem cupom. */
+  cupom: CupomAplicado | null
+  /** O desconto combinado (o passo 3), como está nos campos. */
+  combinado: DescontoCombinado
   /** A última leitura de um texto colado — o aviso do passo 1 —, ou `null`. */
   leitura: LeituraNaTela | null
   /** Os campos que a leitura preencheu e a Adri ainda não editou ("Lido do texto — confira."). */
@@ -96,6 +101,8 @@ export const montagemVazia = (): EstadoDaMontagem => ({
   salvarNoCadastro: true,
   contato: CONTATO_VAZIO,
   pecas: [],
+  cupom: null,
+  combinado: COMBINADO_DESLIGADO,
   leitura: null,
   marcas: [],
   antesDaLeitura: null,
@@ -120,6 +127,9 @@ export type AcaoDaMontagem =
   | { tipo: 'acrescentar-peca'; linha: LinhaDaSacola }
   | { tipo: 'atualizar-peca'; linha: LinhaDaSacola }
   | { tipo: 'remover-peca'; chave: string }
+  /** O passo 3: aplicar (ou tirar, com `null`) o cupom; mudar os campos do desconto combinado. */
+  | { tipo: 'cupom'; cupom: CupomAplicado | null }
+  | { tipo: 'combinado'; campos: Partial<DescontoCombinado> }
 
 export const cepCompleto = (cep: string): boolean => stripCep(cep).length === 8
 
@@ -175,7 +185,14 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
     case 'modo':
       if (acao.modo === estado.modo) return estado
       // Trocar o segmento limpa a cliente, o endereço e as marcas.
-      return { ...montagemVazia(), modo: acao.modo, pecas: estado.pecas, entrega: acao.modo === 'nova' ? 'outro' : null }
+      return {
+        ...montagemVazia(),
+        modo: acao.modo,
+        pecas: estado.pecas,
+        cupom: estado.cupom,
+        combinado: estado.combinado,
+        entrega: acao.modo === 'nova' ? 'outro' : null,
+      }
     case 'escolher-cliente':
       return { ...estado, cliente: acao.cliente, entrega: null, enderecoSalvoId: null, endereco: ENDERECO_VAZIO, salvarNoCadastro: true, ...SEM_LEITURA }
     case 'trocar-cliente':
@@ -194,8 +211,11 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
     case 'leitura':
       return aplicarLeitura(estado, acao.lida)
     case 'desfazer-leitura':
-      // Volta o passo 1 ao estado de antes da leitura; as peças são de outro passo e ficam como estão.
-      return estado.antesDaLeitura ? { ...estado.antesDaLeitura, pecas: estado.pecas } : estado
+      // Volta o passo 1 ao estado de antes da leitura; as peças e os descontos são de outros passos e
+      // ficam como estão.
+      return estado.antesDaLeitura
+        ? { ...estado.antesDaLeitura, pecas: estado.pecas, cupom: estado.cupom, combinado: estado.combinado }
+        : estado
     case 'salvar-no-cadastro':
       return { ...estado, salvarNoCadastro: acao.valor }
     case 'acrescentar-peca':
@@ -204,6 +224,10 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
       return { ...estado, pecas: estado.pecas.map((l) => (l.chave === acao.linha.chave ? acao.linha : l)) }
     case 'remover-peca':
       return { ...estado, pecas: estado.pecas.filter((l) => l.chave !== acao.chave) }
+    case 'cupom':
+      return { ...estado, cupom: acao.cupom }
+    case 'combinado':
+      return { ...estado, combinado: { ...estado.combinado, ...acao.campos } }
     case 'usar-ficha': {
       const comEndereco = cepCompleto(estado.endereco.cep)
       // A leitura vira leitura só de endereço: as marcas de contato saem junto (e, sem o endereço, todas).

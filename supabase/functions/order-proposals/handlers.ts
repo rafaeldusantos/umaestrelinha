@@ -19,6 +19,9 @@
 //   cancel    o link passa a dizer que o pedido não está mais disponível (`LNK-05`)
 //   log-sent  "Link enviado", com o canal (`LNK-03`)
 //   note      a observação interna, em qualquer status não concluído, sem subir a versão
+//   preview   o resumo vivo da montagem do app: a MESMA `precificar` do `save`, sem RPC e sem gravar.
+//             Devolve o resumo, o cupom conferido e o PIX — o app nunca lê promoções, cupons nem
+//             pedidos
 //
 // `requireAdmin` em TODA ação, antes de qualquer leitura ou escrita (`SEG-05`).
 //
@@ -45,9 +48,12 @@
 
 import {
   PROPOSAL_LINK_DAYS,
+  PROPOSAL_ZERO_REFUSAL,
   lockProposal,
+  manualDiscountRefusal,
   priceProposalDraft,
   proposalActions,
+  proposalPricing,
   proposalState,
   type ManualDiscountDraft,
   type ProposalDraftPrice,
@@ -228,12 +234,22 @@ interface Entrada {
   email: string
 }
 
+/** O cupom que passou na regra da loja, com o que a tela precisa para nomeá-lo. */
+interface CupomConferido {
+  code: string
+  type: CouponRule['type']
+  value: number
+  first_order_only: boolean
+}
+
 interface Precificado {
   price: ProposalDraftPrice<LinhaRelida>
   coupon: { id: string; code: string } | null
+  /** O cupom conferido, aplicado ou não (a promoção pode tê-lo vencido); `null` sem cupom. */
+  conferido: CupomConferido | null
 }
 
-type Resultado<T> = { ok: true; value: T } | { ok: false; response: Response }
+type Resultado<T> = { ok: true; value: T } | { ok: false; response: Response; code: string; error: string }
 
 /** A forma da tela para uma linha. Quantidade fora de inteiro vira `NaN` e cai na recusa de `core`. */
 function linhasDoCorpo(raw: unknown): LinhaPedida[] | null {
@@ -318,10 +334,18 @@ async function promocoesVigentes(
   }))
 }
 
-const recusa = (error: string, code: string, status = 422): { ok: false; response: Response } => ({
+const recusa = (error: string, code: string, status = 422): { ok: false; response: Response; code: string; error: string } => ({
   ok: false,
   response: json({ error, code }, status),
+  code,
+  error,
 })
+
+/**
+ * Sem e-mail não há como perguntar "já comprou?" — o cupom de primeira compra é recusado em vez de
+ * valer às cegas. Só a prévia chega aqui sem e-mail: o `save` exige um válido antes de precificar.
+ */
+export const COUPON_NEEDS_EMAIL = 'Este cupom pede o e-mail da cliente.'
 
 /**
  * Relê preço, variação, promoção e cupom do banco e devolve o preço da montagem.
@@ -435,6 +459,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
   // O cupom (MON-07): a mesma regra da loja, sobre o subtotal cheio — o que a loja passa a
   // `validateCoupon` —, com a pergunta de primeira compra feita ao banco.
   let coupon: { id: string; code: string } | null = null
+  let conferido: CupomConferido | null = null
   let couponRule: CouponRule | null = null
   const code = (entrada.couponCode ?? '').toUpperCase().trim()
   if (code) {
@@ -443,6 +468,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     if (!row) return recusa('Cupom inválido.', 'coupon_refused')
     const subtotalCheio = round2(linhas.reduce((s, l) => s + l.list_price * (Number.isFinite(l.quantity) ? l.quantity : 0), 0))
     let motivo = couponRefusal(row, { subtotal: subtotalCheio, now })
+    if (!motivo && row.first_order_only && !entrada.email) motivo = COUPON_NEEDS_EMAIL
     if (!motivo && row.first_order_only && entrada.email) {
       const { count } = await deps.supabase
         .from('orders')
@@ -453,6 +479,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     if (motivo) return recusa(motivo, 'coupon_refused')
     coupon = { id: String(row.id), code: String(row.code) }
     couponRule = couponRuleOf(row)
+    conferido = { code: String(row.code), type: couponRule.type, value: couponRule.value, first_order_only: row.first_order_only === true }
   }
 
   const promotions = await promocoesVigentes(deps, ids, now)
@@ -464,7 +491,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
   })
   if (price.refusal) return recusa(price.refusal, 'draft_refused')
 
-  return { ok: true, value: { price, coupon: price.couponApplied ? coupon : null } }
+  return { ok: true, value: { price, coupon: price.couponApplied ? coupon : null, conferido } }
 }
 
 /** O resumo que a tela redesenha — os mesmos números que ficam travados. */
@@ -1157,6 +1184,84 @@ async function logSent(deps: Deps, req: Request, body: any): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// preview — o resumo vivo da montagem do app, sem gravar
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * O motivo do desconto combinado não decide dinheiro: ele é do histórico, e quem o exige é a tela (e o
+ * `save`, ao gravar). A prévia não o recebe nem o guarda; a regra de `core` só confere que há um, e
+ * este texto fixo ocupa o lugar dele dentro desta função.
+ */
+const MOTIVO_DA_PREVIA = 'prévia'
+
+/**
+ * A recusa do desconto combinado antes da conta: o valor fora da forma (a regra de `core`) e o
+ * percentual de 100 ou mais, que zeraria o pedido — a mesma frase da recusa de A-12.
+ */
+function recusaDoCombinado(manual: ManualDiscountDraft): string | null {
+  if (manual.kind === 'percent' && Number.isFinite(manual.value) && manual.value >= 100) return PROPOSAL_ZERO_REFUSAL
+  return manualDiscountRefusal(manual)
+}
+
+/**
+ * O PIX dos itens, pela MESMA conta da página do link e do `create-payment` (`proposalPricing` sobre
+ * o travado, frete zero): `null` com o PIX desligado, sem desconto, ou com a leitura falhando — a
+ * linha simplesmente não aparece.
+ */
+async function pixDosItens(deps: Deps, p: Precificado): Promise<{ percent: number; total: number } | null> {
+  const { data, error } = await deps.supabase.from('store_settings').select('value').eq('key', 'payment').maybeSingle()
+  if (error) return null
+  const pagamento = (data?.value ?? {}) as { pix_enabled?: unknown; pix_discount_percent?: unknown }
+  const percent = Number(pagamento.pix_discount_percent ?? 0)
+  if (pagamento.pix_enabled === false || !(percent > 0) || percent >= 100) return null
+  if (p.price.lockedLines.length === 0) return null
+  const total = proposalPricing(lockProposal(p.price), { shipping: 0, method: 'pix', pixDiscountPercent: percent, freeShipping: null }).total
+  return { percent, total }
+}
+
+/**
+ * A montagem do app manda só a escolha (peças, cupom, desconto combinado, e-mail) e recebe o
+ * resumo que o `save` travaria — a mesma `precificar`, sem RPC e sem gravar. O cupom recusado volta
+ * 422 com o texto da loja (o app não o aplica). O desconto combinado recusado (itens abaixo de R$ 1,00,
+ * ou percentual de 100) NÃO entra na conta: a resposta é o resumo sem ele, com `manual_refusal`.
+ */
+async function preview(deps: Deps, req: Request, body: any): Promise<Response> {
+  const auth = await exigirAdmin(deps, req)
+  if (!auth.ok) return json({ error: auth.error }, auth.status)
+
+  const linhas = linhasDoCorpo(body?.lines)
+  if (linhas === null) return json({ error: 'Confira as peças da proposta.', code: 'bad_lines' }, 400)
+
+  // E-mail ausente ou que não confere é "sem e-mail" — e o cupom de primeira compra pede um.
+  const emailLido = normalizeEmail(texto(body?.customer_email))
+  const email = isValidEmail(emailLido) ? emailLido : ''
+  const couponCode = typeof body?.coupon_code === 'string' ? body.coupon_code : null
+  const avulso = avulsoDoCorpo(body?.manual_discount)
+  const manual = avulso ? { kind: avulso.kind, value: avulso.value, reason: MOTIVO_DA_PREVIA } : null
+
+  let manualRefusal = manual ? recusaDoCombinado(manual) : null
+  let precificado = await precificar(deps, { lines: linhas, couponCode, manual: manualRefusal ? null : manual, email })
+  if (!precificado.ok && manual && !manualRefusal && precificado.code === 'draft_refused' && precificado.error === PROPOSAL_ZERO_REFUSAL) {
+    // O combinado zerou os itens: a conta volta sem ele, e a recusa vai junto.
+    manualRefusal = PROPOSAL_ZERO_REFUSAL
+    precificado = await precificar(deps, { lines: linhas, couponCode, manual: null, email })
+  }
+  if (!precificado.ok) {
+    log({ action: 'order-proposals:preview', status: 'refused', code: precificado.code })
+    return precificado.response
+  }
+
+  const itemsPix = await pixDosItens(deps, precificado.value)
+  log({ action: 'order-proposals:preview', status: 'ok', manual_refused: manualRefusal !== null })
+  return json({
+    summary: resumo(precificado.value),
+    coupon: precificado.value.conferido,
+    manual_refusal: manualRefusal,
+    items_pix: itemsPix,
+  })
+}
+
+// ---------------------------------------------------------------------------------------------
 // Roteamento
 // ---------------------------------------------------------------------------------------------
 
@@ -1192,9 +1297,11 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
         return await logSent(deps, req, body)
       case 'note':
         return await note(deps, req, body)
+      case 'preview':
+        return await preview(deps, req, body)
       default:
         log({ action: `order-proposals:${action}`, status: 'unknown_action' })
-        return json({ error: 'Ação desconhecida. Use: list, get, save, renew, cancel, log-sent, note' }, 400)
+        return json({ error: 'Ação desconhecida. Use: list, get, save, renew, cancel, log-sent, note, preview' }, 400)
     }
   } catch (err) {
     log({ action: `order-proposals:${action}`, status: 'error', message: err instanceof Error ? err.message : String(err) })

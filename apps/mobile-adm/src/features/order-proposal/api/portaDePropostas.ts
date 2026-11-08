@@ -2,7 +2,8 @@ import { supabase } from '@estrelinha/supabase/client'
 
 import { invocar, traduzir, type LeitorDoErro, type RespostaDaPorta } from '@/shared/api/traduzir'
 
-import type { CanalDoEnvio, LeituraDoMontado, ListaDeMontados, MontadoRenovado } from '../model/tipos'
+import type { PedidoDoResumo } from '../model/descontos'
+import type { CanalDoEnvio, LeituraDoMontado, ListaDeMontados, MontadoRenovado, PreviaDaMontagem } from '../model/tipos'
 
 /**
  * A porta dos pedidos montados: o app fala com a edge function `order-proposals` SÓ por
@@ -67,3 +68,10 @@ export const gravarObservacaoDoMontado = async (
   observacao: string | null,
 ): Promise<RespostaDePropostas<{ id: string; admin_note: string | null }>> =>
   traduzir(await invocar(() => supabase.functions.invoke('order-proposals?action=note', { body: { id, admin_note: observacao } })), lerErro)
+
+/**
+ * O resumo vivo da montagem: só a escolha vai (peças, cupom, desconto combinado, e-mail), e volta o
+ * resumo que o `save` travaria. Não grava nada. `signal` cancela a chamada anterior a cada mudança.
+ */
+export const conferirResumo = async (pedido: PedidoDoResumo, signal?: AbortSignal): Promise<RespostaDePropostas<PreviaDaMontagem>> =>
+  traduzir(await invocar(() => supabase.functions.invoke('order-proposals?action=preview', { body: pedido, signal })), lerErro)
