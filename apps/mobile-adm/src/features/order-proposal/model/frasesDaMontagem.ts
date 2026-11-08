@@ -18,6 +18,8 @@ export const OPCOES_DE_ENTREGA = {
   link: { titulo: 'A cliente preenche no link', frase: 'Ela informa o endereço ao concluir.' },
 } as const
 export const INFORMAR_AGORA = 'Informar o endereço agora'
+/** O título do bloco do endereço da cliente nova, depois do cartão Entrega. */
+export const ENDERECO_DE_ENTREGA = 'Endereço de entrega'
 export const USAR_A_FICHA = 'Usar a ficha dela'
 export const CORRIGIR_O_EMAIL = 'Corrigir o e-mail'
 

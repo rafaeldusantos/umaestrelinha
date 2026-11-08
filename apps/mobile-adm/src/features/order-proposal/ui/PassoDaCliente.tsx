@@ -12,6 +12,7 @@ import {
   CLIENTE_NOVA,
   OPCOES_DE_ENTREGA,
   INFORMAR_AGORA,
+  ENDERECO_DE_ENTREGA,
   USAR_A_FICHA,
   CORRIGIR_O_EMAIL,
   avisoDaFicha,
@@ -57,10 +58,10 @@ const ROTULO_DO_CARTAO = 'font-body text-[11px] font-semibold uppercase tracking
 const Cartao = ({ titulo, acao, escuro = false, children }: { titulo: string; acao?: ReactNode; escuro?: boolean; children: ReactNode }) => (
   <section
     aria-label={titulo}
-    className={escuro ? 'rounded-lg bg-estrelinha-ink p-4 text-estrelinha-on-primary' : 'rounded-lg border border-estrelinha-line bg-estrelinha-surface p-4'}
+    className={escuro ? 'rounded-lg bg-estrelinha-ink p-[18px] text-estrelinha-on-primary' : 'rounded-lg border border-estrelinha-line bg-estrelinha-surface p-4'}
   >
     <div className="flex flex-wrap items-center justify-between gap-x-3">
-      <h2 className={escuro ? 'font-display text-lg text-estrelinha-on-primary' : ROTULO_DO_CARTAO}>{titulo}</h2>
+      <h2 className={escuro ? 'font-body text-[15px] font-medium text-estrelinha-on-primary' : ROTULO_DO_CARTAO}>{titulo}</h2>
       {acao}
     </div>
     <div className="mt-2 space-y-3">{children}</div>
@@ -189,11 +190,11 @@ const BuscaDeCliente = ({ busca, aoEscolher }: { busca: BuscaDaMontagem; aoEscol
           Ninguém com “{limpo}”. Se for a primeira compra, use <strong className="font-semibold text-estrelinha-ink">{CLIENTE_NOVA}</strong>.
         </p>
       ) : (
-        <ul aria-label="Clientes" className="divide-y divide-estrelinha-line">
+        <ul aria-label="Clientes" className="divide-y divide-estrelinha-line rounded-lg border border-estrelinha-line bg-estrelinha-surface">
           {(busca.dado ?? []).map((c) => (
             <li key={c.id}>
-              <button type="button" onClick={() => aoEscolher(c)} className="flex min-h-12 w-full items-center gap-3 py-2 text-left">
-                <Inicial cliente={c} />
+              <button type="button" onClick={() => aoEscolher(c)} className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left">
+                <Inicial cliente={c} media />
                 <span className="min-w-0 flex-1">
                   <span className="block break-words text-base text-estrelinha-ink">{nomeDoCliente(c)}</span>
                   <span className="block break-words text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{linhaDaCliente(c)}</span>
@@ -326,7 +327,7 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
           {!estado.leitura && (
             <Cartao titulo={TEM_OS_DADOS_NUMA_MENSAGEM} escuro>
               <div className="flex items-start gap-3">
-                <MessageSquareText aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0" />
+                <MessageSquareText aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-estrelinha-accent" />
                 <p className="min-w-0 flex-1 break-words text-sm">{COLE_A_CONVERSA}</p>
               </div>
               <button
@@ -346,6 +347,7 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
               type="email"
               inputMode="email"
               autoComplete="email"
+              placeholder="nome@email.com"
               referencia={p.refDoEmail}
               marca={marcaDe(estado, 'email')}
               valor={contato.email}
@@ -391,17 +393,6 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
           <Cartao titulo="Entrega">
             <div role="radiogroup" aria-label="Entrega" className="space-y-1">
               <Opcao nome="entrega-nova" marcada={p.entregaEfetiva === 'outro'} titulo={INFORMAR_AGORA} frase={null} aoMarcar={() => despachar({ tipo: 'entrega', entrega: 'outro' })} />
-              {p.entregaEfetiva === 'outro' && (
-                <FormularioDeEndereco
-                  prefixo="nova"
-                  endereco={estado.endereco}
-                  marcas={marcasDoEndereco(estado)}
-                  aoCompletarPeloCep={(campos) => despachar({ tipo: 'endereco', campos, origem: 'cep' })}
-                  aoMudar={(campos) => despachar({ tipo: 'endereco', campos })}
-                  salvarNoCadastro={estado.salvarNoCadastro}
-                  aoTrocarSalvar={(valor) => despachar({ tipo: 'salvar-no-cadastro', valor })}
-                />
-              )}
               <Opcao
                 nome="entrega-nova"
                 marcada={p.entregaEfetiva === 'link'}
@@ -411,6 +402,19 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
               />
             </div>
           </Cartao>
+          {p.entregaEfetiva === 'outro' && (
+            <Cartao titulo={ENDERECO_DE_ENTREGA}>
+              <FormularioDeEndereco
+                prefixo="nova"
+                endereco={estado.endereco}
+                marcas={marcasDoEndereco(estado)}
+                aoCompletarPeloCep={(campos) => despachar({ tipo: 'endereco', campos, origem: 'cep' })}
+                aoMudar={(campos) => despachar({ tipo: 'endereco', campos })}
+                salvarNoCadastro={estado.salvarNoCadastro}
+                aoTrocarSalvar={(valor) => despachar({ tipo: 'salvar-no-cadastro', valor })}
+              />
+            </Cartao>
+          )}
         </>
       )}
     </div>
