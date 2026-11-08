@@ -54,10 +54,11 @@ const consultaDaLista = async (slice: OrderSlice, termo: string, { limite, curso
   return { linhas: (data ?? []) as unknown as LinhaDaLista[], count: count ?? null }
 }
 
-export const useListaDePedidos = (slice: OrderSlice, termo: string) => {
+export const useListaDePedidos = (slice: OrderSlice, termo: string, { habilitada = true }: { habilitada?: boolean } = {}) => {
   const chave = chaveDaLista(slice, termo)
   const termoLimpo = chave[2]
   return useJanelaPaginada<LinhaDaLista, OrderCursor>({
+    habilitada,
     chave,
     tamanhoDaPagina: ORDER_PAGE_SIZE,
     consultar: (p) => consultaDaLista(slice, termoLimpo, p),

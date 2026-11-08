@@ -767,6 +767,66 @@ describe('list (LNK-04)', () => {
     const f = ambiente({ listErrorByTable: { order_proposals: { message: 'x' } } })
     expect((await route(f.deps, pedir('list', {}))).status).toBe(502)
   })
+
+  it('cada proposta leva as peças resumidas (nome, foto, variação, quantidade), na ordem, com teto de 4 — e o relógio do servidor', async () => {
+    const OUTRA = 'cccccccc-0000-4000-8000-000000000002'
+    const peca = (proposal_id: string, position: number, extra: Record<string, unknown> = {}) => ({
+      proposal_id,
+      position,
+      product_name: `Peça ${position}`,
+      product_image: `https://img/${position}.webp`,
+      variant_label: null,
+      quantity: 1,
+      unit_price: 999,
+      engraving_text: 'segredo',
+      ...extra,
+    })
+    const f = ambiente({
+      lists: {
+        order_proposals: [LINHA(), LINHA({ id: OUTRA })],
+        // Fora de ordem de propósito, e com uma linha de outra proposta no meio.
+        order_proposal_items: (_eqs: unknown, _sel: string, read: any) =>
+          filtrarPorIn(
+            [
+              peca(PROP, 4),
+              peca(PROP, 1, { variant_label: 'Prata · M', quantity: 2 }),
+              peca(OUTRA, 0, { product_name: 'Anel Lua', product_image: null }),
+              peca(PROP, 0),
+              peca(PROP, 3),
+              peca(PROP, 2),
+            ],
+            read,
+          ),
+      },
+    })
+    const res = await route(f.deps, pedir('list', {}))
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    expect(corpo.agora).toBe('2026-10-31T12:00:00.000Z')
+    const [primeira, segunda] = corpo.proposals
+    expect(primeira.lines).toEqual([
+      { product_name: 'Peça 0', product_image: 'https://img/0.webp', variant_label: null, quantity: 1 },
+      { product_name: 'Peça 1', product_image: 'https://img/1.webp', variant_label: 'Prata · M', quantity: 2 },
+      { product_name: 'Peça 2', product_image: 'https://img/2.webp', variant_label: null, quantity: 1 },
+      { product_name: 'Peça 3', product_image: 'https://img/3.webp', variant_label: null, quantity: 1 },
+    ])
+    expect(primeira.lines_count).toBe(5)
+    expect(segunda.lines).toEqual([{ product_name: 'Anel Lua', product_image: null, variant_label: null, quantity: 1 }])
+    expect(segunda.lines_count).toBe(1)
+    // Uma leitura só das peças, escopada pelas propostas lidas, sem preço, gravação nem material.
+    const leituras = f.reads.filter((r) => r.table === 'order_proposal_items')
+    expect(leituras).toHaveLength(1)
+    expect(leituras[0].in).toEqual([['proposal_id', [PROP, OUTRA]]])
+    expect(leituras[0].select).not.toMatch(/price|engraving|material/)
+  })
+
+  it('a leitura das peças falha ⇒ 502, nunca cartões sem peças', async () => {
+    const f = ambiente({
+      lists: { order_proposals: [LINHA()] },
+      listErrorByTable: { order_proposal_items: { message: 'x' } },
+    })
+    expect((await route(f.deps, pedir('list', {}))).status).toBe(502)
+  })
 })
 
 describe('get', () => {

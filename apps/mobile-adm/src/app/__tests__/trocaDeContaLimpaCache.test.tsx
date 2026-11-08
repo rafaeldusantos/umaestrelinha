@@ -371,3 +371,71 @@ describe('a troca de conta esquece os clientes (MAC-38, G15)', () => {
     expect(comDado().length).toBeGreaterThanOrEqual(3)
   })
 })
+
+describe('a troca de conta esquece os pedidos montados', () => {
+  const FAMILIAS = ['atelie-montados', 'atelie-montado']
+  const comDado = () =>
+    capturado.cliente!
+      .getQueryCache()
+      .getAll()
+      .filter((q) => FAMILIAS.includes(String(q.queryKey[0])) && q.state.data !== undefined)
+  const IDM = 'cccccccc-0000-4000-8000-000000000001'
+  let pendurado = false
+  /** A function responde pela conta A até `pendurado`; depois fica no ar (o que aparecer veio da memória). */
+  const responderMontadosDeA = () => {
+    pendurado = false
+    fake.responderRpc('atelie_clock', { lido_em: LIDO_EM })
+    fake.responderRpc('store_overview', resumo())
+    const responder = (dado: unknown) => () => (pendurado ? new Promise<never>(() => {}) : { data: dado, error: null })
+    const leitura = {
+      proposal: {
+        id: IDM,
+        number: 'P-0042',
+        status: 'open',
+        version: 1,
+        expires_at: '2026-10-30T15:00:00Z',
+        order_id: null,
+        order_number: null,
+        customer_name: 'Marina Duarte',
+        customer_email: 'marina@exemplo.invalid',
+        customer_phone: null,
+        subtotal: 100,
+        promotion_discount: 0,
+        coupon_code: null,
+        coupon_discount: 0,
+        manual_discount: 0,
+        items_total: 100,
+        admin_note: null,
+        created_at: '2026-10-21T12:00:00Z',
+        items: [],
+        events: [],
+      },
+      state: 'open',
+      actions: { edit: true, renew: true, renewLabel: 'Gerar link novo', cancel: true, duplicate: true, viewOrder: false },
+      token: null,
+    }
+    fake.filaDeInvocacao('order-proposals?action=get', ...Array.from({ length: 20 }, () => responder(leitura)))
+    fake.filaDeInvocacao(
+      'order-proposals?action=renew',
+      responder({ id: IDM, number: 'P-0042', version: 2, token: 'tok-de-a', expires_at: '2026-10-30T15:00:00Z', repriced: false, summary: {} }),
+    )
+  }
+
+  it('A → B sem sair: o pedido montado de A e o link que o renovar de A gerou somem da tela e da memória', async () => {
+    responderMontadosDeA()
+    await montarApp(`/pedidos/montados/${IDM}`)
+    await andar(100)
+    expect(screen.getByText('Marina Duarte')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar link novo' }))
+    await andar(100)
+    expect(screen.getByTestId('o-link')).toHaveTextContent('#tok-de-a')
+    expect(comDado().length).toBeGreaterThan(0)
+
+    pendurado = true
+    pendurarTudo()
+    await entrarComo(B)
+    await andar(100)
+    expect(comDado()).toEqual([])
+    expect(document.body.textContent).not.toMatch(/Marina|tok-de-a|P-0042/)
+  })
+})

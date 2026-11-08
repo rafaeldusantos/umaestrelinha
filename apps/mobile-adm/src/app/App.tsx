@@ -11,6 +11,7 @@ import RecuperarPage from '@/pages/RecuperarPage'
 import InicioPage from '@/pages/InicioPage'
 import PedidosPage from '@/pages/PedidosPage'
 import PedidoPage from '@/pages/PedidoPage'
+import PedidoMontadoPage from '@/pages/PedidoMontadoPage'
 import ClientesPage from '@/pages/ClientesPage'
 import ClientePage from '@/pages/ClientePage'
 import DescontosPage from '@/pages/DescontosPage'
@@ -34,6 +35,8 @@ import { esquecerAcoes } from '@/features/order-actions'
  *   duas listas nos dois sentidos. `/pedidos/:id` (feature `74`, `MAP-54`) e `/clientes/:id` (feature
  *   `76`, `MAC-36`) são SUBROTAS de aba — sem aba própria, e a aba pai fica marcada nelas (`MAP-55`). A recuperação (`MAF-24`) fica FORA pela mesma razão do login:
  *   quem recupera ainda não entrou. As três rotas dela são as de `PASSOS_DA_RECUPERACAO`.
+ * - `/pedidos/montados/:id` é o pedido montado: subrota da aba Pedidos, sem a barra de abas,
+ *   com o próprio "Voltar"; a lista dele é a visão `?visao=montados` da aba.
  * - `/avisos` (feature `79`, `MAN-17`) é rota DA CONTA: sem aba, alcançada pelo menu da conta, e dentro
  *   do guarda como todas (`ROTAS_DA_CONTA` em `abasSaoAsRotas.test.ts`).
  * - `/ao-vivo` (feature `83`, `LAV-06`) é rota DE TELA: sem aba e sem a barra, alcançada pelo cartão
@@ -111,6 +114,7 @@ const Arvore = () => (
             <Route path="/" element={<InicioPage />} />
             <Route path="/pedidos" element={<PedidosPage />} />
             <Route path="/pedidos/:id" element={<PedidoPage />} />
+            <Route path="/pedidos/montados/:id" element={<PedidoMontadoPage />} />
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/clientes/:id" element={<ClientePage />} />
             <Route path="/descontos" element={<DescontosPage />} />

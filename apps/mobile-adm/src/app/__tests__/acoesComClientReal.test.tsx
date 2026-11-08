@@ -156,9 +156,10 @@ describe.each(['detalhe', 'cartão'] as const)('"Iniciar separação" pelo %s, s
     expect(instantes.findIndex((t) => /Este pedido mudou enquanto você olhava\./.test(t))).toBe(-1)
     expect(window.location.pathname).toBe('/login')
     expect(screen.getByText(SEM_ACESSO)).toBeInTheDocument()
-    // Nada depois do `update` vazio: nem histórico, nem aviso.
+    // Nada depois do `update` vazio: nem histórico, nem aviso. A leitura dos pedidos montados que a aba
+    // Pedidos faz pela `order-proposals` (a contagem do chip) não é aviso, e fica fora da conta.
     expect(r.chamadasDe('POST', '/rest/v1/order_status_history')).toHaveLength(0)
-    expect(r.pedidos.filter((p) => p.startsWith('/functions/v1/'))).toHaveLength(0)
+    expect(r.pedidos.filter((p) => p.startsWith('/functions/v1/') && p !== '/functions/v1/order-proposals')).toHaveLength(0)
   })
 
   it('PATCH em 500 ⇒ "Não consegui salvar. Tente de novo.", a rota mantida, NUNCA a recusa (MAA-22)', async () => {

@@ -1,9 +1,7 @@
 import { supabase } from '@estrelinha/supabase/client'
-import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 import type { PushEvent } from '@estrelinha/core/notifications'
 
-import { conferirPapel } from '@/shared/api/lerComPapel'
-import { recusa } from '@/shared/api/recusa'
+import { traduzir, type RespostaDaPorta } from '@/shared/api/traduzir'
 
 /**
  * A porta dos avisos no celular (feature `79`, design §4.5; `MAN-11`, `MAN-14`..`MAN-16`, `MAN-23`,
@@ -18,7 +16,8 @@ import { recusa } from '@/shared/api/recusa'
  * `'atelie-avisos?action=<ação>'`, um por função (o molde do painel com `melhor-envio` e
  * `send-notification`). O guarda aceita SÓ essa forma, com uma das seis ações.
  *
- * **A tradução de erro** (molde de `gravarAcao.ts`, `L-047`, `BL-048`). O status HTTP da function
+ * **A tradução de erro** mora em `shared/api/traduzir.ts` (a porta dos pedidos montados
+ * traduz do mesmo jeito). Resumo (molde de `gravarAcao.ts`, `L-047`, `BL-048`): o status HTTP da function
  * NÃO decide recusa: o 403 de `requireAdmin` sai também quando `has_role` FALHA, e lê-lo como "não é
  * admin" traria de volta a recusa falsa que a `72` fechou. E o erro do `invoke` não carrega
  * `code: '42501'`. A regra:
@@ -34,51 +33,11 @@ import { recusa } from '@/shared/api/recusa'
  * O `invoke` do supabase-js NÃO rejeita: devolve `{ error }`. O status mora em `error.context` (o
  * `Response`) quando o erro é `FunctionsHttpError`, e o slug em `error.context.json()`.
  */
-export type RespostaDaPorta<T> = { tipo: 'ok'; dado: T } | { tipo: 'erro'; slug: string; status: number } | { tipo: 'falhou'; erro?: unknown }
+export type { RespostaDaPorta }
 
 export interface ChavesDaInscricao {
   p256dh: string
   auth: string
-}
-
-const FALHOU = (erro?: unknown): RespostaDaPorta<never> => ({ tipo: 'falhou', erro })
-
-/** O slug do corpo de um erro HTTP (`{ error: '<slug>' }`), ou `null` se não há um legível. */
-const slugDe = async (resposta: Response): Promise<string | null> => {
-  try {
-    if (typeof resposta.json !== 'function') return null
-    const corpo = (await resposta.json()) as { error?: unknown } | null
-    return typeof corpo?.error === 'string' && corpo.error !== '' ? corpo.error : null
-  } catch {
-    return null
-  }
-}
-
-const traduzir = async <T>({ data, error }: { data: unknown; error: unknown }): Promise<RespostaDaPorta<T>> => {
-  if (!error) return { tipo: 'ok', dado: data as T }
-
-  const e = error as { name?: unknown; context?: unknown }
-  // Só o `FunctionsHttpError` carrega uma resposta da function. Rede (`FunctionsFetchError`), relay
-  // e qualquer outra forma são falha, sem perguntar o papel.
-  const resposta = e.context as Response | undefined
-  if (e.name !== 'FunctionsHttpError' || typeof resposta?.status !== 'number') return FALHOU(error)
-  const status = resposta.status
-
-  if (status === 401 || status === 403) {
-    try {
-      await conferirPapel()
-    } catch (conferencia) {
-      if (isAccessDenied(conferencia)) throw recusa()
-      return FALHOU(conferencia)
-    }
-    return FALHOU(error)
-  }
-
-  if (status >= 400 && status < 500) {
-    const slug = await slugDe(resposta)
-    if (slug) return { tipo: 'erro', slug, status }
-  }
-  return FALHOU(error)
 }
 
 /** A chave pública VAPID, lida do MESMO secret que assina (não há cópia dela numa env do app). */

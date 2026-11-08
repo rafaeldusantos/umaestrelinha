@@ -1,7 +1,7 @@
 // Feature `73` · T11 · `MAI-07`, `MAI-15` — os três endereços da Início, por um dono só.
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_ORDER_SLICE, ORDER_VIEWS, QUEUE_BLOCKS } from '@estrelinha/core/orders'
-import { lerDestinoDePedidos, pedidoHref, pedidosHref, recorteDoEndereco } from '../pedidosHref'
+import { ehVisaoMontados, lerDestinoDePedidos, montadosHref, pedidoHref, pedidoMontadoHref, pedidosHref, recorteDoEndereco } from '../pedidosHref'
 
 describe('pedidosHref', () => {
   it('"Ver pedidos" ⇒ a visão "Precisa de ação" no endereço', () => {
@@ -107,5 +107,30 @@ describe('recorteDoEndereco — a única leitura que a lista faz (A5)', () => {
 describe('pedidoHref (MAP-20, MAP-52)', () => {
   it('o detalhe mora em /pedidos/<id>', () => {
     expect(pedidoHref('00000000-0000-4000-8000-000000000244')).toBe('/pedidos/00000000-0000-4000-8000-000000000244')
+  })
+})
+
+describe('a visão "Montados" — fora das visões de pedido, no mesmo dono do endereço', () => {
+  it('o endereço é /pedidos?visao=montados', () => {
+    expect(montadosHref()).toBe('/pedidos?visao=montados')
+  })
+
+  it('o endereço da visão é reconhecido, e só ele', () => {
+    expect(ehVisaoMontados('?visao=montados')).toBe(true)
+    expect(ehVisaoMontados(montadosHref().slice('/pedidos'.length))).toBe(true)
+    expect(ehVisaoMontados('?visao=tudo')).toBe(false)
+    expect(ehVisaoMontados('?bloco=aguardando')).toBe(false)
+    expect(ehVisaoMontados('')).toBe(false)
+    // O bloco vence também aqui: com os dois, o endereço é de um bloco.
+    expect(ehVisaoMontados('?visao=montados&bloco=aguardando')).toBe(false)
+  })
+
+  it('"montados" não é uma visão de pedido: o recorte da lista não o entende', () => {
+    expect(lerDestinoDePedidos('?visao=montados')).toBeNull()
+    expect(() => pedidosHref({ visao: 'montados' as never })).toThrow()
+  })
+
+  it('o pedido montado mora em /pedidos/montados/<id>', () => {
+    expect(pedidoMontadoHref('cccccccc-0000-4000-8000-000000000001')).toBe('/pedidos/montados/cccccccc-0000-4000-8000-000000000001')
   })
 })

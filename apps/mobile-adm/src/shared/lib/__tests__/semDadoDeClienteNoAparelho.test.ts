@@ -40,8 +40,12 @@ const PASTAS = [
   'features/customer-search/',
   'widgets/customer-list/',
   'widgets/customer-detail/',
+  // O pedido montado traz o nome, o e-mail e o telefone da cliente — a visão Montados e a
+  // tela dele entram com a mesma régua.
+  'features/order-proposal/',
+  'widgets/proposal-list/',
 ]
-const PAGINAS = ['pages/ClientesPage.tsx', 'pages/ClientePage.tsx']
+const PAGINAS = ['pages/ClientesPage.tsx', 'pages/ClientePage.tsx', 'pages/PedidoMontadoPage.tsx']
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -66,7 +70,8 @@ const ESCOPO: Arquivo[] = arquivos(SRC)
   .map((rel) => ({ rel, codigo: semComentarios(readFileSync(join(SRC, rel), 'utf8')) }))
 
 /** Um destino que vem do dono (ou `-1`). */
-const DESTINO_DO_DONO = /^(?:-1|(?:clientesHref|clienteHref|pedidoHref)\(|PEDIDOS_PATH\b|CLIENTES_PATH\b)/
+// `montadosHref` e `pedidoMontadoHref`, do MESMO dono do endereço de Pedidos (`pedidosHref.ts`).
+const DESTINO_DO_DONO = /^(?:-1|(?:clientesHref|clienteHref|pedidoHref|montadosHref|pedidoMontadoHref)\(|PEDIDOS_PATH\b|CLIENTES_PATH\b)/
 
 /**
  * O texto de cada chamada `nome(…)`, com os parênteses BALANCEADOS (a chamada pode quebrar linha):
@@ -165,7 +170,7 @@ const acusacoes = (alvo: Arquivo[]): string[] =>
 const sintetico = (fonte: string): Arquivo[] => [{ rel: 'sintetico.tsx', codigo: semComentarios(fonte) }]
 
 describe('nenhum dado de cliente fora da tela (MAC-28) — âncoras', () => {
-  it('a varredura leu as pastas de cliente e as duas páginas, sem teste', () => {
+  it('a varredura leu as pastas de cliente e as três páginas, sem teste', () => {
     expect(ESCOPO.length).toBeGreaterThanOrEqual(30)
     const rels = ESCOPO.map((a) => a.rel)
     for (const r of [
@@ -176,6 +181,11 @@ describe('nenhum dado de cliente fora da tela (MAC-28) — âncoras', () => {
       'widgets/customer-list/ui/ListaDeClientes.tsx',
       'pages/ClientesPage.tsx',
       'pages/ClientePage.tsx',
+      // A visão Montados e o pedido montado.
+      'features/order-proposal/model/useAcoesDoMontado.ts',
+      'features/order-proposal/api/portaDePropostas.ts',
+      'widgets/proposal-list/ui/ListaDeMontados.tsx',
+      'pages/PedidoMontadoPage.tsx',
     ])
       expect(rels).toContain(r)
     expect(rels.some((r) => r.includes('__tests__/'))).toBe(false)

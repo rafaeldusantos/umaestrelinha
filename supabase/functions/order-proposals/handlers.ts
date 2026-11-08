@@ -11,7 +11,7 @@
 //
 // Ações (query param `action`, corpo JSON):
 //
-//   list      as propostas, com o estado derivado (`LNK-04`)
+//   list      as propostas, com o estado derivado (`LNK-04`), as peças resumidas (com teto) e o `agora`
 //   get       uma proposta inteira: linhas, histórico, estado e ações disponíveis
 //   save      criar ou editar. O servidor RECALCULA tudo pelo banco (`PRC-01`); o total que a tela
 //             mostrava é só conferido (`PRC-02`). O token do link nasce SÓ ao criar.
@@ -164,6 +164,16 @@ const COLUNAS_DA_LISTA = [
   'items_total',
   'created_at',
 ].join(', ')
+
+/**
+ * As linhas resumidas de cada proposta na `list`: o bastante para o cartão do app dizer
+ * "Nome · variação" com a foto, nunca preço, gravação ou material. Com teto por proposta
+ * (`LINHAS_NA_LISTA`); `lines_count` diz quantas são ao todo.
+ */
+const COLUNAS_DA_LINHA_NA_LISTA = ['proposal_id', 'position', 'product_name', 'product_image', 'variant_label', 'quantity'].join(', ')
+
+/** Quantas linhas cada proposta leva na `list`. */
+export const LINHAS_NA_LISTA = 4
 
 const COLUNAS_DA_LINHA = [
   'position',
@@ -558,15 +568,48 @@ async function list(deps: Deps, req: Request): Promise<Response> {
     for (const o of (orders ?? []) as any[]) numeroDoPedido.set(String(o.id), String(o.order_number ?? ''))
   }
 
+  // As peças de cada proposta, numa leitura só. Falhar aqui é falhar a lista: um cartão sem as
+  // peças diria "nenhuma peça" de um pedido que tem.
+  const linhasPorProposta = new Map<string, any[]>()
+  const ids = linhas.map((p) => p.id).filter(Boolean)
+  if (ids.length) {
+    const { data: itens, error: erroItens } = await deps.supabase
+      .from('order_proposal_items')
+      .select(COLUNAS_DA_LINHA_NA_LISTA)
+      .in('proposal_id', ids)
+      .order('position', { ascending: true })
+    if (erroItens) {
+      log({ action: 'order-proposals:list', status: 'items_read_failed' })
+      return json({ error: 'Não consegui ler as propostas.' }, 502)
+    }
+    for (const item of (itens ?? []) as any[]) {
+      const chave = String(item.proposal_id)
+      const doPedido = linhasPorProposta.get(chave) ?? []
+      doPedido.push(item)
+      linhasPorProposta.set(chave, doPedido)
+    }
+  }
+
   const now = new Date(deps.now())
-  const proposals = linhas.map((p) => ({
-    ...p,
-    state: estadoDe(p, now),
-    order_number: p.order_id ? (numeroDoPedido.get(String(p.order_id)) ?? null) : null,
-  }))
+  const proposals = linhas.map((p) => {
+    const todas = (linhasPorProposta.get(String(p.id)) ?? []).slice().sort((a, b) => Number(a.position) - Number(b.position))
+    return {
+      ...p,
+      state: estadoDe(p, now),
+      order_number: p.order_id ? (numeroDoPedido.get(String(p.order_id)) ?? null) : null,
+      lines: todas.slice(0, LINHAS_NA_LISTA).map((l) => ({
+        product_name: l.product_name ?? '',
+        product_image: l.product_image ?? null,
+        variant_label: l.variant_label ?? null,
+        quantity: Number(l.quantity ?? 0),
+      })),
+      lines_count: todas.length,
+    }
+  })
 
   log({ action: 'order-proposals:list', status: 'ok', total: proposals.length })
-  return json({ proposals })
+  // `agora`: o relógio do servidor, para quem desenha "montado há 2 dias" sem ler o do aparelho.
+  return json({ proposals, agora: now.toISOString() })
 }
 
 // ---------------------------------------------------------------------------------------------

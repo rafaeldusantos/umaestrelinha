@@ -16,6 +16,8 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 | `/` | Início — o movimento, "Precisa de você", a semana, o mês, as joias e os últimos pedidos (feature `73`, abaixo) |
 | `/pedidos` | Pedidos — a lista com os seis recortes, os quatro blocos da Início e a busca (feature `74`), e a ação primária no cartão (feature `75`, abaixo) |
 | `/pedidos/:id` | o detalhe de um pedido (feature `74`), com o rodapé da ação, a folha do rastreio, "Informar/Alterar" na Entrega e o lembrete no WhatsApp (feature `75`); subrota da aba Pedidos, dentro do guarda |
+| `/pedidos?visao=montados` | a visão **Montados** da aba Pedidos (WI 94, abaixo): o chip "Montados · N abertos" ao fim dos chips, e a lista dos pedidos montados |
+| `/pedidos/montados/:id` | o **pedido montado** (WI 94): o link, as peças, a observação interna, o histórico e as ações por estado; subrota da aba Pedidos, sem a barra de abas, dentro do guarda |
 | `/clientes` | Clientes — a lista com três recortes e a busca (feature `76`, abaixo) |
 | `/clientes/:id` | a ficha de uma cliente (feature `76`); subrota da aba Clientes, dentro do guarda |
 | `/avisos` | "Avisos neste celular" — ligar o aviso de pedido NESTE aparelho, os quatro interruptores, o aviso de teste e "Parar avisos" (feature `79`, abaixo); aberta pelo menu da conta, sem aba própria |
@@ -468,6 +470,42 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
   `.specs/features/83-loja-ao-vivo/probes/01-acessos.sql` e os da `71` antes do deploy (fora do CI,
   `BL-057`).
 
+## Pedidos montados (WI 94)
+
+- **A visão "Montados"** é `?visao=montados` na aba Pedidos, do MESMO dono do endereço
+  (`entities/order/model/pedidosHref.ts`: `montadosHref`, `ehVisaoMontados`, `pedidoMontadoHref`), e
+  fica **fora** de `ORDER_VIEWS` — não é recorte de `orders`, e `recorteDoEndereco` não a entende. O chip
+  vem AO FIM dos de hoje (`ChipsDeRecorte` recebe `montados`), com a contagem de abertos (Aberta + Vista)
+  da MESMA leitura que desenha a lista. Nessa visão a busca some e a lista de pedidos não é lida
+  (`useListaDePedidos(…, { habilitada })`). A lista é o widget `widgets/proposal-list`.
+- **Uma porta, um arquivo**: `features/order-proposal/api/portaDePropostas.ts`, nome literal por ação
+  (`order-proposals?action=list|get|renew|cancel|log-sent|note`). A tradução de erro é a das portas,
+  `shared/api/traduzir.ts` (movida da porta dos avisos, que a importa): 401/403 ⇒ `conferirPapel`, só o
+  `42501` dele vira recusa; rede é falha. O erro da function chega com a frase e o código (`ErroDaProposta`).
+  As tabelas da proposta não têm policy para o navegador.
+- **As leituras** (`model/useMontados.ts`): a lista (`atelie-montados`) traz o relógio do servidor
+  (`agora`, novo na `list`, com as peças resumidas e `lines_count`, teto de 4 por proposta); o detalhe
+  (`atelie-montado`) passa por `lerComPapel`, e o `lido_em` é o relógio de "montado há 2 dias". Nada pelo
+  relógio do aparelho. A troca de conta limpa as duas chaves (`trocaDeContaLimpaCache`).
+- **O link** vem do `get` enquanto a proposta está aberta (a cifra do token, WI 94) e é montado com a
+  origem da loja de `shared/config/loja.ts` (`origemDaLoja`, **leitor único** de `VITE_STORE_URL`, lida na
+  chamada). Sem token: "Gerar link novo" renova direto, e o link novo vive só na memória da tela (preso à
+  conta). Sem a env: `LINK_WITHOUT_STORE` (`core`). Nada em storage.
+- **Copiar e WhatsApp** registram "Link enviado · copiado/WhatsApp" pela ação `log-sent`; o WhatsApp é um
+  `<a target="_blank">` com `whatsappChatUrl` (`core`) e a mensagem de `proposalWhatsappText`, e só aparece
+  com telefone que normaliza.
+- **As ações vêm de `actions`** (`proposalActions`, decidido no servidor): aberta ⇒ Cancelar (folha);
+  expirada ⇒ "Renovar prazo" (folha com `proposalRenewText`); concluída ⇒ "Ver o pedido #…"; cancelada ⇒
+  nada. Um `prices_changed` do `renew` mostra o total relido na mesma folha e confirma com ele
+  (`expected_total`). A observação interna é editável em todo estado não concluído (`note`, a mesma
+  `FolhaDaObservacao` do pedido). O selo usa `PROPOSAL_STATE_LABELS` (`core`).
+- **As folhas moram no histórico** por `shared/lib/useFolhaNaEntrada.ts` — o mecanismo de
+  `useFolhaNoHistorico` sem a regra do pedido (o voltar do Android fecha; F5 não deixa voltar morto).
+- **O documento da cliente** aparece só aqui no app (D-16), por `documentoDoMontado`; a exceção de
+  `semDadoSensivelDeClienteNoApp` é por arquivo e texto exatos.
+- **Tom**: `tomMemorialDosMontados.test.ts` (o pelo de pet é acusado no plural; "pelo WhatsApp" é
+  preposição, com sensor nos dois sentidos).
+
 ## PWA — só a casca
 
 - `pwa.config.ts` é um arquivo **separado** do `vite.config.ts` para os guardas lerem a configuração
@@ -564,7 +602,7 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
 | `enderecoDePedidosComDonoUnico.test.ts` | `src/entities/order/__tests__` | (feature `74`) o endereço de Pedidos lido ou escrito fora de `pedidosHref.ts` |
 | `regraDePedidoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `74`) mapa ou `case` com vocabulário de visão/status/pagamento/meio (importado de `core`), ou predicado de recorte, fora de `core` |
 | `movimentoDosPedidos.test.ts` | idem | (feature `74`) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos arquivos de UI da `74` e da `75` (28, escopo literal); desde a `75` vê a variante de estado (`data-[state=open]:`) e só a cobre com o par do MESMO estado, e exige os dois pares em todo arquivo que monta `SheetContent`. Âncora 8 tokens / 6 pares (B02) |
-| `escritaSoPelaPorta.test.ts` | `src/entities/order/api/__tests__` | (feature `75`, pela AST) escrita de tabela, `functions.invoke` ou `rpc(` fora de `lerComPapel.ts`; o client importado fora dos quatro arquivos (os três da `74` e a porta), ou usado como receptor na porta |
+| `escritaSoPelaPorta.test.ts` | `src/entities/order/api/__tests__` | (feature `75`, pela AST) escrita de tabela, `functions.invoke` ou `rpc(` fora de `lerComPapel.ts`; o client importado fora da lista literal (desde o WI 94, dez arquivos), ou usado como receptor na porta; `INVOCACAO_ACEITA` é um mapa POR PORTA (avisos e montados), e o nome de uma porta na outra é acusado |
 | `fraseDaAcaoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `75`, pela AST, sem allowlist) as frases fixas da ação escritas no app |
 | `acoesComClientReal.test.tsx` | `src/app/__tests__` | (feature `75`, sobre o client REAL) PATCH `[]` + `atelie_clock` 403 ⇒ a recusa e nenhuma confirmação (lida por passo e por `MutationObserver`); `not_admin` ⇒ recusa; 500 ⇒ falha; a conferência sem rede ⇒ nem recusa nem reconferência; o que vai no PATCH do rastreio |
 | `escritaNoArnes.test.ts` | `src/test/__tests__` | (feature `75`) os dois arneses (`fakeSupabase` e `clientReal`) deixando de registrar a escrita (valores, cadeia, método, corpo) |
@@ -587,6 +625,8 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
 | `aoVivoSemRelogioDoAparelho.test.ts` | `src/shared/lib/__tests__` | (feature `83`, `LAV-61`) `new Date(`, `Date.now(`, `getHours`, `getDay` ou `toLocaleDateString` nos arquivos da `83` e em `core/live`; allowlist de UM (`useSegundosDesde.ts`) |
 | `tomDaLojaAoVivo.test.ts` | idem | (feature `83`, pela AST, arquivos nomeados) emoji, `!`, urgência, "pessoa(s)"/"usuário(s)"; `transition-*`/`animate-*` sem par `motion-reduce:` |
 | `barraNoCaminho.test.ts` | `src/widgets/tab-bar/__tests__` | (feature `83`) a barra de abas aparecendo em `/ao-vivo` ou sumindo de uma aba |
+| `montadosComClientReal.test.tsx` | `src/app/__tests__` | (WI 94, sobre o client REAL) `list` e `get` em 403 com `atelie_clock` 403 `42501` ⇒ a recusa e nenhum dado da cliente em instante nenhum; cada escrita (`cancel`, `renew`, `log-sent`, `note`) em 403 + recusa ⇒ a recusa e a falha em instante nenhum; 403 com o relógio de pé ⇒ a falha, nunca a recusa; rede caída ⇒ falha |
+| `tomMemorialDosMontados.test.ts` | `src/shared/lib/__tests__` | (WI 94) emoji, `!`, ranking, urgência e material nos literais da visão Montados, do pedido montado e de `features/order-proposal` |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |
 

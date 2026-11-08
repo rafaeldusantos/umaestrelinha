@@ -45,8 +45,11 @@ export const abaDoCaminho = (caminho: string): Tab | null => TABS.find((t) => t.
 /**
  * A barra de abas aparece nesta rota? NÃO no detalhe do pedido nem no da cliente: no protótipo do
  * Claude Design (2026-10-26) as telas de detalhe cobrem a barra e têm o próprio "Voltar". Nem na Loja
- * ao vivo (feature `83`, `LAV-06`), que tem o próprio "Voltar" e não é aba. Nas abas e em `/avisos`
+ * ao vivo (feature `83`, `LAV-06`), que tem o próprio "Voltar" e não é aba. Nem no pedido montado
+ * (`/pedidos/montados/<id>`), que também tem o próprio "Voltar". Nas abas e em `/avisos`
  * (que não tem voltar próprio) ela fica.
  */
 export const barraNoCaminho = (caminho: string): boolean =>
-  !/^\/(pedidos|clientes)\/[^/]+\/?$/.test(caminho) && !/^\/ao-vivo\/?$/.test(caminho)
+  !/^\/(pedidos|clientes)\/[^/]+\/?$/.test(caminho) &&
+  !/^\/pedidos\/montados\/[^/]+\/?$/.test(caminho) &&
+  !/^\/ao-vivo\/?$/.test(caminho)

@@ -21,6 +21,12 @@
 // linha passa; o termo segue recusado em qualquer outro lugar do app — inclusive em toda a aba Clientes
 // (régua 1b), que é o que `MAC-29` protege. Sensor: a mesma linha noutro arquivo é acusada.
 //
+// **O documento no pedido montado, por arquivo e texto exatos**: o pedido montado
+// é a tela em que a Adri confere o que a cliente vai confirmar no link, e mostra o documento dela. Passam
+// só a linha que o declara no tipo (`features/order-proposal/model/tipos.ts`) e a linha que o lê
+// (`features/order-proposal/model/frases.ts`); o termo segue recusado em qualquer outro lugar — inclusive
+// em toda a aba Clientes. Sensor: a mesma linha noutro arquivo é acusada.
+//
 // Escopo: `apps/mobile-adm/src`, só produção. Os arquivos de fixtura (`src/test/`) ficam de fora: são
 // dado sintético de teste.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -59,7 +65,12 @@ const TERMOS = /(?<![a-z])(?:cpf|material_kinds|customer_notes|addresses|custome
 const SELECT_DE_TUDO = /\.select\(\s*(?:\)|['"`]\s*\*)/
 
 /** Feature `82`: a única linha permitida, por arquivo e texto exatos (ver o cabeçalho). */
-const PERMITIDAS = [{ rel: 'entities/order/model/linha.ts', texto: "'requires_material, material_kinds'" }]
+const PERMITIDAS = [
+  { rel: 'entities/order/model/linha.ts', texto: "'requires_material, material_kinds'" },
+  // O documento da cliente no pedido montado — a declaração no tipo e a leitura, e só elas.
+  { rel: 'features/order-proposal/model/tipos.ts', texto: 'customer_document: string | null' },
+  { rel: 'features/order-proposal/model/frases.ts', texto: 'const documento = limpo(p.customer_document)' },
+]
 const permitida = (rel: string, linha: string) => PERMITIDAS.some((p) => p.rel === rel && p.texto === linha.trim())
 
 const termosEm = (alvo: Arquivo[]): string[] =>
@@ -135,6 +146,21 @@ describe('régua 1 — os termos sensíveis não aparecem no app', () => {
     expect(naLinha.codigo.split('\n').filter((l) => TERMOS.test(l)).map((l) => l.trim())).toEqual([PERMITIDAS[0].texto])
     const deCliente = DE_CLIENTE.flatMap((a) => a.codigo.split('\n').filter((l) => TERMOS.test(l)))
     expect(deCliente).toEqual([])
+  })
+
+  it('as exceções do pedido montado existem UMA vez cada, e nenhum outro arquivo do pedido montado cita o termo', () => {
+    for (const p of PERMITIDAS.slice(1)) {
+      const a = PRODUCAO.find((x) => x.rel === p.rel)!
+      expect(a.codigo.split('\n').filter((l) => TERMOS.test(l)).map((l) => l.trim())).toEqual([p.texto])
+    }
+  })
+
+  it('sensor das exceções do pedido montado: a mesma linha na aba Clientes, ou noutro arquivo do pedido montado, é acusada', () => {
+    expect(termosEm([{ rel: 'entities/customer/model/linha.ts', codigo: '  customer_document: string | null' }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'widgets/customer-detail/ui/ContatoDaCliente.tsx', codigo: '  const documento = limpo(p.customer_document)' }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'pages/PedidoMontadoPage.tsx', codigo: '  {p.customer_document}' }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'features/order-proposal/model/tipos.ts', codigo: '  customer_document: string' }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'features/order-proposal/model/tipos.ts', codigo: '  customer_document: string | null' }])).toEqual([])
   })
 
   it('sensor da exceção: a mesma linha noutro arquivo é acusada', () => {

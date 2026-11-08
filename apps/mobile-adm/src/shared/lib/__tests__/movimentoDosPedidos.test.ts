@@ -64,6 +64,13 @@ const ARQUIVOS = [
   'widgets/order-detail/ui/BlocoObservacao.tsx',
   'features/order-actions/ui/EditarObservacao.tsx',
   'features/order-actions/ui/FolhaDaObservacao.tsx',
+  // A visão Montados e o pedido montado — a lista, a página, o selo, o cartão do link e a folha
+  // de confirmação (que monta `SheetContent`).
+  'widgets/proposal-list/ui/ListaDeMontados.tsx',
+  'pages/PedidoMontadoPage.tsx',
+  'features/order-proposal/ui/SeloDoMontado.tsx',
+  'features/order-proposal/ui/CartaoDoLink.tsx',
+  'features/order-proposal/ui/FolhaDeConfirmacao.tsx',
 ] as const
 
 /** Comentário sai antes da varredura; CRLF primeiro (`L-031`), linha e bloco na MESMA passada (`BL-027`). */
@@ -118,8 +125,8 @@ const movimentoSemPar = (fonte: string): string[] => {
 const FONTES = ARQUIVOS.map((caminho) => ({ caminho, fonte: readFileSync(resolve(SRC, caminho), 'utf8') }))
 
 describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)', () => {
-  it('ÂNCORA: os 34 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
-    expect(FONTES).toHaveLength(34)
+  it('ÂNCORA: os 39 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
+    expect(FONTES).toHaveLength(39)
     expect(FONTES.every((f) => f.fonte.length > 0)).toBe(true)
     const tokens = FONTES.flatMap((f) => movimentoDe(semComentarios(f.fonte)))
     // Medido com ESTA régua no fecho da T28: 4 tokens, 2 deles o próprio par — o `animate-pulse` do
@@ -128,8 +135,9 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
     // No B02 (T31): 8 tokens, 6 pares — os dois pares de estado do FUNDO da folha (`overlayClassName`).
     // Na `82`: os três arquivos novos não movem nada — 8 tokens, 6 pares, medidos com esta régua.
     // Com a observação do pedido: a folha traz os mesmos quatro pares de estado — 12 tokens, 10 pares.
-    expect(tokens.length).toBeGreaterThanOrEqual(12)
-    expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(10)
+    // A folha de confirmação do pedido montado traz os mesmos quatro — 16 tokens, 14 pares.
+    expect(tokens.length).toBeGreaterThanOrEqual(16)
+    expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(14)
     const de = (rel: string) => movimentoDe(semComentarios(FONTES.find((f) => f.caminho === rel)!.fonte)).map((t) => t.classe)
     expect(de('shared/ui/leitura.tsx')).toEqual(expect.arrayContaining(['animate-pulse', 'animate-none']))
     expect(de('features/order-slice/ui/ChipsDeRecorte.tsx')).toEqual(expect.arrayContaining(['transition-colors', 'transition-none']))
@@ -149,6 +157,7 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
     expect(comFolha.map((f) => f.caminho)).toEqual([
       'features/order-actions/ui/FolhaDoRastreio.tsx',
       'features/order-actions/ui/FolhaDaObservacao.tsx',
+      'features/order-proposal/ui/FolhaDeConfirmacao.tsx',
     ])
     for (const f of comFolha) {
       const tokens = semComentarios(f.fonte).split(/[\s"'`{}]+/)
