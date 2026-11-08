@@ -9,8 +9,8 @@ export const PROPOSALS_LIST_PATH = '/admin/pedidos/montados'
 
 export const NOT_EDITABLE = 'Esta proposta não pode mais ser editada.'
 export const VERSION_CONFLICT_TEXT = 'Esta proposta mudou em outra aba. Recarreguei.'
-export const LINK_WITHOUT_STORE =
-  'O link foi criado, mas a loja não está configurada neste painel para montá-lo. Gere um link novo depois de configurar a loja.'
+// A frase do link sem loja tem um dono em `core`, lida também pelo app do ateliê.
+export { LINK_WITHOUT_STORE } from '@estrelinha/core/proposals'
 export const ADDRESS_SAVE_FAILED =
   'A proposta foi gravada, mas não consegui salvar o endereço no cadastro da cliente.'
 

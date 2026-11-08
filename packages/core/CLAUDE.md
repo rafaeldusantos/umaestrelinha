@@ -55,6 +55,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./order-actions` | **a escrita do pedido** (feature `75`, `AD-059`): `writeOrderStatus`, `writeTrackingCode`, `writeMaterialStatus`, `triggerOrderNotification` e a ação composta do app `runAppAction` — client e notificador INJETADOS, efeito conferido por `.select('id')` | painel (`useAdminOrders`, `notifyOrder`), app do ateliê (`gravarAcao`) |
 | `./stats` | **`StoreMovement`** (movido da `71`; desde a `83` com a chave `acessos`: `StoreAccess`), **`counterNotes.ts`** (as três notas do contador — "Contando desde", o teto, o contador parado — e `formatCount`, subidas do painel na `83`, que as reexporta por referência), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
 | `./live` | **a Loja ao vivo** (feature `83`, `AD-066`): `access.ts` (`ACCESS_BAND_LABELS`, `conversion`/`formatConversion`, `accessDelta` com arredondamento simétrico, `comparisonLabel`, `deltaLine`, `accessCards`, `accessChart`, `noHourNote`, `freshnessLine` e as frases fixas) e `card.ts` (o cartão "Visitas hoje" e os três `aria-label`). A casa das Fases 2–4 do PRD | app do ateliê; o guarda da migration (`visitasPorHoraSchema`, suíte da loja) importa `ACCESS_BAND_LABELS` |
+| `./product-search` | **a busca de produto** (`AD-036`): `dobrarTexto`/`palavrasDoTermo` (`text.ts`, a dobra de busca) e `buscarProdutos`/`RESULTADOS_VISIVEIS` (`search.ts`, a régua pura: toda palavra em qualquer ordem, dobra nos dois sentidos, três postos, desempate por nome e `id`). Todo especificador com `.ts`. O guarda `buscaDeProdutoComDonoUnico.test.ts` (painel) varre este módulo e aponta `text.ts` como o dono da dobra | painel (reexporta por referência), app do ateliê |
 | `./buy-together` | **o Compre Junto** (`AD-014` fora: a lista NÃO é coleção): `BUY_TOGETHER_ADDONS_MAX` (3), `BUY_TOGETHER_LIST_ITEMS_MAX` (12), `BUY_TOGETHER_LIST_NAME_MAX` (40) e as recusas `string \| null` — `addonCountRefusal`, `listItemCountRefusal`, `listNameRefusal`, `listUsableRefusal`, `listDeleteRefusal` (nomeia até 3 joias), `addonIsMainRefusal`, `addonRepeatedRefusal` — e os tipos; e, para a página do produto, `resolveAddons` (disponibilidade e o que é pulado), `variantSellable` (cópia de `isVariantAvailable` com o preço, provada igual por teste), `bundleTotal`, `bundlePix` (= `pixPrice` do total), `addonEngravingRefusal` e `addonMissingChoice`. Só importa as folhas `material/material.ts` e `payment/pix.ts`, por caminho com `.ts`, alcançável pelo Deno (`purity.test.ts` caminha o grafo). O guarda da migration (`compreJuntoSchema`, suíte da loja) **importa** os três tetos | painel (listas; adicionais no produto), loja, function `checkout` |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
 | `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71` | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
@@ -498,9 +499,20 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
 - `payment/pricing.ts` ganhou `manualDiscount` (opcional, depois do cupom e antes do PIX); sem ele, a
   saída é a de antes, e a suíte de `payment` passou intocada. `coupons/rules.ts` é a regra pura do
   cupom, e `validateCoupon` delega a ela.
-- Tudo com `.ts` explícito (alcançável pelo Deno). ⚠️ `pricing/index.ts` e `pricing/grid.ts` ainda
-  importam tipos de `@estrelinha/supabase/types` por pacote, e isso impede o boot LOCAL de toda
-  function que os alcança (`mercado-pago`, `order-proposals`).
+- Tudo com `.ts` explícito (alcançável pelo Deno). `core/pricing` declara os próprios tipos
+  (`pricing/types.ts`) e não importa pacote nenhum, nem como `import type`: o grafo dele é
+  `index.ts` → `types.ts` e `grid.ts`, guardado por `pricing/__tests__/denoReach.test.ts`. Medido em
+  2026-11-07: `order-proposals`, `mercado-pago` e `checkout` sobem no edge runtime LOCAL
+  (`supabase functions serve`; sem header, `order-proposals` responde 401, as outras respondem pelo
+  handler — nenhum `BOOT_ERROR`).
+- **A montagem do pedido tem as regras aqui, e o painel e o app do ateliê as leem**: `photo.ts` (folha
+  sem import) é o dono de `capaDaLinha` (primeira da galeria → coluna antiga) e de `fotoDaLinha` (a
+  foto da linha: variação → primeira da galeria → coluna antiga → `null`), a mesma regra que a
+  `order-proposals` usa para a foto do snapshot; `piece.ts` é o mapeamento puro da peça lida
+  (`mapearPecaParaProposta`: só variações ativas, rótulo, preço cheio, estoque e disponibilidade,
+  gravação, material, medidas e a foto de cada variação) e `textoDoEstoque`; `link.ts` traz
+  `LINK_WITHOUT_STORE`. A leitura do banco fica em quem chama. O painel reexporta por referência
+  (`apps/backoffice/src/app/__tests__/regrasDaMontagemNoCore.test.ts`, `toBe`).
 
 ## Convenções de tipo
 

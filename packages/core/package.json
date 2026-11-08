@@ -42,7 +42,8 @@
     "./buy-together": "./src/buy-together/index.ts",
     "./stats": "./src/stats/index.ts",
     "./customers": "./src/customers/index.ts",
-    "./live": "./src/live/index.ts"
+    "./live": "./src/live/index.ts",
+    "./product-search": "./src/product-search/index.ts"
   },
   "scripts": {
     "test": "vitest run"

@@ -12,7 +12,12 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
+import { capaDaLinha } from '@estrelinha/core/proposals'
 import { idsConsultaveis } from './useProductsByIds'
+
+// A regra da capa tem um dono, `core/proposals/photo.ts` (lida também pelo app do ateliê e pela
+// function `order-proposals`); daqui ela é reexportada por referência.
+export { capaDaLinha }
 
 export const PRODUCT_COVER_COLUMNS = 'id, image_url, capa:images->0->>url'
 
@@ -23,10 +28,6 @@ interface LinhaDeCapa {
   image_url: string | null
   capa: string | null
 }
-
-/** A capa de uma linha: a primeira da galeria, senão a coluna antiga. */
-export const capaDaLinha = (l: Pick<LinhaDeCapa, 'image_url' | 'capa'>): string | null =>
-  (l.capa && l.capa.trim()) || (l.image_url && l.image_url.trim()) || null
 
 export const useProductCovers = (ids: readonly string[], ligado = true): Record<string, string | null> => {
   const lista = idsConsultaveis(ids)

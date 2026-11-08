@@ -10,6 +10,13 @@ import { STORE_TIME_ZONE } from '../time/zone.ts'
 // reexportado — `link.test.ts` confere que é a mesma referência (fecho da rodada 1 do Verifier).
 export { PROPOSAL_PATH }
 
+/**
+ * A frase de quando o link foi criado mas quem desenha não sabe a origem da loja (a env da loja
+ * ausente no app que monta) — o painel e o app do ateliê dizem a mesma coisa.
+ */
+export const LINK_WITHOUT_STORE =
+  'O link foi criado, mas a loja não está configurada neste painel para montá-lo. Gere um link novo depois de configurar a loja.'
+
 /** `https://loja` + token ⇒ `https://loja/pedido-montado#<token>`. */
 export function proposalLink(origin: string, token: string): string {
   const base = (origin ?? '').trim().replace(/\/+$/, '')

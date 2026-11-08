@@ -475,7 +475,12 @@ existia nenhuma (o termo ia cru para o Postgres).
   consumidor, e saiu — em vez de continuar exportado sem ninguém, que é como `deleteSection`
   atravessou uma feature inteira. O que restou é a **escrita** e `getProduct`, que perdeu o atalho de
   cache e caiu na consulta de uma linha **que ele já tinha escrita**.
-- **A dobra mora em `shared/lib/texto.ts`, e as três cópias dela chamam de lá.** As outras sete
+- **A dobra e a régua moram em `@estrelinha/core/product-search`** (lidas também pelo app do ateliê);
+  `shared/lib/texto.ts` e `entities/product/lib/buscarProdutos.ts` as **reexportam por referência**
+  (`app/__tests__/regrasDaMontagemNoCore.test.ts`), e os chamadores do painel não mudaram de endereço.
+  O mesmo vale para `capaDaLinha`, o mapeamento da peça de `lerPecaParaProposta`, `textoDoEstoque` e
+  `LINK_WITHOUT_STORE`, que moram em `@estrelinha/core/proposals`.
+- **As três cópias antigas da dobra chamam de `shared/lib/texto.ts`.** As outras sete
   ocorrências de `normalize('NFD')` do painel **não** foram tocadas: elas dobram o acento *e
   continuam* (juntam por hífen, recortam o que não é letra), e o que produzem é **endereço**, não
   termo de busca. Ver a dívida no [`CLAUDE.md`](../../CLAUDE.md) da raiz.

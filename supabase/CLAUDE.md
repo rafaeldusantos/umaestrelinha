@@ -503,10 +503,13 @@ convidada e para quem tem sessão.
   promoção nem cupom. Provado contra a function local: 901,86 na página e no banco.
 - **`get` resolve o e-mail de cada autor do histórico** (`auth.admin.getUserById`, um por autor
   distinto) e devolve `actor_email`; o painel nunca mostra o uuid de `actor` (`HIS-01`).
-- ⚠️ **`order-proposals` e `mercado-pago` não sobem no edge runtime LOCAL** (`Failed resolving types`
-  no `import type` de pacote de `packages/core/src/pricing/index.ts` e `grid.ts`), e `--import-map`
-  não resolve. Anterior à `89` na `mercado-pago`. A prova da `89` trocou os dois imports por aliases
-  locais e restaurou com SHA-256. Conferir o boot da `order-proposals` no hospedado no primeiro deploy.
+- **`order-proposals`, `mercado-pago` e `checkout` sobem no edge runtime LOCAL** (medido em
+  2026-11-07 com `supabase functions serve --env-file` e chaves externas inválidas: `order-proposals`
+  sem header ⇒ 401, `mercado-pago` e `checkout` respondem pelo handler, nenhum `BOOT_ERROR`). O
+  `import type` de pacote que impedia o boot (`Failed resolving types` em `core/pricing`) não existe
+  mais: os tipos moram em `packages/core/src/pricing/types.ts`, e
+  `pricing/__tests__/denoReach.test.ts` recusa a volta. Conferir o boot no hospedado no primeiro
+  deploy continua valendo.
 - ⚠️ **`functions serve --env-file` não isola os secrets**: o `[edge_runtime.secrets]` do `config.toml`
   completa com o `.env` da raiz o que o arquivo não traz (na prova da `89`, o Melhor Envio de produção
   e o Mercado Pago de teste). Para conter, ponha no arquivo um valor inválido para cada chave externa.
