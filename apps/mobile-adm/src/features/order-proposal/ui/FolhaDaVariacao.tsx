@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
+import { EnvioIcon } from '@estrelinha/ui/icons'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@estrelinha/ui/sheet'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { engravingLimit } from '@estrelinha/core/material'
@@ -51,6 +52,9 @@ import { usePromocaoDasLinhas } from '../model/usePromocaoDasLinhas'
  * - A gravação só aparece na variação que grava, com o teto da peça.
  * - Editar reabre a mesma folha com a escolha da linha, e o botão diz "Salvar".
  * - O estado da escolha vive no corpo da folha: desmonta ao fechar.
+ * - **Confirma uma vez por abertura**: o voltar que fecha a folha é assíncrono e a folha segue montada
+ *   na animação de saída; um segundo toque nesse intervalo não entrega a escolha de novo.
+ * - Acima do estoque, a linha "N em estoque" VIRA "Só há N em estoque." (no mesmo lugar, uma só).
  * - **A promoção vigente** ("<promoção> · 15% nesta peça") vem da prévia do servidor, com a sacola e a
  *   escolha de agora (a faixa conta as unidades); sem promoção, ou com a prévia falhando, nada aparece.
  */
@@ -83,6 +87,7 @@ const Corpo = ({
   )
   const [quantidade, setQuantidade] = useState(editando?.quantidade ?? 1)
   const [gravacao, setGravacao] = useState(editando?.gravacao ?? '')
+  const confirmou = useRef(false)
 
   const preco = precoDaEscolha(peca, variacao)
   const estoque = estoqueDaEscolha(peca, variacao)
@@ -135,13 +140,19 @@ const Corpo = ({
                   disabled={!v.disponivel}
                   onClick={() => setVariacao(v)}
                   className={`flex min-h-12 max-w-full items-center gap-2 rounded-full border-2 py-1 pl-1 pr-3 text-left disabled:opacity-50 ${
-                    escolhida ? 'border-estrelinha-primary bg-estrelinha-ground-deep' : 'border-estrelinha-line bg-estrelinha-surface'
+                    escolhida ? 'border-estrelinha-primary bg-estrelinha-primary' : 'border-estrelinha-line bg-estrelinha-surface'
                   }`}
                 >
                   <FotoDaPeca foto={v.imagem} tamanho={36} className="rounded-full" />
                   <span className="min-w-0">
-                    <span className="block text-sm text-estrelinha-ink [overflow-wrap:anywhere]">{v.rotulo}</span>
-                    <span className="block text-xs text-estrelinha-ink-soft">{textoDoChip(peca, v)}</span>
+                    <span
+                      className={`block text-sm [overflow-wrap:anywhere] ${escolhida ? 'text-estrelinha-on-primary' : 'text-estrelinha-ink'}`}
+                    >
+                      {v.rotulo}
+                    </span>
+                    <span className={`block text-xs ${escolhida ? 'text-estrelinha-on-primary' : 'text-estrelinha-ink-soft'}`}>
+                      {textoDoChip(peca, v)}
+                    </span>
                   </span>
                 </button>
               )
@@ -177,13 +188,15 @@ const Corpo = ({
               <Plus aria-hidden="true" className="h-5 w-5" />
             </button>
           </div>
-          {estoque !== null && <span className="text-sm text-estrelinha-ink-soft">{emEstoque(estoque)}</span>}
+          {estoque !== null &&
+            (passou ? (
+              <span id="motivo-da-folha" role="alert" className="text-sm text-estrelinha-alert">
+                {soHaEmEstoque(estoque)}
+              </span>
+            ) : (
+              <span className="text-sm text-estrelinha-ink-soft">{emEstoque(estoque)}</span>
+            ))}
         </div>
-        {passou && estoque !== null && (
-          <p id="motivo-da-folha" role="alert" className="text-sm text-estrelinha-alert">
-            {soHaEmEstoque(estoque)}
-          </p>
-        )}
         {!passou && preco === null && disponivel && (
           <p id="motivo-da-folha" role="alert" className="text-sm text-estrelinha-alert">
             {SEM_PRECO}
@@ -213,13 +226,22 @@ const Corpo = ({
         </div>
       )}
 
-      {peca.pedeMaterial && <p className="rounded-md bg-estrelinha-ground-deep p-3 text-sm text-estrelinha-ink">{AVISO_DE_MATERIAL}</p>}
+      {peca.pedeMaterial && (
+        <div data-parte="aviso-de-material" className="flex items-start gap-2 rounded-md bg-estrelinha-ground-deep p-3">
+          <EnvioIcon aria-hidden className="h-5 w-5 shrink-0 text-estrelinha-primary" />
+          <p className="min-w-0 flex-1 text-sm text-estrelinha-ink">{AVISO_DE_MATERIAL}</p>
+        </div>
+      )}
 
       <button
         type="button"
         disabled={bloqueado}
         aria-describedby={passou || (preco === null && disponivel) ? 'motivo-da-folha' : undefined}
-        onClick={() => aoConfirmar({ variacao, quantidade, gravacao })}
+        onClick={() => {
+          if (confirmou.current) return
+          confirmou.current = true
+          aoConfirmar({ variacao, quantidade, gravacao })
+        }}
         className="min-h-12 w-full rounded-sm bg-estrelinha-primary px-4 text-base font-medium text-estrelinha-on-primary disabled:opacity-60"
       >
         {editando ? salvarPor(total) : acrescentarPor(total)}

@@ -6,6 +6,8 @@
 process.env.TZ = 'UTC'
 
 import { act, fireEvent, screen, within } from '@testing-library/react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { EnvioIcon } from '@estrelinha/ui/icons'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fake, type Elo } from '@/test/fakeSupabase'
@@ -107,6 +109,7 @@ const buscarJoia = async (termo: string) => {
   })
   await andar(400)
 }
+const tokens = (el: Element | null) => (el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
 const texto = (el: Element) => (el.textContent ?? '').replace(/\u00a0/g, ' ')
 
 const barra = () => screen.getByTestId('barra-da-montagem')
@@ -367,5 +370,61 @@ describe('passo 2 · a sacola', () => {
     expect(linhas()).toHaveLength(2)
     expect(screen.queryByRole('button', { name: 'Remover Colar Estrela' })).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Peça removida.')
+  })
+})
+
+describe('passo 2 · a folha da variação segue o protótipo', () => {
+  it('o chip escolhido, o aviso de material e a linha de estoque com as classes e os textos do protótipo', async () => {
+    await abrirOPassoDasPecas()
+    await abrirPeca('Pingente Coração')
+
+    // O chip escolhido: preenchido em primária, texto on-primary. O outro: superfície, borda de linha.
+    const ouro = chip(/Ouro/)
+    expect(tokens(ouro)).toEqual(expect.arrayContaining(['bg-estrelinha-primary', 'border-estrelinha-primary']))
+    expect(tokens(ouro)).not.toContain('bg-estrelinha-ground-deep')
+    const [rotuloOuro, estoqueOuro] = [...ouro.querySelectorAll('span > span')]
+    expect(rotuloOuro).toHaveTextContent('Ouro · Sim')
+    expect(tokens(rotuloOuro)).toContain('text-estrelinha-on-primary')
+    expect(tokens(rotuloOuro)).not.toContain('text-estrelinha-ink')
+    expect(tokens(estoqueOuro)).toContain('text-estrelinha-on-primary')
+    expect(tokens(estoqueOuro)).not.toContain('text-estrelinha-ink-soft')
+    const rose = chip(/Rosé/)
+    expect(tokens(rose)).toEqual(expect.arrayContaining(['bg-estrelinha-surface', 'border-estrelinha-line']))
+    expect(tokens(rose)).not.toContain('bg-estrelinha-primary')
+    expect(tokens(rose.querySelector('span > span'))).toContain('text-estrelinha-ink')
+
+    // O aviso de material: o ícone de envio, em primária, ao lado da frase.
+    const aviso = within(folha()).getByText('Pede material da cliente. Depois de pago, o pedido entra na fila de material como os da loja.')
+    const caixa = aviso.closest('[data-parte="aviso-de-material"]') as HTMLElement
+    expect(caixa).not.toBeNull()
+    const icone = caixa.querySelector('svg[aria-hidden="true"]') as SVGElement
+    expect(icone).not.toBeNull()
+    expect(tokens(icone)).toContain('text-estrelinha-primary')
+    const tracos = (svg: Element) =>
+      [...svg.querySelectorAll('path, circle')].map((n) => n.getAttribute('d') ?? `circle ${n.getAttribute('cx')},${n.getAttribute('cy')}`)
+    const referencia = new DOMParser().parseFromString(renderToStaticMarkup(<EnvioIcon aria-hidden />), 'image/svg+xml').documentElement
+    expect(tracos(icone).length).toBeGreaterThan(0)
+    expect(tracos(icone)).toEqual(tracos(referencia))
+
+    // A linha de estoque: "3 em estoque" até o teto; acima dele, ela VIRA "Só há 3 em estoque." — uma só.
+    const quantidade = within(folha()).getByRole('group', { name: 'Quantidade' }).parentElement as HTMLElement
+    expect(within(quantidade).getByText('3 em estoque')).toBeInTheDocument()
+    const mais = within(folha()).getByRole('button', { name: 'Uma a mais' })
+    await clicar(mais)
+    await clicar(mais)
+    await clicar(mais)
+    expect(within(quantidade).queryByText('3 em estoque')).not.toBeInTheDocument()
+    const so = within(folha()).getAllByText('Só há 3 em estoque.')
+    expect(so).toHaveLength(1)
+    expect(quantidade).toContainElement(so[0])
+    expect(so[0]).toHaveAttribute('role', 'alert')
+    expect(tokens(so[0])).toContain('text-estrelinha-alert')
+    // O botão desligado continua apontando para o motivo.
+    expect(confirmar()).toBeDisabled()
+    expect(confirmar().getAttribute('aria-describedby')).toBe(so[0].id)
+    // De volta ao teto, a linha volta a ser o estoque.
+    await clicar(within(folha()).getByRole('button', { name: 'Uma a menos' }))
+    expect(within(quantidade).getByText('3 em estoque')).toBeInTheDocument()
+    expect(within(folha()).queryByText(/Só há/)).not.toBeInTheDocument()
   })
 })
