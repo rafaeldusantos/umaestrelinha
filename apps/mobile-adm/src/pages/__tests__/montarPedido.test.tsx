@@ -289,6 +289,30 @@ describe('passo 1 · cliente cadastrada', () => {
     expect(screen.getByText(/Ninguém com “zzz”\. Se for a primeira compra, use/)).toBeInTheDocument()
   })
 
+  it('o cartão da escolhida mostra o nome, "N pedidos na loja", o e-mail e o telefone', async () => {
+    await abrirPelaListaDePedidos()
+    await escolher('Juliana Prates')
+    const cartao = screen.getByRole('region', { name: 'Cliente' })
+    expect(within(cartao).getByText('Juliana Prates')).toBeInTheDocument()
+    expect(within(cartao).getByText('2 pedidos na loja')).toBeInTheDocument()
+    expect(within(cartao).getByText('juliana@exemplo.invalid')).toBeInTheDocument()
+    expect(within(cartao).getByText('(51) 98888-7777')).toBeInTheDocument()
+    expect(within(cartao).queryByText('sem telefone')).not.toBeInTheDocument()
+  })
+
+  it('o cartão da escolhida sem telefone diz "sem telefone", e um pedido sai no singular', async () => {
+    fake.responderTabela('customer_list', () => ({
+      data: [{ id: ID_HELENA, name: 'Helena Prado', email: 'helena@exemplo.invalid', phone: null, has_account: true, orders_total: 1 }],
+      error: null,
+    }))
+    await abrirPelaListaDePedidos()
+    await escolher('Helena Prado')
+    const cartao = screen.getByRole('region', { name: 'Cliente' })
+    expect(within(cartao).getByText('1 pedido na loja')).toBeInTheDocument()
+    expect(within(cartao).getByText('helena@exemplo.invalid')).toBeInTheDocument()
+    expect(within(cartao).getByText('sem telefone')).toBeInTheDocument()
+  })
+
   it('escolhida, a entrega vem no endereço padrão; "Endereço salvo" mostra os outros; "Trocar" volta à busca', async () => {
     await abrirPelaListaDePedidos()
     await escolher('Juliana Prates')

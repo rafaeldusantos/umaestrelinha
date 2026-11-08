@@ -22,6 +22,8 @@ export const USAR_A_FICHA = 'Usar a ficha dela'
 export const CORRIGIR_O_EMAIL = 'Corrigir o e-mail'
 
 export const pedidosDaCliente = (n: number): string => (n === 1 ? '1 pedido' : `${n} pedidos`)
+export const pedidosNaLoja = (n: number): string => `${pedidosDaCliente(n)} na loja`
+export const SEM_TELEFONE_NO_CARTAO = 'sem telefone'
 export const linhaDaCliente = (c: Pick<ClienteDaMontagem, 'email' | 'pedidos'>): string => `${c.email} · ${pedidosDaCliente(c.pedidos)}`
 export const avisoDaFicha = (email: string, c: ClienteDaMontagem): string =>
   `${email} já é de ${nomeDoCliente(c)} · ${pedidosDaCliente(c.pedidos)}. Para não nascer uma segunda ficha, use a dela.`

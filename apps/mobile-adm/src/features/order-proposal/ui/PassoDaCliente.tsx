@@ -17,6 +17,8 @@ import {
   avisoDaFicha,
   enderecoEmLinha,
   linhaDaCliente,
+  pedidosNaLoja,
+  SEM_TELEFONE_NO_CARTAO,
   TEM_OS_DADOS_NUMA_MENSAGEM,
   COLE_A_CONVERSA,
   COLAR_TEXTO_DA_CONVERSA,
@@ -296,8 +298,14 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
                 <Inicial cliente={estado.cliente} />
                 <span className="min-w-0 flex-1">
                   <span className="block break-words text-base text-estrelinha-ink">{nomeDoCliente(estado.cliente)}</span>
-                  <span className="block break-words text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{linhaDaCliente(estado.cliente)}</span>
+                  <span className="block text-sm text-estrelinha-ink-soft">{pedidosNaLoja(estado.cliente.pedidos)}</span>
                 </span>
+              </div>
+              <div className="space-y-0.5 text-sm text-estrelinha-ink">
+                <p className="break-words [overflow-wrap:anywhere]">{estado.cliente.email}</p>
+                <p className={estado.cliente.phone?.trim() ? undefined : 'text-estrelinha-ink-soft'}>
+                  {estado.cliente.phone?.trim() ? maskPhone(estado.cliente.phone) : SEM_TELEFONE_NO_CARTAO}
+                </p>
               </div>
             </Cartao>
             <Cartao titulo="Entrega">
