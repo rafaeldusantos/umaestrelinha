@@ -372,13 +372,14 @@ describe('AddressSection (MON-02, MON-04)', () => {
     expect(ultimo.address).toMatchObject({ city: 'Gramado', state: 'RS', savedId: null })
   })
 
-  it('MON-04: "Salvar no cadastro da cliente" marca o rascunho; sem cliente ele não aparece', () => {
+  it('MON-04: "Salvar no cadastro da cliente" vem marcada com cliente escolhida, e desmarca; sem cliente ela não aparece', () => {
     const { unmount } = montar()
     expect(screen.queryByLabelText('Salvar no cadastro da cliente')).toBeNull()
     unmount()
     montar({ customer0: { ...emptyCustomer(), mode: 'nova', name: 'Carla', email: 'c@x.invalid' } })
+    expect(screen.getByLabelText('Salvar no cadastro da cliente')).toBeChecked()
     fireEvent.click(screen.getByLabelText('Salvar no cadastro da cliente'))
-    expect(ultimo.address.saveToCustomer).toBe(true)
+    expect(ultimo.address.saveToCustomer).toBe(false)
   })
 
   it('o endereço é opcional e a seção diz isso', () => {

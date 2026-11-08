@@ -1,6 +1,6 @@
 // A origem do pedido que nasceu de uma proposta (feature 89, `HIS-02`).
 //
-// "Montado pelo painel · P-0001", com link para a proposta, no subtítulo do pedido; e a linha
+// "Pedido montado · P-0001", com link para a proposta, no subtítulo do pedido; e a linha
 // "Desconto combinado — {motivo}" no Pagamento. O número e o motivo moram em `order_proposals`, que o
 // navegador não lê (RLS sem policy, `SEG-05`): vêm da function `order-proposals?action=get`, pela
 // mesma consulta (`useProposal`) que a página da proposta usa. O VALOR do desconto é do pedido

@@ -122,6 +122,12 @@ export interface ProposalGetResult {
   proposal: ProposalDetail
   state: ProposalState
   actions: unknown
+  /**
+   * O token do link: só com a proposta aberta e a cifra que a function decifra. `null` sem a
+   * chave, na proposta gravada antes dela, e em qualquer estado em que o link não vale — aí a página
+   * oferece "Gerar link novo" (aberta) ou "Renovar prazo" (expirada).
+   */
+  token: string | null
 }
 
 export interface SaveProposalLine {
@@ -154,6 +160,8 @@ export interface SaveProposalPayload {
   expected_total: number
   /** A observação interna, aparada; `null` sem observação. Não sobe a versão da proposta. */
   admin_note: string | null
+  /** grava o endereço na ficha da cliente, na mesma transação da proposta. */
+  save_address: boolean
 }
 
 export interface SaveProposalResult {
@@ -165,7 +173,7 @@ export interface SaveProposalResult {
   created: boolean
   changed: boolean
   reused: boolean
-  /** Só ao criar (`SEG-01`). O banco guarda o hash: reabrir não remonta o link. */
+  /** Só ao criar (`SEG-01`). Reaberta, o link volta pelo `get` (quando a function tem a chave da cifra). */
   token: string | null
   expires_at: string | null
   summary: ProposalServerSummary

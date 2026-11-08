@@ -513,6 +513,11 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
   gravação, material, medidas e a foto de cada variação) e `textoDoEstoque`; `link.ts` traz
   `LINK_WITHOUT_STORE`. A leitura do banco fica em quem chama. O painel reexporta por referência
   (`apps/backoffice/src/app/__tests__/regrasDaMontagemNoCore.test.ts`, `toBe`).
+- **O link sempre (WI 94)**: `proposalActions(state, { linkAvailable })` só deixa renovar a expirada
+  ("Renovar prazo") ou a aberta sem link disponível ("Gerar link novo", o recuo de D-28) — `renewLabel`
+  diz qual; sem a entrada, a aberta vale como sem link. `proposalRenewText` é a frase da confirmação de
+  renovar, e `PROPOSAL_ORIGIN_LABEL` ("Pedido montado") a origem do pedido, as duas lidas pelo painel e
+  pelo app.
 
 ## Convenções de tipo
 

@@ -52,7 +52,10 @@ export interface DraftAddress {
   neighborhood: string
   city: string
   state: string
-  /** `MON-04` — "Salvar no cadastro da cliente". NÃO vai para o `save`: a página grava em `addresses`. */
+  /**
+   * `MON-04` — "Salvar no cadastro da cliente". Vai no `save` como `save_address`: a RPC grava o
+   * endereço na ficha na mesma transação da proposta. Marcada por padrão ao montar; ao editar, não.
+   */
   saveToCustomer: boolean
   /** O endereço salvo escolhido, para a lista marcar qual é. */
   savedId: string | null
@@ -124,7 +127,7 @@ export const emptyAddress = (): DraftAddress => ({
   neighborhood: '',
   city: '',
   state: '',
-  saveToCustomer: false,
+  saveToCustomer: true,
   savedId: null,
 })
 
@@ -280,6 +283,8 @@ export const toSavePayload = (d: ProposalDraft, pricing: DraftPricing, alvo: Sav
     expected_total: pricing.price.itemsTotal,
     // Vai sempre, inclusive vazia (`null` apaga): o que a tela mostra é o que fica gravado.
     admin_note: normalizeAdminNote(d.adminNote) || null,
+    // só com cliente escolhida e um endereço digitado (não um já salvo na ficha).
+    save_address: d.customer.mode !== 'nenhuma' && d.address.savedId === null && d.address.saveToCustomer,
   }
   if (editando) return { id: alvo.id, version: alvo.version, ...payload }
   return { idempotency_key: alvo.idempotencyKey, ...payload }
@@ -332,6 +337,8 @@ export const draftFromProposal = (p: ProposalDetail, modo: 'editar' | 'duplicar'
     },
     address: {
       ...emptyAddress(),
+      // Editar não grava o endereço de novo sem a Adri pedir.
+      saveToCustomer: false,
       zip: p.address_zip ?? '',
       street: p.address_street ?? '',
       number: p.address_number ?? '',

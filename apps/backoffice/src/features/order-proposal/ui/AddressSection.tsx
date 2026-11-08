@@ -48,7 +48,7 @@ const VAZIO: Partial<DraftAddress> = {
   neighborhood: '',
   city: '',
   state: '',
-  saveToCustomer: false,
+  saveToCustomer: true,
 }
 
 const AddressSection = ({ address, customer, onChange }: AddressSectionProps) => {

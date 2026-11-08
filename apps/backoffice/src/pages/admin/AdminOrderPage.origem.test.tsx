@@ -1,7 +1,7 @@
 // A origem do pedido montado pelo painel, pela PÁGINA REAL do pedido (feature 89, T20: `HIS-02`).
 //
 // Molde de `AdminOrderPage.test.tsx` (as mesmas fronteiras dubladas: a leitura do pedido, as escritas,
-// o toast, o Melhor Envio e as configurações). O que é desta feature — a linha "Montado pelo painel ·
+// o toast, o Melhor Envio e as configurações). O que é desta feature — a linha "Pedido montado ·
 // P-0001" e "Desconto combinado — {motivo}" — vem do `functions.invoke` REAL do client dublado, porque
 // o número e o motivo moram em `order_proposals`, que só a function `order-proposals` lê.
 
@@ -94,10 +94,10 @@ beforeEach(() => {
 })
 
 describe('HIS-02: o pedido que nasceu de uma proposta', () => {
-  it('mostra "Montado pelo painel · P-0001" com link para a proposta', async () => {
+  it('mostra "Pedido montado · P-0001" com link para a proposta', async () => {
     detailMock.mockReturnValue(detail(order({ proposal_id: PROPOSTA, manual_discount: 20 })))
     montar()
-    const origem = await screen.findByRole('link', { name: 'Montado pelo painel · P-0001' })
+    const origem = await screen.findByRole('link', { name: 'Pedido montado · P-0001' })
     expect(origem).toHaveAttribute('href', `/admin/pedidos/montados/${PROPOSTA}`)
     expect(invocacoes).toEqual([{ nome: 'order-proposals?action=get', corpo: { id: PROPOSTA } }])
   })
@@ -119,14 +119,14 @@ describe('HIS-02: o pedido que nasceu de uma proposta', () => {
     estado.invocar = () => ({ data: null, error: { message: 'x' } })
     detailMock.mockReturnValue(detail(order({ proposal_id: PROPOSTA, manual_discount: 20 })))
     montar()
-    expect(await screen.findByRole('link', { name: 'Montado pelo painel' })).toHaveAttribute('href', `/admin/pedidos/montados/${PROPOSTA}`)
+    expect(await screen.findByRole('link', { name: 'Pedido montado' })).toHaveAttribute('href', `/admin/pedidos/montados/${PROPOSTA}`)
     expect(screen.getByTestId('desconto-combinado')).toHaveTextContent(/^Desconto combinado− R\$\s?20,00$/)
   })
 
   it('proposta sem desconto combinado não ganha a linha', async () => {
     detailMock.mockReturnValue(detail(order({ proposal_id: PROPOSTA, manual_discount: 0 })))
     montar()
-    await screen.findByRole('link', { name: 'Montado pelo painel · P-0001' })
+    await screen.findByRole('link', { name: 'Pedido montado · P-0001' })
     expect(screen.queryByTestId('desconto-combinado')).toBeNull()
   })
 })
@@ -137,7 +137,7 @@ describe('o pedido da loja continua idêntico ao de hoje', () => {
     montar()
     expect(screen.getByText('Pedido #1042')).toBeInTheDocument()
     expect(screen.queryByTestId('origem-do-pedido')).toBeNull()
-    expect(screen.queryByText(/Montado pelo painel/)).toBeNull()
+    expect(screen.queryByText(/Pedido montado/)).toBeNull()
     expect(screen.queryByText(/Desconto combinado/)).toBeNull()
     await new Promise((r) => setTimeout(r, 20))
     expect(invocacoes).toHaveLength(0)

@@ -52,7 +52,7 @@ vi.mock('@/shared/lib/storeOrigin', () => ({ storeOrigin: () => estado.origem, S
 
 import AdminProposalBuilderPage from './AdminProposalBuilderPage'
 import AdminProposalPage from './AdminProposalPage'
-import { NO_ITEMS, NOT_EDITABLE, VERSION_CONFLICT_TEXT } from '@/features/order-proposal'
+import { NO_ITEMS, NOT_EDITABLE, SAVE_FAILED, VERSION_CONFLICT_TEXT } from '@/features/order-proposal'
 import { PROPOSAL_LINK_DAYS } from '@estrelinha/core/proposals'
 
 const PRICES_CHANGED = 'Os preços mudaram enquanto você montava. Confira o resumo.'
@@ -228,7 +228,7 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
         'address_city', 'address_complement', 'address_neighborhood', 'address_number', 'address_state',
         'address_street', 'address_zip', 'coupon_code', 'customer_document', 'customer_email', 'customer_id',
         'customer_name', 'customer_phone', 'expected_total', 'idempotency_key', 'lines', 'manual_discount',
-        'admin_note',
+        'admin_note', 'save_address',
       ].sort(),
     )
     const linhas = corpo.lines as Record<string, unknown>[]
@@ -238,7 +238,9 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
     expect(escritas).toHaveLength(0)
     expect((estado.calls as Registro[]).some((c) => c.table.startsWith('order_proposal'))).toBe(false)
     // O link nasceu NESTA resposta e a página da proposta o mostra (o banco só tem o hash).
-    expect(await screen.findByTestId('link-da-proposta')).toHaveTextContent('https://loja.exemplo.invalid/pedido-montado#tok-abc')
+    expect(await screen.findByTestId('link-da-proposta')).toHaveValue('https://loja.exemplo.invalid/pedido-montado#tok-abc')
+    // O link não foi guardado no navegador: ele chegou à página pela navegação.
+    expect(window.sessionStorage.length).toBe(0)
   })
 
   it('a observação escrita na montagem vai no save, aparada, e a tela a diz "só você vê"', async () => {
@@ -268,11 +270,26 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
     expect(screen.getByTestId('motivo-criar-link')).toHaveTextContent('A observação vai até 1000 caracteres.')
   })
 
-  it('MON-04: "Salvar no cadastro da cliente" grava o endereço na ficha que a function devolveu', async () => {
-    estado.invocar = (nome) =>
-      nome === 'order-proposals?action=save'
-        ? { data: { id: PROPOSTA, number: 'P-0007', version: 1, status: 'open', customer_id: FICHA, created: true, changed: true, reused: false, token: 't', expires_at: EXPIRA, summary: resumo(90) }, error: null }
-        : { data: { proposal: detalhe(), state: 'open', actions: {} }, error: null }
+  const SAVE_CRIADO = { data: { id: PROPOSTA, number: 'P-0007', version: 1, status: 'open', customer_id: FICHA, created: true, changed: true, reused: false, token: 't', expires_at: EXPIRA, summary: resumo(90) }, error: null }
+
+  it('"Salvar no cadastro da cliente" vem marcada e vai no próprio `save` — o painel não escreve em addresses', async () => {
+    estado.invocar = (nome) => (nome === 'order-proposals?action=save' ? SAVE_CRIADO : { data: { proposal: detalhe(), state: 'open', actions: {} }, error: null })
+    montar('/admin/pedidos/montar')
+    await preencherClienteNova()
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '90010000' } })
+    fireEvent.change(screen.getByLabelText('Rua'), { target: { value: 'Rua A' } })
+    expect(screen.getByLabelText(/Salvar no cadastro/)).toBeChecked()
+    await acrescentarAnel()
+    fireEvent.click(botaoCriar())
+    await screen.findByRole('heading', { name: 'Pedido montado P-0007' })
+    expect(saves()[0].corpo).toMatchObject({ address_zip: '90010000', address_street: 'Rua A', save_address: true })
+    // Um dono da escrita: nenhuma escrita PostgREST em `addresses` (nem em tabela nenhuma).
+    expect((estado.calls as Registro[]).some((c) => c.table === 'addresses' && (c.insert || c.upsert || c.update))).toBe(false)
+    expect((estado.calls as Registro[]).filter((c) => c.upsert || c.insert || c.update || c.delete)).toHaveLength(0)
+  })
+
+  it('desmarcar "Salvar no cadastro" manda `save_address: false`', async () => {
+    estado.invocar = (nome) => (nome === 'order-proposals?action=save' ? SAVE_CRIADO : { data: { proposal: detalhe(), state: 'open', actions: {} }, error: null })
     montar('/admin/pedidos/montar')
     await preencherClienteNova()
     fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '90010000' } })
@@ -281,10 +298,22 @@ describe('Montar pedido — do zero (MON-11, MON-12)', () => {
     await acrescentarAnel()
     fireEvent.click(botaoCriar())
     await screen.findByRole('heading', { name: 'Pedido montado P-0007' })
-    const insert = (estado.calls as Registro[]).find((c) => c.table === 'addresses' && c.insert)
-    expect(insert?.insert).toMatchObject({ customer_id: FICHA, street: 'Rua A' })
-    // O endereço do rascunho foi junto no `save` (opcional, mas preenchido).
-    expect(saves()[0].corpo).toMatchObject({ address_zip: '90010000', address_street: 'Rua A' })
+    expect(saves()[0].corpo.save_address).toBe(false)
+  })
+
+  it('a gravação que falha diz que nada foi enviado, fica na montagem e não escreve nada à parte', async () => {
+    estado.invocar = (nome) =>
+      nome === 'order-proposals?action=save' ? falha(500, { error: 'Não consegui gravar a proposta.' }) : { data: null, error: null }
+    montar('/admin/pedidos/montar')
+    await preencherClienteNova()
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '90010000' } })
+    fireEvent.change(screen.getByLabelText('Rua'), { target: { value: 'Rua A' } })
+    await acrescentarAnel()
+    fireEvent.click(botaoCriar())
+    expect(await screen.findByRole('alert')).toHaveTextContent(SAVE_FAILED)
+    expect(SAVE_FAILED).toBe('Não consegui gravar o pedido. Nada foi enviado à cliente. Tente de novo.')
+    expect(screen.getByRole('heading', { name: 'Montar pedido' })).toBeInTheDocument()
+    expect((estado.calls as Registro[]).some((c) => c.table === 'addresses' && (c.insert || c.upsert || c.update))).toBe(false)
   })
 
   it('o link criado sem a loja configurada no painel não some calado: a página diz por quê', async () => {

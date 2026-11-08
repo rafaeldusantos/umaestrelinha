@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { PROPOSAL_STATE_LABELS, proposalActions, proposalLinkValid, proposalState } from '../state.ts'
+import {
+  PROPOSAL_STATE_LABELS,
+  RENEW_EXPIRED_LABEL,
+  RENEW_WITHOUT_LINK_LABEL,
+  proposalActions,
+  proposalLinkValid,
+  proposalState,
+} from '../state.ts'
 
 // LNK-04..06: o estado de cada proposta, e "expirada" derivada de expires_at.
 
@@ -51,19 +58,72 @@ describe('rótulos (LNK-04)', () => {
 })
 
 describe('proposalActions (LNK-05, LNK-06, DUP-01)', () => {
-  it.each(['open', 'viewed'] as const)('%s: edita, renova, cancela, duplica', (s) => {
-    expect(proposalActions(s)).toEqual({ edit: true, renew: true, cancel: true, duplicate: true, viewOrder: false })
+  it.each(['open', 'viewed'] as const)('%s com o link disponível: edita, cancela, duplica — e NÃO renova', (s) => {
+    expect(proposalActions(s, { linkAvailable: true })).toEqual({
+      edit: true,
+      renew: false,
+      renewLabel: null,
+      cancel: true,
+      duplicate: true,
+      viewOrder: false,
+    })
   })
 
-  it('expirada: só renovar e duplicar', () => {
-    expect(proposalActions('expired')).toEqual({ edit: false, renew: true, cancel: false, duplicate: true, viewOrder: false })
+  it.each(['open', 'viewed'] as const)('%s sem o link disponível (sem cifra): renova pelo "Gerar link novo"', (s) => {
+    expect(proposalActions(s, { linkAvailable: false })).toEqual({
+      edit: true,
+      renew: true,
+      renewLabel: 'Gerar link novo',
+      cancel: true,
+      duplicate: true,
+      viewOrder: false,
+    })
+  })
+
+  it('sem dizer se o link está disponível, a aberta vale como sem link (o recuo seguro)', () => {
+    expect(proposalActions('open').renew).toBe(true)
+    expect(proposalActions('open').renewLabel).toBe(RENEW_WITHOUT_LINK_LABEL)
+  })
+
+  it('SENSOR: só a entrada muda o veredito da aberta — com link, renovar some', () => {
+    expect(proposalActions('open', { linkAvailable: true }).renew).not.toBe(proposalActions('open', { linkAvailable: false }).renew)
+  })
+
+  it.each([true, false])('expirada (link disponível: %s): só renovar o prazo e duplicar', (linkAvailable) => {
+    expect(proposalActions('expired', { linkAvailable })).toEqual({
+      edit: false,
+      renew: true,
+      renewLabel: 'Renovar prazo',
+      cancel: false,
+      duplicate: true,
+      viewOrder: false,
+    })
   })
 
   it('concluída: ver o pedido e duplicar', () => {
-    expect(proposalActions('completed')).toEqual({ edit: false, renew: false, cancel: false, duplicate: true, viewOrder: true })
+    expect(proposalActions('completed')).toEqual({
+      edit: false,
+      renew: false,
+      renewLabel: null,
+      cancel: false,
+      duplicate: true,
+      viewOrder: true,
+    })
   })
 
   it('cancelada: só duplicar', () => {
-    expect(proposalActions('cancelled')).toEqual({ edit: false, renew: false, cancel: false, duplicate: true, viewOrder: false })
+    expect(proposalActions('cancelled')).toEqual({
+      edit: false,
+      renew: false,
+      renewLabel: null,
+      cancel: false,
+      duplicate: true,
+      viewOrder: false,
+    })
+  })
+
+  it('os rótulos são os do gate', () => {
+    expect(RENEW_EXPIRED_LABEL).toBe('Renovar prazo')
+    expect(RENEW_WITHOUT_LINK_LABEL).toBe('Gerar link novo')
   })
 })

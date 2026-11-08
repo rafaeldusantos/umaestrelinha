@@ -5,6 +5,7 @@
 
 import { PROPOSAL_PATH } from '../routes/routes.ts'
 import { STORE_TIME_ZONE } from '../time/zone.ts'
+import { PROPOSAL_LINK_DAYS } from './limits.ts'
 
 // O caminho tem UM dono, `core/routes` (folha sem import, alcançável pelo Deno); daqui ele é só
 // reexportado — `link.test.ts` confere que é a mesma referência (fecho da rodada 1 do Verifier).
@@ -16,6 +17,18 @@ export { PROPOSAL_PATH }
  */
 export const LINK_WITHOUT_STORE =
   'O link foi criado, mas a loja não está configurada neste painel para montá-lo. Gere um link novo depois de configurar a loja.'
+
+/**
+ * A origem de um pedido que nasceu de uma proposta, a mesma nos dois apps: "Pedido montado" —
+ * no painel, a linha "Pedido montado · P-0001" do pedido.
+ */
+export const PROPOSAL_ORIGIN_LABEL = 'Pedido montado'
+
+/**
+ * A falha de gravar o pedido montado, a mesma no painel e no app do ateliê: a proposta e o
+ * endereço são UMA gravação, e a falha não deixou nada gravado nem enviado.
+ */
+export const PROPOSAL_SAVE_FAILED = 'Não consegui gravar o pedido. Nada foi enviado à cliente. Tente de novo.'
 
 /** `https://loja` + token ⇒ `https://loja/pedido-montado#<token>`. */
 export function proposalLink(origin: string, token: string): string {
@@ -71,5 +84,27 @@ export function proposalWhatsappText(input: {
     `É só conferir seus dados, escolher a entrega e o pagamento:\n\n` +
     `${input.link}\n\n` +
     `O link vale até ${proposalExpiryDate(input.expiresAt)}.`
+  )
+}
+
+/**
+ * A confirmação de renovar o prazo, a mesma no painel e no app do ateliê: "O link venceu em
+ * {dd/mm}. Os preços são conferidos de novo e sai um link novo, que vale até {dd/mm}. Mande o novo
+ * para {primeiro nome}." O prazo novo é o que a function grava: `now` + `PROPOSAL_LINK_DAYS`. Sem nome, "a
+ * cliente".
+ */
+export function proposalRenewText(input: {
+  name?: string | null
+  expiresAt: string
+  now: Date
+  linkDays?: number
+}): string {
+  const dias = input.linkDays ?? PROPOSAL_LINK_DAYS
+  const novo = new Date(input.now.getTime() + dias * 24 * 60 * 60 * 1000).toISOString()
+  const nome = firstName(input.name) || 'a cliente'
+  return (
+    `O link venceu em ${proposalExpiryDate(input.expiresAt)}. ` +
+    `Os preços são conferidos de novo e sai um link novo, que vale até ${proposalExpiryDate(novo)}. ` +
+    `Mande o novo para ${nome}.`
   )
 }

@@ -10,7 +10,6 @@ import {
   ADDRESS_COLUMNS,
   CUSTOMER_PICK_COLUMNS,
   CUSTOMER_PICK_LIMIT,
-  gravarEnderecoDaCliente,
   lerClientePorEmail,
   lerClientes,
   lerEnderecosDaCliente,
@@ -97,42 +96,5 @@ describe('lerEnderecosDaCliente (MON-02: o padrão primeiro)', () => {
       { method: 'order', args: ['created_at', { ascending: true }] },
     ])
     expect(enderecos.map((e) => e.id)).toEqual(['e2', 'e1'])
-  })
-})
-
-describe('gravarEnderecoDaCliente (MON-04)', () => {
-  it('grava em addresses, com só dígitos no CEP e a UF em caixa alta', async () => {
-    const duble = criarDuble(() => ({}))
-    const erro = await gravarEnderecoDaCliente(
-      FICHA,
-      { cep: '90000-000', street: ' Rua A ', number: '10', complement: '', neighborhood: 'Centro', city: 'Porto Alegre', state: 'rs' },
-      { padrao: true },
-      duble,
-    )
-    expect(erro).toBeNull()
-    expect(duble.calls[0].table).toBe('addresses')
-    expect(duble.calls[0].insert).toEqual({
-      customer_id: FICHA,
-      label: 'Casa',
-      cep: '90000000',
-      street: 'Rua A',
-      number: '10',
-      complement: null,
-      neighborhood: 'Centro',
-      city: 'Porto Alegre',
-      state: 'RS',
-      is_default: true,
-    })
-  })
-
-  it('sem ficha válida não grava', async () => {
-    const duble = criarDuble(() => ({}))
-    expect(await gravarEnderecoDaCliente('x', { cep: '', street: '', number: '', complement: null, neighborhood: '', city: '', state: '' }, { padrao: false }, duble)).toBe('A ficha da cliente não existe mais.')
-    expect(duble.calls).toHaveLength(0)
-  })
-
-  it('erro do banco volta como frase', async () => {
-    const duble = criarDuble(() => ({ error: { message: 'recusado' } }))
-    expect(await gravarEnderecoDaCliente(FICHA, { cep: '1', street: 'a', number: '1', complement: null, neighborhood: 'b', city: 'c', state: 'd' }, { padrao: false }, duble)).toBe('recusado')
   })
 })

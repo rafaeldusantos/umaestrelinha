@@ -213,7 +213,7 @@ assere.
 | `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 | `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
 | `atelie-avisos` | `false` | as inscrições do **aviso no celular** da dona (feature `79`, `AD-062`) — `config · status · subscribe · events · unsubscribe · test`, `requireAdmin` em toda ação; a única escrita em `push_subscriptions`, que não tem policy de cliente |
-| `order-proposals` | `false` | o **pedido montado pelo painel** (feature `89`, `AD-070`) — `list · get · save · renew · cancel · log-sent`, `requireAdmin` em toda ação; a única escrita em `order_proposals*` (RLS sem policy), por RPC. O token do link só sai na resposta de `save`/`renew`; o banco guarda o hash |
+| `order-proposals` | `false` | o **pedido montado pelo painel** (feature `89`, `AD-070`) — `list · get · save · renew · cancel · log-sent · note`, `requireAdmin` em toda ação; a única escrita em `order_proposals*` (RLS sem policy), por RPC. O banco guarda o **hash** do token e, com o secret opcional `PROPOSAL_TOKEN_KEY`, a **cifra** (AES-GCM, WI 94): o `get` devolve o token da proposta aberta; sem a chave (ou na proposta sem cifra) o token só sai na resposta de `save`/`renew`. Nunca o token em claro no banco, nunca o hash ou a cifra numa resposta ou log |
 | `visit` | `false` | grava uma **visita única** por navegador por dia (feature `71`, `AD-055`). A loja chama com **só** a chave publicável, e o handler **não lê** `Authorization` |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
@@ -501,6 +501,20 @@ convidada e para quem tem sessão.
 - **`mercado-pago`**: `create-payment` de pedido com `proposal_id` cobra por `proposalPricing`
   (`core/proposals`) sobre `order_items` + `discount` + `manual_discount`, sem reler catálogo,
   promoção nem cupom. Provado contra a function local: 901,86 na página e no banco.
+- **O link sempre, e o endereço pela gravação (WI 94, migration `20261111120000_94-link-sempre-e-endereco.sql`)**:
+  `order_proposals.token_cipher` guarda a cifra do token (`_shared/tokenCipher.ts`, AES-GCM, formato
+  `v1.` + base64url(iv ‖ cifra)), gravada junto do hash ao criar e no MESMO `update` do hash ao
+  renovar; sem a chave, a cifra fica nula (e a antiga sai ao renovar). O `get` devolve `token` só com
+  a proposta aberta/vista e a cifra que a chave decifra; `actions` vem de
+  `proposalActions(state, { linkAvailable })` (`core`), e `renew` recusa a aberta com link disponível
+  (409 `not_renewable`) — renova a expirada e, no recuo de D-28, a aberta sem link. `save` aceita
+  `save_address: true` (só o booleano), e `save_order_proposal` (recriada sobre a da 95) grava o
+  endereço em `addresses` da ficha resolvida na MESMA transação: padrão só se a ficha não tem padrão
+  (`addresses_one_default`), sem duplicar o mesmo endereço; uma falha desfaz a proposta e a ficha. A
+  foto da linha é `fotoDaLinha` (`core/proposals/photo.ts`): variação → `images->0->>url` (pedida como
+  `capa`) → `image_url`. Guarda: `linkSempreSchema.test.ts` (loja); semântica:
+  `.specs/work-items/94-montar-pedido-no-app/probes/01-link-e-endereco.sql` (a RPC) e
+  `02-foto-e-link-pela-function.mjs` (o handler real contra o PostgREST local, pelo Node 24).
 - **`get` resolve o e-mail de cada autor do histórico** (`auth.admin.getUserById`, um por autor
   distinto) e devolve `actor_email`; o painel nunca mostra o uuid de `actor` (`HIS-01`).
 - **`order-proposals`, `mercado-pago` e `checkout` sobem no edge runtime LOCAL** (medido em
@@ -917,7 +931,9 @@ Todos no `.env` da **raiz** (ver `.env.example`), resolvidos no local por `[edge
 
 `SUPABASE_SERVICE_ROLE_KEY` · `MERCADO_PAGO_ACCESS_TOKEN` · `MERCADO_PAGO_WEBHOOK_SECRET` ·
 `RESEND_API_KEY` · `RESEND_SENDER_NAME` · `RESEND_SENDER_EMAIL` · `RESEND_DEV_REDIRECT_TO` · `STORE_PUBLIC_URL` · `NUVEMSHOP_*` ·
-`MELHOR_ENVIO_TOKEN` · `MELHOR_ENVIO_ENV` · `MELHOR_ENVIO_SENDER_JSON` · `VAPID_KEYS` · `VAPID_SUBJECT`
+`MELHOR_ENVIO_TOKEN` · `MELHOR_ENVIO_ENV` · `MELHOR_ENVIO_SENDER_JSON` · `VAPID_KEYS` · `VAPID_SUBJECT` ·
+`PROPOSAL_TOKEN_KEY` (opcional, WI 94: a chave da cifra do token do link do pedido montado; ausente, só
+o hash é gravado e o link sai só na resposta de criar/renovar — fora da lista obrigatória do deploy)
 
 ### As chaves do aviso no celular — `VAPID_KEYS` e `VAPID_SUBJECT` (feature `79`, `AD-062`)
 

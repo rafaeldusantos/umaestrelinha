@@ -1364,7 +1364,7 @@ loja** (`StorefrontPreview` foi apagado, sem consumidor).
 combinado com motivo interno; "Criar link" grava pela function `order-proposals` e leva a
 `/admin/pedidos/montados/:id`, com o link, WhatsApp, renovar, cancelar e o histórico. A lista de Pedidos
 ganhou a aba local **"Montados"** (`?visao=montados`, fora de `ORDER_VIEWS`), e o pedido que nasceu de
-uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {motivo}".
+uma proposta mostra "Pedido montado · P-0001" (`PROPOSAL_ORIGIN_LABEL`, `core`, D-25 do WI 94) e "Desconto combinado — {motivo}".
 
 - **O resumo vem de `priceProposalDraft`** (`core/proposals`), a mesma chamada que a function refaz.
 - **Nada escreve nas tabelas da proposta pelo PostgREST**: a porta é a function (`requireAdmin`).
@@ -1387,6 +1387,13 @@ uma proposta mostra "Montado pelo painel · P-0001" e "Desconto combinado — {m
 - **`RecordPageHeader` deixa o título e o subtítulo quebrarem no meio da palavra** (um e-mail no
   subtítulo empurrava a página de lado a 390/200 %).
 - Prova: `.specs/features/89-pedido-montado-pelo-painel/prova-navegador.md`. Sem Verifier nem QA ainda.
+- **Desde o WI 94 o link vem do `get`** (a function decifra o token da proposta aberta, com o secret
+  opcional `PROPOSAL_TOKEN_KEY`): a página mostra o link sempre, também ao reabrir, num campo só
+  leitura, com a prévia da mensagem recolhível. Nada vai ao `sessionStorage` (`linkMemory.ts` saiu). A
+  proposta sem cifra mostra `LINK_UNAVAILABLE` e "Gerar link novo" (D-28); Renovar só na expirada,
+  "Renovar prazo", confirmando com `proposalRenewText` (`core`). "Salvar no cadastro da cliente" vem
+  marcada ao montar e vai no `save` como `save_address`: o painel não escreve mais em `addresses`
+  (`gravarEnderecoDaCliente` saiu); a falha da gravação diz `SAVE_FAILED` (D-20).
 
 ## Compre Junto › Listas (`/admin/compre-junto`)
 

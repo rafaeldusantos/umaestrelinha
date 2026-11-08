@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFakeSupabase, type FakeSupabaseOptions } from '../../_shared/testing/fakes.ts'
+import { createTokenCipher, type TokenCipher } from '../../_shared/tokenCipher.ts'
 import { hashAccessToken } from '../../../../packages/core/src/checkout/guestAccess.ts'
 import { ORDER_ADMIN_NOTE_MAX } from '../../../../packages/core/src/orders/adminNote.ts'
 import {
@@ -790,7 +791,9 @@ describe('get', () => {
     expect(res.status).toBe(200)
     const corpo = await res.json()
     expect(corpo.state).toBe('open')
-    expect(corpo.actions).toEqual({ edit: true, renew: true, cancel: true, duplicate: true, viewOrder: false })
+    // Sem cifra gravada (e sem chave), o link não pode ser mostrado: a aberta renova pelo "Gerar link novo".
+    expect(corpo.actions).toEqual({ edit: true, renew: true, renewLabel: 'Gerar link novo', cancel: true, duplicate: true, viewOrder: false })
+    expect(corpo.token).toBeNull()
     expect(corpo.proposal.items.map((i: any) => i.position)).toEqual([0, 1])
     expect(corpo.proposal.events).toHaveLength(1)
     // O motivo é interno à loja, mas o painel o vê (HIS-02).
@@ -1127,5 +1130,253 @@ describe('roteamento', () => {
     })
     expect((await route(f.deps, malformado)).status).toBe(400)
     expect(f.rpcs).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// O link sempre: a cifra do token, o `save_address` e a foto da linha
+// ---------------------------------------------------------------------------------------------
+
+/** 32 bytes fixos, em base64 — só para os testes. */
+const CHAVE = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => i + 1)))
+const OUTRA_CHAVE = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => 200 - i)))
+const TOKEN = 'tok_'.padEnd(43, 'x')
+
+describe('createTokenCipher', () => {
+  it('cifra e decifra o mesmo token, com IV novo a cada cifra', async () => {
+    const c = (await createTokenCipher(CHAVE))!
+    const a = await c.encrypt(TOKEN)
+    const b = await c.encrypt(TOKEN)
+    expect(a).not.toBe(b)
+    expect(a).not.toContain(TOKEN)
+    expect(await c.decrypt(a)).toBe(TOKEN)
+    expect(await c.decrypt(b)).toBe(TOKEN)
+  })
+
+  it('cifra de outra chave, corrompida ou de outro formato ⇒ null, nunca lança', async () => {
+    const c = (await createTokenCipher(CHAVE))!
+    const outra = (await createTokenCipher(OUTRA_CHAVE))!
+    const cifra = await outra.encrypt(TOKEN)
+    expect(await c.decrypt(cifra)).toBeNull()
+    expect(await c.decrypt(`${cifra.slice(0, -2)}AA`)).toBeNull()
+    expect(await c.decrypt('v2.abc')).toBeNull()
+    expect(await c.decrypt(null)).toBeNull()
+  })
+
+  it.each([undefined, null, '', '   ', 'curta', btoa('dezesseis bytes!')])('chave %j inutilizável ⇒ sem cifra', async (raw) => {
+    expect(await createTokenCipher(raw as string)).toBeNull()
+  })
+})
+
+describe('get — o link enquanto aberta', () => {
+  const comCifra = async (over: Record<string, unknown>, chave: TokenCipher | null) => {
+    const cifrador = (await createTokenCipher(CHAVE))!
+    const cifra = await cifrador.encrypt(TOKEN)
+    const selects: string[] = []
+    const f = ambiente({
+      rows: {
+        order_proposals: (eq: [string, unknown] | null, select: string) => {
+          selects.push(select)
+          return eq?.[1] === PROP ? LINHA({ token_cipher: cifra, token_hash: 'hash-x', ...over }) : null
+        },
+      },
+      lists: { order_proposal_items: [], order_proposal_events: [] },
+    })
+    f.deps.tokenCipher = chave
+    return { f, cifra, selects }
+  }
+
+  it.each([
+    ['aberta', {}],
+    ['vista', { viewed_at: '2026-10-31T10:00:00Z' }],
+  ])('%s com cifra e chave ⇒ devolve o token; nem a cifra nem o hash saem, e o log não carrega nenhum', async (_n, over) => {
+    const { f, cifra, selects } = await comCifra(over, await createTokenCipher(CHAVE))
+    const res = await route(f.deps, pedir('get', { id: PROP }))
+    const texto = await res.clone().text()
+    const corpo = await res.json()
+    expect(corpo.token).toBe(TOKEN)
+    expect(corpo.actions).toMatchObject({ renew: false, renewLabel: null, edit: true, cancel: true })
+    expect(corpo.proposal).not.toHaveProperty('token_cipher')
+    expect(corpo.proposal).not.toHaveProperty('token_hash')
+    expect(texto).not.toContain(cifra)
+    expect(texto).not.toContain('hash-x')
+    for (const linha of logs) {
+      expect(linha).not.toContain(TOKEN)
+      expect(linha).not.toContain(cifra)
+    }
+    // A cifra é pedida ao banco (é por ela que o link volta), e o hash não.
+    expect(selects[0]).toContain('token_cipher')
+    expect(selects[0]).not.toContain('token_hash')
+  })
+
+  it.each([
+    ['expirada', { expires_at: '2026-10-20T00:00:00Z' }, 'Renovar prazo'],
+    ['cancelada', { status: 'cancelled' }, null],
+    ['concluída', { status: 'completed' }, null],
+  ])('%s com cifra ⇒ sem token (o link morreu)', async (_n, over, rotulo) => {
+    const { f } = await comCifra(over, await createTokenCipher(CHAVE))
+    const corpo = await (await route(f.deps, pedir('get', { id: PROP }))).json()
+    expect(corpo.token).toBeNull()
+    expect(corpo.actions.renewLabel).toBe(rotulo)
+  })
+
+  it('aberta com cifra mas SEM a chave ⇒ sem token, e renovar vira "Gerar link novo"', async () => {
+    const { f } = await comCifra({}, null)
+    const corpo = await (await route(f.deps, pedir('get', { id: PROP }))).json()
+    expect(corpo.token).toBeNull()
+    expect(corpo.actions).toMatchObject({ renew: true, renewLabel: 'Gerar link novo' })
+  })
+})
+
+describe('save — a cifra e o save_address', () => {
+  it.each([
+    [true, true],
+    [false, false],
+    [undefined, false],
+    ['sim', false],
+  ])('save_address %j chega à RPC como %j', async (valor, esperado) => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    const corpo = valor === undefined ? corpoNovo() : corpoNovo({ save_address: valor })
+    expect((await route(f.deps, pedir('save', corpo))).status).toBe(200)
+    expect(argsDoSave(f.rpcs)[0].save_address).toBe(esperado)
+  })
+
+  it('com a chave, a cifra nasce junto do hash e decifra o token da resposta', async () => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    f.deps.tokenCipher = await createTokenCipher(CHAVE)
+    const corpo = await (await route(f.deps, pedir('save', corpoNovo()))).json()
+    const [p] = argsDoSave(f.rpcs)
+    expect(p.token_hash).toBe(await hashAccessToken(corpo.token))
+    expect(typeof p.token_cipher).toBe('string')
+    expect(await f.deps.tokenCipher!.decrypt(p.token_cipher)).toBe(corpo.token)
+    for (const linha of logs) {
+      expect(linha).not.toContain(corpo.token)
+      expect(linha).not.toContain(p.token_cipher)
+    }
+  })
+
+  it('sem a chave, só o hash (o comportamento de antes)', async () => {
+    const f = ambiente({ rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK } })
+    await route(f.deps, pedir('save', corpoNovo()))
+    const [p] = argsDoSave(f.rpcs)
+    expect(p.token_hash).toEqual(expect.any(String))
+    expect(p).not.toHaveProperty('token_cipher')
+  })
+
+  it('editar não manda cifra nem hash (o link continua o mesmo)', async () => {
+    const f = ambiente({
+      rows: { order_proposals: LINHA() },
+      rpcByFn: { has_role: { data: true }, save_order_proposal: { data: { ...SAVE_OK.data, created: false } } },
+    })
+    f.deps.tokenCipher = await createTokenCipher(CHAVE)
+    await route(f.deps, pedir('save', corpoNovo({ id: PROP, version: 1, idempotency_key: undefined })))
+    const [p] = argsDoSave(f.rpcs)
+    expect(p).not.toHaveProperty('token_cipher')
+    expect(p).not.toHaveProperty('token_hash')
+  })
+})
+
+describe('renew — só a expirada, ou a aberta sem link', () => {
+  const ITENS = [{ position: 0, product_id: P1, variant_id: null, quantity: 1, unit_price: 100, engraving_text: null }]
+  const renovar = async (over: Record<string, unknown>, chave: string | null, cifraGravada: boolean) => {
+    const cifrador = (await createTokenCipher(CHAVE))!
+    const row = LINHA({ version: 1, token_cipher: cifraGravada ? await cifrador.encrypt('token-antigo'.padEnd(43, 'y')) : null, ...over })
+    const f = ambiente({
+      rows: { order_proposals: row },
+      updatedRows: { order_proposals: { id: PROP, version: 2 } },
+      lists: { order_proposal_items: ITENS },
+    })
+    f.deps.tokenCipher = chave ? await createTokenCipher(chave) : null
+    return f
+  }
+
+  it('aberta COM cifra (link disponível) ⇒ 409 not_renewable, nada lido do catálogo nem gravado', async () => {
+    const f = await renovar({}, CHAVE, true)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('not_renewable')
+    expect(f.updates).toEqual([])
+    expect(f.inserts).toEqual([])
+    expect(f.reads.find((r) => r.table === 'products')).toBeUndefined()
+  })
+
+  it('aberta SEM cifra, com a chave ⇒ renova, e a proposta sai com cifra do token novo', async () => {
+    const f = await renovar({}, CHAVE, false)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    const [u] = f.updates.filter((x) => x.table === 'order_proposals')
+    expect(u.values.token_hash).toBe(await hashAccessToken(corpo.token))
+    expect(await f.deps.tokenCipher!.decrypt(u.values.token_cipher)).toBe(corpo.token)
+  })
+
+  it('expirada com cifra ⇒ hash e cifra do MESMO token novo, no mesmo update', async () => {
+    const f = await renovar({ expires_at: '2026-10-20T00:00:00Z' }, CHAVE, true)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    const updates = f.updates.filter((x) => x.table === 'order_proposals')
+    expect(updates).toHaveLength(1)
+    expect(updates[0].values.token_hash).toBe(await hashAccessToken(corpo.token))
+    expect(await f.deps.tokenCipher!.decrypt(updates[0].values.token_cipher)).toBe(corpo.token)
+    for (const linha of logs) expect(linha).not.toContain(updates[0].values.token_cipher)
+  })
+
+  it('sem a chave ⇒ grava só o hash: a cifra antiga sai, e o `get` seguinte não devolve token', async () => {
+    const f = await renovar({}, null, true)
+    const res = await route(f.deps, pedir('renew', { id: PROP }))
+    expect(res.status).toBe(200)
+    const [u] = f.updates.filter((x) => x.table === 'order_proposals')
+    expect(u.values.token_hash).toEqual(expect.any(String))
+    expect(u.values.token_cipher).toBeNull()
+  })
+
+  it('cifra de outra chave (a chave trocou) ⇒ o link não está disponível, e a aberta renova', async () => {
+    const f = await renovar({}, OUTRA_CHAVE, true)
+    expect((await route(f.deps, pedir('renew', { id: PROP }))).status).toBe(200)
+  })
+})
+
+describe('a foto gravada na linha: variação → images[0] → image_url', () => {
+  const comPecas = (produtos: any[]) =>
+    ambiente({
+      rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK },
+      lists: {
+        products: (_eqs: unknown, _sel: string, read: any) => filtrarPorIn(produtos, read),
+      },
+    })
+  const fotos = (f: ReturnType<typeof ambiente>) => argsDoSave(f.rpcs)[0].items.map((i: any) => i.product_image)
+
+  it('a leitura pede a primeira foto da galeria com o apelido `capa`', async () => {
+    const f = comPecas(PRODUTOS)
+    await route(f.deps, pedir('save', corpoNovo()))
+    const leitura = f.reads.find((r) => r.table === 'products')!
+    expect(leitura.select).toContain('capa:images->0->>url')
+  })
+
+  it('variação com foto ⇒ a dela; sem foto da variação ⇒ a primeira da galeria; sem galeria ⇒ a coluna antiga', async () => {
+    const P3 = 'aaaaaaaa-0000-4000-8000-000000000003'
+    const produtos = [
+      { ...PRODUTOS[0], capa: 'https://img/p1-galeria.webp' },
+      { ...PRODUTOS[1], capa: 'https://img/p2-galeria.webp' },
+      { ...PRODUTOS[0], id: P3, name: 'Sem galeria', capa: null },
+    ]
+    const f = comPecas(produtos)
+    const res = await route(
+      f.deps,
+      pedir(
+        'save',
+        corpoNovo({
+          lines: [
+            { product_id: P1, variant_id: null, quantity: 1 },
+            { product_id: P2, variant_id: V2A, quantity: 2, engraving_text: 'Lua' },
+            { product_id: P3, variant_id: null, quantity: 1 },
+          ],
+          expected_total: 500,
+        }),
+      ),
+    )
+    expect(res.status).toBe(200)
+    expect(fotos(f)).toEqual(['https://img/p1-galeria.webp', 'https://img/v2a.webp', 'https://img/p1.webp'])
   })
 })

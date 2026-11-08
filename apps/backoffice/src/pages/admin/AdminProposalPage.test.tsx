@@ -52,15 +52,16 @@ vi.mock('@/shared/lib/storeOrigin', () => ({ storeOrigin: () => 'https://loja.ex
 
 import AdminProposalPage from './AdminProposalPage'
 import { simularFocoDoNavegador } from '@/test/focoDoNavegador'
+import { proposalRenewText } from '@estrelinha/core/proposals'
 import {
   CANCEL_CONFIRM,
+  LINK_CLOSED,
   LINK_EXPIRED,
-  LINK_NOT_IN_MEMORY,
+  LINK_UNAVAILABLE,
   CANCELLED_ANNOUNCE,
   NO_PHONE,
   RENEWED_ANNOUNCE,
   RENEW_WARNING,
-  guardarLink,
 } from '@/features/order-proposal'
 
 const ID = '99999999-9999-4999-8999-999999999999'
@@ -92,9 +93,12 @@ const detalhe = (over: Record<string, unknown> = {}) => ({
 })
 
 let atual = { proposal: detalhe(), state: 'open' as string }
+/** O token que o `get` devolve (só a function decide; `null` = sem cifra ou sem chave. */
+let tokenDoGet: string | null = null
 const servir = (proposal: Record<string, unknown>, state: string) => {
   atual = { proposal: proposal as ReturnType<typeof detalhe>, state }
 }
+const respostaDoGet = () => ({ data: { proposal: atual.proposal, state: atual.state, actions: {}, token: tokenDoGet }, error: null })
 
 const falha = (corpo: Record<string, unknown>) => ({
   data: null,
@@ -110,8 +114,9 @@ beforeEach(() => {
   estado.notaDoPedido = null
   estado.leiturasDaNota = []
   servir(detalhe(), 'open')
+  tokenDoGet = null
   estado.invocar = (nome) => {
-    if (nome === 'order-proposals?action=get') return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+    if (nome === 'order-proposals?action=get') return respostaDoGet()
     if (nome === 'order-proposals?action=log-sent') return { data: { ok: true }, error: null }
     return { data: null, error: null }
   }
@@ -144,14 +149,17 @@ const montar = () =>
     </QueryClientProvider>,
   )
 
-const comLinkGuardado = () => guardarLink(ID, { link: LINK, expiresAt: EXPIRA })
+/** A proposta aberta com a cifra do token: o `get` devolve o token e a página monta o link. */
+const comLinkGuardado = () => {
+  tokenDoGet = 'tok-guardado'
+}
 const acoes = () => estado.invocacoes.map((i) => i.nome.replace('order-proposals?action=', ''))
 
 describe('O link e o envio (LNK-01..03)', () => {
   it('LNK-01: mostra o link completo, Copiar e WhatsApp quando há telefone válido', async () => {
     comLinkGuardado()
     montar()
-    expect(await screen.findByTestId('link-da-proposta')).toHaveTextContent(LINK)
+    expect(await screen.findByTestId('link-da-proposta')).toHaveValue(LINK)
     expect(screen.getByRole('button', { name: /Copiar link/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: /Enviar pelo WhatsApp/ })).toBeEnabled()
     expect(screen.getByText('Vale até 07/11/2026.')).toBeInTheDocument()
@@ -203,18 +211,43 @@ describe('O link e o envio (LNK-01..03)', () => {
     expect(acoes()).not.toContain('log-sent')
   })
 
-  it('sem link em memória: diz por quê e oferece "Gerar link novo" (= renovar), que avisa do link antigo', async () => {
+  it('reaberta, o link vem do `get` — sem "Gerar link novo" e sem nada guardado no navegador', async () => {
+    comLinkGuardado()
+    montar()
+    expect(await screen.findByTestId('link-da-proposta')).toHaveValue(LINK)
+    expect(screen.queryByRole('button', { name: 'Gerar link novo' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Renovar/ })).toBeNull()
+    expect(screen.queryByText(LINK_UNAVAILABLE)).toBeNull()
+    expect(window.sessionStorage.length).toBe(0)
+    expect(window.localStorage.length).toBe(0)
+  })
+
+  it('o campo do link é só leitura e seleciona tudo ao focar; a mensagem do WhatsApp aparece escrita', async () => {
+    comLinkGuardado()
+    montar()
+    const campo = (await screen.findByTestId('link-da-proposta')) as HTMLInputElement
+    expect(campo).toHaveAttribute('readonly')
+    fireEvent.focus(campo)
+    expect(campo.selectionStart).toBe(0)
+    expect(campo.selectionEnd).toBe(LINK.length)
+    expect(screen.getByText('Mensagem do WhatsApp')).toBeInTheDocument()
+    expect(screen.getByTestId('mensagem-do-whatsapp').textContent).toBe(
+      `Oi, Ana! Montei seu pedido aqui na loja. É só conferir seus dados, escolher a entrega e o pagamento:\n\n${LINK}\n\nO link vale até 07/11.`,
+    )
+  })
+
+  it('sem token no `get` (sem cifra): diz por quê e oferece "Gerar link novo" (= renovar), que avisa do link antigo', async () => {
     estado.invocar = (nome) => {
       if (nome === 'order-proposals?action=renew')
         return { data: { id: ID, number: 'P-0007', version: 3, token: 'tok-novo', expires_at: EXPIRA, repriced: false, summary: {} }, error: null }
-      return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+      return respostaDoGet()
     }
     montar()
-    expect(await screen.findByText(LINK_NOT_IN_MEMORY)).toBeInTheDocument()
+    expect(await screen.findByText(LINK_UNAVAILABLE)).toBeInTheDocument()
     expect(screen.queryByTestId('link-da-proposta')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Gerar link novo' }))
     expect(confirmar).toHaveBeenCalledWith(RENEW_WARNING)
-    expect(await screen.findByTestId('link-da-proposta')).toHaveTextContent('https://loja.exemplo.invalid/pedido-montado#tok-novo')
+    expect(await screen.findByTestId('link-da-proposta')).toHaveValue('https://loja.exemplo.invalid/pedido-montado#tok-novo')
     expect(estado.invocacoes.find((i) => i.nome.endsWith('renew'))?.corpo).toEqual({ id: ID })
   })
 
@@ -227,16 +260,18 @@ describe('O link e o envio (LNK-01..03)', () => {
 })
 
 describe('As ações por estado (LNK-05, LNK-06, DUP-01)', () => {
-  it('aberta: Editar, Duplicar, Renovar o prazo (com o aviso escrito) e Cancelar', async () => {
+  it('aberta com o link: Editar, Duplicar e Cancelar — Renovar só depois de expirar, e a dica saiu', async () => {
     comLinkGuardado()
     montar()
     expect(await screen.findByTestId('estado-da-proposta')).toHaveTextContent('Aberta')
     expect(screen.getByRole('link', { name: 'Editar' })).toHaveAttribute('href', `/admin/pedidos/montar/${ID}`)
     expect(screen.getByRole('link', { name: 'Duplicar' })).toHaveAttribute('href', `/admin/pedidos/montar?duplicar=${ID}`)
-    expect(screen.getByRole('button', { name: 'Renovar o prazo' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancelar proposta' })).toBeInTheDocument()
-    expect(screen.getByText(RENEW_WARNING)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Ver pedido/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Renovar/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Gerar link novo' })).toBeNull()
+    expect(screen.queryByText(RENEW_WARNING)).toBeNull()
+    expect(screen.queryByText(/Precisa de mais tempo/)).toBeNull()
+    expect(screen.queryByRole('link', { name: /Ver o pedido/ })).toBeNull()
   })
 
   it('vista pela cliente continua aberta, com o rótulo próprio', async () => {
@@ -246,7 +281,7 @@ describe('As ações por estado (LNK-05, LNK-06, DUP-01)', () => {
     expect(screen.getByRole('link', { name: 'Editar' })).toBeInTheDocument()
   })
 
-  it('LNK-06: expirada não edita nem cancela, e oferece "Renovar"', async () => {
+  it('LNK-06: expirada não edita nem cancela, e oferece "Renovar prazo" com o link morto', async () => {
     servir(detalhe(), 'expired')
     comLinkGuardado()
     montar()
@@ -256,7 +291,9 @@ describe('As ações por estado (LNK-05, LNK-06, DUP-01)', () => {
     // O link guardado de antes não é oferecido: ele venceu.
     expect(screen.queryByTestId('link-da-proposta')).toBeNull()
     expect(screen.getByText(LINK_EXPIRED)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Renovar' })).toBeInTheDocument()
+    expect(screen.getByText('Venceu em 07/11/2026.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Renovar prazo' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Gerar link novo' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Duplicar' })).toBeInTheDocument()
   })
 
@@ -270,14 +307,33 @@ describe('As ações por estado (LNK-05, LNK-06, DUP-01)', () => {
           return falha({ error: 'Os preços mudaram enquanto você montava. Confira o resumo.', code: 'prices_changed', summary: { items_total: 150 } })
         return { data: { id: ID, number: 'P-0007', version: 3, token: 'tok-r', expires_at: EXPIRA, repriced: true, summary: {} }, error: null }
       }
-      return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+      return respostaDoGet()
     }
     montar()
-    fireEvent.click(await screen.findByRole('button', { name: 'Renovar' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Renovar prazo' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Os preços mudaram enquanto você montava.')
     fireEvent.click(screen.getByRole('button', { name: /Renovar com o total de R\$\s?150,00/ }))
     await waitFor(() => expect(renews).toBe(2))
     expect(estado.invocacoes.filter((i) => i.nome.endsWith('renew'))[1].corpo).toEqual({ id: ID, expected_total: 150 })
+  })
+
+  it('renovar a expirada confirma com a frase nova e passa a mostrar o link novo', async () => {
+    servir(detalhe({ expires_at: '2026-10-31T15:00:00Z' }), 'expired')
+    estado.invocar = (nome) => {
+      if (nome === 'order-proposals?action=renew') {
+        servir(detalhe({ expires_at: EXPIRA }), 'open')
+        tokenDoGet = 'tok-renovado'
+        return { data: { id: ID, number: 'P-0007', version: 3, token: 'tok-renovado', expires_at: EXPIRA, repriced: false, summary: {} }, error: null }
+      }
+      return respostaDoGet()
+    }
+    montar()
+    fireEvent.click(await screen.findByRole('button', { name: 'Renovar prazo' }))
+    const frase = confirmar.mock.calls[0][0] as string
+    expect(frase).toBe(proposalRenewText({ name: 'Ana Souza Lima', expiresAt: '2026-10-31T15:00:00Z', now: new Date() }))
+    expect(frase).toMatch(/^O link venceu em 31\/10\. Os preços são conferidos de novo e sai um link novo, que vale até \d{2}\/\d{2}\. Mande o novo para Ana\.$/)
+    expect(await screen.findByTestId('link-da-proposta')).toHaveValue('https://loja.exemplo.invalid/pedido-montado#tok-renovado')
+    expect(estado.invocacoes.find((i) => i.nome.endsWith('renew'))?.corpo).toEqual({ id: ID })
   })
 
   it('concluída: leva ao pedido, sem editar, renovar nem cancelar', async () => {
@@ -285,7 +341,8 @@ describe('As ações por estado (LNK-05, LNK-06, DUP-01)', () => {
     comLinkGuardado()
     montar()
     expect(await screen.findByTestId('estado-da-proposta')).toHaveTextContent('Concluída')
-    expect(screen.getByRole('link', { name: 'Ver pedido #0244' })).toHaveAttribute('href', `/admin/pedidos/${PEDIDO}`)
+    expect(screen.getByRole('link', { name: 'Ver o pedido #0244' })).toHaveAttribute('href', `/admin/pedidos/${PEDIDO}`)
+    expect(screen.getByText(LINK_CLOSED)).toBeInTheDocument()
     for (const nome of ['Editar']) expect(screen.queryByRole('link', { name: nome })).toBeNull()
     for (const nome of [/Renovar/, 'Cancelar proposta', /Copiar link/, 'Gerar link novo']) expect(screen.queryByRole('button', { name: nome })).toBeNull()
     expect(screen.getByRole('link', { name: 'Duplicar' })).toBeInTheDocument()
@@ -306,21 +363,22 @@ describe('As ações por estado (LNK-05, LNK-06, DUP-01)', () => {
         servir(detalhe({ status: 'cancelled' }), 'cancelled')
         return { data: { id: ID }, error: null }
       }
-      return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+      return respostaDoGet()
     }
     montar()
     fireEvent.click(await screen.findByRole('button', { name: 'Cancelar proposta' }))
     expect(confirmar).toHaveBeenCalledWith(CANCEL_CONFIRM)
     expect(await screen.findByText('Cancelada', { selector: '[data-testid="estado-da-proposta"]' })).toBeInTheDocument()
     expect(estado.invocacoes.find((i) => i.nome.endsWith('cancel'))?.corpo).toEqual({ id: ID })
-    expect(window.sessionStorage.getItem(`estrelinha.admin.proposal-link.${ID}`)).toBeNull()
+    expect(screen.queryByTestId('link-da-proposta')).toBeNull()
+    expect(window.sessionStorage.length).toBe(0)
   })
 
   it('a falha de uma ação diz a frase do servidor', async () => {
     estado.invocar = (nome) =>
       nome === 'order-proposals?action=cancel'
         ? falha({ error: 'A proposta já foi concluída.' })
-        : { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+        : respostaDoGet()
     montar()
     fireEvent.click(await screen.findByRole('button', { name: 'Cancelar proposta' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('A proposta já foi concluída.')
@@ -422,15 +480,14 @@ describe('QA 89 — a 390 com fonte grande e pelo teclado', () => {
       estado.invocar = (nome) => {
         if (nome === 'order-proposals?action=renew')
           return { data: { id: ID, number: 'P-0007', version: 3, token: 'tok-novo', expires_at: EXPIRA, repriced: false, summary: {} }, error: null }
-        return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+        return respostaDoGet()
       }
+      tokenDoGet = null
       montar()
-      const botao = await screen.findByRole('button', { name: 'Renovar o prazo' })
+      const botao = await screen.findByRole('button', { name: 'Gerar link novo' })
       botao.focus()
       fireEvent.click(botao)
-      await waitFor(() =>
-        expect(document.activeElement).toHaveTextContent('https://loja.exemplo.invalid/pedido-montado#tok-novo'),
-      )
+      await waitFor(() => expect(document.activeElement).toHaveValue('https://loja.exemplo.invalid/pedido-montado#tok-novo'))
       expect(document.activeElement).toBe(screen.getByTestId('link-da-proposta'))
       expect(regiao()).toHaveAttribute('aria-live', 'polite')
       expect(regiao()).toHaveTextContent(RENEWED_ANNOUNCE)
@@ -444,7 +501,7 @@ describe('QA 89 — a 390 com fonte grande e pelo teclado', () => {
           servir(detalhe({ status: 'cancelled' }), 'cancelled')
           return { data: { id: ID }, error: null }
         }
-        return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+        return respostaDoGet()
       }
       montar()
       const botao = await screen.findByRole('button', { name: 'Cancelar proposta' })
@@ -460,7 +517,7 @@ describe('QA 89 — a 390 com fonte grande e pelo teclado', () => {
       estado.invocar = (nome) =>
         nome === 'order-proposals?action=cancel'
           ? falha({ error: 'A proposta já foi concluída.' })
-          : { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+          : respostaDoGet()
       montar()
       const botao = await screen.findByRole('button', { name: 'Cancelar proposta' })
       botao.focus()
@@ -484,7 +541,7 @@ describe('A observação', () => {
         servir({ ...atual.proposal, admin_note: corpo.admin_note }, atual.state)
         return { data: { id: ID, admin_note: corpo.admin_note }, error: null }
       }
-      return { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+      return respostaDoGet()
     }
   }
 
@@ -516,7 +573,7 @@ describe('A observação', () => {
     estado.invocar = (nome) =>
       nome === 'order-proposals?action=note'
         ? falha({ error: 'Esta proposta já virou pedido: a observação agora é a do pedido.', code: 'completed' })
-        : { data: { proposal: atual.proposal, state: atual.state, actions: {} }, error: null }
+        : respostaDoGet()
     montar()
     fireEvent.change(await screen.findByRole('textbox', { name: 'Observação' }), { target: { value: '   ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Salvar observação' }))
