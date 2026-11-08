@@ -30,3 +30,16 @@ export {
   type CustomerCursor,
 } from './cursor.ts'
 export { customerOrdersCondition, directoryEmailCondition } from './link.ts'
+export {
+  ADDRESS_FIELDS,
+  CONTACT_FIELDS,
+  CUSTOMER_PARSE_MODES,
+  CUSTOMER_PARSE_TEXT_MAX,
+  parseCustomerText,
+  parsedFieldCount,
+  type CustomerParseMode,
+  type ParsedAddress,
+  type ParsedContact,
+  type ParsedCustomer,
+} from './parse.ts'
+export { mergeCep, type CepField, type CepMerge, type CepServiceAnswer } from './mergeCep.ts'

@@ -1,6 +1,7 @@
 /**
  * `core/customers` é alcançável por caminho relativo (Deno, e hoje Node/Vite): o grafo TRANSITIVO —
- * `customers` → `orders/queue.ts`, `orders/list.ts`, `orders/views.ts`, `paging/pageMath.ts` — tem de
+ * `customers` → `orders/queue.ts`, `orders/list.ts`, `orders/views.ts`, `paging/pageMath.ts` e as folhas
+ * `validators/{cpf,phone,email,cep}.ts` — tem de
  * ter `.ts` em todo especificador relativo, `import type` incluso, e nenhum import de pacote. Vite e
  * vitest resolvem as duas formas; o Deno derruba o worker com `Failed resolving types`.
  * Molde: `core/seo/__tests__/denoReach.test.ts`, com o leitor injetável para o sensor.
@@ -50,12 +51,25 @@ describe('core/customers é alcançável por Deno', () => {
   const nomes = grafo.visitados.map((c) => c.replace(/\\/g, '/'))
 
   it('âncora: o grafo alcança as dependências de fora de customers', () => {
-    for (const fim of ['orders/queue.ts', 'orders/list.ts', 'orders/views.ts', 'paging/pageMath.ts'])
+    for (const fim of [
+      'orders/queue.ts',
+      'orders/list.ts',
+      'orders/views.ts',
+      'paging/pageMath.ts',
+      'validators/cpf.ts',
+      'validators/phone.ts',
+      'validators/email.ts',
+      'validators/cep.ts',
+    ])
       expect(nomes.some((n) => n.endsWith(fim)), fim).toBe(true)
   })
 
-  it('âncora: o número de arquivos do grafo é o MEDIDO (customers 8 + orders 3 + paging 1 = 12)', () => {
-    expect(grafo.visitados.length).toBe(12)
+  it('âncora: o grafo alcança a leitura do texto colado e a fusão do CEP', () => {
+    for (const fim of ['customers/parse.ts', 'customers/mergeCep.ts']) expect(nomes.some((n) => n.endsWith(fim)), fim).toBe(true)
+  })
+
+  it('âncora: o número de arquivos do grafo é o MEDIDO (customers 10 + orders 3 + paging 1 + validators 4 = 18)', () => {
+    expect(grafo.visitados.length).toBe(18)
   })
 
   it('nenhum especificador relativo sem `.ts` em todo o grafo', () => {
@@ -68,6 +82,11 @@ describe('core/customers é alcançável por Deno', () => {
 
   it('sensor — um `import type` sem extensão num arquivo do grafo é acusado', () => {
     const falso: Leitor = (c) => (c.endsWith('slices.ts') ? `import type { X } from ${"'./open'"}` : disco(c))
+    expect(caminhar(ENTRADA, falso).semExtensao.length).toBeGreaterThan(0)
+  })
+
+  it('sensor — um import sem extensão de uma folha de validators, em parse.ts, é acusado', () => {
+    const falso: Leitor = (c) => (c.endsWith('parse.ts') ? `import { isValidCpf } from ${"'../validators/cpf'"}` : disco(c))
     expect(caminhar(ENTRADA, falso).semExtensao.length).toBeGreaterThan(0)
   })
 
