@@ -61,7 +61,12 @@ import {
   type ProposalState,
 } from '../../../packages/core/src/proposals/index.ts'
 import { couponRefusal, couponRuleOf } from '../../../packages/core/src/coupons/rules.ts'
-import type { CouponRule, ProgressivePromotion } from '../../../packages/core/src/payment/pricing.ts'
+import {
+  resolveProgressiveTier,
+  tierUnitPrice,
+  type CouponRule,
+  type ProgressivePromotion,
+} from '../../../packages/core/src/payment/pricing.ts'
 import { isPriceError, resolveItemPrice, variantLabel } from '../../../packages/core/src/pricing/index.ts'
 import {
   engravingRefusal,
@@ -242,8 +247,13 @@ interface CupomConferido {
   first_order_only: boolean
 }
 
+/** A promoção vigente, com o nome que a montagem do app mostra ao lado da peça. */
+type PromocaoVigente = ProgressivePromotion & { name: string }
+
 interface Precificado {
   price: ProposalDraftPrice<LinhaRelida>
+  /** As promoções vigentes que entraram na conta (só para dizer qual valeu em cada linha). */
+  promocoes: PromocaoVigente[]
   coupon: { id: string; code: string } | null
   /** O cupom conferido, aplicado ou não (a promoção pode tê-lo vencido); `null` sem cupom. */
   conferido: CupomConferido | null
@@ -292,11 +302,11 @@ async function promocoesVigentes(
   deps: Deps,
   productIds: string[],
   now: Date,
-): Promise<ProgressivePromotion[]> {
+): Promise<PromocaoVigente[]> {
   const { data: promotionRows } = await deps.supabase
     .from('promotions')
     .select(
-      'id, discount_kind, scope, stacks_with_coupon, active, valid_from, valid_until, created_at, promotion_tiers(min_qty, value)',
+      'id, name, discount_kind, scope, stacks_with_coupon, active, valid_from, valid_until, created_at, promotion_tiers(min_qty, value)',
     )
 
   const vivas = (promotionRows || []).filter((p: any) => {
@@ -325,6 +335,7 @@ async function promocoesVigentes(
 
   return vivas.map((p: any) => ({
     id: String(p.id),
+    name: String(p.name ?? ''),
     discount_kind: p.discount_kind,
     tiers: (p.promotion_tiers || []).map((t: any) => ({ min_qty: Number(t.min_qty), value: Number(t.value) })),
     scope: p.scope,
@@ -491,7 +502,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
   })
   if (price.refusal) return recusa(price.refusal, 'draft_refused')
 
-  return { ok: true, value: { price, coupon: price.couponApplied ? coupon : null, conferido } }
+  return { ok: true, value: { price, promocoes: promotions, coupon: price.couponApplied ? coupon : null, conferido } }
 }
 
 /** O resumo que a tela redesenha — os mesmos números que ficam travados. */
@@ -1220,6 +1231,35 @@ async function pixDosItens(deps: Deps, p: Precificado): Promise<{ percent: numbe
 }
 
 /**
+ * A promoção que valeu em cada linha, na ordem das peças pedidas — para a montagem do app mostrar
+ * "<nome> · 15%" ao lado da peça. Só exibição: o preço travado da linha (`unit_price`) já é o da conta.
+ * A linha cujo preço não caiu (sem promoção, abaixo da faixa, fora do escopo, ou o cupom que venceu a
+ * promoção) fica `null`. Qual promoção: a que dá aquele preço na linha, pelas mesmas regras de
+ * `core` (a faixa alcançada e o preço por faixa); no empate de preço, a mais antiga.
+ */
+function promocaoDasLinhas(p: Precificado): Array<{ promotion: { name: string; percent: number } | null }> {
+  const valeu = p.price.winner === 'promotion' || p.price.winner === 'both'
+  const itens = p.price.lockedLines.map(({ line }) => ({ product_id: line.product_id, unit_price: line.list_price, quantity: line.quantity }))
+  const candidatas = valeu
+    ? p.promocoes.flatMap((promo) => {
+        const faixa = resolveProgressiveTier(itens, promo)
+        return faixa ? [{ promo, faixa }] : []
+      })
+    : []
+  return p.price.lockedLines.map(({ line, unit_price }) => {
+    if (!(unit_price < line.list_price)) return { promotion: null }
+    const quem = candidatas
+      .filter(({ promo }) => promo.scope === 'all' || promo.eligibleProductIds.includes(line.product_id))
+      .filter(({ promo, faixa }) => tierUnitPrice(line.list_price, promo.discount_kind, faixa.value) === unit_price)
+      .sort((a, b) => (a.promo.created_at === b.promo.created_at ? (a.promo.id < b.promo.id ? -1 : 1) : a.promo.created_at < b.promo.created_at ? -1 : 1))[0]
+    if (!quem) return { promotion: null }
+    const percent =
+      quem.promo.discount_kind === 'percent' ? quem.faixa.value : Math.round((1 - unit_price / line.list_price) * 100)
+    return { promotion: { name: quem.promo.name, percent } }
+  })
+}
+
+/**
  * A montagem do app manda só a escolha (peças, cupom, desconto combinado, e-mail) e recebe o
  * resumo que o `save` travaria — a mesma `precificar`, sem RPC e sem gravar. O cupom recusado volta
  * 422 com o texto da loja (o app não o aplica). O desconto combinado recusado (itens abaixo de R$ 1,00,
@@ -1258,6 +1298,7 @@ async function preview(deps: Deps, req: Request, body: any): Promise<Response> {
     coupon: precificado.value.conferido,
     manual_refusal: manualRefusal,
     items_pix: itemsPix,
+    lines: promocaoDasLinhas(precificado.value),
   })
 }
 

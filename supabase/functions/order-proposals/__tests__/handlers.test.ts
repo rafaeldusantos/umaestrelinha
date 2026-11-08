@@ -1335,6 +1335,77 @@ describe('preview', () => {
   })
 })
 
+describe('preview — a promoção vigente por linha', () => {
+  const promo = (over: Record<string, unknown>) => ({
+    id: 'promo-out',
+    name: 'Promoção de outubro',
+    discount_kind: 'percent',
+    scope: 'all',
+    stacks_with_coupon: false,
+    active: true,
+    valid_from: null,
+    valid_until: null,
+    created_at: '2026-01-01T00:00:00Z',
+    promotion_tiers: [{ min_qty: 2, value: 15 }],
+    ...over,
+  })
+  const previa = async (promocoes: unknown[], lines: unknown[], extra: FakeSupabaseOptions = {}) => {
+    const f = ambiente({ ...extra, lists: { promotions: promocoes, ...(extra.lists ?? {}) } })
+    const res = await route(f.deps, pedir('preview', { lines, customer_email: 'maria@exemplo.invalid' }))
+    expect(res.status).toBe(200)
+    return (await res.json()).lines
+  }
+
+  it('devolve, na ordem das peças pedidas, o nome e a porcentagem da promoção que vale para cada uma', async () => {
+    const linhas = await previa([promo({})], [
+      { product_id: P1, variant_id: null, quantity: 2 },
+      { product_id: P2, variant_id: V2A, quantity: 1 },
+    ])
+    // 3 unidades na faixa de 2 ⇒ 15% nas duas peças.
+    expect(linhas).toEqual([
+      { promotion: { name: 'Promoção de outubro', percent: 15 } },
+      { promotion: { name: 'Promoção de outubro', percent: 15 } },
+    ])
+  })
+
+  it('a peça fora do escopo da promoção, ou abaixo da faixa, fica sem promoção', async () => {
+    const soP1 = promo({ scope: 'categories' })
+    const elegiveis = { promotion_eligible_products: [{ promotion_id: 'promo-out', product_id: P1 }] }
+    expect(
+      await previa([soP1], [{ product_id: P1, variant_id: null, quantity: 2 }, { product_id: P2, variant_id: V2A, quantity: 1 }], { lists: elegiveis }),
+    ).toEqual([{ promotion: { name: 'Promoção de outubro', percent: 15 } }, { promotion: null }])
+    expect(await previa([promo({})], [{ product_id: P1, variant_id: null, quantity: 1 }])).toEqual([{ promotion: null }])
+  })
+
+  it('sem promoção vigente, nada; a de preço por unidade diz a porcentagem que ela tira', async () => {
+    expect(await previa([], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([{ promotion: null }])
+    expect(await previa([promo({ valid_until: '2026-10-01T00:00:00Z' })], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([
+      { promotion: null },
+    ])
+    // 100 → 80 por unidade: 20%.
+    const porUnidade = promo({ discount_kind: 'unit_price', promotion_tiers: [{ min_qty: 2, value: 80 }] })
+    expect(await previa([porUnidade], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([
+      { promotion: { name: 'Promoção de outubro', percent: 20 } },
+    ])
+  })
+
+  it('duas promoções com o mesmo preço: a peça fora do escopo da mais antiga diz a outra', async () => {
+    const soP1 = promo({ scope: 'categories' })
+    const todas = promo({ id: 'promo-b', name: 'Semana da saudade', created_at: '2026-02-01T00:00:00Z' })
+    const elegiveis = { promotion_eligible_products: [{ promotion_id: 'promo-out', product_id: P1 }] }
+    expect(
+      await previa([soP1, todas], [{ product_id: P1, variant_id: null, quantity: 2 }, { product_id: P2, variant_id: V2A, quantity: 1 }], { lists: elegiveis }),
+    ).toEqual([{ promotion: { name: 'Promoção de outubro', percent: 15 } }, { promotion: { name: 'Semana da saudade', percent: 15 } }])
+  })
+
+  it('duas promoções: cada peça diz a que venceu nela (o menor preço)', async () => {
+    const maior = promo({ id: 'promo-b', name: 'Semana da saudade', created_at: '2026-02-01T00:00:00Z', promotion_tiers: [{ min_qty: 2, value: 25 }] })
+    expect(await previa([promo({}), maior], [{ product_id: P1, variant_id: null, quantity: 2 }])).toEqual([
+      { promotion: { name: 'Semana da saudade', percent: 25 } },
+    ])
+  })
+})
+
 describe('roteamento', () => {
   it('OPTIONS responde o preflight', async () => {
     const f = ambiente()

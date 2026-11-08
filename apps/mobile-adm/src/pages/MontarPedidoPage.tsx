@@ -61,6 +61,8 @@ import {
   pedidoDoResumo,
   useAplicarCupom,
   useResumoDaMontagem,
+  usePromocaoDasLinhas,
+  type PromocaoDaLinha,
   reduzirMontagem,
   usePassosDaMontagem,
   type Entrega,
@@ -245,8 +247,19 @@ const MontarPedidoPage = () => {
   const cotacao = useCotacaoDaRevisao(enderecoDaRevisao, estado.pecas, passos.passo === 4)
   const relogio = useRelogioDaMontagem(passos.passo === 4 && editando === null)
 
+  // A promoção vigente de cada linha da sacola (o passo 2), pela prévia do servidor; e a recusa que a
+  // prévia da folha da variação devolver.
+  const promocaoDaSacola = usePromocaoDasLinhas(passos.passo === 2 ? estado.pecas : null, emailDaCliente)
+  const promocoesDaSacola = new Map<string, PromocaoDaLinha>()
+  promocaoDaSacola.promocoes?.forEach((p, i) => {
+    if (p && estado.pecas[i]) promocoesDaSacola.set(estado.pecas[i].chave, p)
+  })
+  const [recusaDaFolha, setRecusaDaFolha] = useState<unknown>(null)
+
   const recusada = useRecusaDePapel(
     [
+      promocaoDaSacola.erroBruto,
+      recusaDaFolha,
       busca.error,
       enderecos.error,
       ficha.error,
@@ -352,6 +365,7 @@ const MontarPedidoPage = () => {
   }
 
   const abrirPeca = (peca: PecaParaProposta, linha: LinhaDaSacola | null) => {
+    setRecusaDaFolha(null)
     setEscolha({ peca, linha })
     folhaDaVariacao.abrir()
   }
@@ -516,6 +530,7 @@ const MontarPedidoPage = () => {
               despachar({ tipo: 'remover-peca', chave: linha.chave })
               setAviso([PECA_REMOVIDA])
             }}
+            promocoes={promocoesDaSacola}
           />
         )}
         {passos.passo === 3 && !recusada && (
@@ -610,6 +625,8 @@ const MontarPedidoPage = () => {
         editando={escolha?.linha ?? null}
         sacola={estado.pecas}
         aoConfirmar={confirmarPeca}
+        emailDaCliente={emailDaCliente}
+        aoRecusarPapel={setRecusaDaFolha}
       />
       <FolhaColarTexto
         controle={folhaDeLeitura}

@@ -14,6 +14,7 @@ import {
   DICA_DA_BUSCA_DE_JOIA,
   EDITAR,
   PEDE_MATERIAL_DA_CLIENTE,
+  etiquetaDaPromocao,
   buscarPecas,
   editarPeca,
   gravacaoDaLinha,
@@ -25,6 +26,7 @@ import {
   tituloDaSacola,
   type LinhaDaSacola,
 } from '../model/sacola'
+import type { PromocaoDaLinha } from '../model/tipos'
 
 /** O tempo que o campo espera a próxima tecla — a busca é no aparelho, sobre o catálogo já lido. */
 const ATRASO_DA_BUSCA_MS = 150
@@ -44,6 +46,8 @@ export interface PassoDasPecasProps {
   aoEscolherPeca: (peca: PecaParaProposta) => void
   aoEditar: (linha: LinhaDaSacola) => void
   aoRemover: (linha: LinhaDaSacola) => void
+  /** A promoção vigente de cada linha (pela chave), como a prévia do servidor a disse. Só exibição. */
+  promocoes?: ReadonlyMap<string, PromocaoDaLinha>
 }
 
 /**
@@ -52,7 +56,7 @@ export interface PassoDasPecasProps {
  * resultado com a capa e "a partir de R$ … · N em estoque · pede material". Tocar uma peça abre a folha
  * da variação; a conta da peça é a do preço cheio (o desconto é do passo seguinte).
  */
-const PassoDasPecas = ({ sacola, catalogo, geracaoDaBusca, aoEscolherPeca, aoEditar, aoRemover }: PassoDasPecasProps) => {
+const PassoDasPecas = ({ sacola, catalogo, geracaoDaBusca, aoEscolherPeca, aoEditar, aoRemover, promocoes }: PassoDasPecasProps) => {
   const [termo, setTermo] = useState('')
   const [geracaoVista, setGeracaoVista] = useState(geracaoDaBusca)
   if (geracaoVista !== geracaoDaBusca) {
@@ -76,9 +80,16 @@ const PassoDasPecas = ({ sacola, catalogo, geracaoDaBusca, aoEscolherPeca, aoEdi
                   {l.rotulo && <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{l.rotulo}</p>}
                   {l.gravacao !== '' && <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{gravacaoDaLinha(l.gravacao)}</p>}
                   <p className="text-sm tabular-nums text-estrelinha-ink-soft">{quantidadeVezesPreco(l.quantidade, l.preco)}</p>
-                  {l.pedeMaterial && (
-                    <p>
-                      <span className="inline-block rounded-full bg-estrelinha-ground-deep px-2 py-0.5 text-xs text-estrelinha-ink">{PEDE_MATERIAL_DA_CLIENTE}</span>
+                  {(l.pedeMaterial || promocoes?.get(l.chave)) && (
+                    <p className="flex flex-wrap gap-1">
+                      {l.pedeMaterial && (
+                        <span className="inline-block rounded-full bg-estrelinha-ground-deep px-2 py-0.5 text-xs text-estrelinha-ink">{PEDE_MATERIAL_DA_CLIENTE}</span>
+                      )}
+                      {promocoes?.get(l.chave) && (
+                        <span className="inline-block rounded-full bg-estrelinha-ground-deep px-2 py-0.5 text-xs text-estrelinha-ink [overflow-wrap:anywhere]">
+                          {etiquetaDaPromocao(promocoes.get(l.chave)!)}
+                        </span>
+                      )}
                     </p>
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

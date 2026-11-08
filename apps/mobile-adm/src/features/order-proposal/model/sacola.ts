@@ -185,3 +185,8 @@ export const removerPeca = (nome: string): string => `Remover ${nome}`
 export const UMA_A_MENOS = 'Uma a menos'
 export const UMA_A_MAIS = 'Uma a mais'
 export const CARREGANDO_O_CATALOGO = 'Carregando as joias'
+const porcentagem = (n: number): string => `${String(n).replace('.', ',')}%`
+/** A promoção na folha da variação: "Promoção de outubro · 15% nesta peça". */
+export const promocaoNestaPeca = (p: { name: string; percent: number }): string => `${p.name} · ${porcentagem(p.percent)} nesta peça`
+/** A etiqueta da promoção na linha da sacola: "Promoção de outubro · 15%". */
+export const etiquetaDaPromocao = (p: { name: string; percent: number }): string => `${p.name} · ${porcentagem(p.percent)}`

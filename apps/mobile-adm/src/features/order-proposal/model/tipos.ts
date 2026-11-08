@@ -132,6 +132,14 @@ export interface PreviaDaMontagem {
   manual_refusal: string | null
   /** O PIX dos itens, ou `null` (PIX desligado ou sem desconto). */
   items_pix: { percent: number; total: number } | null
+  /** Por peça pedida, na mesma ordem: a promoção que vale nela, ou `null`. Só exibição. */
+  lines?: { promotion: PromocaoDaLinha | null }[]
+}
+
+/** A promoção vigente que vale numa peça, como o servidor a diz: o nome e a porcentagem. */
+export interface PromocaoDaLinha {
+  name: string
+  percent: number
 }
 
 /** A resposta do `save`: a proposta gravada e — só ao criar — o token do link e o prazo. */

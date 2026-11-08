@@ -82,3 +82,5 @@ export {
   type Rascunho,
   type Retomada,
 } from './model/rascunho'
+export type { PromocaoDaLinha } from './model/tipos'
+export { usePromocaoDasLinhas, type PromocaoDasLinhas } from './model/usePromocaoDasLinhas'

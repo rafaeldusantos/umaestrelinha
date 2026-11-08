@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@estrelinha/ui/sheet'
 import { formatPrice } from '@estrelinha/core/formatters'
@@ -27,8 +27,10 @@ import {
   escolhaDisponivel,
   escolhaGrava,
   estoqueDaEscolha,
+  linhaDaEscolha,
   passaDoEstoque,
   precoDaEscolha,
+  promocaoNestaPeca,
   rotuloDoEixo,
   salvarPor,
   soHaEmEstoque,
@@ -36,6 +38,7 @@ import {
   variacaoInicial,
   type LinhaDaSacola,
 } from '../model/sacola'
+import { usePromocaoDasLinhas } from '../model/usePromocaoDasLinhas'
 
 /**
  * A folha da variação do passo 2 — no histórico (o voltar do Android a fecha), molde de `FolhaColarTexto`.
@@ -48,6 +51,8 @@ import {
  * - A gravação só aparece na variação que grava, com o teto da peça.
  * - Editar reabre a mesma folha com a escolha da linha, e o botão diz "Salvar".
  * - O estado da escolha vive no corpo da folha: desmonta ao fechar.
+ * - **A promoção vigente** ("<promoção> · 15% nesta peça") vem da prévia do servidor, com a sacola e a
+ *   escolha de agora (a faixa conta as unidades); sem promoção, ou com a prévia falhando, nada aparece.
  */
 export interface FolhaDaVariacaoProps {
   controle: FolhaNaEntrada
@@ -56,12 +61,23 @@ export interface FolhaDaVariacaoProps {
   editando: LinhaDaSacola | null
   sacola: readonly LinhaDaSacola[]
   aoConfirmar: (escolha: { variacao: VariacaoDaPeca | null; quantidade: number; gravacao: string }) => void
+  /** O e-mail da cliente, que vai à prévia com a escolha. */
+  emailDaCliente: string
+  /** A recusa (`42501`) da prévia — a página a entrega à vigia. */
+  aoRecusarPapel: (erro: unknown) => void
 }
 
 const textoDoChip = (peca: PecaParaProposta, v: VariacaoDaPeca): string =>
   !v.disponivel ? ESGOTADA : peca.politica !== 'track' ? ESTOQUE_LIVRE : emEstoque(v.estoque)
 
-const Corpo = ({ peca, editando, sacola, aoConfirmar }: Omit<FolhaDaVariacaoProps, 'controle'> & { peca: PecaParaProposta }) => {
+const Corpo = ({
+  peca,
+  editando,
+  sacola,
+  aoConfirmar,
+  emailDaCliente,
+  aoRecusarPapel,
+}: Omit<FolhaDaVariacaoProps, 'controle'> & { peca: PecaParaProposta }) => {
   const [variacao, setVariacao] = useState<VariacaoDaPeca | null>(() =>
     editando ? (variacaoDe(peca, editando.variacaoId) ?? variacaoInicial(peca)) : variacaoInicial(peca),
   )
@@ -78,6 +94,18 @@ const Corpo = ({ peca, editando, sacola, aoConfirmar }: Omit<FolhaDaVariacaoProp
   const total = (preco ?? 0) * quantidade
   const foto = variacao ? variacao.imagem : peca.imagem
 
+  // A prévia da sacola com a escolha da folha no lugar da linha editada (a gravação não entra: ela não
+  // muda a promoção). Sem a variação que a peça pede, ou sem preço, não há o que perguntar.
+  const perguntavel = preco !== null && (peca.variacoes.length === 0 || variacao !== null)
+  const linhas = perguntavel
+    ? [...sacola.filter((l) => l.chave !== editando?.chave), linhaDaEscolha('escolha-da-folha', peca, variacao, quantidade, '')]
+    : null
+  const promocao = usePromocaoDasLinhas(linhas, emailDaCliente)
+  const daEscolha = promocao.promocoes?.[promocao.promocoes.length - 1] ?? null
+  useEffect(() => {
+    if (promocao.erroBruto) aoRecusarPapel(promocao.erroBruto)
+  }, [promocao.erroBruto, aoRecusarPapel])
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <div className="flex gap-3">
@@ -85,6 +113,7 @@ const Corpo = ({ peca, editando, sacola, aoConfirmar }: Omit<FolhaDaVariacaoProp
         <div className="min-w-0 flex-1 space-y-1">
           <SheetTitle className="font-display text-lg text-estrelinha-ink [overflow-wrap:anywhere]">{peca.nome}</SheetTitle>
           <SheetDescription className="text-base tabular-nums text-estrelinha-ink">{preco === null ? '—' : formatPrice(preco)}</SheetDescription>
+          {daEscolha && <p className="text-sm text-estrelinha-ink [overflow-wrap:anywhere]">{promocaoNestaPeca(daEscolha)}</p>}
           {variacao && <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{variacao.rotulo}</p>}
         </div>
       </div>
