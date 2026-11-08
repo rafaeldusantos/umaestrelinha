@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest'
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 
 const PASTAS = ['features/order-proposal/', 'widgets/proposal-list/']
-const PAGINAS = ['pages/PedidoMontadoPage.tsx']
+const PAGINAS = ['pages/PedidoMontadoPage.tsx', 'pages/MontarPedidoPage.tsx']
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -99,6 +99,10 @@ describe('o registro dos pedidos montados é memorial — âncoras', () => {
         'features/order-proposal/ui/CartaoDoLink.tsx',
         'widgets/proposal-list/ui/ListaDeMontados.tsx',
         'pages/PedidoMontadoPage.tsx',
+        // A montagem de um pedido.
+        'features/order-proposal/model/montagem.ts',
+        'features/order-proposal/ui/PassoDaCliente.tsx',
+        'pages/MontarPedidoPage.tsx',
       ]),
     )
     expect(ESCOPO.length).toBeGreaterThanOrEqual(8)
@@ -115,6 +119,10 @@ describe('o registro dos pedidos montados é memorial — âncoras', () => {
       'Cancelado. Quem abrir o link lê que este pedido não está mais disponível.',
       'Quem abrir o link vai ler que este pedido não está mais disponível. Não dá para desfazer.',
       'Frete: a cliente escolhe no link.',
+      // A montagem.
+      'Sair sem criar o link?',
+      'Nada foi gravado ainda. A montagem se perde ao sair.',
+      "Complete o endereço, ou escolha 'A cliente preenche no link'.",
     ])
       expect(junto).toContain(frase)
   })

@@ -27,6 +27,14 @@
 // (`features/order-proposal/model/frases.ts`); o termo segue recusado em qualquer outro lugar — inclusive
 // em toda a aba Clientes. Sensor: a mesma linha noutro arquivo é acusada.
 //
+// **A montagem de um pedido, por arquivo e texto exatos**: a Adri digita e confere o
+// documento e o endereço de entrega da cliente, e vê os endereços salvos dela — só dentro da montagem.
+// Passam a leitura da tabela de endereços em `entities/customer/api/clientesDaMontagem.ts` (a única
+// linha com o termo num arquivo de cliente — a régua 1b aceita essa e mais nenhuma) e o rótulo do campo
+// do documento em `features/order-proposal/ui/PassoDaCliente.tsx`. As duas listas novas de colunas
+// (`COLUNAS_DA_MONTAGEM`, sem documento; `COLUNAS_DO_ENDERECO_SALVO`) foram conferidas no banco local
+// em 2026-11-07. Sensor: as mesmas linhas noutro arquivo são acusadas.
+//
 // Escopo: `apps/mobile-adm/src`, só produção. Os arquivos de fixtura (`src/test/`) ficam de fora: são
 // dado sintético de teste.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -70,6 +78,9 @@ const PERMITIDAS = [
   // O documento da cliente no pedido montado — a declaração no tipo e a leitura, e só elas.
   { rel: 'features/order-proposal/model/tipos.ts', texto: 'customer_document: string | null' },
   { rel: 'features/order-proposal/model/frases.ts', texto: 'const documento = limpo(p.customer_document)' },
+  // A montagem de um pedido: a leitura dos endereços salvos e o rótulo do documento.
+  { rel: 'entities/customer/api/clientesDaMontagem.ts', texto: ".from('addresses')" },
+  { rel: 'features/order-proposal/ui/PassoDaCliente.tsx', texto: 'rotulo="CPF (opcional)"' },
 ]
 const permitida = (rel: string, linha: string) => PERMITIDAS.some((p) => p.rel === rel && p.texto === linha.trim())
 
@@ -92,6 +103,9 @@ const ESPERADAS: Record<string, string[]> = {
   COLUNAS_DOS_ITENS: ['order_id', 'product_name'],
   COLUNAS_DA_CIDADE: ['address_city', 'address_state'],
   COLUNAS_DO_ACHADO: ['id'],
+  // A montagem, medidas no banco local em 2026-11-07 (`information_schema.columns`).
+  COLUNAS_DA_MONTAGEM: ['id', 'name', 'email', 'phone', 'has_account', 'orders_total'],
+  COLUNAS_DO_ENDERECO_SALVO: ['id', 'label', 'cep', 'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'is_default', 'created_at'],
 }
 
 /** Lê as constantes `COLUNAS_*` do texto do dono: uma string (ou soma de strings) de colunas separadas por vírgula. */
@@ -120,13 +134,13 @@ describe('âncoras', () => {
     )
   })
 
-  it('as seis constantes COLUNAS_* foram achadas no dono (um parser cego aprovaria todas)', () => {
+  it('as oito constantes COLUNAS_* foram achadas no dono (um parser cego aprovaria todas)', () => {
     const achadas = lerColunas(readFileSync(join(SRC, LINHA), 'utf8').replace(/\r\n?/g, '\n'))
     expect(Object.keys(achadas).sort()).toEqual(Object.keys(ESPERADAS).sort())
   })
 
   it('cada hook de leitura passa uma constante COLUNAS_* ao `select` (nenhuma lista solta no hook)', () => {
-    const hooks = ['useListaDeClientes', 'useCliente', 'usePedidosDoCliente', 'buscarClientePorEmail']
+    const hooks = ['useListaDeClientes', 'useCliente', 'usePedidosDoCliente', 'buscarClientePorEmail', 'clientesDaMontagem']
     for (const h of hooks) {
       const a = PRODUCAO.find((p) => p.rel === `entities/customer/api/${h}.ts`)!
       const selects = [...a.codigo.matchAll(/\.select\(\s*([^,)\s]+)/g)].map((m) => m[1])
@@ -141,11 +155,11 @@ describe('régua 1 — os termos sensíveis não aparecem no app', () => {
     expect(termosEm(PRODUCAO)).toEqual([])
   })
 
-  it('1b — a exceção da `82` existe UMA vez, no dono das colunas do pedido, e nenhum arquivo de cliente cita o termo', () => {
+  it('1b — a exceção da `82` existe UMA vez, no dono das colunas do pedido, e nenhum arquivo de cliente cita o termo — fora a leitura dos endereços da montagem', () => {
     const naLinha = PRODUCAO.find((a) => a.rel === 'entities/order/model/linha.ts')!
     expect(naLinha.codigo.split('\n').filter((l) => TERMOS.test(l)).map((l) => l.trim())).toEqual([PERMITIDAS[0].texto])
-    const deCliente = DE_CLIENTE.flatMap((a) => a.codigo.split('\n').filter((l) => TERMOS.test(l)))
-    expect(deCliente).toEqual([])
+    const deCliente = DE_CLIENTE.flatMap((a) => a.codigo.split('\n').filter((l) => TERMOS.test(l)).map((l) => `${a.rel} ${l.trim()}`))
+    expect(deCliente).toEqual(["entities/customer/api/clientesDaMontagem.ts .from('addresses')"])
   })
 
   it('as exceções do pedido montado existem UMA vez cada, e nenhum outro arquivo do pedido montado cita o termo', () => {
@@ -161,6 +175,14 @@ describe('régua 1 — os termos sensíveis não aparecem no app', () => {
     expect(termosEm([{ rel: 'pages/PedidoMontadoPage.tsx', codigo: '  {p.customer_document}' }])).toHaveLength(1)
     expect(termosEm([{ rel: 'features/order-proposal/model/tipos.ts', codigo: '  customer_document: string' }])).toHaveLength(1)
     expect(termosEm([{ rel: 'features/order-proposal/model/tipos.ts', codigo: '  customer_document: string | null' }])).toEqual([])
+  })
+
+  it('sensor das exceções da montagem: a leitura dos endereços e o rótulo do documento noutro arquivo são acusados', () => {
+    expect(termosEm([{ rel: 'entities/customer/api/useCliente.ts', codigo: "      .from('addresses')" }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'pages/ClientePage.tsx', codigo: '              rotulo="CPF (opcional)"' }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'entities/customer/api/clientesDaMontagem.ts', codigo: "  .select('id, cpf')" }])).toHaveLength(1)
+    expect(termosEm([{ rel: 'entities/customer/api/clientesDaMontagem.ts', codigo: "      .from('addresses')" }])).toEqual([])
+    expect(termosEm([{ rel: 'features/order-proposal/ui/PassoDaCliente.tsx', codigo: '              rotulo="CPF (opcional)"' }])).toEqual([])
   })
 
   it('sensor da exceção: a mesma linha noutro arquivo é acusada', () => {

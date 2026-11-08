@@ -5,7 +5,11 @@ export {
   COLUNAS_DO_ACHADO,
   COLUNAS_DO_PEDIDO,
   COLUNAS_DOS_ITENS,
+  COLUNAS_DA_MONTAGEM,
+  COLUNAS_DO_ENDERECO_SALVO,
   type CabecalhoDeCliente,
+  type ClienteDaMontagem,
+  type EnderecoSalvo,
   type FichaDeCliente,
   type JanelaDeClientes,
   type LinhaDeCliente,
@@ -47,3 +51,11 @@ export { buscarClientePorEmail } from './api/buscarClientePorEmail'
 export { default as LinhaDoCliente } from './ui/LinhaDoCliente'
 export { default as SeloEmAberto, ROTULO_EM_ABERTO } from './ui/SeloEmAberto'
 export { default as Inicial } from './ui/Inicial'
+export {
+  CLIENTES_DA_MONTAGEM_KEY,
+  ENDERECOS_SALVOS_KEY,
+  FICHA_POR_EMAIL_KEY,
+  useClientesDaMontagem,
+  useEnderecosSalvos,
+  useFichaPorEmail,
+} from './api/clientesDaMontagem'

@@ -71,6 +71,11 @@ const ARQUIVOS = [
   'features/order-proposal/ui/SeloDoMontado.tsx',
   'features/order-proposal/ui/CartaoDoLink.tsx',
   'features/order-proposal/ui/FolhaDeConfirmacao.tsx',
+  // A montagem de um pedido: a página e o passo 1 (a cliente, o endereço, o campo).
+  'pages/MontarPedidoPage.tsx',
+  'features/order-proposal/ui/PassoDaCliente.tsx',
+  'features/order-proposal/ui/FormularioDeEndereco.tsx',
+  'features/order-proposal/ui/CampoDaMontagem.tsx',
 ] as const
 
 /** Comentário sai antes da varredura; CRLF primeiro (`L-031`), linha e bloco na MESMA passada (`BL-027`). */
@@ -125,8 +130,8 @@ const movimentoSemPar = (fonte: string): string[] => {
 const FONTES = ARQUIVOS.map((caminho) => ({ caminho, fonte: readFileSync(resolve(SRC, caminho), 'utf8') }))
 
 describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)', () => {
-  it('ÂNCORA: os 39 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
-    expect(FONTES).toHaveLength(39)
+  it('ÂNCORA: os 43 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
+    expect(FONTES).toHaveLength(43)
     expect(FONTES.every((f) => f.fonte.length > 0)).toBe(true)
     const tokens = FONTES.flatMap((f) => movimentoDe(semComentarios(f.fonte)))
     // Medido com ESTA régua no fecho da T28: 4 tokens, 2 deles o próprio par — o `animate-pulse` do
@@ -136,6 +141,7 @@ describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)'
     // Na `82`: os três arquivos novos não movem nada — 8 tokens, 6 pares, medidos com esta régua.
     // Com a observação do pedido: a folha traz os mesmos quatro pares de estado — 12 tokens, 10 pares.
     // A folha de confirmação do pedido montado traz os mesmos quatro — 16 tokens, 14 pares.
+    // A montagem não move nada: a página e o passo 1 reutilizam a folha de confirmação.
     expect(tokens.length).toBeGreaterThanOrEqual(16)
     expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(14)
     const de = (rel: string) => movimentoDe(semComentarios(FONTES.find((f) => f.caminho === rel)!.fonte)).map((t) => t.classe)

@@ -61,6 +61,8 @@ const IMPORTAM_O_CLIENT = [
   'entities/customer/api/useCliente.ts',
   'entities/customer/api/usePedidosDoCliente.ts',
   'entities/customer/api/buscarClientePorEmail.ts',
+  // A montagem de um pedido: a busca, a ficha por e-mail e os endereços salvos. Só lê.
+  'entities/customer/api/clientesDaMontagem.ts',
   // Feature `79` (T17): a porta dos avisos. Não lê tabela nem chama RPC — só invoca `atelie-avisos`.
   PORTA_DE_AVISOS,
   // A porta dos pedidos montados. Não lê tabela nem chama RPC — só invoca `order-proposals`.
@@ -184,7 +186,7 @@ const lidos = arquivos(SRC).map((caminho) => ({ rel: relative(SRC, caminho).spli
 const textoDe = (rel: string) => lidos.find((l) => l.rel === rel)!.texto
 
 describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
-  it('âncora: o app foi lido, com as portas e os dez importadores do client', () => {
+  it('âncora: o app foi lido, com as portas e os onze importadores do client', () => {
     expect(lidos.length).toBeGreaterThan(80)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -193,7 +195,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     expect(lidos.flatMap((l) => escritasProibidas(l.rel, l.texto))).toEqual([])
   })
 
-  it('régua 2: só dez arquivos importam o client — por igualdade', () => {
+  it('régua 2: só onze arquivos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })

@@ -31,3 +31,7 @@ export {
 export { default as SeloDoMontado } from './ui/SeloDoMontado'
 export { default as CartaoDoLink, type ConteudoDoLink, type CartaoDoLinkProps } from './ui/CartaoDoLink'
 export { default as FolhaDeConfirmacao, type FolhaDeConfirmacaoProps } from './ui/FolhaDeConfirmacao'
+export * from './model/montagem'
+export { usePassosDaMontagem, type PassosDaMontagem } from './model/usePassosDaMontagem'
+export { default as PassoDaCliente, type PassoDaClienteProps, type BuscaDaMontagem } from './ui/PassoDaCliente'
+export * from './model/frasesDaMontagem'

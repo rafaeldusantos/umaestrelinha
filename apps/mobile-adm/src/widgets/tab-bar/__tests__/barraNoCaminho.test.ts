@@ -25,4 +25,9 @@ describe('barraNoCaminho', () => {
     // Um terceiro segmento que não é o do pedido montado continua com a barra (a regra é a rota, não o prefixo).
     expect(barraNoCaminho('/clientes/montados/abc')).toBe(true)
   })
+
+  it('a montagem de um pedido (`/pedidos/montar`, com e sem a barra final) NÃO tem a barra: é tela cheia', () => {
+    expect(barraNoCaminho('/pedidos/montar')).toBe(false)
+    expect(barraNoCaminho('/pedidos/montar/')).toBe(false)
+  })
 })

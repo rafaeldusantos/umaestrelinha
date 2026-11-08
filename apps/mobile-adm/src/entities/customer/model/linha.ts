@@ -93,3 +93,45 @@ export interface JanelaDeClientes {
   lido_em: string
   fim: boolean
 }
+
+/**
+ * A montagem de um pedido: a cliente procurada em `customer_list` (inclui a convidada, que só
+ * existe na view) — sem documento e sem endereço. `has_account` diz se há ficha em `customers`: o id da
+ * convidada é o `md5` do e-mail e não existe em tabela nenhuma.
+ */
+export const COLUNAS_DA_MONTAGEM = 'id, name, email, phone, has_account, orders_total'
+
+/**
+ * Os endereços salvos de uma ficha, lidos SÓ na montagem: nunca na aba Clientes nem no detalhe
+ * do pedido. Colunas conferidas no banco local em 2026-11-07 (as mesmas do painel, `ADDRESS_COLUMNS`).
+ */
+export const COLUNAS_DO_ENDERECO_SALVO =
+  'id, label, cep, street, number, complement, neighborhood, city, state, is_default, created_at'
+
+/** A cliente achada na montagem. */
+export interface ClienteDaMontagem {
+  /** O id da view (para a convidada, o `md5` do e-mail). */
+  id: string
+  name: string | null
+  email: string
+  phone: string | null
+  /** O id em `customers`, ou `null` para a convidada (sem ficha, sem endereço salvo). */
+  fichaId: string | null
+  /** Quantos pedidos ela tem (`orders_total`). */
+  pedidos: number
+}
+
+/** Um endereço salvo da ficha. */
+export interface EnderecoSalvo {
+  id: string
+  label: string | null
+  cep: string
+  street: string
+  number: string
+  complement: string | null
+  neighborhood: string
+  city: string
+  state: string
+  is_default: boolean
+  created_at: string
+}

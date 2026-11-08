@@ -17,6 +17,7 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 | `/pedidos` | Pedidos — a lista com os seis recortes, os quatro blocos da Início e a busca (feature `74`), e a ação primária no cartão (feature `75`, abaixo) |
 | `/pedidos/:id` | o detalhe de um pedido (feature `74`), com o rodapé da ação, a folha do rastreio, "Informar/Alterar" na Entrega e o lembrete no WhatsApp (feature `75`); subrota da aba Pedidos, dentro do guarda |
 | `/pedidos?visao=montados` | a visão **Montados** da aba Pedidos (WI 94, abaixo): o chip "Montados · N abertos" ao fim dos chips, e a lista dos pedidos montados |
+| `/pedidos/montar` | a **montagem de um pedido** (WI 94): tela cheia, sem a barra de abas, aberta por "Montar pedido" ao lado do título de Pedidos; os quatro passos (Cliente · Peças · Descontos · Revisar) são entradas do histórico NESTA rota |
 | `/pedidos/montados/:id` | o **pedido montado** (WI 94): o link, as peças, a observação interna, o histórico e as ações por estado; subrota da aba Pedidos, sem a barra de abas, dentro do guarda |
 | `/clientes` | Clientes — a lista com três recortes e a busca (feature `76`, abaixo) |
 | `/clientes/:id` | a ficha de uma cliente (feature `76`); subrota da aba Clientes, dentro do guarda |
@@ -506,6 +507,48 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
 - **Tom**: `tomMemorialDosMontados.test.ts` (o pelo de pet é acusado no plural; "pelo WhatsApp" é
   preposição, com sensor nos dois sentidos).
 
+## Montar pedido (WI 94)
+
+`pages/MontarPedidoPage.tsx` compõe a casca; o estado, o redutor e os motivos do bloqueio são de
+`features/order-proposal/model/montagem.ts`, as frases do passo 1 de `model/frasesDaMontagem.ts`, e o
+passo 1 é `ui/PassoDaCliente.tsx` (com `FormularioDeEndereco` e `CampoDaMontagem`).
+
+- **Os passos são entradas do histórico** (`model/usePassosDaMontagem.ts`, D-12): cada uma é
+  `/pedidos/montar` com `{ doApp: true, passoDaMontagem: n }` no `history.state` — nada na URL, nenhum
+  dado da cliente (a régua 5 de `semDadoDeClienteNoAparelho` aceita essa forma e mais nenhuma; a 6 aceita
+  `montarPedidoHref()` e o recuo por um número de entradas, `navigate(-recuo)`). O voltar do Android recua
+  um passo. **A sentinela**: "Montar pedido" empilha a entrada `0` e a montagem empilha o passo 1 por cima;
+  o voltar do passo 1 cai na sentinela, ainda nesta tela — sem nada preenchido sai, com algo pergunta
+  ("Sair sem criar o link?"). É o que dá a confirmação no primeiro passo sem bloqueador de navegação (o
+  app usa `BrowserRouter`, sem `useBlocker`). Aberta direto pelo endereço, a entrada vira `/pedidos` e a
+  montagem é empilhada por cima; F5 num passo do meio volta à sentinela e recomeça no passo 1 (o estado
+  é memória da tela, de propósito).
+- **O indicador** (quatro botões, "Passo n: Nome") só navega até o passo mais alto alcançado: para trás
+  recua no histórico, para a frente empilha os passos do meio. **A barra fixa** diz o motivo do bloqueio
+  (o botão desligado o tem em `aria-describedby`), "Nenhuma peça ainda"/"Itens · N peças · frete à
+  parte" e o total ("—" sem peças). O "x" com algo preenchido (cliente, nome, e-mail, peças ou CEP) abre
+  a folha de sair no histórico (`useFolhaNaEntrada`; o voltar a fecha); sem nada, fecha direto.
+- **As leituras de cliente da montagem** (`entities/customer/api/clientesDaMontagem.ts`, D-02): a busca
+  em `customer_list` (`buildAppCustomerSearch`, nome/e-mail/telefone, nunca o documento — D-26; termo
+  vazio lista as primeiras 25 por nome), a ficha por e-mail exato (`directoryEmailCondition`; a ficha de
+  `customers` vence a convidada) e os endereços salvos da ficha, as três dentro de `lerComPapel`. A
+  convidada (`has_account` falso) não tem endereço salvo e nem dispara a leitura.
+- **Documento e endereço só aqui** (D-16): a montagem digita e confere o documento e o endereço, e mostra
+  os endereços salvos. `semDadoSensivelDeClienteNoApp` aceita, por arquivo e texto exatos, a leitura da
+  tabela de endereços em `clientesDaMontagem.ts` (a única linha com o termo num arquivo de cliente) e o
+  rótulo do documento em `PassoDaCliente.tsx`. Nada vai ao armazenamento; tudo some ao fechar.
+- **O CEP** (D-13): `useCepLookup` (`core`) com 8 dígitos completa rua, bairro, cidade e UF; até ele
+  responder esses quatro ficam travados (`readOnly`), e o CEP não achado — ou o serviço fora do ar —
+  os libera com "Não achei este CEP. Confira, ou preencha o endereço à mão.". O endereço exige CEP, rua,
+  número, bairro, cidade e UF (D-21).
+- **E-mail com ficha** (`MON-03`): o aviso "… já é de <nome> · N pedidos." com "Usar a ficha dela" (vira
+  a cadastrada; com CEP de 8 dígitos o endereço digitado fica como "Outro endereço") e "Corrigir o
+  e-mail" (foca o campo). O cartão "Tem os dados numa mensagem?" e "Colar de uma mensagem" são da folha
+  "Colar texto" (tarefa 06); os passos 2 a 4 têm só o esqueleto.
+- **Provas**: `pages/__tests__/montarPedido.test.tsx` (a página real) e
+  `app/__tests__/montagemComClientReal.test.tsx` (a conta sem papel na busca e nos endereços ⇒ a recusa e
+  nenhum dado dela; rede caída é falha). Layout (44 px, sem rolagem lateral) é da QA, em navegador.
+
 ## PWA — só a casca
 
 - `pwa.config.ts` é um arquivo **separado** do `vite.config.ts` para os guardas lerem a configuração
@@ -602,7 +645,7 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
 | `enderecoDePedidosComDonoUnico.test.ts` | `src/entities/order/__tests__` | (feature `74`) o endereço de Pedidos lido ou escrito fora de `pedidosHref.ts` |
 | `regraDePedidoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `74`) mapa ou `case` com vocabulário de visão/status/pagamento/meio (importado de `core`), ou predicado de recorte, fora de `core` |
 | `movimentoDosPedidos.test.ts` | idem | (feature `74`) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos arquivos de UI da `74` e da `75` (28, escopo literal); desde a `75` vê a variante de estado (`data-[state=open]:`) e só a cobre com o par do MESMO estado, e exige os dois pares em todo arquivo que monta `SheetContent`. Âncora 8 tokens / 6 pares (B02) |
-| `escritaSoPelaPorta.test.ts` | `src/entities/order/api/__tests__` | (feature `75`, pela AST) escrita de tabela, `functions.invoke` ou `rpc(` fora de `lerComPapel.ts`; o client importado fora da lista literal (desde o WI 94, dez arquivos), ou usado como receptor na porta; `INVOCACAO_ACEITA` é um mapa POR PORTA (avisos e montados), e o nome de uma porta na outra é acusado |
+| `escritaSoPelaPorta.test.ts` | `src/entities/order/api/__tests__` | (feature `75`, pela AST) escrita de tabela, `functions.invoke` ou `rpc(` fora de `lerComPapel.ts`; o client importado fora da lista literal (desde o WI 94, onze arquivos — a montagem lê clientes por `clientesDaMontagem.ts`), ou usado como receptor na porta; `INVOCACAO_ACEITA` é um mapa POR PORTA (avisos e montados), e o nome de uma porta na outra é acusado |
 | `fraseDaAcaoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `75`, pela AST, sem allowlist) as frases fixas da ação escritas no app |
 | `acoesComClientReal.test.tsx` | `src/app/__tests__` | (feature `75`, sobre o client REAL) PATCH `[]` + `atelie_clock` 403 ⇒ a recusa e nenhuma confirmação (lida por passo e por `MutationObserver`); `not_admin` ⇒ recusa; 500 ⇒ falha; a conferência sem rede ⇒ nem recusa nem reconferência; o que vai no PATCH do rastreio |
 | `escritaNoArnes.test.ts` | `src/test/__tests__` | (feature `75`) os dois arneses (`fakeSupabase` e `clientReal`) deixando de registrar a escrita (valores, cadeia, método, corpo) |
@@ -624,9 +667,10 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
 | `periodosComDonoUnico.test.ts` | idem | (feature `83`) a lista de períodos declarada fora de `entities/stats/model/periodos.ts`; `movement-hero/model/numeros.ts` deixando de reexportar `PERIODOS` por referência |
 | `aoVivoSemRelogioDoAparelho.test.ts` | `src/shared/lib/__tests__` | (feature `83`, `LAV-61`) `new Date(`, `Date.now(`, `getHours`, `getDay` ou `toLocaleDateString` nos arquivos da `83` e em `core/live`; allowlist de UM (`useSegundosDesde.ts`) |
 | `tomDaLojaAoVivo.test.ts` | idem | (feature `83`, pela AST, arquivos nomeados) emoji, `!`, urgência, "pessoa(s)"/"usuário(s)"; `transition-*`/`animate-*` sem par `motion-reduce:` |
-| `barraNoCaminho.test.ts` | `src/widgets/tab-bar/__tests__` | (feature `83`) a barra de abas aparecendo em `/ao-vivo` ou sumindo de uma aba |
+| `barraNoCaminho.test.ts` | `src/widgets/tab-bar/__tests__` | (feature `83`) a barra de abas aparecendo em `/ao-vivo`, no pedido montado ou na montagem (`/pedidos/montar`), ou sumindo de uma aba |
 | `montadosComClientReal.test.tsx` | `src/app/__tests__` | (WI 94, sobre o client REAL) `list` e `get` em 403 com `atelie_clock` 403 `42501` ⇒ a recusa e nenhum dado da cliente em instante nenhum; cada escrita (`cancel`, `renew`, `log-sent`, `note`) em 403 + recusa ⇒ a recusa e a falha em instante nenhum; 403 com o relógio de pé ⇒ a falha, nunca a recusa; rede caída ⇒ falha |
-| `tomMemorialDosMontados.test.ts` | `src/shared/lib/__tests__` | (WI 94) emoji, `!`, ranking, urgência e material nos literais da visão Montados, do pedido montado e de `features/order-proposal` |
+| `tomMemorialDosMontados.test.ts` | `src/shared/lib/__tests__` | (WI 94) emoji, `!`, ranking, urgência e material nos literais da visão Montados, do pedido montado, da montagem (`MontarPedidoPage`) e de `features/order-proposal` |
+| `montagemComClientReal.test.tsx` | `src/app/__tests__` | (WI 94, sobre o client REAL) a busca de clientes e os endereços salvos da montagem com `atelie_clock` 403 `42501` ⇒ a recusa e nenhum dado da cliente em instante nenhum; rede caída ⇒ falha, nunca recusa |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |
 

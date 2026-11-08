@@ -63,10 +63,10 @@ const divergencias = (abas: string[], rotas: string[], subrotas: string[] = []) 
 const fonte = readFileSync(resolve(__dirname, '../../../app/App.tsx'), 'utf8')
 
 describe('TABS × rotas do App.tsx', () => {
-  it('âncora — quatro abas, quatro rotas de aba e TRÊS subrotas (`/pedidos/:id`, `/pedidos/montados/:id`, `/clientes/:id`)', () => {
+  it('âncora — quatro abas, quatro rotas de aba e QUATRO subrotas (`/pedidos/montar`, `/pedidos/:id`, `/pedidos/montados/:id`, `/clientes/:id`)', () => {
     expect(TABS).toHaveLength(4)
     expect(rotasDoApp(fonte)).toHaveLength(4)
-    expect(subrotasDoApp(fonte)).toEqual(['/pedidos/:id', '/pedidos/montados/:id', '/clientes/:id'])
+    expect(subrotasDoApp(fonte)).toEqual(['/pedidos/montar', '/pedidos/:id', '/pedidos/montados/:id', '/clientes/:id'])
   })
 
   it('âncora — a rota da conta (`/avisos`, feature `79`) está declarada, e a lista literal tem só ela', () => {

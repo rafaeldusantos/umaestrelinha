@@ -45,7 +45,9 @@ const PASTAS = [
   'features/order-proposal/',
   'widgets/proposal-list/',
 ]
-const PAGINAS = ['pages/ClientesPage.tsx', 'pages/ClientePage.tsx', 'pages/PedidoMontadoPage.tsx']
+// A montagem de um pedido: nome, e-mail, telefone, documento e endereço da cliente
+// vivem só na memória da tela.
+const PAGINAS = ['pages/ClientesPage.tsx', 'pages/ClientePage.tsx', 'pages/PedidoMontadoPage.tsx', 'pages/MontarPedidoPage.tsx']
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -71,7 +73,10 @@ const ESCOPO: Arquivo[] = arquivos(SRC)
 
 /** Um destino que vem do dono (ou `-1`). */
 // `montadosHref` e `pedidoMontadoHref`, do MESMO dono do endereço de Pedidos (`pedidosHref.ts`).
-const DESTINO_DO_DONO = /^(?:-1|(?:clientesHref|clienteHref|pedidoHref|montadosHref|pedidoMontadoHref)\(|PEDIDOS_PATH\b|CLIENTES_PATH\b)/
+// A montagem: `montarPedidoHref`, do mesmo dono, e o RECUO no histórico por um número de
+// entradas (`navigate(-recuo)`, um identificador negado): um número de passos nunca é dado da cliente.
+const DESTINO_DO_DONO =
+  /^(?:-1|-[a-z][A-Za-z0-9]*$|(?:clientesHref|clienteHref|pedidoHref|montadosHref|pedidoMontadoHref|montarPedidoHref)\(|PEDIDOS_PATH\b|CLIENTES_PATH\b)/
 
 /**
  * O texto de cada chamada `nome(…)`, com os parênteses BALANCEADOS (a chamada pode quebrar linha):
@@ -131,8 +136,15 @@ const atributosDe = (codigo: string, nome: string): string[] => {
   return achados
 }
 
-/** O valor de um `state` (de opções de `navigate` ou de atributo de JSX) é `{ doApp: true }`? */
-const ehDoApp = (valor: string): boolean => /^\{*\s*doApp\s*:\s*true\s*\}/.test(valor.trim())
+/**
+ * O valor de um `state` (de opções de `navigate` ou de atributo de JSX) é `{ doApp: true }`? Desde a
+ * montagem de um pedido, também `{ doApp: true, passoDaMontagem: <dígito ou `n`> }` — o literal
+ * do passo ou a variável `n` do construtor dos passos (`usePassosDaMontagem`); um nome qualquer seria a
+ * porta para `passoDaMontagem: email` —
+ * o número do passo, e nada mais (uma terceira chave é acusada).
+ */
+const ehDoApp = (valor: string): boolean =>
+  /^\{*\s*doApp\s*:\s*true\s*(?:,\s*passoDaMontagem\s*:\s*(?:\d|n)\s*)?\}/.test(valor.trim())
 
 const FORMAS: { nome: string; acha: (codigo: string) => string[] }[] = [
   { nome: 'armazenamento', acha: (c) => [...c.matchAll(/\b(?:localStorage|sessionStorage|indexedDB)\b/g)].map((m) => m[0]) },
@@ -186,6 +198,10 @@ describe('nenhum dado de cliente fora da tela (MAC-28) — âncoras', () => {
       'features/order-proposal/api/portaDePropostas.ts',
       'widgets/proposal-list/ui/ListaDeMontados.tsx',
       'pages/PedidoMontadoPage.tsx',
+      // A montagem.
+      'features/order-proposal/model/usePassosDaMontagem.ts',
+      'features/order-proposal/ui/PassoDaCliente.tsx',
+      'pages/MontarPedidoPage.tsx',
     ])
       expect(rels).toContain(r)
     expect(rels.some((r) => r.includes('__tests__/'))).toBe(false)
@@ -223,6 +239,15 @@ describe('sensores — a régua acusa cada forma e não acusa o que não é', ()
     ["navigate('/clientes?busca=' + termo)", 'navigate( com destino que não é do dono'],
     ['<Link to={`/clientes/${id}`} />', 'to= com destino que não é do dono'],
     ['<Link to="/clientes/x" />', 'to= com destino que não é do dono'],
+    // A montagem: o marcador do passo não leva carona, e o recuo é só um número de entradas.
+    ['navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: n, email } })', 'state diferente de { doApp: true }'],
+    ['navigate(montarPedidoHref(), { state: { doApp: true, nome } })', 'state diferente de { doApp: true }'],
+    ['navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: c.email } })', 'state diferente de { doApp: true }'],
+    ['navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: email } })', 'state diferente de { doApp: true }'],
+    ['navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: nome } })', 'state diferente de { doApp: true }'],
+    ['<Link to={montarPedidoHref()} state={{ doApp: true, passoDaMontagem: telefone }} />', 'state diferente de { doApp: true }'],
+    ['navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: 12 } })', 'state diferente de { doApp: true }'],
+    ['navigate(`-${email}`)', 'navigate( com destino que não é do dono'],
   ])('acusa: %s', (codigo, forma) => {
     expect(acusacoes(sintetico(codigo)).some((a) => a.includes(`[${forma}]`))).toBe(true)
   })
@@ -238,6 +263,10 @@ describe('sensores — a régua acusa cada forma e não acusa o que não é', ()
     ['const { state } = useLocation()'],
     ['const doApp = (state as { doApp?: boolean } | null)?.doApp === true'],
     ['const estado = "console"'],
+    ['navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: n } })'],
+    ['navigate(montarPedidoHref(), { state: { doApp: true, passoDaMontagem: 0 } })'],
+    ['<Link to={montarPedidoHref()} state={{ doApp: true, passoDaMontagem: 0 }} />'],
+    ['navigate(-recuo)'],
   ])('não acusa: %s', (codigo) => {
     expect(acusacoes(sintetico(codigo))).toEqual([])
   })

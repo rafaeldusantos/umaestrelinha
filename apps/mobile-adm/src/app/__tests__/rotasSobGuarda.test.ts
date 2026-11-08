@@ -64,7 +64,7 @@ describe('as rotas do ateliê — âncora tripla', () => {
   })
 
   // Feature `83`: a âncora sobe de doze para TREZE com a Loja ao vivo — âncora de contagem subindo com o fato.
-  it('a varredura encontra as catorze rotas — o login, os três passos da recuperação, as quatro abas, o detalhe do pedido (`74`), o pedido montado, a ficha da cliente (`76`), os avisos (`79`), a Loja ao vivo (`83`) e o desconhecido', () => {
+  it('a varredura encontra as quinze rotas — o login, os três passos da recuperação, as quatro abas, a montagem, o detalhe do pedido (`74`), o pedido montado, a ficha da cliente (`76`), os avisos (`79`), a Loja ao vivo (`83`) e o desconhecido', () => {
     expect(rotas(codigo).map((r) => r.path)).toEqual([
       '/login',
       '/recuperar',
@@ -72,6 +72,7 @@ describe('as rotas do ateliê — âncora tripla', () => {
       '/recuperar/senha',
       '/',
       '/pedidos',
+      '/pedidos/montar',
       '/pedidos/:id',
       '/pedidos/montados/:id',
       '/clientes',
@@ -91,6 +92,16 @@ describe('as rotas do ateliê — âncora tripla', () => {
 describe('toda rota fora do login está sob `RequireAdmin` (MAF-16)', () => {
   it('nenhuma rota fica FORA do bloco guardado', () => {
     expect(foraDoBloco(fonte)).toEqual([])
+  })
+
+  it('a montagem (`/pedidos/montar`) está DENTRO do bloco — e movê-la para fora é acusado', () => {
+    const rota = rotas(codigo).find((r) => r.path === '/pedidos/montar')!
+    expect(rota.at).toBeGreaterThan(bloco!.inicio)
+    expect(rota.at).toBeLessThan(bloco!.fim)
+    const linha = '            <Route path="/pedidos/montar" element={<MontarPedidoPage />} />\n'
+    expect(fonte).toContain(linha)
+    const doente = fonte.replace(linha, '').replace('</Routes>', `  <Route path="/pedidos/montar" element={<MontarPedidoPage />} />\n        </Routes>`)
+    expect(foraDoBloco(doente)).toEqual(['/pedidos/montar'])
   })
 
   it('o pedido montado (`/pedidos/montados/:id`) está DENTRO do bloco — e movê-lo para fora é acusado', () => {

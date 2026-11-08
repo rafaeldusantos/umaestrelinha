@@ -3,6 +3,7 @@ export {
   ehVisaoMontados,
   lerDestinoDePedidos,
   montadosHref,
+  montarPedidoHref,
   pedidoMontadoHref,
   pedidoHref,
   pedidosHref,

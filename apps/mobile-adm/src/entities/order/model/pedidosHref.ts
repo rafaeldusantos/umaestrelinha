@@ -84,3 +84,10 @@ export const ehVisaoMontados = (search: string): boolean => {
 
 /** O endereço de um pedido montado: `/pedidos/montados/<id>`. */
 export const pedidoMontadoHref = (id: string): string => `${PEDIDOS_PATH}/montados/${encodeURIComponent(id)}`
+
+/**
+ * A montagem de um pedido: uma rota só, `/pedidos/montar`. Os quatro passos são entradas do
+ * histórico NESTE endereço, com o número do passo no `history.state` (nunca na URL, nunca dado da
+ * cliente) — o voltar do Android recua um passo.
+ */
+export const montarPedidoHref = (): string => `${PEDIDOS_PATH}/montar`

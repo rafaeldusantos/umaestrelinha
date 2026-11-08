@@ -7,7 +7,8 @@
 // grafia, não a chamada). Três réguas:
 //   1. só nove arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`,
 //      os dois hooks de pedido, a porta de escrita (`75`), desde a `76` os quatro de cliente e, desde a
-//      `79`, a porta dos avisos — allowlist literal;
+//      `79`, a porta dos avisos, a dos montados e, desde a montagem, as leituras de cliente
+//      dela — allowlist literal;
 //   2. nos dois hooks, toda referência a `supabase` é o receptor de um `.from(` (nada de passar o client
 //      adiante, nada de `const db = supabase`), e toda chamada `supabase.from(` é ALCANÇÁVEL SÓ por
 //      `lerComPapel`: ou está dentro de uma função passada a `lerComPapel(`, ou dentro de uma função
@@ -38,6 +39,9 @@ const HOOKS_DE_CLIENTE = [
   'entities/customer/api/useCliente.ts',
   'entities/customer/api/usePedidosDoCliente.ts',
   'entities/customer/api/buscarClientePorEmail.ts',
+  // A montagem de um pedido: a busca, a ficha por e-mail e os endereços salvos — as três
+  // leituras dentro de `lerComPapel(`.
+  'entities/customer/api/clientesDaMontagem.ts',
 ]
 // Feature `79` (T17): a porta dos avisos (o único `functions.invoke` do app). Não lê tabela — o vizinho
 // `escritaSoPelaPorta.test.ts` prova que nela o client só é receptor de `.functions.invoke(`; aqui a
@@ -189,7 +193,7 @@ const lidos = arquivos(SRC).map((caminho) => {
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os dez arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os onze arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -207,7 +211,7 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     expect(porArquivo.flatMap((a) => a.problemas)).toEqual([])
   })
 
-  it('régua 2 (feature 76): nos quatro hooks de cliente, toda supabase.from( só é alcançável por lerComPapel ou pelo `consultar` da janela', () => {
+  it('régua 2 (feature 76): nos hooks de cliente (os quatro da `76` e o da montagem), toda supabase.from( só é alcançável por lerComPapel ou pelo `consultar` da janela', () => {
     const porArquivo = HOOKS_DE_CLIENTE.map((rel) => medir(rel, lidos.find((l) => l.rel === rel)!.texto, { podeLer: true }))
     // Âncora CONTADA, não digitada: as chamadas `supabase.from(` que a AST acha são as mesmas que um
     // segundo olhar (o texto sem comentário) acha — e há ao menos uma por arquivo. Um parser cego
@@ -222,7 +226,7 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     expect(porArquivo.flatMap((a) => a.problemas)).toEqual([])
   })
 
-  it('régua 2 (feature 76, MAC-30): os quatro de cliente só LEEM — nenhum insert, update, upsert, delete ou rpc(', () => {
+  it('régua 2 (feature 76, MAC-30): os de cliente só LEEM — nenhum insert, update, upsert, delete ou rpc(', () => {
     const achados = HOOKS_DE_CLIENTE.flatMap((rel) => escritasEmArquivoDeCliente(rel, lidos.find((l) => l.rel === rel)!.texto))
     expect(achados).toEqual([])
   })
@@ -381,9 +385,9 @@ describe('sensores (feature 76) — os quatro de cliente só leem, e leem por le
     expect(escritasEmArquivoDeCliente(H, `${imp}// update insert rpc(\nexport const h = () => supabase.from('customer_list').select('id').eq('id', 1)\nconst x = 'delete'`)).toEqual([])
   })
 
-  it('a régua 1 acusa um QUINTO arquivo de cliente que importe o client (a igualdade tem dez)', () => {
+  it('a régua 1 acusa um arquivo de cliente a mais que importe o client (a igualdade tem onze)', () => {
     const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
     expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
-    expect(IMPORTAM_O_CLIENT).toHaveLength(10)
+    expect(IMPORTAM_O_CLIENT).toHaveLength(11)
   })
 })

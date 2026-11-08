@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOrdersRealtime } from '@estrelinha/core/hooks/useOrdersRealtime'
 import { isBlockSlice, type OrderSlice } from '@estrelinha/core/orders'
@@ -7,6 +8,7 @@ import {
   LISTA_DE_PEDIDOS_KEY,
   ehVisaoMontados,
   montadosHref,
+  montarPedidoHref,
   pedidosHref,
   recorteDoEndereco,
   useListaDePedidos,
@@ -17,7 +19,7 @@ import { useRecusaDePapel } from '@/features/access-check'
 import { BotaoDaAcao, useRecusaDaAcao } from '@/features/order-actions'
 import { ChipsDeRecorte, FaixaDoBloco } from '@/features/order-slice'
 import { BuscaDePedidos } from '@/features/order-search'
-import { MONTADOS_KEY, contarAbertos, rotuloDoChip, useMontados } from '@/features/order-proposal'
+import { MONTADOS_KEY, MONTAR_PEDIDO, contarAbertos, rotuloDoChip, useMontados } from '@/features/order-proposal'
 import { ListaDePedidos } from '@/widgets/order-list'
 import { ListaDeMontados } from '@/widgets/proposal-list'
 import { tabFor } from '@/widgets/tab-bar'
@@ -61,6 +63,8 @@ const AvisoDePedidos = ({ aoMudar }: { aoMudar: () => void }) => {
   * - O voltar restaura a rolagem da entrada (G-A28) só quando a lista volta do cache; sem cache, abre no topo.
  * - **A ação no cartão** (feature `75`, `MAA-36`): `BotaoDaAcao` ao lado de cada linha, composto aqui.
  *   A recusa que a porta lança (R11) volta por `aoRecusa` e entra na MESMA vigia da leitura.
+ * - **"Montar pedido"**, ao lado do título: abre a montagem em tela cheia (`/pedidos/montar`)
+ *   na sentinela dos passos (`passoDaMontagem: 0`), que empilha o passo 1.
  * - **A visão "Montados"**: o chip AO FIM dos de hoje, com a contagem de abertos
  *   da MESMA leitura que desenha a visão (`useMontados`, pela porta da `order-proposals`). Com
  *   `?visao=montados` no endereço (`ehVisaoMontados`, o mesmo dono), a página desenha a lista dos
@@ -111,7 +115,17 @@ const PedidosPage = () => {
     <PullToRefresh onRefresh={() => (naVisaoMontados ? montados.refetch() : lista.refetch())}>
       <div className="space-y-4">
         {confirmada && <AvisoDePedidos aoMudar={reler} />}
-        <h1 className="text-[28px] tracking-[-0.02em]">{tabFor('/pedidos').label}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <h1 className="text-[28px] tracking-[-0.02em]">{tabFor('/pedidos').label}</h1>
+          <Link
+            to={montarPedidoHref()}
+            state={{ doApp: true, passoDaMontagem: 0 }}
+            className="inline-flex min-h-12 items-center gap-2 rounded-sm bg-estrelinha-primary px-4 text-base font-medium text-estrelinha-on-primary hover:bg-estrelinha-primary-strong"
+          >
+            <Plus aria-hidden="true" className="h-5 w-5" />
+            {MONTAR_PEDIDO}
+          </Link>
+        </div>
         {!naVisaoMontados && <BuscaDePedidos inicial={termo} aoBuscar={setTermo} />}
         <ChipsDeRecorte
           recorte={recorte}
