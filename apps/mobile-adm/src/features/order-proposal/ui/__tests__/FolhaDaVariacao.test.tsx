@@ -62,3 +62,13 @@ describe('FolhaDaVariacao · o botão de confirmar', () => {
     expect(aoConfirmar).toHaveBeenCalledWith({ variacao: null, quantidade: 2, gravacao: '' })
   })
 })
+
+describe('FolhaDaVariacao · o preço', () => {
+  it('o preço da peça em serifa 700, na primária, a 16 px', () => {
+    montar()
+    const preco = within(screen.getByRole('dialog')).getByText((t) => t.replace(/\u00a0/g, ' ') === 'R$ 120,00')
+    const cs = (preco.getAttribute('class') ?? '').split(/\s+/)
+    expect(cs).toEqual(expect.arrayContaining(['font-display', 'font-bold', 'text-estrelinha-primary', 'text-base']))
+    expect(cs).not.toContain('text-estrelinha-ink')
+  })
+})

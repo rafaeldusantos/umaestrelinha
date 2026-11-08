@@ -45,6 +45,18 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+describe('Pedido montado · a tipografia de destaque', () => {
+  it('"Total dos itens" em serifa 700 primária a 18 px, e o nome da cliente em serifa 700 a 17 px', async () => {
+    atual = leituraDoMontado()
+    await abrirMontado()
+    const total = screen.getByTestId('total-dos-itens')
+    expect(temClasse(total, 'font-display', 'font-bold', 'text-estrelinha-primary', 'text-lg')).toBe(true)
+    const nome = within(document.querySelector<HTMLElement>('[data-cartao="cliente"]')!).getByText('Marina Duarte')
+    expect(temClasse(nome, 'font-display', 'font-bold', 'text-[17px]')).toBe(true)
+    expect(semClasse(nome, 'text-base', 'font-medium')).toBe(true)
+  })
+})
+
 describe('Pedido montado · o que o Histórico diz', () => {
   it('renovar, cancelar e aberto pela cliente dizem o que aconteceu com o link, e quem fez', async () => {
     atual = leituraDoMontado({

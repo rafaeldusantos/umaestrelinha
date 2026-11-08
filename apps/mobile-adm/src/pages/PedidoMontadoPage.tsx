@@ -284,7 +284,7 @@ const PedidoMontadoPage = () => {
             )}
 
             <Cartao id="cliente" titulo={CLIENTE}>
-              <p className="text-base font-medium [overflow-wrap:anywhere]">{p.customer_name}</p>
+              <p className="font-display text-[17px] font-bold [overflow-wrap:anywhere]">{p.customer_name}</p>
               <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{p.customer_email}</p>
               {p.customer_phone && <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{p.customer_phone}</p>}
               {documentoDoMontado(p) && (
@@ -336,7 +336,7 @@ const PedidoMontadoPage = () => {
                 )}
                 <div className="flex flex-wrap justify-between gap-x-3 font-medium">
                   <dt>{TOTAL_DOS_ITENS}</dt>
-                  <dd data-testid="total-dos-itens" className="tabular-nums">
+                  <dd data-testid="total-dos-itens" className="font-display text-lg font-bold tabular-nums text-estrelinha-primary">
                     {formatPrice(p.items_total)}
                   </dd>
                 </div>

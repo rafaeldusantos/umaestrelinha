@@ -143,6 +143,16 @@ describe('Pedidos · Montados', () => {
     expect(corposDe('list')).toEqual(expect.arrayContaining([{}]))
   })
 
+  it('o total do cartão na tipografia de destaque: serifa 700, primária, 16 px', async () => {
+    sempre('list', () => ({ proposals: LISTA, agora: AGORA }))
+    await montarApp('/pedidos?visao=montados')
+    await andar(50)
+    const total = within(cartoes()[0]).getByText((t) => t.replace(/\u00a0/g, ' ') === 'R$ 412,50')
+    const cs = (total.getAttribute('class') ?? '').split(/\s+/)
+    expect(cs).toEqual(expect.arrayContaining(['font-display', 'font-bold', 'text-estrelinha-primary', 'text-base']))
+    expect(cs).not.toContain('font-medium')
+  })
+
   it('vazio, e a falha com "Tentar de novo" (nunca um zero)', async () => {
     sempre('list', () => ({ proposals: [], agora: AGORA }))
     await montarApp('/pedidos?visao=montados')

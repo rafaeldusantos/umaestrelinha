@@ -84,7 +84,7 @@ const ListaDeMontados = ({ dado, falhou, tentarDeNovo }: ListaDeMontadosProps) =
                     {metaDoCartao(m, dado.agora)}
                   </div>
                 </div>
-                <span className="ml-auto min-w-0 max-w-full font-medium tabular-nums [overflow-wrap:anywhere]">
+                <span className="ml-auto min-w-0 max-w-full font-display text-base font-bold tabular-nums text-estrelinha-primary [overflow-wrap:anywhere]">
                   {formatPrice(m.items_total)}
                 </span>
               </div>

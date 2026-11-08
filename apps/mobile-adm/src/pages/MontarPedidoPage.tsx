@@ -653,7 +653,7 @@ const MontarPedidoPage = () => {
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm text-estrelinha-ink-soft">{itensDaBarra(estado.pecas)}</p>
-              <p data-testid="total-da-barra" className="font-display text-lg text-estrelinha-ink">
+              <p data-testid="total-da-barra" className="font-display text-lg font-bold text-estrelinha-primary">
                 {totalNaBarra}
               </p>
             </div>

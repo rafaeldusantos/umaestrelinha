@@ -117,7 +117,7 @@ const Corpo = ({
         <FotoDaPeca foto={foto} tamanho={104} altura={130} />
         <div className="min-w-0 flex-1 space-y-1">
           <SheetTitle className="font-display text-lg text-estrelinha-ink [overflow-wrap:anywhere]">{peca.nome}</SheetTitle>
-          <SheetDescription className="text-base tabular-nums text-estrelinha-ink">{preco === null ? '—' : formatPrice(preco)}</SheetDescription>
+          <SheetDescription className="font-display text-base font-bold tabular-nums text-estrelinha-primary">{preco === null ? '—' : formatPrice(preco)}</SheetDescription>
           {daEscolha && <p className="text-sm text-estrelinha-ink [overflow-wrap:anywhere]">{promocaoNestaPeca(daEscolha)}</p>}
           {variacao && <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{variacao.rotulo}</p>}
         </div>

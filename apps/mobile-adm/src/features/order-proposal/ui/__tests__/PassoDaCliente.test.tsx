@@ -79,6 +79,13 @@ describe('o passo da cliente na forma do protótipo', () => {
     expect(classes(icone)).toContain('text-estrelinha-accent')
   })
 
+  it('o nome da cliente escolhida em serifa 700 a 17 px', () => {
+    montar({ ...montagemVazia(), cliente: JULIANA }, null)
+    const nome = within(screen.getByRole('region', { name: 'Cliente' })).getByText('Juliana Prates')
+    expect(classes(nome)).toEqual(expect.arrayContaining(['font-display', 'font-bold', 'text-[17px]']))
+    expect(classes(nome)).not.toContain('text-base')
+  })
+
   it('o e-mail da cliente nova traz o exemplo "nome@email.com"', () => {
     montar(nova(), 'outro')
     expect(screen.getByLabelText('E-mail')).toHaveAttribute('placeholder', 'nome@email.com')

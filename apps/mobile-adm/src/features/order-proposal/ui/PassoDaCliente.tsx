@@ -298,7 +298,7 @@ const PassoDaCliente = (p: PassoDaClienteProps) => {
               <div className="flex items-center gap-3">
                 <Inicial cliente={estado.cliente} />
                 <span className="min-w-0 flex-1">
-                  <span className="block break-words text-base text-estrelinha-ink">{nomeDoCliente(estado.cliente)}</span>
+                  <span className="block break-words font-display text-[17px] font-bold text-estrelinha-ink">{nomeDoCliente(estado.cliente)}</span>
                   <span className="block text-sm text-estrelinha-ink-soft">{pedidosNaLoja(estado.cliente.pedidos)}</span>
                 </span>
               </div>

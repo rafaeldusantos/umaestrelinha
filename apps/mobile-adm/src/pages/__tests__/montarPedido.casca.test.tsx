@@ -159,6 +159,17 @@ describe('a barra fixa · o total no passo das peças', () => {
   })
 })
 
+describe('a barra fixa · a tipografia do total', () => {
+  it('o total em serifa 700, na primária, a 18 px', async () => {
+    await abrirAMontagem()
+    await escolherHelenaESeguir()
+    await acrescentarOColar()
+    const el = within(barra()).getByTestId('total-da-barra')
+    expect(tokens(el)).toEqual(expect.arrayContaining(['font-display', 'font-bold', 'text-estrelinha-primary', 'text-lg']))
+    expect(tokens(el)).not.toContain('text-estrelinha-ink')
+  })
+})
+
 describe('o cabeçalho · o indicador de passos', () => {
   it('cada segmento com o nome visível e a barra de 4 px; o atual em accent (e `aria-current`), os feitos em primária, os demais em line', async () => {
     await abrirAMontagem()
