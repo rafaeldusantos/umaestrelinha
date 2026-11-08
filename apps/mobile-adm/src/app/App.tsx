@@ -24,6 +24,7 @@ import MobileLayout from './layout/MobileLayout'
 import { criarQueryClient } from './queryClient'
 import { esquecerTermos } from '@/shared/lib/useTermoDaEntrada'
 import { esquecerAcoes } from '@/features/order-actions'
+import { apagarRascunho } from '@/features/order-proposal'
 
 /**
  * O app do ateliê (feature 72).
@@ -94,6 +95,8 @@ const LimparCacheNaTrocaDeConta = () => {
       esquecerTermos()
       // Feature `75` (A20): a trava, a confirmação e o erro de cada pedido também são da conta que saiu.
       esquecerAcoes()
+      // O rascunho da montagem (guardado neste celular) também é da conta que saiu.
+      apagarRascunho()
       if (id === null) queryClient.clear()
       else void queryClient.resetQueries()
     }

@@ -8,9 +8,10 @@ import { COMBINADO_DESLIGADO, type CupomAplicado, type DescontoCombinado } from 
 import { MOTIVO_SEM_PECA, linhaRelida, pecasNaSacola, type LinhaDaSacola } from './sacola'
 
 /**
- * O estado da MONTAGEM de um pedido no app — memória da tela, e só dela: nada vai ao
- * servidor nem ao armazenamento do aparelho (o rascunho é de outra tarefa), e tudo some ao fechar a
- * montagem. Puro: o redutor, o "tem algo preenchido?" e o motivo do bloqueio de cada passo.
+ * O estado da MONTAGEM de um pedido no app — memória da tela: nada vai ao servidor antes do
+ * "Criar link". Ao aparelho vai só o rascunho das peças e dos descontos (`rascunho.ts`, o dono da
+ * chave), para a volta involuntária; o resto some ao fechar a montagem. Puro: o redutor, o "tem algo
+ * preenchido?" e o motivo do bloqueio de cada passo.
  */
 
 export const PASSOS_DA_MONTAGEM = ['Cliente', 'Peças', 'Descontos', 'Revisar'] as const
@@ -138,6 +139,8 @@ export type AcaoDaMontagem =
   | { tipo: 'observacao'; texto: string }
   /** Editar: a montagem reaberta de um pedido montado, inteira. */
   | { tipo: 'carregar'; estado: EstadoDaMontagem }
+  /** O rascunho guardado neste celular: as peças, o cupom e o desconto combinado voltam; o resto fica. */
+  | { tipo: 'retomar-rascunho'; pecas: LinhaDaSacola[]; cupom: CupomAplicado | null; combinado: DescontoCombinado }
   /** Os preços mudaram no servidor: as linhas passam a mostrar o preço (e a foto) relidos do catálogo. */
   | { tipo: 'reprecificar'; catalogo: readonly PecaParaProposta[] }
 
@@ -243,6 +246,8 @@ export const reduzirMontagem = (estado: EstadoDaMontagem, acao: AcaoDaMontagem):
       return { ...estado, observacao: acao.texto }
     case 'carregar':
       return acao.estado
+    case 'retomar-rascunho':
+      return { ...estado, pecas: acao.pecas, cupom: acao.cupom, combinado: acao.combinado }
     case 'reprecificar':
       return { ...estado, pecas: estado.pecas.map((l) => linhaRelida(l, acao.catalogo)) }
     case 'usar-ficha': {
@@ -313,6 +318,15 @@ export const FECHAR_A_MONTAGEM = 'Fechar a montagem'
 export const MONTAR_PEDIDO = 'Montar pedido'
 export const SAIR_TITULO = 'Sair sem criar o link?'
 export const SAIR_FRASE = 'Nada foi gravado ainda. A montagem se perde ao sair.'
+/** Com peças na sacola: o que fica guardado neste celular, e o que não fica. */
+export const SAIR_FRASE_COM_RASCUNHO =
+  'Nada foi gravado ainda. Você pode guardar as peças e os descontos neste celular para continuar depois. Os dados da cliente e o motivo do desconto não ficam guardados.'
+export const GUARDAR_RASCUNHO = 'Guardar rascunho'
+export const DESCARTAR = 'Descartar'
+export const RASCUNHO_RETOMADO = 'Rascunho retomado: as peças e os descontos voltaram.'
+export const RASCUNHO_SEM_CLIENTE = 'A cliente e o motivo do desconto não ficam guardados — escolha e escreva de novo.'
+export const pecasForaDoCatalogo = (n: number): string =>
+  n === 1 ? '1 peça do rascunho saiu do catálogo e não voltou.' : `${n} peças do rascunho saíram do catálogo e não voltaram.`
 export const CONTINUAR_MONTANDO = 'Continuar montando'
 export const SAIR = 'Sair'
 export const CONTINUAR = 'Continuar'

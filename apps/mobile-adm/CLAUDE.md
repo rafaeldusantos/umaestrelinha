@@ -522,7 +522,7 @@ passo 1 é `ui/PassoDaCliente.tsx` (com `FormularioDeEndereco` e `CampoDaMontage
   ("Sair sem criar o link?"). É o que dá a confirmação no primeiro passo sem bloqueador de navegação (o
   app usa `BrowserRouter`, sem `useBlocker`). Aberta direto pelo endereço, a entrada vira `/pedidos` e a
   montagem é empilhada por cima; F5 num passo do meio volta à sentinela e recomeça no passo 1 (o estado
-  é memória da tela, de propósito).
+  é memória da tela; do aparelho volta só o rascunho, abaixo).
 - **O indicador** (quatro botões, "Passo n: Nome") só navega até o passo mais alto alcançado: para trás
   recua no histórico, para a frente empilha os passos do meio. **A barra fixa** diz o motivo do bloqueio
   (o botão desligado o tem em `aria-describedby`), "Nenhuma peça ainda"/"Itens · N peças · frete à
@@ -536,7 +536,8 @@ passo 1 é `ui/PassoDaCliente.tsx` (com `FormularioDeEndereco` e `CampoDaMontage
 - **Documento e endereço só aqui** (D-16): a montagem digita e confere o documento e o endereço, e mostra
   os endereços salvos. `semDadoSensivelDeClienteNoApp` aceita, por arquivo e texto exatos, a leitura da
   tabela de endereços em `clientesDaMontagem.ts` (a única linha com o termo num arquivo de cliente) e o
-  rótulo do documento em `PassoDaCliente.tsx`. Nada vai ao armazenamento; tudo some ao fechar.
+  rótulo do documento em `PassoDaCliente.tsx`. Nada disso vai ao armazenamento (o rascunho, abaixo,
+  leva só as peças e os descontos); tudo some ao fechar.
 - **O CEP** (D-13): `useCepLookup` (`core`) com 8 dígitos completa rua, bairro, cidade e UF; até ele
   responder esses quatro ficam travados (`readOnly`), e o CEP não achado — ou o serviço fora do ar —
   os libera com "Não achei este CEP. Confira, ou preencha o endereço à mão.". O endereço exige CEP, rua,
@@ -559,6 +560,25 @@ passo 1 é `ui/PassoDaCliente.tsx` (com `FormularioDeEndereco` e `CampoDaMontage
   Sem dados (e o 422), fora do ar (503, 502, rede) e o limite (429) deixam a folha aberta com a frase, e
   "Cancelar" vira "Preencher à mão". A recusa da porta (só o `42501` de `conferirPapel`) entra na MESMA
   vigia das leituras da página. Nada é gravado pela leitura.
+- **O rascunho** (`features/order-proposal/model/rascunho.ts`, dono único da chave `estrelinha-montagem-rascunho`;
+  D-15, D-18, D-19): a cada mudança, a montagem NOVA guarda neste celular só as peças (peça, variação,
+  quantidade, gravação), o cupom aplicado e o tipo e o valor do desconto combinado, com o id da conta —
+  nunca a cliente, a entrega, a observação nem o motivo do desconto. A forma gravada e a lida são
+  montadas campo por campo no dono (um campo a mais não passa). É **`localStorage`**: no app instalado o
+  Android encerra o processo em segundo plano e a sessão da aba morre junto; o rascunho tem de
+  sobreviver a isso. Ao abrir, a montagem retoma o rascunho DESTA conta: lê o catálogo, refaz as linhas
+  com o preço de hoje (a peça que saiu do catálogo não volta, e é contada no aviso), devolve o cupom (a
+  prévia do passo 3 o confere de novo) e o valor do desconto, e avisa "Rascunho retomado: …" — a cliente e
+  o motivo se escolhem e se escrevem de novo. Enquanto o guardado não volta, nada se grava por cima. O
+  "x" (ou o voltar do passo 1) com peças abre a folha com "Continuar montando", "Guardar rascunho" e
+  "Descartar" (`ink` cheio; a `FolhaDeConfirmacao` ganhou a `alternativa`, e com ela os três botões se
+  empilham); sem peça, a folha de antes ("Sair"). "Criar link", "Descartar" e a troca de conta (ou o
+  sair: `LimparCacheNaTrocaDeConta`) apagam o rascunho; a montagem que segue na tela depois da troca não
+  o grava de novo (a conta que abriu a montagem é a dona). Editar um pedido montado não lê nem grava
+  rascunho. Provas: `pages/__tests__/montarPedido.rascunho.test.tsx`, `trocaDeContaLimpaCache.test.tsx`
+  e os guardas `rascunhoComDonoUnico.test.ts`, `semDadoDeClienteNoAparelho.test.ts` (a exceção estreita
+  e a régua por termo) com `features/order-proposal/model/__tests__/rascunhoSemDadoDaCliente.test.ts`
+  (a régua por execução, com sentinelas).
 - **Provas**: `pages/__tests__/montarPedido.test.tsx` e `montarPedido.colarTexto.test.tsx` (a página real) e
   `app/__tests__/montagemComClientReal.test.tsx` (a conta sem papel na busca, nos endereços e na porta da
   leitura ⇒ a recusa e nenhum dado dela; rede caída é falha). Layout (44 px, sem rolagem lateral) é da QA, em navegador.
@@ -669,7 +689,8 @@ passo 1 é `ui/PassoDaCliente.tsx` (com `FormularioDeEndereco` e `CampoDaMontage
 | `regraDeClienteSoNoCore.test.ts` | `src/shared/lib/__tests__` | (G3) mapa/`case` com os recortes de `CUSTOMER_SLICES`, predicado de recorte ou `ilike` montado à mão no app |
 | `semDadoSensivelDeClienteNoApp.test.ts` | idem | (G4) `cpf`, endereço completo, nota ou `nuvemshop_*` nas colunas lidas |
 | `whatsappComDonoUnico.test.ts` | idem | (G5) o literal `wa.me` fora de `core/notifications/phone.ts` e `core/orders/charge.ts` |
-| `semDadoDeClienteNoAparelho.test.ts` | idem | (G6) storage, `console.`, `document.title` com valor, `pushState`, `state` diferente de `{ doApp: true }` e `navigate(` fora dos construtores de endereço, nos arquivos de cliente |
+| `semDadoDeClienteNoAparelho.test.ts` | idem | (G6) storage, `console.`, `document.title` com valor, `pushState`, `state` diferente de `{ doApp: true }` e `navigate(` fora dos construtores de endereço, nos arquivos de cliente. Desde a tarefa 10 do WI 94: a exceção estreita do rascunho (só `localStorage`, só no dono), o código do dono sem termo da cliente nem o motivo, e a âncora da régua por execução (`rascunhoSemDadoDaCliente.test.ts`, ao lado do dono: uma montagem cheia de sentinelas não deixa nenhuma no aparelho, com seis sensores) |
+| `rascunhoComDonoUnico.test.ts` | idem | (WI 94) a chave do rascunho da montagem citada fora do dono, nos três apps, testes inclusos; os testes do rascunho deixando de importar `RASCUNHO_KEY` |
 | `tomMemorialDeClientes.test.ts` | idem | (G7) emoji, `!`, "VIP", "melhor", "ranking", urgência e os sete materiais nos literais de cliente |
 | `movimentoDeClientes.test.ts` | idem | (G8) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos arquivos de UI da `76` |
 | `trocaDeContaLimpaCache.test.tsx` | `src/app/__tests__` | (G15, ampliado) as chaves de cliente no cache depois de A → B ou de sair |

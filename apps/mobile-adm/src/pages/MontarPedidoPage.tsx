@@ -16,6 +16,17 @@ import {
   MONTAR_PEDIDO,
   SAIR_TITULO,
   SAIR_FRASE,
+  SAIR_FRASE_COM_RASCUNHO,
+  GUARDAR_RASCUNHO,
+  DESCARTAR,
+  RASCUNHO_RETOMADO,
+  RASCUNHO_SEM_CLIENTE,
+  pecasForaDoCatalogo,
+  apagarRascunho,
+  guardarRascunho,
+  lerRascunho,
+  rascunhoDaMontagem,
+  retomadaDoRascunho,
   CONTINUAR_MONTANDO,
   SAIR,
   CONTINUAR,
@@ -118,7 +129,13 @@ const chaveNova = (): string =>
  * - **Editar**: o pedido montado marca a proposta (`marcarEdicao`) e abre esta tela; a montagem chega
  *   preenchida pelo `get` (peças, cliente, entrega, descontos, observação), e salvar mantém o link
  *   ("Alterações salvas."), voltando ao pedido montado.
- * - **Nada fica no aparelho**: o estado é memória desta tela. As leituras passam por
+ * - **O rascunho** (`model/rascunho.ts`, o dono da chave): a cada mudança, a montagem nova guarda neste
+ *   celular só as peças, o cupom e o tipo e o valor do desconto combinado — para a volta involuntária
+ *   (o celular bloqueou, o Android encerrou o app). Ao abrir, a montagem retoma o rascunho DESTA conta,
+ *   com as linhas refeitas do catálogo relido; a cliente e o motivo do desconto se escolhem de novo.
+ *   O "x" (ou o voltar do passo 1) com peças oferece "Guardar rascunho" ou "Descartar"; "Criar link" e a
+ *   troca de conta o apagam. Editar um pedido montado não lê nem grava rascunho.
+ * - **Nada mais fica no aparelho**: o resto do estado é memória desta tela. As leituras passam por
  *   `lerComPapel`; a recusa (`42501`) entra na vigia da `72`, e enquanto ela vale nenhum dado de cliente
  *   é desenhado.
  */
@@ -129,6 +146,9 @@ const MontarPedidoPage = () => {
   const [estado, despachar] = useReducer(reduzirMontagem, undefined, montagemVazia)
   // Editar: a proposta que o pedido montado marcou — lida ao montar, e esquecida.
   const [editando] = useState(edicaoMarcada)
+  // O rascunho: a conta que abriu esta montagem é a dona dele (a troca de conta não grava por cima).
+  const contaDaMontagem = useRef(user?.id ?? null)
+  const [rascunhoPendente, setRascunhoPendente] = useState(() => (editando === null ? lerRascunho(contaDaMontagem.current) : null))
   useEffect(() => {
     esquecerEdicao()
   }, [])
@@ -161,7 +181,7 @@ const MontarPedidoPage = () => {
   const busca = useClientesDaMontagem(termo, naBusca)
   const enderecos = useEnderecosSalvos(estado.modo === 'cadastrada' ? (estado.cliente?.fichaId ?? null) : null)
   const ficha = useFichaPorEmail(estado.modo === 'nova' ? estado.contato.email : '')
-  const catalogo = useCatalogoDaMontagem(passos.passo === 2)
+  const catalogo = useCatalogoDaMontagem(passos.passo === 2 || rascunhoPendente !== null)
   const achado = montado.data?.tipo === 'achou' ? montado.data : null
   useEffect(() => {
     if (carregada || !achado) return
@@ -170,6 +190,23 @@ const MontarPedidoPage = () => {
     setCupomGravado(cupom)
     setCarregada(true)
   }, [carregada, achado])
+
+  // O rascunho guardado volta quando o catálogo chega (as linhas são refeitas com o preço de hoje).
+  useEffect(() => {
+    if (!rascunhoPendente || !catalogo.data) return
+    const { pecas, cupom, combinado, fora } = retomadaDoRascunho(rascunhoPendente, catalogo.data)
+    setRascunhoPendente(null)
+    despachar({ tipo: 'retomar-rascunho', pecas, cupom, combinado })
+    setAviso([RASCUNHO_RETOMADO, RASCUNHO_SEM_CLIENTE, ...(fora > 0 ? [pecasForaDoCatalogo(fora)] : [])])
+  }, [rascunhoPendente, catalogo.data])
+
+  // A cada mudança, o rascunho da montagem nova (só as peças e os descontos). Enquanto o guardado não
+  // volta, nada se grava por cima dele.
+  useEffect(() => {
+    const conta = contaDaMontagem.current
+    if (editando !== null || rascunhoPendente !== null || conta === null || (user?.id ?? null) !== conta) return
+    guardarRascunho(rascunhoDaMontagem(estado, conta))
+  }, [editando, rascunhoPendente, estado, user?.id])
 
   // O passo 3: a prévia confere a escolha de agora (o e-mail da cliente decide o cupom de primeira compra).
   const emailDaCliente = estado.modo === 'cadastrada' ? (estado.cliente?.email ?? '') : estado.contato.email
@@ -304,6 +341,7 @@ const MontarPedidoPage = () => {
       passos.sair()
       return
     }
+    apagarRascunho()
     deixarDesfecho({
       id: salvo.id,
       conta,
@@ -346,6 +384,17 @@ const MontarPedidoPage = () => {
   const fechar = () => {
     if (preenchida) folhaDeSair.abrir()
     else passos.sair()
+  }
+  // Com peças na montagem nova, a folha oferece guardar o rascunho ou descartá-lo.
+  const comRascunho = editando === null && estado.pecas.length > 0
+  const descartarESair = (folhaAberta: boolean) => {
+    if (editando === null) apagarRascunho()
+    passos.sair(folhaAberta)
+  }
+  const guardarESair = (folhaAberta: boolean) => {
+    const conta = contaDaMontagem.current
+    if (conta !== null && (user?.id ?? null) === conta) guardarRascunho(rascunhoDaMontagem(estado, conta))
+    passos.sair(folhaAberta)
   }
 
   // Da sentinela (o voltar no passo 1, com algo preenchido): a mesma pergunta, sem entrada própria.
@@ -572,22 +621,24 @@ const MontarPedidoPage = () => {
       <FolhaDeConfirmacao
         controle={folhaDeSair}
         titulo={SAIR_TITULO}
-        frase={SAIR_FRASE}
+        frase={comRascunho ? SAIR_FRASE_COM_RASCUNHO : SAIR_FRASE}
         manter={CONTINUAR_MONTANDO}
-        confirmar={SAIR}
+        confirmar={comRascunho ? DESCARTAR : SAIR}
         travado={false}
         erro={null}
-        aoConfirmar={() => passos.sair(true)}
+        aoConfirmar={() => descartarESair(true)}
+        alternativa={comRascunho ? { rotulo: GUARDAR_RASCUNHO, aoEscolher: () => guardarESair(true) } : undefined}
       />
       <FolhaDeConfirmacao
         controle={folhaDaSentinela}
         titulo={SAIR_TITULO}
-        frase={SAIR_FRASE}
+        frase={comRascunho ? SAIR_FRASE_COM_RASCUNHO : SAIR_FRASE}
         manter={CONTINUAR_MONTANDO}
-        confirmar={SAIR}
+        confirmar={comRascunho ? DESCARTAR : SAIR}
         travado={false}
         erro={null}
-        aoConfirmar={() => passos.sair()}
+        aoConfirmar={() => descartarESair(false)}
+        alternativa={comRascunho ? { rotulo: GUARDAR_RASCUNHO, aoEscolher: () => guardarESair(false) } : undefined}
       />
     </div>
   )

@@ -8,6 +8,9 @@ import type { FolhaNaEntrada } from '@/shared/lib/useFolhaNaEntrada'
  * A folha de confirmação do pedido montado (cancelar, renovar) — molde da `FolhaDoRastreio` da `75`:
  * no histórico (o voltar do Android a fecha), sem o X do canto (16 px), nada fecha enquanto grava, e o
  * foco volta a quem abriu (ou ao título da página). A ação de confirmar é `ink` cheio.
+ *
+ * `alternativa` é uma terceira ação, entre ficar e confirmar (a montagem: "Guardar rascunho"). Com ela
+ * os três botões se empilham sempre — três lado a lado não cabem em 360.
  */
 export interface FolhaDeConfirmacaoProps {
   controle: FolhaNaEntrada
@@ -18,9 +21,10 @@ export interface FolhaDeConfirmacaoProps {
   travado: boolean
   erro: string | null
   aoConfirmar: () => void
+  alternativa?: { rotulo: string; aoEscolher: () => void }
 }
 
-const FolhaDeConfirmacao = ({ controle, titulo, frase, manter, confirmar, travado, erro, aoConfirmar }: FolhaDeConfirmacaoProps) => {
+const FolhaDeConfirmacao = ({ controle, titulo, frase, manter, confirmar, travado, erro, aoConfirmar, alternativa }: FolhaDeConfirmacaoProps) => {
   const quemAbriu = useRef<HTMLElement | null>(null)
   return (
     <Sheet
@@ -54,7 +58,7 @@ const FolhaDeConfirmacao = ({ controle, titulo, frase, manter, confirmar, travad
               {erro}
             </p>
           )}
-          <div className="flex flex-col-reverse gap-2 min-[360px]:flex-row">
+          <div className={`flex gap-2 ${alternativa ? 'flex-col' : 'flex-col-reverse min-[360px]:flex-row'}`}>
             <button
               type="button"
               onClick={() => {
@@ -64,6 +68,17 @@ const FolhaDeConfirmacao = ({ controle, titulo, frase, manter, confirmar, travad
             >
               {manter}
             </button>
+            {alternativa && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!travado) alternativa.aoEscolher()
+                }}
+                className="min-h-12 flex-1 rounded-sm border border-estrelinha-primary px-4 text-base font-medium text-estrelinha-primary hover:bg-estrelinha-ground-deep"
+              >
+                {alternativa.rotulo}
+              </button>
+            )}
             <button
               type="button"
               aria-disabled={travado ? 'true' : undefined}

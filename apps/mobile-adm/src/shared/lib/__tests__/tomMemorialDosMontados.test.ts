@@ -128,6 +128,9 @@ describe('o registro dos pedidos montados é memorial — âncoras', () => {
       // A montagem.
       'Sair sem criar o link?',
       'Nada foi gravado ainda. A montagem se perde ao sair.',
+      // O rascunho da montagem.
+      'Nada foi gravado ainda. Você pode guardar as peças e os descontos neste celular para continuar depois. Os dados da cliente e o motivo do desconto não ficam guardados.',
+      'Rascunho retomado: as peças e os descontos voltaram.',
       "Complete o endereço, ou escolha 'A cliente preenche no link'.",
       // A folha "Colar texto".
       'Tem os dados numa mensagem?',

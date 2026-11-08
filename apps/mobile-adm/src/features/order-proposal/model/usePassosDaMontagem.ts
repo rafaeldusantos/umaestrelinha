@@ -18,8 +18,8 @@ import { ULTIMO_PASSO, type NumeroDoPasso } from './montagem'
  *   confirmação no primeiro passo sem um bloqueador de navegação (o app usa `BrowserRouter`).
  * - **Aberta direto** (sem estado — o endereço digitado): a entrada vira `/pedidos` e a montagem é
  *   empilhada por cima, para o "x" e o voltar terem sempre para onde ir.
- * - **F5 no meio** (o estado da tela se perdeu, de propósito: nada fica no aparelho): volta à sentinela
- *   e recomeça no passo 1.
+ * - **F5 no meio** (o estado da tela se perdeu; do aparelho volta só o rascunho das peças e dos
+ *   descontos, `rascunho.ts`): volta à sentinela e recomeça no passo 1.
  * - O indicador só navega até o passo mais alto ALCANÇADO; para trás, recua no histórico; para a
  *   frente, empilha os passos do meio (o voltar continua recuando um por um).
  */

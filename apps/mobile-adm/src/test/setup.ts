@@ -48,4 +48,8 @@ beforeEach(async () => {
   // de teste, e o dublê deixaria de valer.
   const { esquecerReconferencia } = await import("@/features/access-check/model/useRecusaDePapel");
   esquecerReconferencia();
+  // O rascunho da montagem mora no armazenamento do jsdom, que dura o arquivo inteiro: cada caso começa
+  // sem o rascunho que o vizinho deixou (a montagem o retomaria).
+  const { apagarRascunho } = await import("@/features/order-proposal/model/rascunho");
+  apagarRascunho();
 });

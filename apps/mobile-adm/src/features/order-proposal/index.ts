@@ -72,3 +72,13 @@ export { useCriarLink, type CriarLink } from './model/useCriarLink'
 export { lerCotacao, useCotacaoDaRevisao, useRelogioDaMontagem, COTACAO_DA_MONTAGEM_KEY, RELOGIO_DA_MONTAGEM_KEY } from './model/useCotacaoDaRevisao'
 export { marcarEdicao, edicaoMarcada, esquecerEdicao, deixarDesfecho, type DesfechoDaGravacao } from './model/montadoEmEdicao'
 export { default as PassoRevisar, type PassoRevisarProps } from './ui/PassoRevisar'
+export {
+  RASCUNHO_KEY,
+  apagarRascunho,
+  guardarRascunho,
+  lerRascunho,
+  rascunhoDaMontagem,
+  retomadaDoRascunho,
+  type Rascunho,
+  type Retomada,
+} from './model/rascunho'

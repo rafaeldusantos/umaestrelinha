@@ -19,6 +19,17 @@
 //    `PEDIDOS_PATH`/`CLIENTES_PATH` (ou `-1`, o voltar): um destino montado à mão é a porta para um
 //    e-mail ou nome na URL (`MAC-28`), e a ficha vai por `id` uuid, nunca por e-mail.
 //
+// A EXCEÇÃO ESTREITA: o rascunho da montagem de um pedido guarda neste celular só as
+// peças e os descontos, para a volta involuntária. Ela vale para UM arquivo, o dono da chave
+// (`features/order-proposal/model/rascunho.ts`), e para UMA forma, `localStorage` — `sessionStorage` e
+// `indexedDB` continuam acusados ali, e `localStorage` continua acusado em qualquer outro arquivo. E o
+// rascunho tem régua própria, nas duas metades que a leitura alcança: o código do dono não nomeia nada
+// da cliente nem o motivo do desconto (régua por termo, sobre o código sem comentário), e o rascunho
+// que ele monta e grava — a partir de uma montagem com tudo preenchido por sentinelas — não carrega
+// nenhuma delas (régua por execução, em `features/order-proposal/model/__tests__/
+// rascunhoSemDadoDaCliente.test.ts`, ancorada daqui). Os sensores provam que nome, e-mail, telefone, documento,
+// endereço ou o motivo no rascunho reprovam.
+//
 // O que NÃO alcança, declarado: o que o navegador faz com o que a tela desenha (a varredura de rede, de
 // armazenamento e de histórico em navegador real é a T32). Esta é a metade que a leitura do fonte
 // alcança.
@@ -176,8 +187,22 @@ const FORMAS: { nome: string; acha: (codigo: string) => string[] }[] = [
   },
 ]
 
+/** O dono do rascunho da montagem: o único arquivo onde `localStorage` (e só ele) é aceito. */
+const DONO_DO_RASCUNHO = 'features/order-proposal/model/rascunho.ts'
+
+/** A exceção estreita: no dono do rascunho, a forma `armazenamento` aceita `localStorage` e nada mais. */
+const aceita = (rel: string, forma: string, achado: string): boolean =>
+  rel === DONO_DO_RASCUNHO && forma === 'armazenamento' && achado === 'localStorage'
+
 const acusacoes = (alvo: Arquivo[]): string[] =>
-  alvo.flatMap((a) => FORMAS.flatMap((f) => f.acha(a.codigo).map((x) => `${a.rel} [${f.nome}] ${x}`)))
+  alvo.flatMap((a) =>
+    FORMAS.flatMap((f) =>
+      f
+        .acha(a.codigo)
+        .filter((x) => !aceita(a.rel, f.nome, x))
+        .map((x) => `${a.rel} [${f.nome}] ${x}`),
+    ),
+  )
 
 const sintetico = (fonte: string): Arquivo[] => [{ rel: 'sintetico.tsx', codigo: semComentarios(fonte) }]
 
@@ -206,6 +231,8 @@ describe('nenhum dado de cliente fora da tela (MAC-28) — âncoras', () => {
       'features/order-proposal/ui/FolhaColarTexto.tsx',
       'features/order-proposal/model/useLeituraDoTexto.ts',
       'features/order-proposal/api/portaDeLeitura.ts',
+      // O rascunho da montagem: o dono da chave, com a exceção estreita.
+      DONO_DO_RASCUNHO,
     ])
       expect(rels).toContain(r)
     expect(rels.some((r) => r.includes('__tests__/'))).toBe(false)
@@ -284,5 +311,63 @@ describe('sensores — a régua acusa cada forma e não acusa o que não é', ()
 
   it('o código DEPOIS do comentário continua acusado (CRLF não engole a linha seguinte)', () => {
     expect(acusacoes(sintetico('// nota\r\nconsole.log(c)')).length).toBe(1)
+  })
+})
+
+// O rascunho da montagem: a exceção estreita, e a régua do que ele leva.
+describe('o rascunho da montagem — a exceção estreita, e nada da cliente nele', () => {
+  const dono = (): Arquivo => {
+    const a = ESCOPO.find((x) => x.rel === DONO_DO_RASCUNHO)
+    if (!a) throw new Error('o dono do rascunho saiu da varredura')
+    return a
+  }
+
+  it('âncora: o dono usa `localStorage` em código, e é a única exceção aceita', () => {
+    expect(FORMAS[0].acha(dono().codigo)).toContain('localStorage')
+    expect(acusacoes([dono()])).toEqual([])
+  })
+
+  it('sensor: `localStorage` em OUTRO arquivo continua acusado, e `sessionStorage`/`indexedDB` no dono também', () => {
+    expect(acusacoes([{ rel: 'features/order-proposal/model/outro.ts', codigo: 'localStorage.setItem(k, v)' }])).toHaveLength(1)
+    expect(acusacoes([{ rel: 'pages/MontarPedidoPage.tsx', codigo: 'localStorage.getItem(k)' }])).toHaveLength(1)
+    expect(acusacoes([{ rel: DONO_DO_RASCUNHO, codigo: 'sessionStorage.setItem(k, v)' }])).toHaveLength(1)
+    expect(acusacoes([{ rel: DONO_DO_RASCUNHO, codigo: 'indexedDB.open(k)' }])).toHaveLength(1)
+    expect(acusacoes([{ rel: DONO_DO_RASCUNHO, codigo: 'console.log(r)' }])).toHaveLength(1)
+  })
+
+  /**
+   * Régua por TERMO: o código do dono (sem comentário) não nomeia nada da cliente nem o motivo do
+   * desconto — a cliente, o contato, os campos de contato e de endereço, a entrega, a observação.
+   */
+  const TERMOS_DA_CLIENTE =
+    /\b(?:cliente|contato|nome|email|whatsapp|telefone|phone|documento|cpf|endereco|enderecoSalvoId|entrega|cep|rua|bairro|cidade|uf|motivo|observacao)\b/g
+  const termosDaCliente = (codigo: string): string[] => [...codigo.matchAll(TERMOS_DA_CLIENTE)].map((m) => m[0])
+
+  it('o código do dono não nomeia nada da cliente nem o motivo do desconto', () => {
+    expect(termosDaCliente(dono().codigo)).toEqual([])
+  })
+
+  it.each([
+    ['nome', 'combinado: c, nome: estado.contato.nome'],
+    ['e-mail', 'conta, email: estado.cliente?.email'],
+    ['telefone', 'whatsapp: estado.contato.whatsapp'],
+    ['documento (CPF)', 'documento: estado.contato.documento'],
+    ['endereço', 'endereco: estado.endereco'],
+    ['o motivo do desconto', 'combinado: { ...estado.combinado, motivo: estado.combinado.motivo }'],
+  ])('sensor por termo: %s no código do dono reprova', (_, trecho) => {
+    expect(termosDaCliente(semComentarios(trecho)).length).toBeGreaterThan(0)
+  })
+
+  it('sensor por termo: a prosa em comentário não conta', () => {
+    expect(termosDaCliente(semComentarios('// nunca a cliente nem o motivo\nconst x = 1'))).toEqual([])
+  })
+
+  // A metade por EXECUÇÃO mora ao lado do dono (as fronteiras FSD não deixam `shared` importar
+  // `features`): `features/order-proposal/model/__tests__/rascunhoSemDadoDaCliente.test.ts`. Esta âncora
+  // impede que ela saia sem ninguém ver.
+  it('âncora: a régua por execução existe ao lado do dono, com os seis sensores', () => {
+    const fonte = readFileSync(join(SRC, 'features/order-proposal/model/__tests__/rascunhoSemDadoDaCliente.test.ts'), 'utf8')
+    for (const sensor of ['nome', 'e-mail', 'telefone', 'documento (CPF)', 'endereço', 'o motivo do desconto']) expect(fonte).toContain(`['${sensor}',`)
+    expect(fonte).toMatch(/\bvazamentos\(/)
   })
 })
