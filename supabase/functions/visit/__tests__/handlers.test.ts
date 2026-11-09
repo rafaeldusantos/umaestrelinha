@@ -420,6 +420,46 @@ describe('VIS-23 — robô e origem ⇒ 200, sem gravar', () => {
   })
 })
 
+describe('portão 4b — robô que não se declara, de dentro de um data center', () => {
+  const corpoDoRelogio = { dia: RELOGIO.dia, ate: RELOGIO.ate, agora: RELOGIO.agora }
+  // Um dos 157 IPs da ColoCrossing (AS36352) que gravaram as rajadas de 2026-11-08 e 2026-11-09,
+  // com o user agent comum que ele mandava — nenhuma régua de user agent o pega.
+  const IP_COLOCROSSING = '198.46.191.25'
+  const UA_DO_ROBO =
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+
+  it('`cf-connecting-ip` de data center ⇒ `robô` com motivo `rede`, sem gravar', async () => {
+    const { supabase, deps, logs } = criar()
+    const req = pedir({ ua: UA_DO_ROBO })
+    req.headers.set('cf-connecting-ip', IP_COLOCROSSING)
+    const res = await route(deps, req)
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ desfecho: 'robô', ...corpoDoRelogio })
+    expect(gravacoes(supabase)).toEqual([])
+    conferirLog(logs, 'robô', [IP_COLOCROSSING, UA_DO_ROBO])
+    expect(logs[0].motivo).toBe('rede')
+  })
+
+  it('o IP de data center no `x-forwarded-for` também é recusado', async () => {
+    const { supabase, deps } = criar()
+    const res = await route(deps, pedir({ ip: IP_COLOCROSSING, ua: UA_DO_ROBO }))
+
+    expect((await res.json()).desfecho).toBe('robô')
+    expect(gravacoes(supabase)).toEqual([])
+  })
+
+  it('par — o mesmo user agent de uma operadora brasileira grava', async () => {
+    const { supabase, deps } = criar()
+    const req = pedir({ ua: UA_DO_ROBO })
+    req.headers.set('cf-connecting-ip', '177.12.34.56')
+    const res = await route(deps, req)
+
+    expect((await res.json()).desfecho).toBe('gravada')
+    expect(gravacoes(supabase)).toHaveLength(1)
+  })
+})
+
 // -------------------------------------------------------------------------------------------
 // Portão 6 — a gravação
 // -------------------------------------------------------------------------------------------

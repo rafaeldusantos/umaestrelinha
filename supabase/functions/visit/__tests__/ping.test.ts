@@ -145,6 +145,18 @@ describe('o pulso de presença — o que não grava', () => {
     conferirLog(logs, 'robô')
   })
 
+  it('IP de data center (o robô de 2026-11-08/09) não grava, com motivo `rede`', async () => {
+    const { supabase, deps, logs } = criar()
+    const req = pedir({ ua: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' })
+    req.headers.set('cf-connecting-ip', '198.46.191.25')
+    const res = await route(deps, req)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ desfecho: 'robô' })
+    expect(presencas(supabase)).toEqual([])
+    conferirLog(logs, 'robô')
+    expect(logs[0].motivo).toBe('rede')
+  })
+
   it('sem `Origin`, ou ilegível, é interno e não grava', async () => {
     for (const origem of [null, 'null']) {
       const { supabase, deps, logs } = criar()

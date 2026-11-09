@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest'
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 /** Folhas: zero import. Escritas por extenso — a âncora nunca itera o objeto que mede. */
-const FOLHAS = ['visits/bots.ts', 'visits/visitor.ts', 'visits/optOut.ts', 'visits/presence.ts', 'time/zone.ts']
+const FOLHAS = ['visits/bots.ts', 'visits/visitor.ts', 'visits/optOut.ts', 'visits/presence.ts', 'visits/datacenterRanges.ts', 'time/zone.ts']
 /** Barril: só especificadores relativos com `.ts`. */
 const BARRIL = 'visits/index.ts'
 
@@ -61,6 +61,14 @@ describe('core/visits — alcançável pelo Deno', () => {
 
   it.each(FOLHAS)('%s não importa nada', (folha) => {
     expect(importsDe(lerDoDisco, folha)).toEqual([])
+  })
+
+  it('`datacenter.ts` (só a function o lê, fora do barril) importa só a lista, por caminho com `.ts`', () => {
+    expect(importsDe(lerDoDisco, 'visits/datacenter.ts')).toEqual(['./datacenterRanges.ts'])
+  })
+
+  it('o barril NÃO reexporta as faixas de data center — a loja não carrega a lista', () => {
+    expect(lerDoDisco(BARRIL)).not.toMatch(/datacenter/i)
   })
 
   it('o barril só reexporta por caminho relativo com `.ts`', () => {

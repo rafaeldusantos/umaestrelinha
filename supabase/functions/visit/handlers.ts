@@ -13,6 +13,7 @@
 //   2   o corpo (`visitBodyRefusal`) ⇒ 400, `inválido`
 //   3   `store_clock` fresco          ⇒ falha ⇒ 500, `erro`
 //   4   user agent de robô           ⇒ 200, `robô`, sem gravar
+//   4b  IP de data center (`datacenter.ts`) ⇒ 200, `robô` com `motivo: 'rede'`, sem gravar
 //   5   origem fora do host de produção (ou ausente, ou ilegível) ⇒ 200, `interno`, sem gravar
 //   6   `record_store_visit`          ⇒ 200, `gravada`/`repetida`/`teto`; falha ⇒ 500, `erro`
 //
@@ -23,6 +24,7 @@
 // que as duas RPCs devolvem.
 
 import { isBotUserAgent } from '../../../packages/core/src/visits/bots.ts'
+import { requestFromDatacenter } from '../../../packages/core/src/visits/datacenter.ts'
 import { visitBodyRefusal } from '../../../packages/core/src/visits/visitor.ts'
 import { trafficType } from '../../../packages/core/src/analytics/host.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
@@ -184,6 +186,12 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
   // Portão 4 — robô que se declara.
   if (isBotUserAgent(req.headers.get('user-agent'))) {
     return responder('robô', { desfecho: 'robô', ...doRelogio }, 200)
+  }
+
+  // Portão 4b — robô que NÃO se declara: Chrome de verdade, user agent comum, cookies aceitos e perfil
+  // zerado a cada acesso, rodando de dentro de um data center (o caso de 2026-11-08/09).
+  if (requestFromDatacenter((nome) => req.headers.get(nome))) {
+    return responder('robô', { desfecho: 'robô', ...doRelogio }, 200, { motivo: 'rede' })
   }
 
   // Portão 5 — a origem. Sem `Origin`, ilegível ou fora do host de produção, é tráfego interno — a

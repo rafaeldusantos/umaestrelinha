@@ -8,7 +8,7 @@
 //   1  outro método que não POST          ⇒ 405, `inválido`
 //   2  teto por IP próprio (sem IP, libera) ⇒ 429, `limite` — sem tocar o banco
 //   3  o corpo (`presenceBodyRefusal`)    ⇒ 400, `inválido`
-//   4  user agent de robô                 ⇒ 200, `robô`, sem gravar
+//   4  user agent de robô ou IP de data center ⇒ 200, `robô`, sem gravar
 //   5  `Origin` ausente ou ilegível       ⇒ 200, `interno`, sem gravar
 //   6  `record_store_presence`            ⇒ 200, `gravada`/`interno`/`teto`; falha ⇒ 500, `erro`
 //
@@ -17,6 +17,7 @@
 // para o filtro de robô, e NUNCA vai à RPC nem ao log. O handler não lê `Authorization`.
 
 import { isBotUserAgent } from '../../../packages/core/src/visits/bots.ts'
+import { requestFromDatacenter } from '../../../packages/core/src/visits/datacenter.ts'
 import { presenceBodyRefusal, type PresenceBody } from '../../../packages/core/src/visits/presence.ts'
 import { deviceBucket } from '../../../packages/core/src/live/buckets.ts'
 import { json } from '../_shared/http.ts'
@@ -65,6 +66,9 @@ export async function routePing(deps: PingDeps, req: Request): Promise<Response>
 
   const ua = req.headers.get('user-agent')
   if (isBotUserAgent(ua)) return responder('robô', { desfecho: 'robô' }, 200)
+  if (requestFromDatacenter((nome) => req.headers.get(nome))) {
+    return responder('robô', { desfecho: 'robô' }, 200, { motivo: 'rede' })
+  }
 
   const host = hostDaOrigem(req.headers.get('origin'))
   if (host === null) return responder('interno', { desfecho: 'interno' }, 200)
