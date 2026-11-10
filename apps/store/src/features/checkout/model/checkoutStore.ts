@@ -297,6 +297,16 @@ export const useProposalCheckoutStore: CheckoutStore = createCheckoutStore(
   PROPOSAL_CHECKOUT_STORAGE_KEY,
 )
 
+/**
+ * O rascunho da página do link de pagamento por cartão (`/pagar-com-cartao`). Só o Brick e as
+ * parcelas o usam; outra chave, outra instância: pagar por ali nunca toca o rascunho de `/checkout`
+ * nem a sacola.
+ */
+export const CARD_LINK_CHECKOUT_STORAGE_KEY = 'estrelinha-card-link-checkout'
+export const useCardLinkCheckoutStore: CheckoutStore = createCheckoutStore(
+  CARD_LINK_CHECKOUT_STORAGE_KEY,
+)
+
 const CheckoutStoreContext = createContext<CheckoutStore>(useCheckoutStore)
 
 /** Os blocos abaixo deste provider leem e escrevem `store`, e não o rascunho de `/checkout`. */

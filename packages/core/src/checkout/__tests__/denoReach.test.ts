@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest'
 const DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 /** O que a edge function `checkout` importa por caminho relativo. Cresce com a feature. */
-const ENTRADAS = ['identity.ts', 'guestAccess.ts']
+const ENTRADAS = ['identity.ts', 'guestAccess.ts', 'cardLink.ts']
 
 /** Um leitor de arquivo, injetável — é o que torna o sensor por mutação possível. */
 type Leitor = (caminho: string) => string

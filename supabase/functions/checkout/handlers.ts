@@ -11,6 +11,7 @@
 //                 dois caminhos de gravação divergiriam sem build, `tsc` ou teste acusarem.
 //   get-order     devolve o pedido a quem apresenta o token daquele pedido.
 //   get-proposal  a proposta que o painel montou, a quem apresenta o token do link (feature 89).
+//   get-card-link o pedido a pagar pelo link de cartão que a Adri gerou (`cardLink.ts`).
 //
 // `create-order` com `proposal_token` vai para `proposal.ts` (feature 89): o pedido nasce da
 // proposta, e o caminho de sempre, abaixo, fica intocado.
@@ -49,6 +50,7 @@ import {
   createOrderFromProposal,
   getProposal,
 } from './proposal.ts'
+import { CARD_LINK_READ_MAX, CARD_LINK_READ_WINDOW_MS, getCardLink } from './cardLink.ts'
 
 /** Tudo que os handlers tocam fora do próprio processo. O wiring (`index.ts`) fornece o real. */
 export interface Deps {
@@ -66,6 +68,11 @@ export interface Deps {
    * credencial de URL, e sem o balde não haveria limite de tentativas. Quem monta é `buildDeps`.
    */
   proposalLimiter?: RateLimiter
+  /**
+   * O teto de leituras do link de pagamento por cartão — balde próprio, no molde do da
+   * proposta. Ausente, `get-card-link` RECUSA (fail-closed). Quem monta é `buildDeps`.
+   */
+  cardLinkLimiter?: RateLimiter
 }
 
 /**
@@ -82,6 +89,7 @@ export function buildDeps(supabase: any, now: () => number): Deps {
     now,
     limiter: createRateLimiter(IDENTIFY_MAX, IDENTIFY_WINDOW_MS, now),
     proposalLimiter: createRateLimiter(PROPOSAL_READ_MAX, PROPOSAL_READ_WINDOW_MS, now),
+    cardLinkLimiter: createRateLimiter(CARD_LINK_READ_MAX, CARD_LINK_READ_WINDOW_MS, now),
   }
 }
 
@@ -714,10 +722,40 @@ export async function getOrder(
     ...publico
   } = pedido
 
-  const status_events = await eventosDoPedido(deps, orderId)
+  const [status_events, manual_payment] = await Promise.all([
+    eventosDoPedido(deps, orderId),
+    pedido.paid_at ? meioInformado(deps, orderId) : Promise.resolve(null),
+  ])
 
   log({ action: 'get-order', status: 'ok', order_id: orderId })
-  return json({ order: { ...publico, status_events } })
+  return json({ order: { ...publico, status_events, manual_payment } })
+}
+
+/**
+ * O MEIO do pagamento registrado à mão pela loja (`order_manual_payments`, só admin pela
+ * RLS), no mesmo formato que a RPC `customer_manual_payment` entrega a quem tem sessão:
+ * `{ method }` do registro vivo, ou `null` sem registro. Só um pedido pago pode ter registro (o
+ * registro grava `paid_at`), por isso o não pago nem pergunta.
+ *
+ * Só `method` e `undone_at` são pedidos: a observação, os comprovantes e o autor são do painel, e
+ * nunca saem para a cliente. O registro vivo é o de `undone_at` nulo (há no máximo um).
+ *
+ * Falha de leitura devolve `null`: a cliente vê o meio do pedido, e a página continua.
+ */
+async function meioInformado(deps: Deps, orderId: string): Promise<{ method: string | null } | null> {
+  try {
+    const { data } = await deps.supabase
+      .from('order_manual_payments')
+      .select('method, undone_at')
+      .eq('order_id', orderId)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vivo = (Array.isArray(data) ? data : []).find((r: any) => r && r.undone_at == null)
+    if (!vivo) return null
+    return { method: typeof vivo.method === 'string' ? vivo.method : null }
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -780,8 +818,10 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
         return await getOrder(deps, body)
       case 'get-proposal':
         return await getProposal(deps, req, body, deps.proposalLimiter ?? null)
+      case 'get-card-link':
+        return await getCardLink(deps, req, body, deps.cardLinkLimiter ?? null)
       default:
-        return json({ error: 'action inválida. Use: identify, create-order, get-order, get-proposal' }, 400)
+        return json({ error: 'action inválida. Use: identify, create-order, get-order, get-proposal, get-card-link' }, 400)
     }
   } catch (err) {
     log({ action: 'error', message: err instanceof Error ? err.message : String(err) })

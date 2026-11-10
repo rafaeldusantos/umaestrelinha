@@ -649,6 +649,7 @@ describe('OrderConfirmationPage — o estado do topo é o primeiro bloco (DET-02
         paid_at: null,
         payment_status: 'expired',
         created_at: '2026-10-04T15:00:00Z',
+        mp_order_id: 'ORD01PIX',
       }),
     })
     const { container } = renderPage()
@@ -669,7 +670,7 @@ describe('OrderConfirmationPage — o estado do topo é o primeiro bloco (DET-02
     vi.setSystemTime(new Date('2026-10-11T15:01:00Z'))
     lojaSettings.whatsapp = '51998765432'
     mockOrder({
-      data: order({ paid_at: null, payment_status: 'expired', created_at: '2026-10-04T15:00:00Z' }),
+      data: order({ paid_at: null, payment_status: 'expired', created_at: '2026-10-04T15:00:00Z', mp_order_id: 'ORD01PIX' }),
     })
     renderPage()
 
@@ -931,5 +932,280 @@ describe('OrderConfirmationPage — a peça levada pelo Compre Junto', () => {
     // `Acompanha o ` e não `Acompanha`: a ação "Acompanhar pedido" da página casaria a forma curta.
     expect(screen.getByText('Pingente Estrela')).toBeInTheDocument()
     expect(screen.queryByText(/Acompanha o /)).not.toBeInTheDocument()
+  })
+})
+
+describe('OrderConfirmationPage — o pagamento que falhou, pela página real', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const cartao = (extra: Partial<OrderDetail> = {}) =>
+    order({ payment_method: 'card', paid_at: null, payment_status: 'rejected', mp_order_id: 'ORD01JQ', ...extra })
+
+  /** Nenhuma oferta de pagar de novo nem de trocar o meio. */
+  const semOfertaDePagar = () => {
+    expect(screen.queryByRole('link', { name: /pagar com pix/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /gerar novo pix/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /cart[aã]o/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pagar|cart[aã]o|pix/i })).not.toBeInTheDocument()
+  }
+
+  it('cartão recusado: o informativo para resolver o pagamento pelo WhatsApp, logo depois do cabeçalho', () => {
+    lojaSettings.whatsapp = '51998765432'
+    mockOrder({ data: cartao() })
+    const { container } = renderPage()
+
+    const estado = screen.getByRole('region', { name: 'O pagamento com cartão não foi concluído' })
+    expect(screen.getByRole('heading', { level: 1 }).closest('header')?.nextElementSibling).toBe(estado)
+    expect(normaliza(estado.textContent)).toContain(
+      'Fale comigo pelo WhatsApp que eu te ajudo a resolver o pagamento deste pedido.',
+    )
+    const link = within(estado).getByRole('link', { name: 'Conversar no WhatsApp' })
+    const url = new URL(link.getAttribute('href') as string)
+    expect(url.origin + url.pathname).toBe('https://wa.me/51998765432')
+    expect(url.searchParams.get('text')).toBe('Olá! Quero resolver o pagamento do pedido #NP-4821.')
+    expect(link.className.split(/\s+/)).toContain('min-h-11')
+    semOfertaDePagar()
+    // Tom memorial: sem exclamação nem urgência na cópia do informativo.
+    expect(estado.textContent).not.toMatch(/!|urgente|agora|hoje|últim/i)
+    // O informativo não é a ação da vez: "Acompanhar pedido" continua a pílula cheia.
+    const cheias = container.querySelectorAll('[class*="bg-estrelinha-primary"][class*="rounded-sm"]')
+    expect(cheias).toHaveLength(1)
+    expect(cheias[0].textContent).toContain('Acompanhar pedido')
+  })
+
+  it('cartão com tentativa de cobrança e sem resposta: o mesmo informativo, com o título de quem espera', () => {
+    lojaSettings.whatsapp = '51998765432'
+    mockOrder({ data: cartao({ payment_status: 'pending' }) })
+    renderPage()
+
+    const estado = screen.getByRole('region', { name: 'O pagamento com cartão ainda não foi confirmado' })
+    expect(normaliza(estado.textContent)).toContain(
+      'Fale comigo pelo WhatsApp que eu te ajudo a resolver o pagamento deste pedido.',
+    )
+    expect(within(estado).getByRole('link', { name: 'Conversar no WhatsApp' })).toBeInTheDocument()
+    semOfertaDePagar()
+  })
+
+  it('cartão que o relógio da loja expirou com a cobrança ainda em análise: ainda não foi confirmado, no título e no selo', () => {
+    lojaSettings.whatsapp = '51998765432'
+    mockOrder({ data: cartao({ payment_status: 'expired', mp_status_detail: 'pending_review_manual' }) })
+    renderPage()
+
+    const estado = screen.getByRole('region', { name: 'O pagamento com cartão ainda não foi confirmado' })
+    expect(normaliza(estado.textContent)).toContain(
+      'Fale comigo pelo WhatsApp que eu te ajudo a resolver o pagamento deste pedido.',
+    )
+    expect(within(estado).getByRole('link', { name: 'Conversar no WhatsApp' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'O pagamento com cartão não foi concluído' })).not.toBeInTheDocument()
+    expect(screen.getByText('Aguardando pagamento')).toBeInTheDocument()
+    expect(screen.queryByText('Pagamento não concluído')).not.toBeInTheDocument()
+    semOfertaDePagar()
+  })
+
+  it('cartão criado e nunca cobrado: nenhum estado do topo', () => {
+    lojaSettings.whatsapp = '51998765432'
+    mockOrder({ data: cartao({ payment_status: 'pending', mp_order_id: null }) })
+    renderPage()
+
+    expect(screen.getByRole('heading', { level: 1 }).closest('header')?.nextElementSibling).toBe(
+      screen.getByRole('region', { name: 'Onde seu pedido está' }),
+    )
+    expect(screen.queryByRole('link', { name: 'Conversar no WhatsApp' })).not.toBeInTheDocument()
+  })
+
+  it('sem número da loja configurado, o informativo fica só com o texto', () => {
+    lojaSettings.whatsapp = ''
+    mockOrder({ data: cartao() })
+    renderPage()
+
+    const estado = screen.getByRole('region', { name: 'O pagamento com cartão não foi concluído' })
+    expect(normaliza(estado.textContent)).toContain('Fale comigo pelo WhatsApp')
+    expect(within(estado).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('cartão expirado: o selo diz "Pagamento não concluído", nunca "PIX expirado"', () => {
+    mockOrder({ data: cartao({ payment_status: 'expired' }) })
+    renderPage()
+
+    expect(screen.getByText('Pagamento não concluído')).toBeInTheDocument()
+    expect(screen.queryByText('PIX expirado')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'O pagamento com cartão não foi concluído' })).toBeInTheDocument()
+  })
+
+  it('pedido gravado fora da loja (sem cobrança feita pela loja): sem "Gerar novo PIX" nem valor — a Adri combina pelo WhatsApp', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
+    lojaSettings.whatsapp = '51998765432'
+    mockOrder({
+      data: order({ payment_status: 'expired', paid_at: null, total: 10, mp_order_id: null }),
+    })
+    const { container } = renderPage()
+
+    const estado = screen.getByRole('region', { name: 'O pagamento deste pedido é combinado comigo' })
+    expect(screen.getByRole('heading', { level: 1 }).closest('header')?.nextElementSibling).toBe(estado)
+    expect(normaliza(estado.textContent)).toContain(
+      'Fale comigo pelo WhatsApp que eu combino com você como concluir o pagamento deste pedido.',
+    )
+    expect(estado.textContent).not.toContain('R$')
+    expect(estado.textContent).not.toContain('Valor')
+    const link = within(estado).getByRole('link', { name: 'Conversar no WhatsApp' })
+    expect(new URL(link.getAttribute('href') as string).searchParams.get('text')).toBe(
+      'Olá! Quero combinar o pagamento do pedido #NP-4821.',
+    )
+    semOfertaDePagar()
+    expect(screen.queryByText('O código PIX expirou')).not.toBeInTheDocument()
+    expect(estado.textContent).not.toMatch(/!|urgente|agora|hoje|últim/i)
+    const cheias = container.querySelectorAll('[class*="bg-estrelinha-primary"][class*="rounded-sm"]')
+    expect(cheias).toHaveLength(1)
+    expect(cheias[0].textContent).toContain('Acompanhar pedido')
+  })
+
+  it('o par: o PIX que a loja cobrou continua oferecendo "Gerar novo PIX" com o valor', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
+    mockOrder({
+      data: order({ payment_status: 'expired', paid_at: null, mp_order_id: 'ORD01PIX' }),
+    })
+    renderPage()
+
+    const estado = screen.getByRole('region', { name: 'O código PIX expirou' })
+    expect(normaliza(estado.textContent)).toContain('R$ 109,90')
+    expect(within(estado).getByRole('link', { name: 'Gerar novo PIX' })).toHaveAttribute(
+      'href',
+      '/pedido/order-1/pagamento',
+    )
+    expect(screen.queryByRole('region', { name: 'O pagamento deste pedido é combinado comigo' })).not.toBeInTheDocument()
+  })
+
+  it.each(['paid', 'separating', 'shipped'])(
+    'pedido avançado à mão para %s sem pagamento: nada a pagar',
+    (status) => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
+      lojaSettings.whatsapp = '51998765432'
+      for (const extra of [
+        { payment_method: 'pix', payment_status: 'pending' as const },
+        { payment_method: 'pix', payment_status: 'expired' as const },
+        { payment_method: 'card', payment_status: 'rejected' as const, mp_order_id: 'O1' },
+      ]) {
+        mockOrder({ data: order({ ...extra, status, paid_at: null }) })
+        const { unmount } = renderPage()
+        semOfertaDePagar()
+        expect(screen.queryByRole('link', { name: 'Conversar no WhatsApp' })).not.toBeInTheDocument()
+        unmount()
+      }
+    },
+  )
+})
+
+describe('OrderConfirmationPage — o pedido pago por fora da loja', () => {
+  const pagoPorFora = (manual_payment: OrderDetail['manual_payment'], extra: Partial<OrderDetail> = {}) =>
+    order({
+      payment_method: 'pix',
+      payment_status: 'approved',
+      status: 'paid',
+      paid_at: '2026-07-28T13:00:00Z',
+      manual_payment,
+      ...extra,
+    })
+
+  it('o meio informado pela loja aparece em "Pagamento e entrega", com a data e o mesmo total', () => {
+    mockOrder({ data: pagoPorFora({ method: 'transferencia' }) })
+    renderPage()
+
+    const bloco = screen.getByRole('region', { name: 'Pagamento e entrega' })
+    expect(within(bloco).getByText('Transferência')).toBeInTheDocument()
+    expect(within(bloco).queryByText('PIX')).not.toBeInTheDocument()
+    expect(within(bloco).getByText('Aprovado em 28 jul')).toBeInTheDocument()
+    expect(normaliza(document.body.textContent)).toContain('R$ 109,90')
+  })
+
+  it('o selo e a jornada são os de sempre de um pedido pago, sem nenhuma oferta de pagar', () => {
+    mockOrder({ data: pagoPorFora({ method: 'dinheiro' }) })
+    renderPage()
+
+    expect(screen.getByText('Em produção')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Onde seu pedido está' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /pagar com pix|gerar novo pix/i })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['sem meio informado', { method: null }, 'Combinado com a loja'],
+    ['"outro"', { method: 'outro' }, 'Combinado com a loja'],
+    ['cartão de outro gateway', { method: 'cartao' }, 'Cartão de crédito'],
+  ])('%s: a cliente lê o meio na voz dela', (_n, manual, esperado) => {
+    mockOrder({ data: pagoPorFora(manual as OrderDetail['manual_payment']) })
+    renderPage()
+
+    const bloco = screen.getByRole('region', { name: 'Pagamento e entrega' })
+    expect(within(bloco).getByText(esperado as string)).toBeInTheDocument()
+    expect(bloco.textContent).not.toMatch(/gateway|maquininha|Outro\b/)
+  })
+
+  it('sem registro manual, o meio continua o do pedido', () => {
+    mockOrder({ data: pagoPorFora(null) })
+    renderPage()
+
+    const bloco = screen.getByRole('region', { name: 'Pagamento e entrega' })
+    expect(within(bloco).getByText('PIX')).toBeInTheDocument()
+  })
+
+  it('a observação e o comprovante nunca aparecem — mesmo que cheguem por engano no pedido', () => {
+    mockOrder({
+      data: pagoPorFora({ method: 'transferencia', note: 'Pagou na conta da Adri', receipts: ['r/1.pdf'] } as never, {
+        note: 'Observação interna',
+      } as never),
+    })
+    const { container } = renderPage()
+
+    expect(container.textContent).not.toContain('Pagou na conta da Adri')
+    expect(container.textContent).not.toContain('Observação interna')
+    // "O comprovante foi enviado para…" é a frase do e-mail de aprovação, de sempre; o arquivo do
+    // registro manual é outra coisa, e nem o caminho nem um link para ele chegam à tela.
+    expect(container.textContent).not.toContain('r/1.pdf')
+    expect(container.querySelector('a[href*="r/1.pdf"]')).toBeNull()
+    expect(screen.queryByRole('link', { name: /comprovante/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('OrderConfirmationPage — cancelado por falta de pagamento', () => {
+  const cancelado = (extra: Partial<OrderDetail> = {}) =>
+    order({
+      status: 'cancelled',
+      payment_status: 'expired',
+      paid_at: null,
+      unpaid_cancelled_at: '2026-08-03T18:17:00Z',
+      status_events: [{ status: 'cancelled', at: '2026-08-03T18:17:00Z' }],
+      ...extra,
+    } as Partial<OrderDetail>)
+
+  it('diz que o pedido foi cancelado por falta de pagamento, logo depois do cabeçalho, com o WhatsApp', () => {
+    lojaSettings.whatsapp = '51998765432'
+    mockOrder({ data: cancelado() })
+    renderPage()
+
+    const estado = screen.getByRole('region', { name: 'Pedido cancelado por falta de pagamento' })
+    expect(screen.getByRole('heading', { level: 1 }).closest('header')?.nextElementSibling).toBe(estado)
+    expect(normaliza(estado.textContent)).toContain(
+      'O pagamento deste pedido não foi concluído em 7 dias, e ele foi cancelado.',
+    )
+    const link = within(estado).getByRole('link', { name: 'Conversar no WhatsApp' })
+    const url = new URL(link.getAttribute('href') as string)
+    expect(url.origin + url.pathname).toBe('https://wa.me/51998765432')
+    expect(url.searchParams.get('text')).toBe('Olá! Quero retomar o pedido #NP-4821.')
+    expect(estado.textContent).not.toMatch(/!|urgente|últim/i)
+    expect(screen.queryByRole('link', { name: /pagar com pix|gerar novo pix/i })).not.toBeInTheDocument()
+  })
+
+  it('o cancelado pela admin (sem a marca) continua só com "Pedido cancelado", sem a frase da falta de pagamento', () => {
+    lojaSettings.whatsapp = '51998765432'
+    mockOrder({ data: cancelado({ unpaid_cancelled_at: null } as Partial<OrderDetail>) })
+    renderPage()
+
+    expect(screen.queryByRole('region', { name: 'Pedido cancelado por falta de pagamento' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/falta de pagamento/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('Pedido cancelado')).toHaveLength(1)
   })
 })

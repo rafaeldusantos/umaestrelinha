@@ -17,7 +17,9 @@ import { buyTogetherDiscountConfig } from "../../../packages/core/src/buy-togeth
 import { BUY_TOGETHER_DISCOUNT_SELECT } from "../../../packages/core/src/buy-together/io/discountSelect.ts"
 import { buildPayer, mergePayer } from "../../../packages/core/src/payment/payer.ts"
 // Feature `49`: a segunda prova de posse — quem comprou sem conta não tem JWT para apresentar.
-import { accessGrant } from "../../../packages/core/src/checkout/guestAccess.ts"
+import { accessGrant, hashAccessToken, newAccessToken } from "../../../packages/core/src/checkout/guestAccess.ts"
+// O link de pagamento por cartão — quem pode recebê-lo (a mesma regra do botão do painel).
+import { cardLink, cardLinkRefusal } from "../../../packages/core/src/checkout/cardLink.ts"
 import {
   buildOrderPayload,
   extractPaymentId,
@@ -27,6 +29,8 @@ import {
   resolveCardOutcome,
 } from "../../../packages/core/src/payment/orders.ts"
 import { canTransition, mapMpStatus } from "../../../packages/core/src/payment/status.ts"
+// "Este pedido ainda aguarda pagamento?" — o mesmo dono que a loja lê para oferecer pagar.
+import { pagamentoSemCobrancaDaLoja, pedidoAguardaPagamento } from "../../../packages/core/src/orders/repix.ts"
 import {
   buildManifestCandidates,
   parseXSignature,
@@ -166,6 +170,7 @@ async function firePurchase(deps: Deps, orderId: string) {
 // já apontava para cá continue valendo.
 export { corsHeaders, json } from "../_shared/http.ts"
 import { corsHeaders, json } from "../_shared/http.ts"
+import { requireAdmin } from "../_shared/auth.ts"
 
 const MP_BASE = "https://api.mercadopago.com"
 
@@ -328,7 +333,12 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   const authHeader = req.headers.get("Authorization") || ""
   const jwt = authHeader.replace(/^Bearer\s+/i, "")
   const accessToken = typeof body?.access_token === "string" ? body.access_token : ""
-  if (!jwt && !accessToken) return json({ error: "Não autenticado" }, 401)
+  // A TERCEIRA prova — o token do link de pagamento por cartão que a Adri gerou no painel. Só
+  // vale para cartão: com outro meio ele não é prova nenhuma, e a requisição segue como se não o
+  // trouxesse.
+  const cardLinkToken =
+    method === "card" && typeof body?.card_link_token === "string" ? body.card_link_token : ""
+  if (!jwt && !accessToken && !cardLinkToken) return json({ error: "Não autenticado" }, 401)
 
   const supabase = deps.supabase
 
@@ -336,8 +346,8 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   if (jwt) {
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt)
     user = userData?.user ?? null
-    // Sem token de convidada, JWT inválido continua sendo 401 — não cai num caminho mais frouxo.
-    if ((userError || !user) && !accessToken) return json({ error: "Não autenticado" }, 401)
+    // Sem outra prova, JWT inválido continua sendo 401 — não cai num caminho mais frouxo.
+    if ((userError || !user) && !accessToken && !cardLinkToken) return json({ error: "Não autenticado" }, 401)
   }
 
   const { data: order, error: orderError } = await supabase
@@ -374,8 +384,56 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
       )
     : false
 
-  if (!donoPorSessao && !donoPorToken) {
+  const donoPorLink = cardLinkToken ? await cardLinkGrant(deps, order_id, cardLinkToken) : false
+
+  if (!donoPorSessao && !donoPorToken && !donoPorLink) {
     return json({ error: "Pedido não pertence ao usuário autenticado" }, 403)
+  }
+
+  // Pedido cancelado ou já pago não é cobrado, antes de qualquer escrita ou chamada ao MP, e com o
+  // motivo em código. Vem ANTES da régua de `payment_status`: o pedido registrado à mão chega aqui
+  // `approved`, e o cancelado com a cobrança fechada chega `cancelled` — os dois cairiam na recusa
+  // genérica, sem código. O status de pagamento também pode seguir `pending` nos dois casos, por isso
+  // a recusa olha o pedido e não só `payment_status`.
+  if (order.status === "cancelled") {
+    return json({ error: "Este pedido foi cancelado e não pode ser pago.", code: "order_cancelled" }, 409)
+  }
+  if (order.paid_at) {
+    return json({ error: "Este pedido já foi pago.", code: "order_already_paid" }, 409)
+  }
+  // O pedido que a loja levou a Pago ou adiante sem pagamento (combinado com a cliente) não aguarda
+  // pagamento: um endereço de pagamento aberto por um link antigo não emite cobrança para ele. A
+  // exceção é o link de cartão, que só a admin gera no painel — ali a cobrança é decisão dela.
+  if (!donoPorLink && !pedidoAguardaPagamento(order)) {
+    return json(
+      { error: "Este pedido não está aguardando pagamento.", code: "order_not_awaiting_payment" },
+      409,
+    )
+  }
+
+  // O pedido gravado fora da loja (importado, ou escrito direto no banco) cujo pagamento morreu sem
+  // nenhuma cobrança feita por ela: o total gravado não é um valor que a loja calculou, e as policies
+  // de INSERT de `orders` seguem abertas (`BL-030`). A pergunta é `pagamentoSemCobrancaDaLoja`, a
+  // mesma da tela, que mostra que a Adri combina o pagamento. A cobrança travada só o servidor lê, e
+  // por isso só é consultada quando o resto já diz "sem cobrança". O link de cartão é decisão da
+  // admin, como na recusa de cima.
+  if (!donoPorLink && pagamentoSemCobrancaDaLoja(order)) {
+    const { data: lock, error: lockError } = await supabase
+      .from(LOCKED_CHARGE_TABLE)
+      .select("order_id")
+      .eq("order_id", order_id)
+      .maybeSingle()
+    if (lockError) {
+      log({ action: "create-payment", order_id, status: "locked_charge_read_failed" })
+      return json({ error: "Não foi possível calcular o pedido. Tente de novo." }, 500)
+    }
+    if (pagamentoSemCobrancaDaLoja({ ...order, charge_locked: Boolean(lock) })) {
+      log({ action: "create-payment", order_id, status: "order_without_store_charge" })
+      return json(
+        { error: "O pagamento deste pedido é combinado com a loja.", code: "order_without_store_charge" },
+        409,
+      )
+    }
   }
 
   if (!RETRYABLE_STATUSES.includes(order.payment_status)) {
@@ -420,6 +478,24 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   if (order.proposal_id) {
     const travado = await lockedProposalCharge(deps, order, method)
     if (travado instanceof Response) return travado
+    return await chargeOrder(deps, {
+      order_id,
+      method,
+      idempotency_key,
+      body,
+      order,
+      orderPayer,
+      total: travado.total,
+      logExtra: travado.logExtra,
+    })
+  }
+
+  // Pagar de novo: o pedido que já teve a primeira cobrança calculada por este servidor é cobrado
+  // pelo valor travado nela — sem reler catálogo, promoção nem cupom, e sem a guarda de teto. Sem
+  // cobrança gravada (a primeira, ou um pedido de antes do travado), segue o recálculo abaixo.
+  const travado = await lockedFirstCharge(deps, order, method)
+  if (travado instanceof Response) return travado
+  if (travado) {
     return await chargeOrder(deps, {
       order_id,
       method,
@@ -814,6 +890,56 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     return json({ error: "Falha ao atualizar os itens do pedido" }, 500)
   }
 
+  // O valor travado: esta é a primeira cobrança calculada pelo servidor, e é por ela que o pedido
+  // passa a ser cobrado daqui em diante (`lockedFirstCharge`). Os totais saem do MESMO
+  // `resolveOrderPricing` para os dois meios — o pagar de novo pode trocar de meio, e o PIX não é
+  // desconto que se tire do total do cartão por conta própria.
+  const outroMeio = method === "pix" ? "card" : "pix"
+  let totaisDoOutroMeio: ReturnType<typeof resolveOrderPricing>["totals"] | null
+  try {
+    totaisDoOutroMeio = resolveOrderPricing({ ...pricingInput, method: outroMeio }).totals
+  } catch (_err) {
+    totaisDoOutroMeio = null
+  }
+  const valoresDoMeio = (t: typeof totals | null) =>
+    t
+      ? {
+          subtotal: t.subtotal,
+          discount: t.couponDiscount,
+          pix_discount: t.pixDiscount,
+          shipping: t.shipping,
+          total: t.total,
+        }
+      : null
+  const { error: lockError } = await supabase.from(LOCKED_CHARGE_TABLE).insert({
+    order_id,
+    first_method: method,
+    coupon_id: order.coupon_id ?? null,
+    promotion_id: appliedPromotionId,
+    promotion_discount: pricing.promotionDiscount,
+    buy_together_discount: orderLines.buyTogetherDiscount,
+    order_bump_discount: orderLines.orderBumpDiscount,
+    [method]: valoresDoMeio(totals),
+    [outroMeio]: valoresDoMeio(totaisDoOutroMeio),
+    lines: orderLines.lines.map((l) => {
+      const primeira = rows[grupos[l.index].rows[0]]
+      return {
+        product_id: String(primeira.product_id),
+        variant_id: primeira.variant_id ?? null,
+        quantity: l.quantity,
+        unit_price: l.unitPrice,
+        full_unit_price: l.fullUnitPrice,
+      }
+    }),
+  })
+  // `23505`: outra cobrança do mesmo pedido travou primeiro, no mesmo instante — vale a dela, e esta
+  // segue com o mesmo cálculo. Qualquer outra falha para aqui, antes do Mercado Pago: sem o travado,
+  // a próxima tentativa recalcularia e poderia recusar ou cobrar outro valor.
+  if (lockError && (lockError as { code?: string }).code !== "23505") {
+    log({ action: "create-payment", order_id, status: "locked_charge_write_failed" })
+    return json({ error: "Falha ao atualizar o pedido" }, 500)
+  }
+
   return await chargeOrder(deps, {
     order_id,
     method,
@@ -842,6 +968,13 @@ const ITENS_DO_RECALCULO =
   "id, product_id, product_name, product_image, size, finish, quantity, unit_price, full_unit_price, " +
   "variant_id, price_source, variant_label, variant_options, requires_material, material_kinds, " +
   "engraving_text, accompanies_product_ids, accompanies_list_ids"
+
+/**
+ * A tabela do valor travado da primeira cobrança: RLS ligada e nenhuma policy, só a service role a lê
+ * e grava. Nunca `orders.total`: as policies de INSERT de `orders` seguem abertas (`BL-030`), e um
+ * total gravado por quem fez o pedido não pode virar o valor cobrado.
+ */
+const LOCKED_CHARGE_TABLE = "order_charge_locks"
 
 /** O snapshot que a linha nova de uma peça copia da primeira linha dela. */
 const SNAPSHOT_DA_LINHA = [
@@ -1258,6 +1391,81 @@ async function lockedProposalCharge(
   }
 }
 
+/**
+ * Quanto cobrar de um pedido que já teve a primeira cobrança calculada por este servidor: o valor
+ * travado nela (`LOCKED_CHARGE_TABLE`), no molde de `lockedProposalCharge`. Devolve `null` quando o
+ * pedido não tem cobrança gravada — aí vale o recálculo de sempre, com a guarda de teto.
+ *
+ * O travado guarda os totais dos dois meios, calculados juntos na primeira cobrança: o pagar de novo
+ * pode trocar o PIX pelo cartão, e o valor do cartão é o daquele mesmo cálculo. As linhas do pedido
+ * são CONFERIDAS contra as travadas (as policies de INSERT de `order_items` seguem abertas, `BL-030`):
+ * uma linha acrescentada depois não sai pelo valor de antes.
+ */
+async function lockedFirstCharge(
+  deps: Deps,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any,
+  method: "pix" | "card",
+): Promise<Response | null | { total: number; logExtra: Record<string, unknown> }> {
+  const supabase = deps.supabase
+  const order_id = String(order.id)
+
+  const { data: lock, error: lockError } = await supabase
+    .from(LOCKED_CHARGE_TABLE)
+    .select(
+      "order_id, first_method, promotion_id, promotion_discount, buy_together_discount, order_bump_discount, pix, card, lines",
+    )
+    .eq("order_id", order_id)
+    .maybeSingle()
+  if (lockError) {
+    log({ action: "create-payment", order_id, status: "locked_charge_read_failed" })
+    return json({ error: "Não foi possível calcular o pedido. Tente de novo." }, 500)
+  }
+  if (!lock) return null
+
+  const doMeio = lock[method]
+  if (!doMeio) return json({ error: "Total do pedido inválido: menor que R$ 0,01" }, 422)
+
+  const { data: items, error: itemsError } = await supabase
+    .from("order_items")
+    .select("product_id, variant_id, quantity, unit_price")
+    .eq("order_id", order_id)
+  if (itemsError || !items?.length) return json({ error: "Pedido sem itens" }, 422)
+
+  const travadas = ((lock.lines ?? []) as unknown[]).map(lineKey).sort()
+  const doPedido = (items as unknown[]).map(lineKey).sort()
+  if (travadas.length !== doPedido.length || travadas.some((k, i) => k !== doPedido[i])) {
+    log({ action: "create-payment", order_id, status: "locked_charge_items_mismatch" })
+    return json({ error: "Não foi possível conferir este pedido. Fale com a loja." }, 422)
+  }
+
+  const total = Number(doMeio.total)
+  // O pedido volta a dizer o que esta cobrança cobra, do travado — inclusive o meio trocado.
+  const { error: persistError } = await supabase
+    .from("orders")
+    .update({
+      subtotal: Number(doMeio.subtotal),
+      discount: Number(doMeio.discount),
+      pix_discount: Number(doMeio.pix_discount),
+      total,
+      promotion_id: lock.promotion_id ?? null,
+      promotion_discount: Number(lock.promotion_discount ?? 0),
+      buy_together_discount: Number(lock.buy_together_discount ?? 0),
+      order_bump_discount: Number(lock.order_bump_discount ?? 0),
+    })
+    .eq("id", order_id)
+  if (persistError) return json({ error: "Falha ao atualizar o pedido" }, 500)
+
+  return {
+    total,
+    logExtra: {
+      locked_charge: true,
+      first_method: lock.first_method ?? null,
+      promotion_id: lock.promotion_id ?? null,
+    },
+  }
+}
+
 // ACTION: webhook — assinatura HMAC (PAY-05), transições guardadas (PAY-04),
 // efeitos idempotentes via RPC (PAY-07), mp_status_detail sempre gravado (PAY-12).
 export async function webhook(deps: Deps, req: Request, url: URL) {
@@ -1314,7 +1522,7 @@ export async function webhook(deps: Deps, req: Request, url: URL) {
   const statusDetail = mp.status_detail ?? null
   const supabase = deps.supabase
 
-  const ORDER_COLUMNS = "id, payment_status, mp_payment_id, mp_order_id"
+  const ORDER_COLUMNS = "id, status, payment_status, mp_payment_id, mp_order_id"
 
   // WHK-03: localiza pedido por external_reference; fallback por mp_order_id (cobre a order que
   // o MP conhece mas cujo external_reference não voltou na consulta).
@@ -1354,9 +1562,10 @@ export async function webhook(deps: Deps, req: Request, url: URL) {
 
   let applied = false
   if (target === "approved") {
-    if (order.payment_status === "approved" && order.mp_order_id && order.mp_order_id !== mpOrderId) {
-      // WHK-04: segundo approved de OUTRA order (PIX pago após troca de método). Não regride nem
-      // reaplica efeitos; grava o marcador greppável para atenção do admin.
+    // WHK-04: segundo approved de OUTRA order (PIX pago após troca de método). Não regride nem troca
+    // a order gravada; grava o marcador greppável e segue para a RPC, que marca "pago duas vezes".
+    const outraOrder = order.payment_status === "approved" && order.mp_order_id && order.mp_order_id !== mpOrderId
+    if (outraOrder) {
       log({
         action: "webhook",
         order_id: order.id,
@@ -1371,9 +1580,17 @@ export async function webhook(deps: Deps, req: Request, url: URL) {
             `duplicate_approved_other_order: ${mpOrderId} (${statusDetail ?? "sem detalhe"})`,
         })
         .eq("id", order.id)
-      return json({ received: true })
     }
-    if (order.payment_status === "approved" || canTransition(order.payment_status, "approved")) {
+    // Toda aprovação chega à RPC, inclusive a de um pedido já pago ou cancelado: é ela, com o pedido
+    // travado, que decide entre aplicar (estoque, cupom, `paid_at`) e marcar o pagamento a mais
+    // ("pago duas vezes", "pago depois de cancelado"). A do cancelado precisa passar mesmo quando o
+    // fechamento da cobrança já levou `payment_status` a `cancelled`, de onde `canTransition` não sai.
+    if (
+      outraOrder ||
+      order.payment_status === "approved" ||
+      order.status === "cancelled" ||
+      canTransition(order.payment_status, "approved")
+    ) {
       const { data: rpcApplied, error: rpcError } = await supabase.rpc("apply_payment_approval", {
         p_order_id: order.id,
         p_mp_payment_id: mpPaymentId,
@@ -1390,6 +1607,8 @@ export async function webhook(deps: Deps, req: Request, url: URL) {
         })
         return json({ error: "Falha ao aplicar aprovação" }, 500)
       }
+      // A outra order nunca aplica nem dispara efeito — o pedido já está pago por outra cobrança.
+      if (outraOrder) return json({ received: true })
       applied = rpcApplied === true
       // D7: a RPC grava só `mp_payment_id` (o SQL dela não muda). Sem esta escrita, um pedido
       // localizado por `external_reference` fica `approved` com `mp_order_id` null — medido no T16 —
@@ -1457,6 +1676,145 @@ export async function webhook(deps: Deps, req: Request, url: URL) {
 }
 
 /**
+ * Fecha a cobrança aberta de um pedido no Mercado Pago: cancela a order dele (`cancelPreviousOrder`),
+ * e o PIX copiado antes ou o cartão em análise deixam de poder ser pagos. É a regra que o
+ * cancelamento e o registro à mão chamam (pela porta abaixo) e que outro fluxo da function pode
+ * chamar direto.
+ *
+ * Como `cancelPreviousOrder`, nunca lança e nunca bloqueia: a order que o MP não cancela (já
+ * processada) devolve `nao_fechada`, e o pagamento que ainda assim for aprovado vira marcador na RPC.
+ * A chave de idempotência é derivada da ORDER do MP — uma por cobrança —, nunca do pedido: um pedido
+ * pode ter uma cobrança nova depois (o registro desfeito), e a chave repetida devolveria a resposta
+ * da primeira.
+ */
+export async function closeOpenCharge(
+  deps: Deps,
+  order: { mp_order_id?: string | null },
+): Promise<"fechada" | "nao_fechada" | "sem_cobranca"> {
+  const mpOrderId = order.mp_order_id ? String(order.mp_order_id) : ""
+  if (!mpOrderId) return "sem_cobranca"
+  return (await cancelPreviousOrder(deps, mpOrderId, `close-${mpOrderId}`)) ? "fechada" : "nao_fechada"
+}
+
+/**
+ * O token do link de cartão vale para ESTE pedido: a credencial lida pelo hash existe, é do pedido e
+ * não foi revogada (gerar outro link revoga o anterior). Pago ou cancelado não é decidido aqui: o
+ * `create-payment` recusa os dois logo depois, com o motivo.
+ */
+async function cardLinkGrant(deps: Deps, orderId: string, token: string): Promise<boolean> {
+  const { data, error } = await deps.supabase
+    .from(CARD_LINK_TABLE)
+    .select("order_id, revoked_at")
+    .eq("token_hash", await hashAccessToken(token))
+    .maybeSingle()
+  if (error || !data) return false
+  return String(data.order_id) === String(orderId) && !data.revoked_at
+}
+
+const CARD_LINK_TABLE = "order_card_links"
+
+// ACTION: card-link — a porta da dona (painel), `requireAdmin` antes de tudo. Gera o link de
+// pagamento por cartão de um pedido de cartão pendente, recusado ou vencido (`cardLinkRefusal`, a
+// regra do botão): grava só o hash do token (a RPC revoga o link vivo e grava o novo numa transação)
+// e fecha a cobrança aberta no Mercado Pago. Devolve `{ link }`, montado com a origem da loja
+// (`STORE_PUBLIC_URL`) — o token sai só nesta resposta, dentro do link, nunca em log. Sem a origem da
+// loja não há link a entregar, e nada é emitido. Não toca o pedido: o cancelamento automático não é
+// adiado por um link.
+export async function cardLinkAction(deps: Deps, req: Request, body: any): Promise<Response> {
+  const auth = await requireAdmin(deps, req, "mercado-pago")
+  if (!auth.ok) {
+    const recusa = auth as { status: number; error: string }
+    return json({ error: recusa.error }, recusa.status)
+  }
+  const adminId = (auth as { userId: string }).userId
+
+  const orderId = typeof body?.order_id === "string" ? body.order_id : ""
+  if (!UUID_RE.test(orderId)) return json({ error: "order_id ausente ou não é um uuid" }, 400)
+
+  const { data: order, error } = await deps.supabase
+    .from("orders")
+    .select("id, status, payment_status, payment_method, paid_at, mp_order_id")
+    .eq("id", orderId)
+    .maybeSingle()
+  if (error) return json({ error: "Não foi possível ler o pedido" }, 500)
+  if (!order) return json({ error: "Pedido não encontrado" }, 404)
+
+  const recusa = cardLinkRefusal({
+    payment_method: order.payment_method ?? null,
+    status: order.status ?? null,
+    payment_status: order.payment_status ?? null,
+    paid_at: order.paid_at ?? null,
+  })
+  if (recusa) return json({ error: recusa }, 409)
+
+  const origem = origemDaLoja(deps.notifications?.storePublicUrl)
+  if (!origem) {
+    log({ action: "card-link", order_id: orderId, status: "store_url_missing" })
+    return json({ error: "A loja não está configurada para montar o link. Nada foi gerado." }, 503)
+  }
+
+  const token = newAccessToken()
+  const { error: rpcError } = await deps.supabase.rpc("issue_order_card_link", {
+    p_order_id: orderId,
+    p_token_hash: await hashAccessToken(token),
+    p_created_by: adminId,
+  })
+  if (rpcError) {
+    log({ action: "card-link", order_id: orderId, status: "issue_failed" })
+    return json({ error: "Não consegui gerar o link. Tente de novo." }, 500)
+  }
+
+  const charge = await closeOpenCharge(deps, order)
+  log({ action: "card-link", order_id: orderId, status: "issued", charge })
+  return json({ link: cardLink(origem, token) })
+}
+
+/** A origem da loja, se ela for um endereço http(s) absoluto; senão `null`. */
+function origemDaLoja(valor: string | undefined): string | null {
+  const bruto = (valor ?? "").trim()
+  if (!bruto) return null
+  try {
+    const url = new URL(bruto)
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : null
+  } catch {
+    return null
+  }
+}
+
+// ACTION: close-charge — a porta da dona (painel), `requireAdmin` antes de tudo. Só para pedido
+// cancelado ou já pago: fechar a cobrança de um pedido em aberto tiraria da cliente o PIX que ela
+// está para pagar.
+export async function closeCharge(deps: Deps, req: Request, body: any): Promise<Response> {
+  const auth = await requireAdmin(deps, req, "mercado-pago")
+  // Com `strictNullChecks` desligado a união por literal booleano não estreita, e este arquivo é
+  // conferido pelo `tsc` da loja (um teste dela importa o handler): o ramo da recusa lê pelo tipo dele.
+  if (!auth.ok) {
+    const recusa = auth as { status: number; error: string }
+    return json({ error: recusa.error }, recusa.status)
+  }
+
+  const orderId = typeof body?.order_id === "string" ? body.order_id : ""
+  if (!UUID_RE.test(orderId)) return json({ error: "order_id ausente ou não é um uuid" }, 400)
+
+  const { data: order, error } = await deps.supabase
+    .from("orders")
+    .select("id, status, payment_status, paid_at, mp_order_id")
+    .eq("id", orderId)
+    .maybeSingle()
+  if (error) return json({ error: "Não foi possível ler o pedido" }, 500)
+  if (!order) return json({ error: "Pedido não encontrado" }, 404)
+
+  const pago = Boolean(order.paid_at) || order.payment_status === "approved"
+  if (order.status !== "cancelled" && !pago) {
+    return json({ result: "em_aberto", error: "O pedido está em aberto: a cobrança dele continua valendo." }, 409)
+  }
+
+  const result = await closeOpenCharge(deps, order)
+  log({ action: "close-charge", order_id: orderId, mp_order_id: order.mp_order_id ?? null, result })
+  return json({ result })
+}
+
+/**
  * Roteamento por `action` (molde melhor-envio). Vive aqui, e não dentro do `Deno.serve`, para ser
  * testável: `index.ts` apenas entrega as deps reais e serve. Erro não previsto vira 500 com a
  * mensagem, preservando o comportamento anterior.
@@ -1477,8 +1835,16 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
       }
       case "webhook":
         return await webhook(deps, req, url)
+      case "close-charge": {
+        const body = req.method === "POST" ? await req.json().catch(() => ({})) : {}
+        return await closeCharge(deps, req, body)
+      }
+      case "card-link": {
+        const body = req.method === "POST" ? await req.json().catch(() => ({})) : {}
+        return await cardLinkAction(deps, req, body)
+      }
       default:
-        return json({ error: "action inválida. Use: create-payment, webhook" }, 400)
+        return json({ error: "action inválida. Use: create-payment, webhook, close-charge, card-link" }, 400)
     }
   } catch (err) {
     log({ action: "error", message: err instanceof Error ? err.message : String(err) })

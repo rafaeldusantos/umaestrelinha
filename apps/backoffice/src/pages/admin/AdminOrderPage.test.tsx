@@ -347,6 +347,8 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
   it('e-mail que NÃO saiu oferece reenviar', () => {
     detailMock.mockReturnValue(
       detail({
+        // O pedido no estado que o e-mail afirma (postado, com rastreio): é só aí que se oferece reenviar.
+        order: order({ status: 'shipped', tracking_code: 'BR123456789BR' }),
         emails: [
           { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'failed', attempts: 2, provider_message_id: null, error: 'SMTP timeout', created_at: '2026-08-21T09:00:00Z', sent_at: null },
         ],
@@ -375,6 +377,8 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
   it('feature 79 (MAN-38): o aviso no celular que falhou NÃO oferece reenviar; o e-mail que falhou, ao lado, oferece', () => {
     detailMock.mockReturnValue(
       detail({
+        // O pedido no estado que o e-mail afirma (postado, com rastreio): é só aí que se oferece reenviar.
+        order: order({ status: 'shipped', tracking_code: 'BR123456789BR' }),
         emails: [
           { id: 'p1', order_id: 'o1', event: 'owner_order_paid', channel: 'push', delivery_status: null, status: 'failed', attempts: 1, provider_message_id: null, error: 'fcm.googleapis.com: 500', created_at: '2026-08-21T09:00:00Z', sent_at: null },
           { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'failed', attempts: 1, provider_message_id: null, error: 'SMTP timeout', created_at: '2026-08-21T08:00:00Z', sent_at: null },
@@ -410,6 +414,8 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
     sendEmailMock.mockResolvedValue(false)
     detailMock.mockReturnValue(
       detail({
+        // O pedido no estado que o e-mail afirma (postado, com rastreio): é só aí que se oferece reenviar.
+        order: order({ status: 'shipped', tracking_code: 'BR123456789BR' }),
         emails: [
           { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'failed', attempts: 1, provider_message_id: null, error: 'timeout', created_at: '2026-08-21T09:00:00Z', sent_at: null },
         ],

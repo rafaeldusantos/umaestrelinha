@@ -24,4 +24,5 @@ export type {
   LinhaDaLista,
   ObservacaoDoPedido,
   PedidoDoDetalhe,
+  RegistroManual,
 } from './model/linha'

@@ -1,0 +1,35 @@
+ok — a function mercado-pago está servida
+ok — a function checkout está servida
+ok — a cliente logada não gera link (só admin)
+ok — pedido de PIX não recebe link de cartão
+ok — e nada é gravado para ele
+ok — a admin gera o link do pedido de cartão recusado
+ok — a porta devolve o link da loja (/pagar-com-cartao#<token>), não o token solto
+ok — a resposta traz só o link
+ok — o banco guarda um link vivo, só o hash do token
+ok — o token em claro não está no banco
+ok — gerar o link não toca o pedido (o cancelamento automático não é adiado)
+ok — o link abre o pedido sem login
+ok — o valor é o do cartão travado (120,00), não o total do pedido (1,00)
+ok — as peças do pedido
+ok — a leitura não traz nome, e-mail, telefone, documento nem endereço
+ok — pagar pelo link, sem login, passa da prova de posse e chega ao Mercado Pago (de chave inválida: 400 -)
+ok — o pedido passa a dizer 120,00 — o valor travado do cartão
+ok — a admin gera outro link
+ok — um vivo e um revogado
+ok — o link antigo não abre mais
+ok — o link antigo não paga mais
+ok — o link novo abre
+ok — pedido cancelado: o link ainda abre
+ok — e mostra a situação, sem pedido a pagar
+ok — pagar o cancelado pelo link é recusado
+ok — pedido pago: a situação, sem pedido a pagar
+ok — pagar o pago pelo link é recusado
+ok — pedido pago não recebe link novo
+ok — a cliente logada não lê a tabela do link (403)
+ok — a cliente logada não executa a emissão do link (403)
+ok — a chave pública não lê a tabela do link (401)
+ok — a chave pública não executa a emissão do link (401)
+ok — nada foi gravado pela cliente nem pela chave pública
+ok — RLS ligada, nenhuma policy, e nenhum privilégio para authenticated e anon
+ok — o banco recusa dois links vivos no mesmo pedido

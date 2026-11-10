@@ -14,8 +14,8 @@ import {
  * (NTF-11), do status (NTF-12, NTF-14), do material (NTF-13) e da dona (NTF-15).
  */
 
-describe('os oito gatilhos', () => {
-  it('são os oito do design, e `isNotificationTrigger` recusa o resto', () => {
+describe('os dez gatilhos', () => {
+  it('são os oito do design, o registro manual do pagamento e o cancelamento automático, e `isNotificationTrigger` recusa o resto', () => {
     expect([...NOTIFICATION_TRIGGERS]).toEqual([
       'pix_created',
       'payment_approved',
@@ -25,6 +25,8 @@ describe('os oito gatilhos', () => {
       'order_status_changed',
       'material_status_changed',
       'material_tracking_set',
+      'payment_recorded',
+      'order_auto_cancelled',
     ])
     for (const t of NOTIFICATION_TRIGGERS) expect(isNotificationTrigger(t)).toBe(true)
     // Um EVENTO não é um gatilho: a porta `trigger` responde 400 a `order_paid`.
@@ -148,5 +150,37 @@ describe('CUSTOMER_TRIGGERS — o que a porta `notify` aceita da cliente', () =>
 describe('todo gatilho devolve lista — nunca undefined', () => {
   it.each(NOTIFICATION_TRIGGERS)('%s', (trigger) => {
     expect(Array.isArray(eventsForTrigger(trigger, {}))).toBe(true)
+  })
+})
+
+describe('o pagamento registrado à mão no painel', () => {
+  it('sem material a esperar, produz só o e-mail de pago da cliente — nunca o aviso interno', () => {
+    const eventos = eventsForTrigger('payment_recorded', { paid_at: 'x', material_status: 'nao_aplicavel' })
+    expect(eventos).toEqual(['order_paid'])
+  })
+
+  it('com material a esperar, produz só as instruções de envio do material', () => {
+    const eventos = eventsForTrigger('payment_recorded', { paid_at: 'x', material_status: 'aguardando_material' })
+    expect(eventos).toEqual(['material_instructions'])
+  })
+
+  it('a cliente não dispara este gatilho pela porta dela', () => {
+    expect(CUSTOMER_TRIGGERS).not.toContain('payment_recorded')
+  })
+})
+
+describe('o cancelamento automático do pedido não pago', () => {
+  it('produz só o e-mail próprio de "cancelado por falta de pagamento" — nunca o de cancelamento da admin', () => {
+    const eventos = eventsForTrigger('order_auto_cancelled', {
+      status: 'cancelled',
+      unpaid_cancelled_at: '2026-11-20T12:00:00Z',
+    })
+    expect(eventos).toEqual(['order_cancelled_unpaid'])
+    expect(eventos).not.toContain('order_cancelled')
+    expect(EVENT_AUDIENCE.order_cancelled_unpaid).toBe('customer')
+  })
+
+  it('o cancelamento pela admin continua produzindo só o aviso de cancelamento de sempre', () => {
+    expect(eventsForTrigger('order_status_changed', { status: 'cancelled' })).toEqual(['order_cancelled'])
   })
 })

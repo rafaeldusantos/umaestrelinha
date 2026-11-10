@@ -71,3 +71,32 @@ describe('CheckoutHeader — o que ele diz e o que ele NÃO diz', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1)
   })
 })
+
+describe('CheckoutHeader — a linha cede sem empurrar a página de lado', () => {
+  // Em 320 px com a fonte a 200 % a marca (180 px fixos) e "Ambiente seguro" não cabem na mesma
+  // linha: sem quebra, o bloco passava da borda e o corpo rolava de lado. Quem cede é o texto —
+  // ele desce para baixo da marca —, e a marca não encolhe. jsdom não mede layout: a régua é o
+  // token exato das classes que permitem isso; a medida é do navegador.
+  const tokens = (el: Element | null) => (el?.getAttribute('class') ?? '').split(/\s+/)
+
+  it('a linha do cabeçalho quebra quando não cabe', () => {
+    montar()
+    const linha = screen.getByRole('link', { name: 'Uma Estrelinha' }).parentElement
+
+    expect(tokens(linha)).toContain('flex-wrap')
+    expect(tokens(linha)).not.toContain('flex-nowrap')
+  })
+
+  it('a marca não encolhe para abrir espaço ao texto', () => {
+    montar()
+
+    expect(tokens(screen.getByRole('link', { name: 'Uma Estrelinha' }))).toContain('shrink-0')
+  })
+
+  it('o bloco de "Ambiente seguro" pode encolher abaixo do próprio conteúdo', () => {
+    montar()
+    const bloco = screen.getByText('Ambiente seguro').parentElement
+
+    expect(tokens(bloco)).toContain('min-w-0')
+  })
+})

@@ -1,6 +1,11 @@
 import { supabase } from '@estrelinha/supabase'
 import type { NotificationEvent, NotificationTrigger } from '@estrelinha/core/notifications'
-import { triggerOrderNotification, type NotifyOptions } from '@estrelinha/core/order-actions'
+import {
+  triggerOrderNotification,
+  triggerOrderNotificationReport,
+  type NotifyOptions,
+  type NotifyReport,
+} from '@estrelinha/core/order-actions'
 
 /**
  * Conta à `send-notification` que **algo aconteceu** com um pedido (`AD-032`).
@@ -30,6 +35,19 @@ export async function notifyOrder(
   // Feature `88` (`AVS-04`): `opcoes` é a escolha da caixa — `{ cliente: false }` vira `customer: false`
   // no corpo. Sem ela, o corpo de sempre.
   return triggerOrderNotification(supabase, orderId, trigger, opcoes)
+}
+
+/**
+ * O mesmo disparo de `notifyOrder`, com a resposta lida por inteiro: além de "a cliente recebeu um
+ * e-mail?", diz se o aviso pulado (`{ cliente: false }`) ficou anotado no histórico. É o que deixa a
+ * tela dizer a verdade quando a rede cai depois de gravar. Nunca lança.
+ */
+export function notifyOrderReport(
+  orderId: string,
+  trigger: NotificationTrigger,
+  opcoes?: NotifyOptions,
+): Promise<NotifyReport> {
+  return triggerOrderNotificationReport(supabase, orderId, trigger, opcoes)
 }
 
 /**

@@ -37,7 +37,7 @@ ateliê no celular, sobre um único backend Supabase. Registro memorial: nada fe
 
 | Repositório | O que é | Conferir que está de pé | Aplicar migration nele |
 | ----------- | ------- | ----------------------- | ---------------------- |
-| `.` | Supabase local, portas 54440–54449 (API 54441, Postgres 54442) | `supabase status` | `supabase migration up --local` (nunca `--linked`; nunca `supabase stop --all`) |
+| `.` | Supabase local, portas 54440–54449 (API 54441, Postgres 54442); as edge functions são servidas à parte, com `supabase functions serve --env-file <arquivo com chaves externas inválidas>` (nunca o `.env` da raiz) | `supabase status`; functions: `POST /functions/v1/<nome>` com corpo vazio responde 400 | `supabase migration up --local` (nunca `--linked`; nunca `supabase stop --all`) |
 
 ## Escopo
 

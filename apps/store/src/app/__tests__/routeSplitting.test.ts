@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest'
  * escopo desta régua é **só o `App.tsx`**, escrito literalmente, para que o caso nunca seja confundido
  * com regressão.
  *
- * ÂNCORA DUPLA: prova que leu o `App.tsx` de verdade **e** que a régua encontra as 19 chamadas de
+ * ÂNCORA DUPLA: prova que leu o `App.tsx` de verdade **e** que a régua encontra as 20 chamadas de
  * `lazy`. Só ler o arquivo deixa passar um regex quebrado; só contar ocorrências deixa passar um
  * caminho errado.
  */
@@ -73,8 +73,8 @@ describe('routeSplitting — âncoras da régua', () => {
     expect(APP).toContain('<Routes>')
   })
 
-  it('a régua ENCONTRA as 19 páginas preguiçosas — a segunda ponta da âncora', () => {
-    expect(app.preguicosas.length).toBeGreaterThanOrEqual(19)
+  it('a régua ENCONTRA as 20 páginas preguiçosas — a segunda ponta da âncora', () => {
+    expect(app.preguicosas.length).toBeGreaterThanOrEqual(20)
     expect(app.preguicosas.map(p => p.nome)).toContain('HomePage')
     expect(app.preguicosas.map(p => p.nome)).toContain('CheckoutPage')
   })
@@ -118,9 +118,9 @@ describe('routeSplitting — cada página é um chunk (PRF-16)', () => {
     ).toEqual([])
   })
 
-  it('as 19 páginas do disco estão TODAS em `lazy`', () => {
+  it('as 20 páginas do disco estão TODAS em `lazy`', () => {
     const preguicosas = app.preguicosas.map(p => p.modulo.replace('@/pages/', ''))
-    expect(paginasNoDisco).toHaveLength(19)
+    expect(paginasNoDisco).toHaveLength(20)
     expect([...preguicosas].sort()).toEqual([...paginasNoDisco].sort())
   })
 

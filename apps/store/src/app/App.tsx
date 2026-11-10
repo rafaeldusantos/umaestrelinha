@@ -54,6 +54,7 @@ const FaqPage = lazy(() => import("@/pages/FaqPage"));
 const HowToSendMaterialPage = lazy(() => import("@/pages/HowToSendMaterialPage"));
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
 const ProposalCheckoutPage = lazy(() => import("@/pages/ProposalCheckoutPage"));
+const CardLinkPaymentPage = lazy(() => import("@/pages/CardLinkPaymentPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 /**
@@ -242,6 +243,7 @@ const App = () => (
                 a rota não tem segmento dinâmico (`SEG-02`), e está em `NON_INDEXABLE_PATHS`.
               */}
               <Route path="/pedido-montado" element={<ProposalCheckoutPage />} />
+              <Route path="/pagar-com-cartao" element={<CardLinkPaymentPage />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

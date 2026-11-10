@@ -1,0 +1,15 @@
+ok — a function mercado-pago está servida (corpo vazio responde 400)
+ok — o PAR: pedido em aberto, sem CPF, passa da recusa e para no pagador (422)
+ok — pedido cancelado ⇒ 409 order_cancelled, antes do pagador e do Mercado Pago
+ok — pedido já pago (paid_at) ⇒ 409 order_already_paid, antes do pagador e do Mercado Pago
+ok — pedido registrado à mão (payment_status approved) ⇒ 409 order_already_paid, com o código
+ok — pedido cancelado com a cobrança fechada (payment_status cancelled) ⇒ 409 order_cancelled, com o código
+ok — o pedido cancelado não teve a linha alterada (sem mp_order_id, status e updated_at iguais)
+ok — o pedido pago não teve a linha alterada
+ok — o pedido do par também não (parou antes de qualquer escrita)
+ok — close-charge sem sessão ⇒ 401
+ok — close-charge com a chave pública como sessão ⇒ 401
+ok — close-charge com uma conta sem papel de admin ⇒ 403
+ok — close-charge da admin num pedido em aberto ⇒ 409 em_aberto (a cobrança dele continua valendo)
+ok — close-charge da admin num cancelado sem cobrança ⇒ sem_cobranca, sem chamar o Mercado Pago
+ok — a porta não escreveu no pedido

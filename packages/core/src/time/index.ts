@@ -2,3 +2,4 @@
 // alcançável pelo Deno.
 export { STORE_TIME_ZONE } from './zone.ts'
 export { formatDayMonth, formatStoreDate, formatStoreHour } from './format.ts'
+export { storeLocalInput, storeLocalToInstant } from './local.ts'

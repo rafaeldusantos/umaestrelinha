@@ -7,6 +7,11 @@ export interface CreatePaymentInput {
   order_id: string
   method: 'pix' | 'card'
   card?: CardPaymentFormData
+  /**
+   * A terceira prova de posse — o token do link de pagamento por cartão que a Adri gerou no
+   * painel (`/pagar-com-cartao`). Só vale com `method: 'card'`; quem o passa é a página do link.
+   */
+  card_link_token?: string
 }
 
 export const PAYMENT_UNAVAILABLE_MESSAGE =
@@ -114,6 +119,7 @@ export const useCreatePayment = () => {
               ...(accessFor(input.order_id)
                 ? { access_token: accessFor(input.order_id) }
                 : {}),
+              ...(input.card_link_token ? { card_link_token: input.card_link_token } : {}),
             },
             signal: controller.signal,
           },

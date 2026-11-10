@@ -20,9 +20,17 @@ import {
 
 /** Sem isto, uma lista vazia satisfaria todo `for` abaixo — a falha mais silenciosa possível. */
 describe('catálogo de apresentação — âncora', () => {
-  it('os dezessete eventos estão na varredura', () => {
-    // 15 na feature 56; a 57 acrescentou `owner_order_received` e `owner_payment_rejected`.
-    expect(NOTIFICATION_EVENTS).toHaveLength(17)
+  it('os dezoito eventos estão na varredura', () => {
+    // 15 na feature 56; a 57 acrescentou `owner_order_received` e `owner_payment_rejected`; depois, o
+    // cancelamento automático por falta de pagamento.
+    expect(NOTIFICATION_EVENTS).toHaveLength(18)
+  })
+
+  it('o cancelamento por falta de pagamento tem nome, descrição e ícone próprios', () => {
+    expect(NOTIFICATION_EVENT_NAMES.order_cancelled_unpaid).toBe('Pedido cancelado por falta de pagamento')
+    expect(NOTIFICATION_EVENT_DESCRIPTIONS.order_cancelled_unpaid).toMatch(/^Enviado quando .*7 dias/)
+    expect(NOTIFICATION_EVENT_ICONS.order_cancelled_unpaid).toBe('calendar-x')
+    expect(NOTIFICATION_EVENT_ICONS.order_cancelled_unpaid).not.toBe(NOTIFICATION_EVENT_ICONS.order_cancelled)
   })
 
   it('os três mapas cobrem exatamente os quinze, sem chave a mais', () => {
@@ -137,6 +145,6 @@ describe('LEG-03 — a chave de ícone é de um vocabulário fechado', () => {
     const chaves = NOTIFICATION_EVENTS.map((e) => NOTIFICATION_EVENT_ICONS[e])
 
     expect(new Set(chaves).size).toBe(chaves.length)
-    expect(NOTIFICATION_ICON_KEYS).toHaveLength(17)
+    expect(NOTIFICATION_ICON_KEYS).toHaveLength(18)
   })
 })

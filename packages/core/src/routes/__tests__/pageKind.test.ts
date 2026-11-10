@@ -18,6 +18,7 @@ describe('pageKind', () => {
     ['/carrinho', 'sacola'],
     ['/checkout', 'checkout'],
     ['/pedido-montado', 'checkout'],
+    ['/pagar-com-cartao', 'checkout'],
     ['/pedido/8c5d5a1e-1234-4abc-8def-1234567890ab/pagamento', 'checkout'],
     ['/como-enviar-seu-material-de-dna', 'guia'],
     ['/como-enviar-o-material', 'guia'],

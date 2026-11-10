@@ -611,6 +611,12 @@ verify_jwt = false
 [functions.customer-parse]
 verify_jwt = false
 
+# O cancelamento automático do pedido não pago. Quem chama é o job do `pg_cron` (por `pg_net`),
+# que não tem sessão de ninguém: a checagem é a do handler, que exige a chave de serviço do projeto no
+# `Authorization` e recusa todo o resto.
+[functions.cancel-unpaid-orders]
+verify_jwt = false
+
 # Feature 89 — a proposta que o painel monta. MESMA razão da admin-users: a anon key publicada é um
 # JWT válido e passaria pelo gateway; quem fecha a porta é `requireAdmin` (`_shared/auth.ts`) dentro
 # do handler, em TODA ação. As tabelas da proposta não têm policy de cliente: esta function é a porta

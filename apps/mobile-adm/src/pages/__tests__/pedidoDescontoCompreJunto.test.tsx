@@ -46,6 +46,7 @@ const responder = (pedido: PedidoDoDetalhe, itens: ItemDoPedido[]) => {
   fake.responderTabela('order_notes', { data: [NOTA], error: null })
   fake.responderTabela('order_notifications', { data: [], error: null })
   fake.responderTabela('order_admin_notes', { data: null, error: null })
+  fake.responderTabela('order_manual_payments', { data: null, error: null })
 }
 
 beforeEach(() => {

@@ -13,27 +13,7 @@
 
 export const PROPOSAL_TOKEN_KEY = 'estrelinha-proposal-token'
 
-/**
- * O que sobra no FIM do fragmento e não é do alfabeto base64url (`A-Z a-z 0-9 - _`): o ponto final
- * da frase, a vírgula, o parêntese de quem citou o link, as reticências. O token nunca contém nada
- * disso (`createGuestAccessToken`, 32 bytes em base64url sem `=`), então aparar é seguro — e sem
- * aparar, `#<token>.` caía em "Este link não está mais disponível" para um pedido válido (QA da 89,
- * `BUG-20261031-ponto-final-depois-do-link-no-whatsapp`, decisão do usuário em 2026-10-31).
- */
-const FORA_DO_TOKEN_NO_FIM = /[^A-Za-z0-9_-]+$/
-
-/** O fragmento sem o `#`, decodificado, aparado e sem pontuação no fim; vazio quando não há. */
-function tokenDoFragmento(hash: string): string {
-  const cru = (hash ?? '').replace(/^#/, '').trim()
-  if (!cru) return ''
-  let lido = cru
-  try {
-    lido = decodeURIComponent(cru)
-  } catch {
-    // fica o cru
-  }
-  return lido.trim().replace(FORA_DO_TOKEN_NO_FIM, '')
-}
+import { tokenDoFragmento } from '@/shared/lib/fragmentToken'
 
 function guardar(token: string): void {
   try {
@@ -53,7 +33,8 @@ function ler(): string | null {
 
 /**
  * O token desta visita. Fragmento presente ⇒ ele vence (um link novo substitui o de antes), é
- * guardado e apagado da barra. Sem fragmento ⇒ o guardado (recarregar a aba), ou `null`.
+ * guardado e apagado da barra. Sem fragmento ⇒ o guardado (recarregar a aba), ou `null`. A leitura do
+ * fragmento (com a pontuação do fim aparada) é a de `shared/lib/fragmentToken.ts`.
  */
 export function takeProposalToken(): string | null {
   if (typeof window === 'undefined') return null

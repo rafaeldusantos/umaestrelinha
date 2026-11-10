@@ -48,6 +48,29 @@ export interface Order {
   paid_at?: string | null
   material_status?: string | null
   tracking_code?: string | null
+  /**
+   * A tentativa de cobrança no Mercado Pago. É ela que separa o cartão cobrado e sem
+   * resposta (informativo) do criado e nunca cobrado (`cartaoParaResolver`). Sempre veio no `*`.
+   */
+  mp_order_id?: string | null
+  /**
+   * O último detalhe que o Mercado Pago devolveu. Separa o cartão expirado só pelo relógio da loja,
+   * com a cobrança ainda em análise, do que falhou (`cardContactTitle`, `orderSituation`). Sempre
+   * veio no `*`.
+   */
+  mp_status_detail?: string | null
+  /**
+   * O pagamento da order do Mercado Pago, e a proposta do pedido montado pelo painel. Com a
+   * `mp_order_id`, dizem se a loja cobrou o pedido — sem nenhuma, o pagamento que morreu é combinado
+   * com a Adri (`pagamentoACombinar`). Sempre vieram no `*`.
+   */
+  mp_payment_id?: string | null
+  proposal_id?: string | null
+  /**
+   * A marca do cancelamento automático por falta de pagamento (o instante em que o job
+   * cancelou). Quem responde "foi por falta de pagamento?" é `cancelledForNonPayment`, de `core`.
+   */
+  unpaid_cancelled_at?: string | null
   created_at: string
   order_items: OrderItem[]
 }

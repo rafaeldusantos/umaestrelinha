@@ -185,7 +185,13 @@ const PedidoPage = () => {
               itens={detalhe.itens}
               tentarDeNovo={tentarDeNovo}
               precos={resumo?.rows}
-              valores={<BlocoValores pedido={p} resumo={resumo} />}
+              valores={
+                <BlocoValores
+                  pedido={p}
+                  resumo={resumo}
+                  registro={detalhe.registroManual.estado === 'ok' ? detalhe.registroManual.dado : null}
+                />
+              }
             />
             <BlocoEntrega pedido={p} editar={<EditarRastreio pedido={p} acao={acao} avisoDePostagemSaiu={detalhe.avisoDePostagemSaiu} />} />
             <Historico historico={detalhe.historico} lidoEm={lidoEm} tentarDeNovo={tentarDeNovo} />

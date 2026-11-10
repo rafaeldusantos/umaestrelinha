@@ -292,6 +292,11 @@ describe('OrderPaymentPage — quem não pode receber PIX (PIX-P1-06)', () => {
     ['já pago', { paid_at: '2026-09-21T12:00:00Z' }],
     ['cancelado', { status: 'cancelled' }],
     ['de cartão', { payment_method: 'card' }],
+    // Levado adiante pela loja sem pagamento (combinado com a cliente): a página do pedido não
+    // oferece pagar, e o endereço de pagamento aberto por um link antigo também não.
+    ['em Separando sem pagamento', { status: 'separating' }],
+    ['em Pago sem pagamento registrado', { status: 'paid' }],
+    ['enviado sem pagamento', { status: 'shipped' }],
   ])('%s: vai para `/pedido/:id` sem gerar código nenhum', (_nome, extra) => {
     vi.mocked(useOrder).mockReturnValue(pedido(extra) as never)
     montar()

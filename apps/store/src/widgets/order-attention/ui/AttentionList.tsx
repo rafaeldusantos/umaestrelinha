@@ -9,7 +9,7 @@ import { AlertCircle, Clock, MessageCircle, PackageOpen, RefreshCw } from 'lucid
 import { Link } from 'react-router-dom'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { formatOrderNumber } from '@estrelinha/core/orders'
+import { ARRANGE_PAYMENT_TITLE, cardContactTitle, formatOrderNumber } from '@estrelinha/core/orders'
 import { MATERIAL_GUIDE_PATH } from '@estrelinha/core/routes'
 import {
   accountAttention,
@@ -70,10 +70,13 @@ const Cartao = ({
   </li>
 )
 
-/** "Conversar no WhatsApp" do pagamento perdido — some sem número da loja configurado. */
-const ConversarNoWhatsApp = ({ orderNumber }: { orderNumber: string }) => {
+/**
+ * "Conversar no WhatsApp" do pagamento perdido e do informativo do cartão — some sem número da loja
+ * configurado. `mensagem` é a frase que abre a conversa.
+ */
+const ConversarNoWhatsApp = ({ mensagem }: { mensagem: string }) => {
   const { whatsapp } = useGeneralSettings()
-  const href = whatsappHref(whatsapp, `Olá! Quero retomar o pedido ${formatOrderNumber(orderNumber)}.`)
+  const href = whatsappHref(whatsapp, mensagem)
   if (!href) return null
   return (
     <a href={href} target="_blank" rel="noopener noreferrer" className={BOTAO_CONTORNO}>
@@ -121,7 +124,55 @@ const Pendencia = ({ item }: { item: AttentionItem }) => {
           titulo="O pagamento não foi concluído"
           texto={`${pedidoEValor}. Fale comigo para retomar este pedido.`}
         >
-          <ConversarNoWhatsApp orderNumber={order.order_number} />
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero retomar o pedido ${formatOrderNumber(order.order_number)}.`}
+          />
+        </Cartao>
+      )
+
+    case 'unpaid_cancelled':
+      return (
+        <Cartao
+          tom="alert"
+          icone={<AlertCircle className="h-5 w-5" />}
+          titulo="Pedido cancelado por falta de pagamento"
+          texto={`${pedidoEValor}. O pagamento não foi concluído em 7 dias. Se ainda quiser a peça, fale comigo.`}
+        >
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero retomar o pedido ${formatOrderNumber(order.order_number)}.`}
+          />
+        </Cartao>
+      )
+
+    // O cartão recusado, expirado ou cobrado sem resposta: a loja não refaz o cartão nem troca o
+    // meio sozinha — a cliente resolve com a Adri pelo WhatsApp.
+    case 'card_contact':
+      return (
+        <Cartao
+          tom="alert"
+          icone={<AlertCircle className="h-5 w-5" />}
+          titulo={cardContactTitle(order)}
+          texto={`${pedidoEValor}. Fale comigo pelo WhatsApp que eu te ajudo a resolver o pagamento.`}
+        >
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero resolver o pagamento do pedido ${formatOrderNumber(order.order_number)}.`}
+          />
+        </Cartao>
+      )
+
+    // O pedido gravado fora da loja, que ela nunca cobrou: o total gravado não é um valor que a loja
+    // calculou, então a pendência não o mostra nem oferece pagar — a Adri combina pelo WhatsApp.
+    case 'arrange_payment':
+      return (
+        <Cartao
+          tom="alert"
+          icone={<AlertCircle className="h-5 w-5" />}
+          titulo={ARRANGE_PAYMENT_TITLE}
+          texto={`Pedido ${formatOrderNumber(order.order_number)}. Fale comigo pelo WhatsApp que eu combino com você como concluir o pagamento.`}
+        >
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero combinar o pagamento do pedido ${formatOrderNumber(order.order_number)}.`}
+          />
         </Cartao>
       )
 

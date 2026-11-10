@@ -34,9 +34,11 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     // entrou no lugar dele, mantendo a contagem. **Esta contagem falhar quando uma rota entra é o
     // comportamento correto**: com categoria na raiz do domínio (`AD-018`), rota nova que não passe
     // por aqui encobre em silêncio uma categoria homônima. O 19º é `pedido-montado`, da feature 89
-    // (o link do pedido montado pelo painel, `A-15`).
-    expect(ROUTE_SLUGS).toHaveLength(19)
+    // (o link do pedido montado pelo painel, `A-15`). O 20º é `pagar-com-cartao`, o link de
+    // pagamento por cartão que a Adri gera para um pedido.
+    expect(ROUTE_SLUGS).toHaveLength(20)
     expect(ROUTE_SLUGS).toContain('pedido-montado')
+    expect(ROUTE_SLUGS).toContain('pagar-com-cartao')
   })
 
   it.each([
@@ -104,12 +106,12 @@ describe('INFRA_SLUGS — o que é do host/build e não aparece no App.tsx', () 
 })
 
 describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
-  it('tem 22 entradas: 19 rotas + 3 de infraestrutura', () => {
-    expect(RESERVED_SLUGS).toHaveLength(22)
+  it('tem 23 entradas: 20 rotas + 3 de infraestrutura', () => {
+    expect(RESERVED_SLUGS).toHaveLength(23)
   })
 
   it('não repete nenhuma entrada', () => {
-    expect(new Set(RESERVED_SLUGS).size).toBe(22)
+    expect(new Set(RESERVED_SLUGS).size).toBe(23)
   })
 
   it.each([
@@ -390,8 +392,9 @@ describe('a classificação de rota do sitemap (SMP-04, SMP-24)', () => {
     // A 8ª exclusão é `/pedido/:id/pagamento`, da feature 58: privada e transacional ao mesmo
     // tempo — é o PIX de uma pessoa, e a página existe para cobrar. A 9ª é `/conta/dados`, da
     // feature 59: a aba "Meus dados" da conta, privada como a própria conta. A 10ª é
-    // `/pedido-montado`, da feature 89 (SEG-03): o pedido que a Adri montou para uma cliente.
-    expect(NON_INDEXABLE_PATHS).toHaveLength(10)
+    // `/pedido-montado`, da feature 89 (SEG-03): o pedido que a Adri montou para uma cliente. A 11ª
+    // é `/pagar-com-cartao`: o link de pagamento por cartão que a Adri gera para um pedido.
+    expect(NON_INDEXABLE_PATHS).toHaveLength(11)
   })
 })
 

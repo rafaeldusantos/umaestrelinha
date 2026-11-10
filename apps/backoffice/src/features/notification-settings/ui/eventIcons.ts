@@ -12,6 +12,7 @@
 import {
   Ban,
   BellRing,
+  CalendarX,
   CircleAlert,
   CheckCircle2,
   Clock,
@@ -50,4 +51,6 @@ export const EVENT_ICON_COMPONENTS: Record<NotificationIconKey, LucideIcon> = {
   // Feature 57.
   'inbox-new': PackagePlus,
   alert: CircleAlert,
+  // O cancelamento automático por falta de pagamento.
+  'calendar-x': CalendarX,
 }

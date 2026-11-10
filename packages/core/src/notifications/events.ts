@@ -26,6 +26,9 @@ export const NOTIFICATION_EVENTS = [
   'payment_rejected',
   'pix_expired',
   'order_cancelled',
+  // O cancelamento automático do pedido não pago: um e-mail PRÓPRIO, ao lado do
+  // cancelamento da admin, e só o job o dispara.
+  'order_cancelled_unpaid',
   'payment_refunded',
   'material_tracking_registered',
   'material_received',
@@ -60,6 +63,7 @@ export const EVENT_AUDIENCE: Record<NotificationEvent, NotificationAudience> = {
   payment_rejected: 'customer',
   pix_expired: 'customer',
   order_cancelled: 'customer',
+  order_cancelled_unpaid: 'customer',
   payment_refunded: 'customer',
   material_tracking_registered: 'customer',
   material_received: 'customer',
@@ -87,6 +91,7 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
   payment_rejected: 'Aviso de pagamento recusado enviado',
   pix_expired: 'Aviso de PIX expirado enviado',
   order_cancelled: 'Aviso de cancelamento enviado',
+  order_cancelled_unpaid: 'Aviso de cancelamento por falta de pagamento enviado',
   payment_refunded: 'Aviso de estorno enviado',
   material_tracking_registered: 'Confirmação do rastreio do material enviada',
   material_received: 'Aviso de material recebido enviado',

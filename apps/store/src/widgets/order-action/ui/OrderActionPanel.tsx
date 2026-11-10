@@ -11,7 +11,7 @@ import { MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { formatOrderNumber, repixDeadline } from '@estrelinha/core/orders'
+import { ARRANGE_PAYMENT_TITLE, cardContactTitle, formatOrderNumber, repixDeadline } from '@estrelinha/core/orders'
 import { PixIcon } from '@estrelinha/ui/icons'
 import { OrderJourney, deadlineLabel, type OrderDetail } from '@/entities/order'
 import { whatsappHref } from '@/shared/lib/whatsapp'
@@ -69,15 +69,13 @@ const BotaoPagar = ({ href, children }: { href: string; children: React.ReactNod
 )
 
 /**
- * "Conversar no WhatsApp" do pagamento perdido. Componente próprio porque lê `store_settings` (um
- * `useQuery`) e só deve montar quando o estado aparece. Sem número configurado, some — fica o texto.
+ * "Conversar no WhatsApp" do pagamento perdido e do informativo do cartão. Componente próprio porque
+ * lê `store_settings` (um `useQuery`) e só deve montar quando o estado aparece. Sem número
+ * configurado, some — fica o texto. `mensagem` é a frase que abre a conversa.
  */
-const ConversarNoWhatsApp = ({ orderNumber }: { orderNumber: string }) => {
+const ConversarNoWhatsApp = ({ mensagem }: { mensagem: string }) => {
   const { whatsapp } = useGeneralSettings()
-  const href = whatsappHref(
-    whatsapp,
-    `Olá! Quero retomar o pedido ${formatOrderNumber(orderNumber)}.`,
-  )
+  const href = whatsappHref(whatsapp, mensagem)
   if (!href) return null
 
   return (
@@ -97,6 +95,21 @@ const OrderActionPanel = ({ order, state, paymentHref, materialKinds }: OrderAct
   switch (state) {
     case 'cancelled':
       return <OrderJourney order={order} events={order.status_events} />
+
+    // O cancelamento automático: a razão, dita uma vez, e o caminho de volta pela Adri. A
+    // data do cancelamento continua na linha do tempo, logo abaixo.
+    case 'unpaid_cancelled':
+      return (
+        <Cartao borda="border-l-[#A6534F]" titulo="Pedido cancelado por falta de pagamento">
+          <p className="text-sm leading-[22px] text-estrelinha-ink-soft">
+            O pagamento deste pedido não foi concluído em 7 dias, e ele foi cancelado. Se ainda quiser
+            a peça, fale comigo pelo WhatsApp e eu te ajudo a retomar.
+          </p>
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero retomar o pedido ${formatOrderNumber(order.order_number)}.`}
+          />
+        </Cartao>
+      )
 
     case 'material':
       return (
@@ -145,7 +158,41 @@ const OrderActionPanel = ({ order, state, paymentHref, materialKinds }: OrderAct
           <p className="text-sm leading-[22px] text-estrelinha-ink-soft">
             Fale comigo para retomar este pedido. Eu confiro o valor e o prazo com você.
           </p>
-          <ConversarNoWhatsApp orderNumber={order.order_number} />
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero retomar o pedido ${formatOrderNumber(order.order_number)}.`}
+          />
+        </Cartao>
+      )
+
+    // O cartão recusado, expirado ou cobrado sem resposta: a loja não refaz o cartão nem troca o
+    // meio sozinha — a cliente resolve com a Adri pelo WhatsApp (`cartaoParaResolver`).
+    case 'card_contact':
+      return (
+        <Cartao
+          borda="border-l-[#A6534F]"
+          titulo={cardContactTitle(order)}
+        >
+          <p className="text-sm leading-[22px] text-estrelinha-ink-soft">
+            Fale comigo pelo WhatsApp que eu te ajudo a resolver o pagamento deste pedido.
+          </p>
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero resolver o pagamento do pedido ${formatOrderNumber(order.order_number)}.`}
+          />
+        </Cartao>
+      )
+
+    // O pedido gravado fora da loja (importado, ou escrito direto no banco), que ela nunca cobrou: o
+    // total gravado nele não é um valor que a loja calculou. Sem valor e sem pagar de novo — a Adri
+    // combina o pagamento pelo WhatsApp (`pagamentoACombinar`).
+    case 'arrange_payment':
+      return (
+        <Cartao borda="border-l-[#A6534F]" titulo={ARRANGE_PAYMENT_TITLE}>
+          <p className="text-sm leading-[22px] text-estrelinha-ink-soft">
+            Fale comigo pelo WhatsApp que eu combino com você como concluir o pagamento deste pedido.
+          </p>
+          <ConversarNoWhatsApp
+            mensagem={`Olá! Quero combinar o pagamento do pedido ${formatOrderNumber(order.order_number)}.`}
+          />
         </Cartao>
       )
 

@@ -72,6 +72,10 @@ export const ROUTE_SLUGS: readonly string[] = [
   // FRAGMENTO (`/pedido-montado#<token>`), nunca num segundo segmento: por isso a rota é de um
   // segmento só, e é reservada como as outras — uma categoria "pedido-montado" encobriria o link.
   'pedido-montado',
+  // O link de pagamento por cartão que a Adri gera no painel para um pedido que não foi pago. O token
+  // vai no FRAGMENTO (`/pagar-com-cartao#<token>`), como o do pedido montado; a rota é de um segmento
+  // e é reservada pela mesma razão.
+  'pagar-com-cartao',
 ]
 
 /**
@@ -187,6 +191,13 @@ export const FAQ_PATH = '/perguntas-frequentes'
 export const PROPOSAL_PATH = '/pedido-montado'
 
 /**
+ * O endereço do link de pagamento por cartão de um pedido (gerado pela Adri no painel). O token vai
+ * no fragmento, pelas mesmas razões do `PROPOSAL_PATH`. `core/checkout/cardLink.ts` monta o link a
+ * partir desta constante.
+ */
+export const CARD_LINK_PATH = '/pagar-com-cartao'
+
+/**
  * `/como-enviar-seu-material-de-dna#cinzas` — o guia, opcionalmente já no material da cliente.
  *
  * A âncora vem de `materialAnchor` (`@estrelinha/core/material`), que não é importado aqui de
@@ -263,6 +274,12 @@ export const NON_INDEXABLE_PATHS: readonly { path: string; reason: string }[] = 
     reason:
       'privado e transacional — é o pedido que a Adri montou para UMA cliente (feature 89, SEG-03); ' +
       'o conteúdo depende do token no fragmento, e sem ele a página não mostra nada',
+  },
+  {
+    path: CARD_LINK_PATH,
+    reason:
+      'privado e transacional — é o pagamento por cartão do pedido de UMA cliente, pelo link que a ' +
+      'Adri gerou; o conteúdo depende do token no fragmento, e sem ele a página não mostra nada',
   },
 ]
 

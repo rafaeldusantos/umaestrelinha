@@ -174,11 +174,17 @@ const RPCS = [
   // numa transação) e marca a proposta como vista. Nenhuma das duas toca as tabelas de marcação
   // (`pedidoMontadoSchema.test.ts`).
   'create_order_from_proposal',
+  // O meio do pagamento registrado à mão, lido pelo detalhe do pedido da cliente com sessão
+  // (`entities/order/api/useOrder.ts`). Só lê `order_manual_payments`, `orders` e `customers`.
+  'customer_manual_payment',
   'customer_order_events',
   'finish_order_notification',
   'get_abandoned_cart',
   'has_role',
   'increment_coupon_usage',
+  // A function `mercado-pago` (ação `card-link`) gera o link de pagamento por cartão de um
+  // pedido: revoga o vivo e grava o hash do novo. Só toca `order_card_links` (o probe do link).
+  'issue_order_card_link',
   'mark_cart_recovered',
   'mark_order_proposal_viewed',
   // Feature 71 — a function `visit` (gravação de visita única e o relógio do banco). Nenhuma das
@@ -186,6 +192,10 @@ const RPCS = [
   // A function `visit` (ação `ping`) grava a presença na loja. Só toca as três
   // tabelas da presença (`presencaSchema.test.ts`).
   'record_store_presence',
+  // O pagamento registrado à mão no painel (`core/order-actions/manualPayment.ts`). Toca
+  // `orders`, `order_status_history`, o estoque, o cupom e as tabelas do registro, nunca as de
+  // marcação (`registroManualSchema.test.ts`, e o probe do registro).
+  'record_manual_payment',
   'record_store_visit',
   // Feature 89 — a function `order-proposals` grava a proposta (criar e editar) numa transação. Só
   // toca as tabelas da proposta e `customers` (`pedidoMontadoSchema.test.ts`).
@@ -193,6 +203,13 @@ const RPCS = [
   'set_kit_showcase',
   'set_material_status',
   'set_material_tracking',
+  // A data de corte do cancelamento automático, lida pela function `cancel-unpaid-orders`.
+  // Não lê tabela nenhuma: devolve o instante gravado no corpo dela pela migration.
+  'unpaid_cancel_since',
+  // Desfazer o pagamento registrado à mão no painel (`core/order-actions/manualPayment.ts`). Toca
+  // `orders`, `order_status_history`, o estoque, o cupom e o registro manual, nunca as tabelas de
+  // marcação (o probe do desfazer).
+  'undo_manual_payment',
   // Feature 88 — o motor `send-notification` grava a linha `skipped` quando a Adri escolhe não avisar a
   // cliente. Só toca `order_notifications` (`avisoPuladoSchema.test.ts`).
   'skip_order_notification',

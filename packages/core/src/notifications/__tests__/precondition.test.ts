@@ -65,6 +65,19 @@ describe('order_paid — `paid_at` ∧ `material_status ≠ aguardando_material`
   })
 })
 
+describe('pagamento confirmado em pedido cancelado — nenhum dos dois e-mails sai', () => {
+  // Um pagamento aprovado depois do cancelamento não faz o pedido voltar: ele continua cancelado, e a
+  // cliente não pode ler "pagamento confirmado" sobre ele.
+  it('RECUSA `order_paid` com o pedido cancelado, mesmo com `paid_at`', () => {
+    expect(preconditionFailure('order_paid', pago({ status: 'cancelled' }), DONA)).toBe('order_was_cancelled')
+  })
+  it('RECUSA `material_instructions` com o pedido cancelado, mesmo com o material esperado', () => {
+    expect(
+      preconditionFailure('material_instructions', pago({ status: 'cancelled', material_status: 'aguardando_material' }), DONA),
+    ).toBe('order_was_cancelled')
+  })
+})
+
 describe('material_instructions — `paid_at` ∧ `material_status = aguardando_material`', () => {
   it('passa com pedido pago à espera do material', () => {
     expect(preconditionFailure('material_instructions', pago({ material_status: 'aguardando_material' }))).toBeNull()
@@ -112,6 +125,27 @@ describe('order_cancelled — `status = cancelled`', () => {
   })
   it('recusa pedido em qualquer outro status', () => {
     expect(preconditionFailure('order_cancelled', pago({ status: 'shipped' }))).toBe('order_not_cancelled')
+  })
+})
+
+describe('order_cancelled_unpaid — cancelado E com a marca do cancelamento automático', () => {
+  it('passa com o pedido cancelado por falta de pagamento', () => {
+    expect(
+      preconditionFailure(
+        'order_cancelled_unpaid',
+        pago({ status: 'cancelled', payment_status: 'pending', paid_at: null, unpaid_cancelled_at: '2026-11-20T12:00:00Z' }),
+      ),
+    ).toBeNull()
+  })
+  it('recusa o pedido cancelado pela admin (sem a marca)', () => {
+    expect(
+      preconditionFailure('order_cancelled_unpaid', pago({ status: 'cancelled', unpaid_cancelled_at: null })),
+    ).toBe('not_cancelled_for_nonpayment')
+  })
+  it('recusa o pedido que não está cancelado, mesmo com a marca', () => {
+    expect(
+      preconditionFailure('order_cancelled_unpaid', pago({ status: 'pending', unpaid_cancelled_at: '2026-11-20T12:00:00Z' })),
+    ).toBe('not_cancelled_for_nonpayment')
   })
 })
 

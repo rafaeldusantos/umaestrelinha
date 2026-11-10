@@ -63,6 +63,9 @@ export const NOTIFICATION_ICON_KEYS = [
   // apagaria essa metade justamente entre eventos que falam do mesmo fato para pessoas diferentes.
   'inbox-new',
   'alert',
+  // O cancelamento automático por falta de pagamento. Próprio, e não o `ban` do cancelamento
+  // da admin: os dois cards ficam lado a lado no mesmo grupo.
+  'calendar-x',
 ] as const
 
 export type NotificationIconKey = (typeof NOTIFICATION_ICON_KEYS)[number]
@@ -86,6 +89,7 @@ export const NOTIFICATION_EVENT_NAMES: Record<NotificationEvent, string> = {
   payment_rejected: 'Pagamento recusado',
   pix_expired: 'PIX expirado',
   order_cancelled: 'Pedido cancelado',
+  order_cancelled_unpaid: 'Pedido cancelado por falta de pagamento',
   payment_refunded: 'Pagamento estornado',
   material_tracking_registered: 'Rastreio do material registrado',
   material_received: 'Material recebido no ateliê',
@@ -117,6 +121,7 @@ export const NOTIFICATION_EVENT_DESCRIPTIONS: Record<NotificationEvent, string> 
   payment_rejected: 'Enviado quando a operadora recusa o pagamento',
   pix_expired: 'Enviado quando o código PIX vence sem pagamento',
   order_cancelled: 'Enviado quando o pedido é cancelado',
+  order_cancelled_unpaid: 'Enviado quando o pedido é cancelado sozinho, 7 dias sem pagamento',
   payment_refunded: 'Enviado quando o valor é devolvido à cliente',
   material_tracking_registered: 'Enviado quando a cliente informa o código de postagem do material',
   material_received: 'Enviado quando o material chega às suas mãos',
@@ -143,6 +148,7 @@ export const NOTIFICATION_EVENT_ICONS: Record<NotificationEvent, NotificationIco
   payment_rejected: 'x',
   pix_expired: 'clock',
   order_cancelled: 'ban',
+  order_cancelled_unpaid: 'calendar-x',
   payment_refunded: 'undo',
   material_tracking_registered: 'tracking',
   material_received: 'inbox',

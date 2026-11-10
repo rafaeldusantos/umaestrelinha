@@ -14,6 +14,7 @@
 import type { NotificationEvent } from './events.ts'
 import { EVENT_AUDIENCE } from './events.ts'
 import { isPickupOrder } from '../shipping/pickup.ts'
+import { cancelledForNonPayment } from '../orders/unpaidCancel.ts'
 
 /**
  * O recorte do pedido que a pré-condição lê. Tudo opcional porque a origem é uma linha do banco
@@ -33,6 +34,8 @@ export interface OrderSnapshot {
    * retirada?" é `isPickupOrder`, de `shipping/pickup.ts`.
    */
   shipping_service_id?: string | null
+  /** A marca do cancelamento automático por falta de pagamento. */
+  unpaid_cancelled_at?: string | null
 }
 
 /**
@@ -85,12 +88,17 @@ export function orderStateFailure(event: NotificationEvent, order: OrderSnapshot
     // A bifurcação da aprovação (NTF-10): pago E sem material a esperar. Com material pendente o
     // e-mail certo é `material_instructions` — este diria "entra na fila de produção" para quem
     // ainda precisa postar as cinzas.
+    //
+    // Pedido cancelado não recebe nenhum dos dois: um pagamento aprovado depois do cancelamento não o
+    // faz voltar, e "pagamento confirmado" sobre ele seria a loja mentindo para a cliente.
     case 'order_paid':
+      if (order.status === 'cancelled') return 'order_was_cancelled'
       if (!order.paid_at) return 'order_not_paid'
       if (order.material_status === 'aguardando_material') return 'material_pending'
       return null
 
     case 'material_instructions':
+      if (order.status === 'cancelled') return 'order_was_cancelled'
       if (!order.paid_at) return 'order_not_paid'
       if (order.material_status !== 'aguardando_material') return 'material_not_pending'
       return null
@@ -106,6 +114,11 @@ export function orderStateFailure(event: NotificationEvent, order: OrderSnapshot
     case 'order_cancelled':
       if (order.status !== 'cancelled') return 'order_not_cancelled'
       return null
+
+    // Só o pedido que o job cancelou: o cancelado pela admin não tem a marca, e "cancelado por falta
+    // de pagamento" sobre ele seria a loja dizendo à cliente uma razão que não foi a dela.
+    case 'order_cancelled_unpaid':
+      return cancelledForNonPayment(order) ? null : 'not_cancelled_for_nonpayment'
 
     case 'payment_refunded':
       if (order.payment_status !== 'refunded') return 'payment_not_refunded'

@@ -3,7 +3,8 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
-import { BULK_LIMIT, bulkSummary, runMaterialBulk, runStatusBulk } from '../bulkMaterial'
+import { PROXIMO } from '@estrelinha/core/orders'
+import { BULK_LIMIT, NEXT_STATUS, bulkNextStatus, bulkSummary, runMaterialBulk, runStatusBulk } from '../bulkMaterial'
 
 let seq = 0
 const row = (over: Partial<AdminOrderRow> = {}): AdminOrderRow => ({
@@ -211,5 +212,43 @@ describe('bulkSummary — o resumo com os e-mails (CRG-11)', () => {
     expect(
       bulkSummary({ ...base, changed: 0, refused: 2, failed: 0 }, { aviso: { perguntou: true, avisar: false } }),
     ).toBe('2 não estavam em estado que permite')
+  })
+})
+
+describe('o lote "Avançar status" e os pedidos não pagos', () => {
+  it('o próximo status do lote é o do Próximo passo (`PROXIMO` de core), não uma cópia', () => {
+    expect(NEXT_STATUS).toBe(PROXIMO)
+  })
+
+  it('pedido Pendente sem pagamento aprovado não vai a Pago pelo lote', () => {
+    expect(bulkNextStatus(row({ status: 'pending', payment_status: 'pending' }))).toBeNull()
+    expect(bulkNextStatus(row({ status: 'pending', payment_status: 'expired' }))).toBeNull()
+    expect(bulkNextStatus(row({ status: 'pending', payment_status: 'approved' }))).toBe('paid')
+    expect(bulkNextStatus(row({ status: 'paid', payment_status: 'approved' }))).toBe('separating')
+  })
+
+  it('o lote deixa os não pagos de fora, sem gravar, e conta quantos ficaram', async () => {
+    const update = vi.fn().mockResolvedValue({ error: null })
+    const onProgress = vi.fn()
+    const [naoPago, outro, pago] = [
+      row({ status: 'pending', payment_status: 'pending' }),
+      row({ status: 'pending', payment_status: 'rejected' }),
+      row({ status: 'paid', payment_status: 'approved' }),
+    ]
+    const r = await runStatusBulk([naoPago, outro, pago], update, { onProgress })
+
+    expect(update.mock.calls).toEqual([[pago.id, 'separating']])
+    expect(onProgress.mock.calls).toEqual([[1, 1]])
+    expect(r).toMatchObject({ changed: 1, unpaid: 2, untouched: 0 })
+  })
+
+  it('o resumo diz quantos não pagos ficaram de fora, e por quê', () => {
+    const base = { refusedOrders: [], failedOrders: [] }
+    expect(
+      bulkSummary({ ...base, changed: 3, refused: 0, failed: 0, untouched: 0, unpaid: 2 }, { verbo: { um: 'avançou', varios: 'avançaram' } }),
+    ).toBe('3 avançaram · 2 não pagos ficaram de fora (registre o pagamento no pedido)')
+    expect(
+      bulkSummary({ ...base, changed: 0, refused: 0, failed: 0, untouched: 0, unpaid: 1 }, { verbo: { um: 'avançou', varios: 'avançaram' } }),
+    ).toBe('1 não pago ficou de fora (registre o pagamento no pedido)')
   })
 })

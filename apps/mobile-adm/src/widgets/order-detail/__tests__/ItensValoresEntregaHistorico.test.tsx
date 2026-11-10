@@ -167,6 +167,46 @@ describe('os valores (MAP-25, A15, A30)', () => {
   })
 })
 
+describe('o pagamento registrado à mão', () => {
+  /** O registro vivo como o detalhe o lê: meio, data e observação — nada de comprovante. */
+  const REGISTRO = { method: 'pix_direto', paid_at: '2026-11-08T15:30:00Z', note: 'Pagou pelo PIX da conta pessoal.' }
+  const comRegistro = (registro: { method: string | null; paid_at: string; note: string | null } | null) =>
+    render(<BlocoValores pedido={detalhe({ payment_status: 'approved' })} resumo={resumoDoPedido(detalhe(), ok([item()]))} registro={registro} />)
+
+  it('com registro: "Registrado à mão", o meio pelo nome, a data e a hora de Brasília e a observação', () => {
+    comRegistro(REGISTRO)
+    const bloco = parte('registro-manual')!
+    expect(bloco).not.toBeNull()
+    expect(within(bloco as HTMLElement).getByText('Registrado à mão')).toBeInTheDocument()
+    expect(sem(bloco.querySelector('[data-registro="meio"]')?.textContent)).toBe(sem('MeioPIX direto'))
+    // 15h30 UTC é 12h30 em Brasília.
+    expect(sem(bloco.querySelector('[data-registro="pago-em"]')?.textContent)).toBe(sem('Pago em08/11/2026 às 12h30'))
+    expect(bloco.querySelector('[data-registro="observacao"]')?.textContent).toBe('Pagou pelo PIX da conta pessoal.')
+  })
+
+  it('nunca um comprovante: nenhum texto, link nem botão no bloco do registro', () => {
+    comRegistro(REGISTRO)
+    const bloco = parte('registro-manual') as HTMLElement
+    expect(bloco.textContent).not.toMatch(/comprovante/i)
+    expect(within(bloco).queryAllByRole('link')).toEqual([])
+    expect(within(bloco).queryAllByRole('button')).toEqual([])
+    expect(document.body.textContent).not.toMatch(/comprovante/i)
+  })
+
+  it('meio não informado e sem observação: "Meio não informado", e nenhuma linha de observação', () => {
+    comRegistro({ method: null, paid_at: REGISTRO.paid_at, note: null })
+    const bloco = parte('registro-manual')!
+    expect(sem(bloco.querySelector('[data-registro="meio"]')?.textContent)).toBe(sem('MeioMeio não informado'))
+    expect(bloco.querySelector('[data-registro="observacao"]')).toBeNull()
+  })
+
+  it('sem registro (ou o pagamento do checkout): nada do registro manual', () => {
+    comRegistro(null)
+    expect(parte('registro-manual')).toBeNull()
+    expect(document.body.textContent).not.toContain('Registrado à mão')
+  })
+})
+
 describe('a entrega (MAP-26, MAP-27)', () => {
   it('o endereço inteiro, o serviço e o rastreio de saída', () => {
     render(<BlocoEntrega pedido={detalhe({ status: 'shipped', tracking_code: 'BR123456789BR' })} />)

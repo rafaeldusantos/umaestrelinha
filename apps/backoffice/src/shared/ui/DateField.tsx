@@ -33,9 +33,16 @@ interface Props {
   placeholder: string
   hint?: string
   className?: string
+  /**
+   * Classes a mais no botão da data e no `X` de limpar. Opcionais, e sem elas o desenho é o de
+   * sempre: é por aqui que a tela feita para o celular sobe os dois controles ao alvo de 44 px
+   * (`h-11`) sem mudar os formulários de Descontos.
+   */
+  triggerClassName?: string
+  clearClassName?: string
 }
 
-const DateField = ({ label, value, onChange, placeholder, hint, className }: Props) => {
+const DateField = ({ label, value, onChange, placeholder, hint, className, triggerClassName, clearClassName }: Props) => {
   const selected = dateFromDateOnly(value)
 
   return (
@@ -53,6 +60,7 @@ const DateField = ({ label, value, onChange, placeholder, hint, className }: Pro
               className={cn(
                 'w-full justify-start rounded-xl text-left font-normal',
                 !value && 'text-muted-foreground',
+                triggerClassName,
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -78,6 +86,7 @@ const DateField = ({ label, value, onChange, placeholder, hint, className }: Pro
             variant="ghost"
             size="sm"
             aria-label={`Limpar ${label}`}
+            className={clearClassName}
             onClick={() => onChange('')}
           >
             <X className="h-4 w-4" />

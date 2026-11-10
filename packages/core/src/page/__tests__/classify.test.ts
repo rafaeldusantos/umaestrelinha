@@ -49,9 +49,11 @@ describe('APP_ROUTE_PATTERNS — composto dos donos, não escrito à mão', () =
         '/como-enviar-o-material',
         // Feature 89 (SEG-03): o link do pedido montado — rota de app, shell intacto, noindex.
         '/pedido-montado',
+        // O link de pagamento por cartão de um pedido — rota de app, noindex, token no fragmento.
+        '/pagar-com-cartao',
       ]),
     )
-    expect(APP_ROUTE_PATTERNS).toHaveLength(15)
+    expect(APP_ROUTE_PATTERNS).toHaveLength(16)
   })
 
   it('nenhuma rota de app é página fixa indexável nem a forma de produto/categoria', () => {

@@ -70,16 +70,19 @@ const REGUAS: Record<string, (codigo: string) => boolean> = {
 const culpados = (regra: (codigo: string) => boolean) =>
   FONTES.filter((f) => regra(f.codigo)).map((f) => f.caminho)
 
-/** A metade positiva: os três pontos de entrada CHAMAM a previsão de `core`. */
+/** A metade positiva: os pontos de entrada CHAMAM a previsão de `core`. */
 const PONTOS_DE_ENTRADA = [
   'features/order-notice/model/useGestoComAviso.ts',
   'pages/admin/AdminOrderPage.tsx',
   'pages/admin/AdminOrdersPage.tsx',
+  // O registro manual de pagamento: o gesto pergunta pelo portão e a tela diz antes do
+  // clique qual e-mail a cliente pode receber.
+  'pages/admin/AdminRecordPaymentPage.tsx',
 ]
 const chamaAPrevisao = (codigo: string) => /\bcustomerNoticeFor\s*\(/.test(codigo)
 
 describe('o aviso à cliente tem UM dono — AVS-17', () => {
-  it('ÂNCORA: a varredura leu a produção do painel, separou o escopo e achou os três pontos', () => {
+  it('ÂNCORA: a varredura leu a produção do painel, separou o escopo e achou os pontos de entrada', () => {
     expect(FONTES.length).toBeGreaterThan(150)
     expect(TODAS.some((f) => f.caminho.startsWith(FORA_DO_ESCOPO))).toBe(true)
     expect(FONTES.some((f) => f.caminho.startsWith(FORA_DO_ESCOPO))).toBe(false)

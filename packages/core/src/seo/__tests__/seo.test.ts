@@ -195,9 +195,10 @@ describe('a tabela das rotas fixas (MTA-01, MTA-10 b)', () => {
   const classificadas = [...SITEMAP_STATIC_PATHS, ...NON_INDEXABLE_PATHS.map(r => r.path)]
 
   it('âncora: a tabela e as duas listas não estão vazias', () => {
-    // 17 desde a feature 89 (`/pedido-montado`, não indexável).
-    expect(STATIC_PAGE_META_PATHS.length).toBe(17)
-    expect(classificadas.length).toBe(17)
+    // 17 desde a feature 89 (`/pedido-montado`, não indexável); 18 com o link de pagamento por
+    // cartão (`/pagar-com-cartao`, não indexável).
+    expect(STATIC_PAGE_META_PATHS.length).toBe(18)
+    expect(classificadas.length).toBe(18)
   })
 
   it('toda rota de SITEMAP_STATIC_PATHS ∪ NON_INDEXABLE_PATHS tem metadado', () => {

@@ -18,8 +18,8 @@ import {
  * o histórico já exibia, e o tom.
  */
 
-describe('NOTIFICATION_EVENTS — os dezessete, na ordem da jornada (spec, tabela de eventos)', () => {
-  it('são exatamente os dezessete da spec, nesta ordem', () => {
+describe('NOTIFICATION_EVENTS — os dezoito, na ordem da jornada (spec, tabela de eventos)', () => {
+  it('são exatamente os dezoito, nesta ordem — o cancelamento por falta de pagamento logo depois do cancelamento', () => {
     expect([...NOTIFICATION_EVENTS]).toEqual([
       'order_received',
       'order_paid',
@@ -27,6 +27,7 @@ describe('NOTIFICATION_EVENTS — os dezessete, na ordem da jornada (spec, tabel
       'payment_rejected',
       'pix_expired',
       'order_cancelled',
+      'order_cancelled_unpaid',
       'payment_refunded',
       'material_tracking_registered',
       'material_received',
@@ -97,7 +98,7 @@ describe('EVENT_AUDIENCE — quem recebe (spec, coluna Destinatário)', () => {
       'owner_material_incoming',
     ])
     const daCliente = NOTIFICATION_EVENTS.filter((e) => EVENT_AUDIENCE[e] === 'customer')
-    expect(daCliente).toHaveLength(13)
+    expect(daCliente).toHaveLength(14)
   })
 })
 

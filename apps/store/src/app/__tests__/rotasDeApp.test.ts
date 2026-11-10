@@ -66,11 +66,11 @@ describe('rotasDeApp — âncora da varredura', () => {
     expect(APP).toContain('<Routes>')
   })
 
-  it('encontrou as 26 rotas que o roteador declara — e 15 delas são de app (a 89 somou /pedido-montado)', () => {
+  it('encontrou as 27 rotas que o roteador declara — e 16 delas são de app (com /pedido-montado e /pagar-com-cartao)', () => {
     // Se uma rota sumir ou entrar, este número muda e alguém precisa olhar, em vez de a classificação
     // passar a cobrir um roteador diferente sem aviso.
-    expect(declaredPaths(APP)).toHaveLength(26)
-    expect(declaredPaths(APP).filter(p => APP_ROUTE_PATTERNS.includes(p))).toHaveLength(15)
+    expect(declaredPaths(APP)).toHaveLength(27)
+    expect(declaredPaths(APP).filter(p => APP_ROUTE_PATTERNS.includes(p))).toHaveLength(16)
   })
 })
 

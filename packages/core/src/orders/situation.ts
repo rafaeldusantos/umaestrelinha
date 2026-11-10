@@ -23,6 +23,7 @@
 // ainda não saiu do que já foi postado — os dois são `awaiting_material` para a cliente.
 
 import { MATERIAL_STATUS_LABELS } from '../material/material.ts'
+import { cartaoExpiradoSemResposta } from './cardAttempt.ts'
 import { isPickupOrder } from '../shipping/pickup.ts'
 import { STORE_TIME_ZONE } from '../time/zone.ts'
 import { ORDER_PAYMENT_STATUS_LABELS, ORDER_STATUS_LABELS, type SituationTone } from './labels.ts'
@@ -35,6 +36,7 @@ export type SituationKey =
   | 'awaiting_material'
   | 'in_production'
   | 'pix_expired'
+  | 'payment_expired'
   | 'payment_rejected'
   | 'awaiting_payment'
 
@@ -48,6 +50,16 @@ export interface SituationInput {
   delivery_estimate_max?: string | null
   /** Feature 63: `'retirada'` é pedido de retirada no escritório (`isPickupOrder`). */
   shipping_service_id?: string | null
+  /**
+   * O meio separa o PIX expirado do cartão expirado. Sem ele, o expirado continua "PIX
+   * expirado" — quem não passa o meio não muda.
+   */
+  payment_method?: string | null
+  /**
+   * O último detalhe do Mercado Pago. Um cartão expirado só pelo relógio da loja, com a cobrança
+   * ainda em análise (`cartaoExpiradoSemResposta`), continua aguardando pagamento.
+   */
+  mp_status_detail?: string | null
 }
 
 /** Para quem o selo fala. `'cliente'` é o padrão: a loja não passa nada e não muda. */
@@ -72,6 +84,7 @@ export const SITUATION_LABELS: Record<SituationKey, string> = {
   awaiting_material: 'Aguardando seu material',
   in_production: 'Em produção',
   pix_expired: 'PIX expirado',
+  payment_expired: 'Pagamento não concluído',
   payment_rejected: 'Pagamento recusado',
   awaiting_payment: 'Aguardando pagamento',
 }
@@ -110,6 +123,7 @@ export const SITUATION_TONES: Record<SituationKey, SituationTone> = {
   awaiting_material: 'wait',
   awaiting_payment: 'wait',
   pix_expired: 'alert',
+  payment_expired: 'alert',
   payment_rejected: 'alert',
 }
 
@@ -142,7 +156,13 @@ const chaveDa = (o: SituationInput | null | undefined): SituationKey => {
   if (o.payment_status === 'approved') {
     return MATERIAL_PENDENTE.includes(o.material_status ?? '') ? 'awaiting_material' : 'in_production'
   }
-  if (o.payment_status === 'expired') return 'pix_expired'
+  if (o.payment_status === 'expired') {
+    // O expirador de 24 h não é resposta do meio de pagamento: a cobrança em análise ainda espera.
+    if (cartaoExpiradoSemResposta(o)) return 'awaiting_payment'
+    // Só o PIX tem código que vence; a cobrança de cartão que expira sem resposta não é "PIX expirado".
+    const meio = (o.payment_method ?? '').trim()
+    return meio === '' || meio === 'pix' ? 'pix_expired' : 'payment_expired'
+  }
   if (o.payment_status === 'rejected') return 'payment_rejected'
   return 'awaiting_payment'
 }

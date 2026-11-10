@@ -3,6 +3,7 @@ import { supabase } from '@estrelinha/supabase/client'
 import { accessFor, forgetAccess } from '../model/orderAccess'
 import { fetchGuestOrder } from './guestOrder'
 import type { StatusEvent } from '@estrelinha/core/orders'
+import type { ManualPaymentForCustomer } from '../lib/paymentDelivery'
 import type { Order } from './useOrders'
 
 /**
@@ -39,6 +40,12 @@ export interface OrderDetail extends Order {
   coupon_code?: string | null
   promotion_discount?: number | null
   pix_discount?: number | null
+  /**
+   * O pagamento registrado à mão pela loja, quando o pedido foi pago por fora: só o MEIO.
+   * Vem pelo `get-order` (convidada) e pela RPC `customer_manual_payment` (sessão); `null` sem
+   * registro vivo. A observação e o comprovante nunca saem do painel.
+   */
+  manual_payment?: ManualPaymentForCustomer | null
 }
 
 /**
@@ -58,6 +65,24 @@ async function lerEventos(orderId: string): Promise<StatusEvent[]> {
     }))
   } catch {
     return []
+  }
+}
+
+/**
+ * O meio do pagamento registrado à mão pela loja, de um pedido da própria cliente. Só o
+ * MEIO: a RPC `customer_manual_payment` devolve uma coluna, do registro vivo. Zero linhas é "sem
+ * registro"; uma linha com `method` nulo é o registro sem meio informado ("Combinado com a loja").
+ *
+ * Falha vira `null`, como os eventos: sem ela, "Pagamento e entrega" mostra o meio do pedido, e só.
+ */
+async function lerMeioInformado(orderId: string): Promise<ManualPaymentForCustomer | null> {
+  try {
+    const { data, error } = await supabase.rpc('customer_manual_payment', { p_order_id: orderId })
+    if (error || !Array.isArray(data) || data.length === 0) return null
+    const method = (data[0] as { method?: unknown } | null)?.method
+    return { method: typeof method === 'string' ? method : null }
+  } catch {
+    return null
   }
 }
 
@@ -97,8 +122,16 @@ export const useOrder = (id: string | undefined) =>
 
       if (error) throw new Error(error.message)
       if (!data) return null
-      const status_events = await lerEventos(id!)
-      return { ...(data as unknown as OrderDetail), status_events }
+      const pedido = data as unknown as OrderDetail
+      // Só um pedido pago pode ter registro manual (o registro grava `paid_at`): o não pago não
+      // pergunta, e a leitura dele continua com uma RPC só.
+      const [status_events, manual_payment] = await Promise.all([
+        lerEventos(id!),
+        pedido.paid_at ? lerMeioInformado(id!) : Promise.resolve(undefined),
+      ])
+      return manual_payment === undefined
+        ? { ...pedido, status_events }
+        : { ...pedido, status_events, manual_payment }
     },
     enabled: !!id,
   })

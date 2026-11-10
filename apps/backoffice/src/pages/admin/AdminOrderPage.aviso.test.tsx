@@ -32,6 +32,8 @@ const { banco, registro, falso, toastSuccess, toastError } = vi.hoisted(() => {
     segurarEscrita: null as Promise<void> | null,
     respostaSend: { data: { sent: true }, error: null } as { data: unknown; error: unknown },
     respostaTrigger: { data: { sent: true }, error: null } as { data: unknown; error: unknown },
+    /** Os marcadores de pagamento a mais do pedido (`order_payment_alerts`). */
+    alertas: [] as { kind: string }[],
   }
   const registro = {
     escritas: [] as Array<{ table: string; values: unknown }>,
@@ -69,6 +71,8 @@ const { banco, registro, falso, toastSuccess, toastError } = vi.hoisted(() => {
         return { data: banco.notificacoes, error: null }
       case 'store_settings':
         return { data: banco.settings, error: null }
+      case 'order_payment_alerts':
+        return { data: banco.alertas, error: null }
       default:
         return { data: [], error: null }
     }
@@ -205,6 +209,7 @@ beforeEach(() => {
   banco.segurarEscrita = null
   banco.respostaSend = { data: { sent: true }, error: null }
   banco.respostaTrigger = { data: { sent: true }, error: null }
+  banco.alertas = []
   registro.escritas.length = 0
   registro.rpcs.length = 0
   registro.invocacoes.length = 0
@@ -988,5 +993,67 @@ describe('conserto do QA — UM anúncio por desfecho (paper cut da região viva
     fireEvent.click(within(dialogo()).getByRole('button', { name: 'Mudar para Enviado' }))
     await waitFor(() => expect(within(dialogo()).getByRole('alert')).toHaveTextContent('Não foi possível mudar o status.'))
     expect(regiaoVivaDiz('Não foi possível mudar o status. Nada foi alterado — tente de novo.')).toBe(false)
+  })
+})
+
+describe('o pagamento a mais e a cobrança aberta', () => {
+  const blocoPagamento = () => screen.getByRole('heading', { name: 'Pagamento' }).closest('section') as HTMLElement
+  const fechamentos = () => registro.invocacoes.filter((i) => i.porta === 'mercado-pago?action=close-charge')
+
+  it('pedido pago duas vezes: o bloco Pagamento diz "Pago duas vezes — devolver um dos valores"', async () => {
+    banco.alertas = [{ kind: 'paid_twice' }]
+    await montar({ status: 'paid' })
+    expect(within(blocoPagamento()).getByText('Pago duas vezes — devolver um dos valores')).toBeInTheDocument()
+  })
+
+  it('pedido pago depois de cancelado: o bloco Pagamento diz "Pago depois de cancelado — devolver o valor"', async () => {
+    banco.alertas = [{ kind: 'paid_after_cancel' }]
+    await montar({ status: 'cancelled', payment_status: 'pending', paid_at: null })
+    expect(within(blocoPagamento()).getByText('Pago depois de cancelado — devolver o valor')).toBeInTheDocument()
+  })
+
+  it('pedido levado à mão para depois de Pago sem pagamento: "Pagamento não registrado", com a ação de registrar', async () => {
+    await montar({ status: 'separating', payment_status: 'pending', paid_at: null })
+    const bloco = within(blocoPagamento())
+    expect(bloco.getByText('Pagamento não registrado')).toBeInTheDocument()
+    expect(bloco.getByRole('link', { name: 'Registrar pagamento' }).getAttribute('href')).toBe('/admin/pedidos/o1/pagamento')
+  })
+
+  it('pedido pago sem marcador: nenhum dos três', async () => {
+    await montar()
+    const bloco = within(blocoPagamento())
+    expect(bloco.queryByText(/duas vezes|depois de cancelado|não registrado/)).toBeNull()
+  })
+
+  it('cancelar pelo painel fecha a cobrança aberta do pedido, depois de gravar o cancelamento', async () => {
+    await montar({ status: 'pending', payment_status: 'pending', paid_at: null })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar pedido' }))
+    fireEvent.change(within(dialogo()).getByLabelText('Motivo do cancelamento'), { target: { value: 'Desistiu' } })
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Confirmar cancelamento' }))
+
+    await waitFor(() => expect(fechamentos()).toEqual([{ porta: 'mercado-pago?action=close-charge', body: { order_id: 'o1' } }]))
+    expect(escritasEm('orders')[0].values).toEqual({ status: 'cancelled', cancel_reason: 'Desistiu' })
+  })
+
+  it('o cancelamento que não grava não fecha a cobrança', async () => {
+    banco.falharEscrita = true
+    await montar({ status: 'pending', payment_status: 'pending', paid_at: null })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar pedido' }))
+    fireEvent.change(within(dialogo()).getByLabelText('Motivo do cancelamento'), { target: { value: 'Desistiu' } })
+    fireEvent.click(within(dialogo()).getByRole('button', { name: 'Confirmar cancelamento' }))
+
+    await waitFor(() => expect(escritasEm('orders')).toHaveLength(1))
+    await act(async () => {})
+    expect(fechamentos()).toEqual([])
+  })
+
+  it('levar a Cancelado pelo "Outro status" também fecha a cobrança aberta', async () => {
+    await montar({ status: 'pending', payment_status: 'pending', paid_at: null })
+    fireEvent.pointerDown(screen.getByRole('combobox', { name: 'Outro status' }), RADIX_POINTER_DOWN)
+    fireEvent.click(screen.getByRole('option', { name: 'Cancelado' }))
+    const aberto = screen.queryByRole('dialog')
+    if (aberto) fireEvent.click(within(aberto).getByRole('button', { name: 'Mudar para Cancelado' }))
+
+    await waitFor(() => expect(fechamentos()).toEqual([{ porta: 'mercado-pago?action=close-charge', body: { order_id: 'o1' } }]))
   })
 })

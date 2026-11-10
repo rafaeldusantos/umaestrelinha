@@ -6,6 +6,11 @@
 \set ON_ERROR_STOP 1
 begin;
 \ir ../migrations/20261030120000_pagamento-aprovado-marca-pago.sql
+-- A função VIGENTE: as migrations que a recriaram depois desta (o registro à mão e o pagamento a mais).
+-- Sem elas o probe mediria o corpo de 2026-10-27. Quem recriar a função acrescenta a sua aqui.
+\ir ../migrations/20261112120000_98-registrar-pagamento.sql
+\ir ../migrations/20261112130000_98-aprovacao-com-data-e-autor.sql
+\ir ../migrations/20261114120000_98-pagamento-a-mais.sql
 
 -- fixturas: três pedidos não pagos e um "já pago e pendente" para a correção
 insert into orders (id, subtotal, total, payment_method, customer_name, customer_email, status, payment_status)
@@ -45,8 +50,9 @@ begin
   -- 4. cancelado continua cancelado
   r := public.apply_payment_approval('00000000-0000-0000-0000-0000000000a3', null, null);
   select status into s from orders where id = '00000000-0000-0000-0000-0000000000a3';
-  if s <> 'cancelled' then raise exception 'falhou 4: %', s; end if;
-  raise notice 'ok — cancelled continua cancelled';
+  if s <> 'cancelled' or r is not false then raise exception 'falhou 4: % %', s, r; end if;
+  if (select paid_at from orders where id = '00000000-0000-0000-0000-0000000000a3') is not null then raise exception 'falhou 4b'; end if;
+  raise notice 'ok — cancelled continua cancelled, sem paid_at (a aprovação vira marcador)';
 
   -- 5. o pagamento continua sendo gravado como antes
   select count(*) into n from orders where id = '00000000-0000-0000-0000-0000000000a1'

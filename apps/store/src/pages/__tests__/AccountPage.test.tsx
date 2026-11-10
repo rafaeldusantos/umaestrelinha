@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -460,5 +460,183 @@ describe('AccountPage — "Meus dados" pela página real (DAD-01)', () => {
     const endereco = screen.getByRole('region', { name: 'Endereço de entrega' })
     expect(within(endereco).getByText('Nenhum endereço salvo.')).toBeInTheDocument()
     expect(within(endereco).getByRole('button', { name: 'Adicionar endereço' })).toBeInTheDocument()
+  })
+})
+
+describe('AccountPage — o pagamento que falhou nas pendências, pela página real', () => {
+  const atencao = () => screen.getByRole('region', { name: 'Precisa da sua atenção' })
+  const cartao = (extra: Record<string, unknown> = {}) => ({
+    ...baseOrder,
+    id: 'order-card',
+    order_number: 'NP-3',
+    payment_method: 'card',
+    payment_status: 'rejected',
+    paid_at: null,
+    mp_order_id: 'ORD01JQ',
+    ...extra,
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('PIX pendente: "Pagamento pendente" com "Pagar com PIX" para a rota do pagamento', () => {
+    listagem.current = [{ ...baseOrder, id: 'order-pix', order_number: 'NP-1', payment_status: 'pending', paid_at: null }]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('Pagamento pendente')).toBeInTheDocument()
+    expect(within(atencao()).getByRole('link', { name: 'Pagar com PIX' })).toHaveAttribute(
+      'href',
+      '/pedido/order-pix/pagamento',
+    )
+  })
+
+  it('PIX vencido dentro dos 7 dias: "Gerar novo PIX", com a data-limite', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-20T12:00:00Z'))
+    listagem.current = [{ ...baseOrder, id: 'order-exp', order_number: 'NP-4', payment_status: 'expired', paid_at: null, mp_order_id: 'ORD01PIX' }]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('O código PIX expirou')).toBeInTheDocument()
+    expect(within(atencao()).getByText(/Dá para gerar um código novo até 25 de julho\./)).toBeInTheDocument()
+    expect(within(atencao()).getByRole('link', { name: 'Gerar novo PIX' })).toHaveAttribute(
+      'href',
+      '/pedido/order-exp/pagamento',
+    )
+  })
+
+  it('pedido gravado fora da loja (sem cobrança feita pela loja): sem "Gerar novo PIX" nem valor — a Adri combina pelo WhatsApp', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-20T12:00:00Z'))
+    lojaSettings.whatsapp = '51998765432'
+    listagem.current = [
+      { ...baseOrder, id: 'order-fora', order_number: '0563', payment_status: 'expired', paid_at: null, total: 10, mp_order_id: null },
+    ]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('O pagamento deste pedido é combinado comigo')).toBeInTheDocument()
+    expect(within(atencao()).getByText(/Fale comigo pelo WhatsApp que eu combino com você como concluir o pagamento\./)).toBeInTheDocument()
+    expect(within(atencao()).queryByRole('link', { name: /gerar novo pix|pagar com pix/i })).not.toBeInTheDocument()
+    expect(atencao().textContent).not.toContain('R$')
+    const link = within(atencao()).getByRole('link', { name: 'Conversar no WhatsApp' })
+    expect(new URL(link.getAttribute('href') as string).searchParams.get('text')).toBe(
+      'Olá! Quero combinar o pagamento do pedido #0563.',
+    )
+    expect(atencao().textContent).not.toMatch(/!|urgente|últim/i)
+  })
+
+  it('o par: o PIX que a loja cobrou continua nas pendências com o valor e "Gerar novo PIX"', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-20T12:00:00Z'))
+    listagem.current = [
+      { ...baseOrder, id: 'order-exp', order_number: 'NP-4', payment_status: 'expired', paid_at: null, mp_order_id: 'ORD01PIX' },
+    ]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText(/Pedido #NP-4 · R\$\s50,00/)).toBeInTheDocument()
+    expect(within(atencao()).getByRole('link', { name: 'Gerar novo PIX' })).toBeInTheDocument()
+    expect(within(atencao()).queryByText('O pagamento deste pedido é combinado comigo')).not.toBeInTheDocument()
+  })
+
+  it('cartão recusado: o informativo para falar no WhatsApp, sem pagar de novo nem trocar para PIX', () => {
+    lojaSettings.whatsapp = '51998765432'
+    listagem.current = [cartao()]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('O pagamento com cartão não foi concluído')).toBeInTheDocument()
+    expect(within(atencao()).getByText(/Fale comigo pelo WhatsApp que eu te ajudo a resolver o pagamento\./)).toBeInTheDocument()
+    const link = within(atencao()).getByRole('link', { name: 'Conversar no WhatsApp' })
+    expect(new URL(link.getAttribute('href') as string).searchParams.get('text')).toBe(
+      'Olá! Quero resolver o pagamento do pedido #NP-3.',
+    )
+    expect(within(atencao()).queryByRole('link', { name: /pix|cart[aã]o/i })).not.toBeInTheDocument()
+    expect(atencao().textContent).not.toMatch(/!|urgente|últim/i)
+  })
+
+  it('cartão cobrado e sem resposta: o mesmo informativo, com o título de quem espera', () => {
+    lojaSettings.whatsapp = '51998765432'
+    listagem.current = [cartao({ payment_status: 'pending' })]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('O pagamento com cartão ainda não foi confirmado')).toBeInTheDocument()
+    expect(within(atencao()).getByRole('link', { name: 'Conversar no WhatsApp' })).toBeInTheDocument()
+  })
+
+  it('cartão que o relógio da loja expirou com a cobrança ainda em análise: o título de quem espera, e o selo também', () => {
+    lojaSettings.whatsapp = '51998765432'
+    listagem.current = [cartao({ payment_status: 'expired', mp_status_detail: 'pending_review_manual' })]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('O pagamento com cartão ainda não foi confirmado')).toBeInTheDocument()
+    expect(within(atencao()).queryByText('O pagamento com cartão não foi concluído')).not.toBeInTheDocument()
+    expect(within(atencao()).getByRole('link', { name: 'Conversar no WhatsApp' })).toBeInTheDocument()
+    const lista = screen.getByRole('region', { name: 'Seus pedidos' })
+    expect(within(lista).getByText('Aguardando pagamento')).toBeInTheDocument()
+    expect(within(lista).queryByText('Pagamento não concluído')).not.toBeInTheDocument()
+  })
+
+  it('cartão criado e nunca cobrado (abandonado no checkout): não aparece nas pendências', () => {
+    listagem.current = [cartao({ payment_status: 'pending', mp_order_id: null })]
+    renderPage('/conta')
+
+    expect(screen.queryByText('Precisa da sua atenção')).not.toBeInTheDocument()
+  })
+
+  it('sem número da loja, o informativo do cartão fica só com o texto', () => {
+    lojaSettings.whatsapp = ''
+    listagem.current = [cartao()]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('O pagamento com cartão não foi concluído')).toBeInTheDocument()
+    expect(within(atencao()).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('pedido que a loja avançou à mão sem pagamento: nenhuma pendência de pagar', () => {
+    lojaSettings.whatsapp = '51998765432'
+    listagem.current = [
+      { ...baseOrder, id: 'a1', order_number: 'NP-5', status: 'separating', payment_status: 'pending', paid_at: null },
+      { ...baseOrder, id: 'a2', order_number: 'NP-6', status: 'paid', payment_status: 'expired', paid_at: null },
+      cartao({ id: 'a3', order_number: 'NP-7', status: 'shipped' }),
+    ]
+    renderPage('/conta')
+
+    expect(screen.queryByText('Precisa da sua atenção')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /pagar com pix|gerar novo pix/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('AccountPage — o pedido cancelado por falta de pagamento, pela página real', () => {
+  const atencao = () => screen.getByRole('region', { name: 'Precisa da sua atenção' })
+  const cancelado = (extra: Record<string, unknown> = {}) => ({
+    ...baseOrder,
+    id: 'order-cancelado',
+    order_number: 'NP-8',
+    status: 'cancelled',
+    payment_status: 'expired',
+    paid_at: null,
+    unpaid_cancelled_at: '2026-07-25T10:17:00Z',
+    ...extra,
+  })
+
+  it('aparece nas pendências com a razão e o WhatsApp para retomar', () => {
+    lojaSettings.whatsapp = '51998765432'
+    listagem.current = [cancelado()]
+    renderPage('/conta')
+
+    expect(within(atencao()).getByText('Pedido cancelado por falta de pagamento')).toBeInTheDocument()
+    expect(within(atencao()).getByText(/O pagamento não foi concluído em 7 dias\. Se ainda quiser a peça, fale comigo\./)).toBeInTheDocument()
+    const link = within(atencao()).getByRole('link', { name: 'Conversar no WhatsApp' })
+    expect(new URL(link.getAttribute('href') as string).searchParams.get('text')).toBe(
+      'Olá! Quero retomar o pedido #NP-8.',
+    )
+    expect(atencao().textContent).not.toMatch(/!|urgente|últim/i)
+  })
+
+  it('o cancelado pela admin (sem a marca) não aparece nas pendências', () => {
+    lojaSettings.whatsapp = '51998765432'
+    listagem.current = [cancelado({ unpaid_cancelled_at: null })]
+    renderPage('/conta')
+
+    expect(screen.queryByText('Precisa da sua atenção')).not.toBeInTheDocument()
   })
 })

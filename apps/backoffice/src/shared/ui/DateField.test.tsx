@@ -74,4 +74,26 @@ describe('DateField', () => {
 
     expect(onChange).toHaveBeenCalledWith('')
   })
+
+  it('as classes a mais chegam aos dois controles, e sem elas o desenho é o de sempre', () => {
+    const tokenExato = (token: string) => new RegExp(`(?:^|\\s)${token}(?![-\\w])`)
+
+    setup('2026-08-31')
+    expect(screen.getByRole('button', { name: 'Válida de' }).className).toMatch(tokenExato('h-10'))
+    expect(screen.getByRole('button', { name: 'Limpar Válida de' }).className).toMatch(tokenExato('h-9'))
+
+    render(
+      <DateField
+        label="Outra"
+        value="2026-08-31"
+        onChange={onChange}
+        placeholder="Agora"
+        triggerClassName="h-11"
+        clearClassName="h-11 w-11"
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Outra' }).className).toMatch(tokenExato('h-11'))
+    expect(screen.getByRole('button', { name: 'Limpar Outra' }).className).toMatch(tokenExato('h-11'))
+    expect(screen.getByRole('button', { name: 'Limpar Outra' }).className).toMatch(tokenExato('w-11'))
+  })
 })

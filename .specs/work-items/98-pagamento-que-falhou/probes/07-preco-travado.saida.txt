@@ -1,0 +1,21 @@
+ok — a function mercado-pago está servida (corpo vazio responde 400)
+ok — o PIX do banco local é 7% (a conta à mão abaixo depende dele)
+ok — antes: o pedido não tem valor travado
+ok — a primeira cobrança passa do cálculo e chega ao Mercado Pago (o Mercado Pago de chave inválida respondeu 400 -)
+ok — o travado: PIX 113,00 e cartão 120,00 (100 + 20, PIX de 7% sobre 100), uma linha
+ok — o pedido diz 113,00 depois da primeira cobrança
+ok — pagar de novo no PIX não dá 422 com o desconto exibido acima do recálculo (o Mercado Pago de chave inválida respondeu 400 -)
+ok — o pedido volta a 113,00 — o travado, nunca o total forjado
+ok — pagar de novo no cartão passa do cálculo, sem 422 (o 400 é o cartão ausente do corpo, depois do valor)
+ok — no cartão o pedido diz 120,00 — o total do cartão travado na primeira cobrança
+ok — pagar de novo não trava outra vez
+ok — pedido sem cobrança gravada e desconto exibido acima do recálculo ⇒ 422, como hoje
+ok — o 422 não trava nada e não toca no total do pedido
+ok — a cliente logada não lê a tabela do travado (403)
+ok — a cliente logada não grava na tabela do travado (403)
+ok — a cliente logada não altera o travado (403)
+ok — a chave pública não lê a tabela do travado (401)
+ok — a chave pública não grava na tabela do travado (401)
+ok — a chave pública não altera o travado (401)
+ok — o travado continua 113,00 e nada foi gravado para o outro pedido
+ok — RLS ligada, nenhuma policy, e nenhum privilégio de leitura ou escrita para authenticated e anon

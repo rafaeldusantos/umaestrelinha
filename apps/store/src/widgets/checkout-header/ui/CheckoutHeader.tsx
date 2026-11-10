@@ -19,6 +19,11 @@
 // pixel CSS com DPR 1 — a 180px o traço da marca mede 0,96px CSS, que num celular (DPR 2–3) são
 // 1,9–2,9 pixels físicos e sai nítido. A exceção é feita pelo CSS, com o componente recebendo 200:
 // passar `width={180}` faria a escada trocar a assinatura pelo símbolo, que é outro desenho.
+//
+// **Quem cede quando a linha não cabe é o texto, nunca a marca.** Em 320 px com a fonte do sistema
+// a 200 %, os 180 px fixos da marca e "Ambiente seguro" não cabem lado a lado: a linha quebra
+// (`flex-wrap`) e o bloco desce para baixo da marca, que não encolhe (`shrink-0`). O `min-w-0` deixa
+// o bloco embrulhar dentro da própria linha se nem ela couber — sem ele o corpo rola de lado.
 import { Link } from 'react-router-dom'
 import { Lock, MessageCircle } from 'lucide-react'
 
@@ -26,11 +31,11 @@ import { EstrelinhaSignature } from '@estrelinha/ui/brand'
 
 const CheckoutHeader = () => (
   <header className="border-b border-estrelinha-line bg-white">
-    <div className="container flex items-center justify-between py-5">
-      <Link to="/" aria-label="Uma Estrelinha">
+    <div className="container flex flex-wrap items-center justify-between gap-x-4 gap-y-3 py-5">
+      <Link to="/" aria-label="Uma Estrelinha" className="shrink-0">
         <EstrelinhaSignature width={200} className="h-auto w-[180px] sm:w-[200px]" />
       </Link>
-      <div className="flex items-center gap-5 text-sm font-medium">
+      <div className="flex min-w-0 items-center gap-5 text-sm font-medium">
         <span className="flex items-center gap-[7px] text-estrelinha-ink">
           <Lock className="h-[15px] w-[15px] text-estrelinha-primary" aria-hidden />
           Ambiente seguro

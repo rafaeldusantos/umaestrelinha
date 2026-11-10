@@ -18,6 +18,7 @@
 // O que o lote devolve é um RESUMO: quantas passaram, quantas não estavam em estado que permite, e
 // quantas falharam de verdade. Três números diferentes, porque são três coisas diferentes.
 
+import { PROXIMO, needsPaymentRecord } from '@estrelinha/core/orders'
 import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
 
 /**
@@ -50,6 +51,11 @@ export interface BulkOutcome {
   annotated?: number
   /** Feature `88`: pedidos selecionados que o lote nem tentou (sem próximo status). */
   untouched?: number
+  /**
+   * Pedidos selecionados cujo próximo status pede pagamento (Pendente → Pago sem pagamento aprovado):
+   * o lote não os marca como pagos — cada um passa pelo "Registrar pagamento" do pedido.
+   */
+  unpaid?: number
 }
 
 /** O desfecho de UMA escrita do lote, na forma que `runBulk` conta. */
@@ -148,16 +154,22 @@ export const runMaterialBulk = (
   )
 
 /**
- * O próximo status de cada estado — o que o lote "Avançar status" aplica.
+ * O próximo status de cada estado — o que o lote "Avançar status" aplica. É o MESMO mapa do Próximo
+ * passo do pedido (`PROXIMO`, `@estrelinha/core/orders`), e não uma cópia.
  *
  * `delivered` e `cancelled` não têm próximo: são fim de linha, e um lote que os "avançasse" faria
  * pedido entregue voltar a andar.
  */
-export const NEXT_STATUS: Record<string, string | undefined> = {
-  pending: 'paid',
-  paid: 'separating',
-  separating: 'shipped',
-  shipped: 'delivered',
+export const NEXT_STATUS: Record<string, string | undefined> = PROXIMO
+
+/**
+ * Para onde o lote leva este pedido, ou `null` quando ele fica: fim de linha, ou o próximo status pede
+ * um pagamento que não foi aprovado (`needsPaymentRecord`). O lote nunca marca pago sem pagamento.
+ */
+export const bulkNextStatus = (row: Pick<AdminOrderRow, 'status' | 'payment_status'>): string | null => {
+  const proximo = NEXT_STATUS[row.status]
+  if (!proximo) return null
+  return needsPaymentRecord({ payment_status: row.payment_status, paid_at: null }, proximo) ? null : proximo
 }
 
 export type StatusUpdateFn = (
@@ -178,17 +190,19 @@ export const runStatusBulk = async (
   opcoes: BulkOptions = {},
 ): Promise<BulkOutcome> => {
   const lote = rows.slice(0, BULK_LIMIT)
-  const andam = lote.filter((r) => NEXT_STATUS[r.status])
+  const andam = lote.filter((r) => bulkNextStatus(r) !== null)
+  const naoPagos = lote.filter((r) => NEXT_STATUS[r.status] && bulkNextStatus(r) === null).length
   const outcome = await runBulk(
     andam,
     async (row, avisarCliente) => {
-      const to = NEXT_STATUS[row.status] as string
+      const to = bulkNextStatus(row) as string
       const r = avisarCliente === undefined ? await update(row.id, to) : await update(row.id, to, avisarCliente)
       return r.error ? { ok: false, reason: 'rpc_failed' } : { ok: true, reason: null, emailSent: r.emailSent === true }
     },
     opcoes,
   )
-  outcome.untouched = lote.length - andam.length
+  outcome.unpaid = naoPagos
+  outcome.untouched = lote.length - andam.length - naoPagos
   return outcome
 }
 
@@ -224,6 +238,11 @@ export const bulkSummary = (
     // pedido sem próximo passo — o mesmo "já no fim do caminho" que o diálogo do lote mostrou.
     partes.push(
       `${outcome.untouched} ${outcome.untouched === 1 ? 'ficou como estava' : 'ficaram como estavam'} (já no fim do caminho)`,
+    )
+  }
+  if (outcome.unpaid) {
+    partes.push(
+      `${outcome.unpaid} ${outcome.unpaid === 1 ? 'não pago ficou' : 'não pagos ficaram'} de fora (registre o pagamento no pedido)`,
     )
   }
   if (outcome.refused > 0) {

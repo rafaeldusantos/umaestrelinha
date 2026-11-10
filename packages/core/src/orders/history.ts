@@ -18,7 +18,8 @@
 
 import { NOTIFICATION_EVENT_NAMES } from '../notifications/catalog.ts'
 import { NOTIFICATION_EVENT_LABELS, isNotificationEvent } from '../notifications/events.ts'
-import { ORDER_STATUS_LABELS } from './labels.ts'
+import { orderStateFailure, type OrderSnapshot } from '../notifications/precondition.ts'
+import { ORDER_STATUS_LABELS, manualPaymentAuthor } from './labels.ts'
 
 const STATUS_LABELS: Record<string, string> = ORDER_STATUS_LABELS
 
@@ -41,7 +42,18 @@ export interface HistoryEvent {
    * painel desenha o avião (enviar agora) no lugar do "Reenviar".
    */
   emailSkipped?: boolean
+  /**
+   * Só para `email` que não saiu (falha ou pulado): `false` quando o pedido NÃO está mais no estado que
+   * o e-mail afirma (`orderStateFailure`) — o pedido desfeito para Pendente não oferece mandar
+   * "Pagamento aprovado". Ausente quando quem chama não passa o pedido: a oferta segue como antes.
+   */
+  emailOffer?: boolean
   author?: string | null
+  /**
+   * Só na linha de status do pagamento registrado à mão: quem registrou (o nome gravado no registro, o
+   * mesmo do "Registrado por" do bloco Pagamento). Ausente nas outras linhas.
+   */
+  registeredBy?: string
 }
 
 /** Uma linha de `order_status_history`, só com o que o histórico lê. */
@@ -139,6 +151,16 @@ const ROTULO_ENTREGA: Record<string, string> = {
 }
 
 /**
+ * Um pagamento registrado à mão (`order_manual_payments`), só com o que o histórico lê. O registro e a
+ * linha "Pendente → Pago" que ele grava nascem na MESMA transação, com o mesmo `now()`: é pelo instante
+ * que a linha do histórico encontra quem a registrou (o histórico guarda só o id da conta).
+ */
+export interface HistoryManualPaymentInput {
+  created_at: string
+  created_by_name: string | null
+}
+
+/**
  * Feature `82` (`ENV-21`): a última autoria do código do envelope, das colunas de `orders` gravadas por
  * `set_material_tracking`. Só a ÚLTIMA — trocas anteriores não viram linhas (Out of Scope da `82`).
  */
@@ -169,8 +191,21 @@ export const buildHistory = <
    * (linha anterior à migration da `82`), nada — nunca inventar quem informou (A2).
    */
   envelope?: HistoryEnvelopeInput | null,
+  /**
+   * OPCIONAL: o pedido como está AGORA. Com ele, a linha do e-mail que não saiu diz se ainda cabe
+   * oferecer o envio (`emailOffer`): só quando o estado do pedido autoriza o evento — a mesma régua que
+   * o motor aplica (`orderStateFailure`), para a tela não oferecer o que mentiria à cliente.
+   */
+  pedido?: OrderSnapshot | null,
+  /**
+   * OPCIONAL: os pagamentos registrados à mão do pedido (o vivo e os desfeitos). Com eles, a linha de
+   * status gravada por um registro diz quem registrou (`registeredBy`). O app do ateliê não passa.
+   */
+  registros?: HistoryManualPaymentInput[] | null,
 ): HistoryEvent[] => {
   const eventos: HistoryEvent[] = []
+  const oferta = (event: string): { emailOffer?: boolean } =>
+    pedido && isNotificationEvent(event) ? { emailOffer: orderStateFailure(event, pedido) === null } : {}
 
   const codigoDoEnvelope = envelope?.material_tracking_code?.trim()
   const autor = AUTOR_DO_ENVELOPE[envelope?.material_tracking_set_by ?? '']
@@ -184,6 +219,12 @@ export const buildHistory = <
     })
   }
 
+  const instante = (iso: string): number => new Date(iso).getTime()
+  const quemRegistrou = (h: HistoryStatusRow): { registeredBy?: string } => {
+    const registro = (registros ?? []).find((r) => instante(r.created_at) === instante(h.created_at))
+    return registro ? { registeredBy: manualPaymentAuthor(registro.created_by_name) } : {}
+  }
+
   for (const h of status) {
     eventos.push({
       id: `status-${h.id}`,
@@ -193,6 +234,7 @@ export const buildHistory = <
         ? `${STATUS_LABELS[h.from_status] ?? h.from_status} → ${STATUS_LABELS[h.to_status] ?? h.to_status}`
         : `Pedido ${STATUS_LABELS[h.to_status] ?? h.to_status}`,
       detail: h.note,
+      ...quemRegistrou(h),
     })
   }
 
@@ -224,6 +266,7 @@ export const buildHistory = <
         emailSkipped: true,
         emailType: evento(e),
         emailChannel: e.channel ?? 'email',
+        ...oferta(evento(e)),
       })
       continue
     }
@@ -248,6 +291,7 @@ export const buildHistory = <
       emailSent: saiu,
       emailType: evento(e),
       emailChannel: e.channel ?? 'email',
+      ...(saiu ? {} : oferta(evento(e))),
     })
   }
 

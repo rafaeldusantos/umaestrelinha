@@ -32,6 +32,7 @@ import {
 } from '@/features/order-payment'
 import { CheckoutHeader } from '@/widgets/checkout-header'
 import { OrderAccessRefusal } from '@/widgets/order-access-refusal'
+import { pedidoAguardaPagamento } from '@estrelinha/core/orders'
 import { staticPageMeta } from '@estrelinha/core/seo'
 import { usePageMeta } from '@/shared/lib/usePageMeta'
 
@@ -212,11 +213,16 @@ const OrderPaymentPage = () => {
    * - **já pago**: oferecer um QR aqui abriria caminho para uma SEGUNDA cobrança do mesmo pedido;
    * - **cancelado**: o pedido não existe mais como compra, e cobrar por ele seria cobrar por nada;
    * - **cartão**: o Brick precisa continuar montado no checkout para a retentativa de recusa
-   *   funcionar (`PGM-08`), então o cartão nunca passa por aqui.
+   *   funcionar (`PGM-08`), então o cartão nunca passa por aqui;
+   * - **levado adiante pela loja sem pagamento** (Pago, Separando, Enviado, Entregue): a página do
+   *   pedido não oferece pagar, e um link antigo para esta rota também não pode.
+   *
+   * Pago, cancelado e levado adiante são o recorte de `pedidoAguardaPagamento`
+   * (`@estrelinha/core/orders`), o mesmo que o `create-payment` usa para recusar.
    *
    * `replace` para o botão "voltar" não cair de novo no redirect.
    */
-  if (order.paid_at || order.status === 'cancelled' || order.payment_method !== 'pix') {
+  if (!pedidoAguardaPagamento(order) || order.payment_method !== 'pix') {
     return <Navigate to={`/pedido/${order.id}`} replace />
   }
 

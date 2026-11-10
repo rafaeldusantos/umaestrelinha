@@ -34,6 +34,11 @@ import { FALHA_INESPERADA, useNoticeGate } from './useNoticeGate'
 export interface DesfechoDaGravacao {
   erro: string | null
   emailSent?: boolean
+  /**
+   * A caixa foi desmarcada, a gravação deu certo, e quem grava SABE que o aviso pulado não ficou
+   * anotado (a rede caiu antes de o motor responder). Ausente ⇒ a frase de sempre.
+   */
+  avisoNaoAnotado?: boolean
 }
 
 export interface Gesto {
@@ -79,13 +84,17 @@ const nome = (e: NotificationEvent) => `“${NOTIFICATION_EVENT_NAMES[e]}”`
 /** `AVS-07` — a frase do desfecho, nas quatro formas (mais a do gesto sem diálogo). */
 export function fraseDoResultado(
   sucesso: string,
-  { perguntou, avisar, emailSent, jaEnviados }: {
+  { perguntou, avisar, emailSent, jaEnviados, avisoNaoAnotado = false }: {
     perguntou: boolean
     avisar: boolean
     emailSent: boolean
     jaEnviados: readonly NotificationEvent[]
+    avisoNaoAnotado?: boolean
   },
 ): string {
+  if (perguntou && !avisar && avisoNaoAnotado) {
+    return `${sucesso} · sem e-mail à cliente — a anotação de que ela não foi avisada não foi gravada no histórico`
+  }
   if (perguntou && !avisar) return `${sucesso} · sem e-mail à cliente (anotado no histórico)`
   if (emailSent) return `${sucesso} — a cliente foi avisada por e-mail`
   if (perguntou) return `${sucesso} — o e-mail não saiu — o pedido foi alterado`
@@ -234,6 +243,7 @@ export function useGestoComAviso({
                 avisar,
                 emailSent: r.emailSent === true,
                 jaEnviados: previsto.alreadySent,
+                avisoNaoAnotado: r.avisoNaoAnotado === true,
               }),
             )
             resolve(true)

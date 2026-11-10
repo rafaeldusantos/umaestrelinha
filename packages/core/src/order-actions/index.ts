@@ -10,7 +10,7 @@ export type {
   PedidoDaAcao,
   WriteOutcome,
 } from './types.ts'
-export { triggerOrderNotification } from './notify.ts'
+export { triggerOrderNotification, triggerOrderNotificationReport, type NotifyReport } from './notify.ts'
 export { writeOrderStatus, type WriteOrderStatusInput } from './status.ts'
 export { writeTrackingCode, type WriteTrackingCodeInput } from './tracking.ts'
 export { writeMaterialStatus, type WriteMaterialStatusInput } from './material.ts'
@@ -23,3 +23,14 @@ export {
   type AdminNoteRow,
   type WriteAdminNoteInput,
 } from './adminNote.ts'
+export {
+  recordManualPayment,
+  type ManualPaymentDeps,
+  type ManualPaymentOutcome,
+  type RecordManualPaymentInput,
+  undoManualPayment,
+  type UndoManualPaymentDeps,
+  type UndoManualPaymentInput,
+  type UndoManualPaymentOutcome,
+} from './manualPayment.ts'
+export { closeOrderCharge, type ChargeCloseOutcome } from './charge.ts'

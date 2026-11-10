@@ -1641,7 +1641,19 @@ Desenho: Paper, página **"59 · Minha Conta V2 — proposta"**. O retrato do qu
 - **As pendências ("Precisa da sua atenção") são `accountAttention` (`entities/order`)**, e a
   janela do PIX novo é `podeGerarNovoPix` (`core`): **7 dias** depois do pedido, decisão do usuário.
   É regra de **oferta**, não de autorização — o servidor aceita gerar PIX para `expired`/`rejected`
-  sem prazo. `podePagarComPix` (`pending`) **não mudou**: a regra dos 7 dias é irmã, não alteração.
+  sem prazo. `podePagarComPix` (`pending`) **não mudou** na `59`: a regra dos 7 dias é irmã.
+  **Desde o WI 98** as ofertas passam por `pedidoAguardaPagamento` (`core/orders/repix.ts`): pedido
+  que a loja já levou a Pago ou adiante não oferece pagar. O cartão recusado, ou pendente com
+  tentativa de cobrança (`mp_order_id`), é o estado próprio `card_contact` (informativo de WhatsApp),
+  e não mais "pagamento perdido". O pedido cancelado pelo job (`orders.unpaid_cancelled_at`) é
+  `unpaid_cancelled`, com a razão e o WhatsApp. Pedido pago por fora mostra o meio informado
+  (`manual_payment`, pela RPC `customer_manual_payment` ou pelo `get-order`), nunca a observação.
+  Pedido **sem cobrança da loja** (PIX `expired`/`rejected` sem `mp_order_id`, `mp_payment_id`,
+  `proposal_id` nem cobrança travada — o gravado fora da loja) é `arrange_payment`: "O pagamento
+  deste pedido é combinado comigo", com o WhatsApp e **sem valor nem PIX novo**
+  (`pagamentoSemCobrancaDaLoja`/`pagamentoACombinar`, decisão QA-P1), e o `create-payment` o recusa
+  com 409 `order_without_store_charge` — o `orders.total` gravado nunca vira cobrança (`BL-030`). O
+  "sem prazo" acima vale só para pedido que a loja cobrou.
 - **O título do detalhe é o número** ("Pedido #0231"), e a frase calorosa é subtítulo por etapa
   (`confirmationHeadline`): "É nosso!" pago e no ateliê, "Pedido registrado" sem pagamento, nada
   depois de enviado, entregue, cancelado ou reembolsado. Decisão do usuário em 2026-10-04 — um

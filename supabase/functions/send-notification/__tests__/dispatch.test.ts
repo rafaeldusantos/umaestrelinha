@@ -695,3 +695,58 @@ describe('o motor com o desconto do Compre Junto', () => {
     expect(html).toContain('R$\u00a0289,00')
   })
 })
+
+/**
+ * O cancelamento automático por falta de pagamento, pelo MOTOR. A fixtura de `orders` é função do
+ * `select`: a marca só chega se o motor a pediu — sem a coluna em `ORDER_COLUMNS`, a pré-condição
+ * leria `undefined` e o e-mail nunca sairia, com o render verde.
+ */
+describe('o gatilho do cancelamento automático', () => {
+  const cancelado = (marca: string | null) => (_eq: unknown, select: string) => {
+    const linha: Record<string, unknown> = baseOrder({
+      status: 'cancelled',
+      payment_status: 'expired',
+      paid_at: null,
+      unpaid_cancelled_at: marca,
+    })
+    if (!/\bunpaid_cancelled_at\b/.test(select)) delete linha.unpaid_cancelled_at
+    return linha
+  }
+
+  it('ligado, manda à cliente o e-mail próprio de "cancelado por falta de pagamento"', async () => {
+    const { deps, fetchDouble } = setup({
+      ligados: ['order_cancelled_unpaid'],
+      supabase: { rows: { orders: cancelado('2026-12-20T12:00:00Z') } },
+    })
+
+    const r = await dispatchTrigger(deps, { orderId: ORDER_ID, trigger: 'order_auto_cancelled' })
+
+    expect(r.results).toEqual([expect.objectContaining({ ok: true, event: 'order_cancelled_unpaid', channel: 'email' })])
+    expect(fetchDouble.calls).toHaveLength(1)
+    expect(fetchDouble.calls[0].body.to).toBe('mariana@exemplo.invalid')
+    expect(fetchDouble.calls[0].body.subject).toBe('Pedido #UE-0042 cancelado por falta de pagamento')
+  })
+
+  it('como nasce (desligado), nada sai', async () => {
+    const { deps, fetchDouble } = setup({ supabase: { rows: { orders: cancelado('2026-12-20T12:00:00Z') } } })
+
+    const r = await dispatchTrigger(deps, { orderId: ORDER_ID, trigger: 'order_auto_cancelled' })
+
+    expect(r.results).toEqual([{ ok: false, event: 'order_cancelled_unpaid', channel: 'email', skipped: 'disabled' }])
+    expect(fetchDouble.calls).toEqual([])
+  })
+
+  it('o pedido cancelado pela admin (sem a marca) não recebe este e-mail, mesmo ligado', async () => {
+    const { deps, fetchDouble } = setup({
+      ligados: ['order_cancelled_unpaid'],
+      supabase: { rows: { orders: cancelado(null) } },
+    })
+
+    const r = await dispatchTrigger(deps, { orderId: ORDER_ID, trigger: 'order_auto_cancelled' })
+
+    expect(r.results).toEqual([
+      { ok: false, event: 'order_cancelled_unpaid', channel: null, precondition: 'not_cancelled_for_nonpayment' },
+    ])
+    expect(fetchDouble.calls).toEqual([])
+  })
+})

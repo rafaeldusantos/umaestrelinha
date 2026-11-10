@@ -52,6 +52,12 @@ export const COLUNAS_DAS_NOTIFICACOES =
  * `updated_by` (o id da conta) não entra: a tela não o usa.
  */
 export const COLUNAS_DA_OBSERVACAO = 'note, updated_by_name, updated_at'
+/**
+ * O pagamento registrado à mão (`order_manual_payments`, só o vivo — `undone_at is null`): o meio, a
+ * data e a observação, e nada mais. Os comprovantes moram noutra tabela e só o painel os lê; o app
+ * mostra o registro e não registra nem desfaz.
+ */
+export const COLUNAS_DO_REGISTRO_MANUAL = 'method, paid_at, note'
 
 export interface LinhaDaLista {
   id: string
@@ -147,6 +153,13 @@ export interface ObservacaoDoPedido {
   updated_at: string
 }
 
+/** O registro manual como o detalhe o lê (`COLUNAS_DO_REGISTRO_MANUAL`). */
+export interface RegistroManual {
+  method: string | null
+  paid_at: string
+  note: string | null
+}
+
 /** Um bloco do detalhe que pode falhar sozinho (`MAP-30`). Discriminado por STRING (`strictNullChecks: false`). */
 export type Bloco<T> = { estado: 'ok'; dado: T } | { estado: 'falhou' }
 
@@ -167,6 +180,8 @@ export interface DetalheDoPedido {
    * "sem observação" nunca é a frase de "o banco não respondeu".
    */
   observacao: Bloco<ObservacaoDoPedido | null>
+  /** O pagamento registrado à mão, o vivo — `dado: null` quando não há. A falha é do bloco só. */
+  registroManual: Bloco<RegistroManual | null>
   /**
    * O instante do banco da leitura confirmada. `null` só quando NÃO houve leitura: o endereço não é
    * um id de pedido (Q7), e "Não encontrei este pedido." sai sem ir à rede.

@@ -1,0 +1,22 @@
+ok — orders.unpaid_cancelled_at existe, timestamptz
+ok — a data de corte é o instante da aplicação (no passado recente)
+ok — a service role lê a data de corte
+ok — a chave pública não executa a data de corte
+ok — a cliente logada não executa a data de corte
+ok — a chave pública não dispara o job
+ok — a cliente logada não dispara o job
+ok — o e-mail novo está em store_settings, desligado
+ok — o job do pg_cron existe, de hora em hora
+ok — o check de evento aceita order_cancelled_unpaid
+ok — o check continua recusando evento que não existe
+ok — sem pg_net, o job avisa e não chama nada
+ok — sem a chave, a function recusa
+ok — com outra chave, a function recusa
+ok — com a chave de serviço, a rodada real lê o banco e não acha nada vencido (o corte é de agora)
+ok — o job cancela só o vencido e o de desfazer antigo, e fecha a cobrança de cada um
+ok — no banco: a marca e o cancelado só nos dois; o resto como estava
+ok — a marca é o instante da rodada
+ok — uma linha de histórico por cancelado, sem autor
+ok — o e-mail nasce desligado: o motor real não reivindicou envio nenhum
+ok — a segunda rodada não cancela nem fecha cobrança de novo
+ok — e não grava histórico de novo

@@ -90,3 +90,54 @@ export const PAYMENT_STATUS_TONES: Record<AdminPaymentStatus, SituationTone> = {
   expired: 'neutral',
   cancelled: 'alert',
 }
+
+/**
+ * Os meios de um pagamento REGISTRADO À MÃO no painel — um pagamento feito por fora da loja. A lista é
+ * fixa (o seletor do painel), e é cópia deliberada do `check` de `order_manual_payments.method`: o
+ * guarda da migration (`registroManualSchema.test.ts`, suíte da loja) importa esta constante e a
+ * compara com o SQL.
+ *
+ * O meio mora no registro manual; `orders.payment_method` não muda.
+ */
+export const MANUAL_PAYMENT_METHODS = ['pix_direto', 'transferencia', 'dinheiro', 'cartao', 'outro'] as const
+
+export type ManualPaymentMethod = (typeof MANUAL_PAYMENT_METHODS)[number]
+
+/** Quem lê: o painel (`admin`) ou a cliente (`customer`). */
+export type ManualPaymentVoice = 'admin' | 'customer'
+
+/** As duas vozes do mesmo meio. A da cliente não fala de gateway nem de "outro". */
+export const MANUAL_PAYMENT_METHOD_LABELS: Record<ManualPaymentVoice, Record<ManualPaymentMethod, string>> = {
+  admin: {
+    pix_direto: 'PIX direto',
+    transferencia: 'Transferência',
+    dinheiro: 'Dinheiro',
+    cartao: 'Cartão de crédito (link de outro gateway ou maquininha)',
+    outro: 'Outro',
+  },
+  customer: {
+    pix_direto: 'PIX',
+    transferencia: 'Transferência',
+    dinheiro: 'Dinheiro',
+    cartao: 'Cartão de crédito',
+    outro: 'Combinado com a loja',
+  },
+}
+
+/** O meio não informado (todos os campos do registro são opcionais) ou fora da lista. */
+const MEIO_SEM_NOME: Record<ManualPaymentVoice, string> = {
+  admin: 'Meio não informado',
+  customer: 'Combinado com a loja',
+}
+
+/** O rótulo de um meio manual na voz pedida; vazio ou desconhecido nunca vira o valor técnico. */
+export const manualPaymentMethodLabel = (method: string | null | undefined, voice: ManualPaymentVoice): string => {
+  const chave = (method ?? '').trim() as ManualPaymentMethod
+  return MANUAL_PAYMENT_METHOD_LABELS[voice][chave] ?? MEIO_SEM_NOME[voice]
+}
+
+/**
+ * Quem registrou um pagamento à mão, como o painel o diz — no bloco Pagamento ("Registrado por") e na
+ * linha do histórico. O nome é o gravado pela RPC; sem ele (conta apagada), "Conta removida".
+ */
+export const manualPaymentAuthor = (name: string | null | undefined): string => name?.trim() || 'Conta removida'

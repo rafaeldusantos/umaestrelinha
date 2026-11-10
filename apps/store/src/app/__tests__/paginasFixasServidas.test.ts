@@ -161,7 +161,7 @@ describe('paginasFixasServidas — âncoras', () => {
 
   it('a varredura do inverso leu o App.tsx e conhece caminhos de todos os tipos', () => {
     expect(APP).toContain('<Routes>')
-    expect(rotasDoApp(APP)).toHaveLength(26)
+    expect(rotasDoApp(APP)).toHaveLength(27)
     const tipos = new Set(candidatos().map(c => classifyPath(c).kind))
     // Sem esta âncora, um colhedor que devolvesse só páginas fixas faria o inverso passar sobre nada.
     expect([...tipos].sort()).toEqual(['app', 'category', 'notfound', 'product', 'static'])

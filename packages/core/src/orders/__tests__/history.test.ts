@@ -251,3 +251,58 @@ describe('buildHistory — o aviso que a Adri escolheu não mandar (feature 88)'
     expect(saiu.emailSkipped).toBeUndefined()
   })
 })
+
+/**
+ * O pagamento registrado à mão: a linha "Pagamento registrado manualmente" diz QUEM registrou — o
+ * mesmo nome do "Registrado por" do bloco Pagamento. A linha do histórico e o registro nascem na
+ * mesma transação (`now()` igual), e é pelo instante que um encontra o outro.
+ */
+describe('buildHistory — quem registrou o pagamento à mão', () => {
+  const linhaDoRegistro = st({
+    id: 'r1', from_status: 'pending', to_status: 'paid', note: 'Pagamento registrado manualmente',
+    created_at: '2026-11-10T05:43:34.066714+00:00',
+  })
+
+  it('a linha do registro traz o nome de quem registrou', () => {
+    const [e] = buildHistory([linhaDoRegistro], [], [], null, null, [
+      { created_at: '2026-11-10T05:43:34.066714+00:00', created_by_name: 'Adri Muniz' },
+    ])
+    expect(e.title).toBe('Pendente → Pago')
+    expect(e.detail).toBe('Pagamento registrado manualmente')
+    expect(e.registeredBy).toBe('Adri Muniz')
+  })
+
+  it('o registro de outro instante não empresta o nome a outra linha', () => {
+    const [e] = buildHistory([linhaDoRegistro], [], [], null, null, [
+      { created_at: '2026-11-10T05:50:00.000000+00:00', created_by_name: 'Outra Pessoa' },
+    ])
+    expect(e).not.toHaveProperty('registeredBy')
+  })
+
+  it('cada registro (um desfeito e um novo) nomeia a sua linha', () => {
+    const eventos = buildHistory(
+      [linhaDoRegistro, st({ id: 'r2', from_status: 'pending', to_status: 'paid', note: 'Pagamento registrado manualmente', created_at: '2026-11-10T07:00:00.123456+00:00' })],
+      [],
+      [],
+      null,
+      null,
+      [
+        { created_at: '2026-11-10T07:00:00.123456+00:00', created_by_name: 'Bia Souza' },
+        { created_at: '2026-11-10T05:43:34.066714+00:00', created_by_name: 'Adri Muniz' },
+      ],
+    )
+    expect(eventos.map((e) => [e.id, e.registeredBy])).toEqual([['status-r2', 'Bia Souza'], ['status-r1', 'Adri Muniz']])
+  })
+
+  it('sem o nome gravado, a mesma palavra do bloco: "Conta removida"', () => {
+    const [e] = buildHistory([linhaDoRegistro], [], [], null, null, [
+      { created_at: '2026-11-10T05:43:34.066714+00:00', created_by_name: null },
+    ])
+    expect(e.registeredBy).toBe('Conta removida')
+  })
+
+  it('sem registros (o app do ateliê), a linha continua como antes', () => {
+    const [e] = buildHistory([linhaDoRegistro], [], [])
+    expect(e).toEqual({ id: 'status-r1', kind: 'status', at: linhaDoRegistro.created_at, title: 'Pendente → Pago', detail: 'Pagamento registrado manualmente' })
+  })
+})

@@ -57,7 +57,7 @@ import OrderFilterChips from '@/features/order-list/ui/OrderFilterChips'
 import OrderBulkBar from '@/features/order-list/ui/OrderBulkBar'
 import QueueTiles from '@/features/order-list/ui/QueueTiles'
 import {
-  BULK_LIMIT, NEXT_STATUS, bulkSummary, runMaterialBulk, runStatusBulk, type BulkOutcome,
+  BULK_LIMIT, NEXT_STATUS, bulkNextStatus, bulkSummary, runMaterialBulk, runStatusBulk, type BulkOutcome,
 } from '@/features/order-list/model/bulkMaterial'
 import type { BulkProgress } from '@/features/order-list/ui/OrderBulkBar'
 import { fetchSentEmails, SENT_EMAILS_READ_FAILED } from '@/entities/order/api/sentEmails'
@@ -286,6 +286,9 @@ const AdminOrdersPage = () => {
     }
 
     const ficam = plano.length - mudam.length
+    // Os que o lote não leva a Pago por falta de pagamento aprovado (`bulkNextStatus`) — o motivo é
+    // outro, e a frase os separa dos que já estão no fim do caminho.
+    const naoPagos = tipo === 'avancar' ? plano.filter(p => !p.alvo && NEXT_STATUS[p.row.status]).length : 0
     const um = tipo === 'avancar' ? 'pedido' : 'recebimento'
     gesto.pedir({
       // Conserto do QA (paper cut): o título diz o mesmo número que o botão — os que MUDAM. Com "Avançar
@@ -294,10 +297,14 @@ const AdminOrdersPage = () => {
         ? `Avançar ${mudam.length} ${mudam.length === 1 ? 'pedido' : 'pedidos'}`
         : `Registrar o material de ${mudam.length} ${mudam.length === 1 ? 'pedido' : 'pedidos'}`,
       mudanca: `${mudam.length} ${mudam.length === 1 ? 'muda' : 'mudam'}${
-        ficam > 0
-          ? ` · ${ficam} ${ficam === 1 ? 'fica' : 'ficam'} como ${ficam === 1 ? 'está' : 'estão'} (${
+        ficam - naoPagos > 0
+          ? ` · ${ficam - naoPagos} ${ficam - naoPagos === 1 ? 'fica' : 'ficam'} como ${ficam - naoPagos === 1 ? 'está' : 'estão'} (${
               tipo === 'avancar' ? 'já no fim do caminho' : 'material já registrado ou sem material'
             })`
+          : ''
+      }${
+        naoPagos > 0
+          ? ` · ${naoPagos} ${naoPagos === 1 ? 'não pago fica' : 'não pagos ficam'} de fora (registre o pagamento no pedido)`
           : ''
       }.`,
       confirmar: `${tipo === 'avancar' ? 'Avançar' : 'Registrar'} ${mudam.length} ${um}${mudam.length === 1 ? '' : 's'}`,
@@ -342,7 +349,7 @@ const AdminOrdersPage = () => {
       previstos,
       onProgress: (feitos: number, total: number) => setProgresso({ verbo, feitos, total }),
     }
-    const total = tipo === 'avancar' ? alvo.filter(r => NEXT_STATUS[r.status]).length : alvo.length
+    const total = tipo === 'avancar' ? alvo.filter(r => bulkNextStatus(r) !== null).length : alvo.length
     setProgresso({ verbo, feitos: 0, total })
     gesto.anunciar(`${verbo} ${total} pedido${total === 1 ? '' : 's'}…`)
 
@@ -1110,7 +1117,7 @@ function planejarLote(
   const trigger: NotificationTrigger = tipo === 'avancar' ? 'order_status_changed' : 'material_status_changed'
   return alvo.map(row => {
     const destino = tipo === 'avancar'
-      ? NEXT_STATUS[row.status] ?? null
+      ? bulkNextStatus(row)
       : materialTransitionRefusal(toMaterialStatus(row.material_status), 'material_recebido') === null
         ? 'material_recebido'
         : null

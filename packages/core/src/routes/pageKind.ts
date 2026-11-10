@@ -11,7 +11,7 @@
 // Imports por ARQUIVO e com extensão explícita.
 
 import { classifyPath } from '../page/classify.ts'
-import { MATERIAL_GUIDE_PATH, PROPOSAL_PATH, legacyRedirectTo } from './routes.ts'
+import { CARD_LINK_PATH, MATERIAL_GUIDE_PATH, PROPOSAL_PATH, legacyRedirectTo } from './routes.ts'
 import type { PresencePageKind } from '../visits/presence.ts'
 
 const CHECKOUT = '/checkout'
@@ -26,7 +26,12 @@ export function presencePage(pathname: string): { kind: PresencePageKind; slug: 
   const minusculo = caminho.toLowerCase()
 
   if (minusculo === SACOLA) return { kind: 'sacola', slug: null }
-  if (minusculo === CHECKOUT || minusculo === PROPOSAL_PATH || PAGAMENTO.test(caminho)) {
+  if (
+    minusculo === CHECKOUT ||
+    minusculo === PROPOSAL_PATH ||
+    minusculo === CARD_LINK_PATH ||
+    PAGAMENTO.test(caminho)
+  ) {
     return { kind: 'checkout', slug: null }
   }
   if (minusculo === MATERIAL_GUIDE_PATH) return { kind: 'guia', slug: null }

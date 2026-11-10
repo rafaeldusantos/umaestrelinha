@@ -123,6 +123,7 @@ const CHAVES = [
   'awaiting_material',
   'in_production',
   'pix_expired',
+  'payment_expired',
   'payment_rejected',
   'awaiting_payment',
 ].join('|')

@@ -3,6 +3,7 @@
 
 import {
   PAYMENT_METHOD_LABELS as CORE_PAYMENT_METHOD_LABELS,
+  manualPaymentMethodLabel,
   paymentMethodLabel as coreMethodLabel,
 } from '@estrelinha/core/orders'
 
@@ -25,8 +26,26 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 export const paymentMethodLabel = (method: string | null | undefined): string =>
   coreMethodLabel(method, PAYMENT_METHOD_LABELS)
 
+/**
+ * O pagamento registrado à mão pela loja — só o MEIO, que é o que a cliente pode ler. A
+ * observação e o comprovante nunca chegam ao navegador da cliente.
+ */
+export interface ManualPaymentForCustomer {
+  method: string | null
+}
+
+/**
+ * A forma de pagamento que a cliente lê: o meio informado pela loja, quando o pedido foi pago por
+ * fora (na voz da cliente, `MANUAL_PAYMENT_METHOD_LABELS.customer`); senão, o meio do pedido.
+ * `orders.payment_method` não muda com o registro — por isso a precedência mora aqui.
+ */
+export const orderPaymentLabel = (o: Pick<OrderDeliveryInput, 'payment_method' | 'manual_payment'>): string =>
+  o.manual_payment ? manualPaymentMethodLabel(o.manual_payment.method, 'customer') : paymentMethodLabel(o.payment_method)
+
 export interface OrderDeliveryInput {
   payment_method: string | null
+  /** O registro manual vivo, `null`/ausente quando o pedido não foi pago por fora. */
+  manual_payment?: ManualPaymentForCustomer | null
   paid_at?: string | null
   customer_name?: string | null
   address_street?: string | null

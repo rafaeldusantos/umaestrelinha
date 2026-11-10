@@ -54,6 +54,7 @@ const responder = (pedido: PedidoDoDetalhe) => {
   fake.responderTabela('order_notes', { data: [], error: null })
   fake.responderTabela('order_notifications', { data: [], error: null })
   fake.responderTabela('order_admin_notes', { data: null, error: null })
+  fake.responderTabela('order_manual_payments', { data: null, error: null })
 }
 const abrir = async () => {
   await montarApp(pedidoHref(ID), { estado: { doApp: true } })

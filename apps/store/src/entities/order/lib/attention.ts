@@ -2,13 +2,28 @@
 //
 // Mora em `entities/order` (e não em `core`) porque lê `podePagarComPix`, que é deste slice
 // (`AD-033`). As perguntas de cada pendência têm dono — `podePagarComPix` para o PIX em aberto,
-// `podeGerarNovoPix`/`pagamentoPerdido` (`@estrelinha/core/orders`) para a janela de 7 dias —, e
-// aqui moram só o recorte do material e a ORDEM. O relógio entra como parâmetro.
-import { pagamentoPerdido, podeGerarNovoPix, repixDeadline } from '@estrelinha/core/orders'
+// `podeGerarNovoPix`/`pagamentoPerdido` (`@estrelinha/core/orders`) para a janela de 7 dias, e
+// `cartaoParaResolver` para o informativo do cartão —, e aqui moram só o recorte do material e a
+// ORDEM. O relógio entra como parâmetro.
+import {
+  cancelledForNonPayment,
+  cartaoParaResolver,
+  pagamentoACombinar,
+  pagamentoPerdido,
+  podeGerarNovoPix,
+  repixDeadline,
+} from '@estrelinha/core/orders'
 import type { Order } from '../api/useOrders'
 import { podePagarComPix } from './podePagarComPix'
 
-export type AttentionKind = 'pay_pending' | 'repix' | 'payment_lost' | 'material'
+export type AttentionKind =
+  | 'pay_pending'
+  | 'repix'
+  | 'card_contact'
+  | 'arrange_payment'
+  | 'payment_lost'
+  | 'unpaid_cancelled'
+  | 'material'
 
 export interface AttentionItem {
   kind: AttentionKind
@@ -23,7 +38,10 @@ export interface AttentionItem {
 const GRUPO: Record<AttentionKind, number> = {
   pay_pending: 0,
   repix: 0,
+  card_contact: 0,
+  arrange_payment: 0,
   payment_lost: 0,
+  unpaid_cancelled: 0,
   material: 1,
 }
 
@@ -34,12 +52,21 @@ const instante = (o: Order) => {
 
 /** A pendência de UM pedido, ou `null`. Um pedido gera no máximo uma. */
 function pendenciaDe(order: Order, agora: Date): AttentionItem | null {
-  if (!order || order.status === 'cancelled') return null
+  if (!order) return null
+  // O cancelado por falta de pagamento continua aqui, no lugar do pagamento perdido que ele
+  // era: a cliente vê a razão e o WhatsApp para retomar. Os outros cancelados não pedem nada.
+  if (cancelledForNonPayment(order)) return { kind: 'unpaid_cancelled', order }
+  if (order.status === 'cancelled') return null
 
   if (podePagarComPix(order)) return { kind: 'pay_pending', order }
   if (podeGerarNovoPix(order, agora)) {
     return { kind: 'repix', order, deadline: repixDeadline(order) }
   }
+  // O cartão recusado, expirado ou com tentativa de cobrança sem resposta. O criado e nunca cobrado
+  // (abandonado no checkout) não tem `mp_order_id`, e não aparece.
+  if (cartaoParaResolver(order)) return { kind: 'card_contact', order }
+  // O pedido gravado fora da loja, que ela nunca cobrou: a Adri combina o pagamento.
+  if (pagamentoACombinar(order)) return { kind: 'arrange_payment', order }
   if (pagamentoPerdido(order, agora)) return { kind: 'payment_lost', order }
 
   // `PEN-01`: pago, com o envelope ainda não postado, e alguma peça que exige material.
@@ -52,7 +79,7 @@ function pendenciaDe(order: Order, agora: Date): AttentionItem | null {
 }
 
 /**
- * As pendências da conta, já ordenadas (`PEN-06`): pagamento (pendente, expirado, perdido) antes de
+ * As pendências da conta, já ordenadas (`PEN-06`): pagamento (pendente, expirado, cartão, perdido) antes de
  * material, e dentro de cada tipo a mais antiga primeiro. Sem pendência, lista vazia — e o bloco
  * inteiro não é renderizado (`PEN-07`).
  */

@@ -6,19 +6,39 @@
 // se provam sem relógio falso.
 //
 // As perguntas de cada estado já têm dono — `podePagarComPix` (`entities/order`) e
-// `podeGerarNovoPix`/`pagamentoPerdido` (`@estrelinha/core/orders`). Aqui mora só a PRIORIDADE.
-import { pagamentoPerdido, podeGerarNovoPix, type RepixInput } from '@estrelinha/core/orders'
+// `podeGerarNovoPix`/`cartaoParaResolver`/`pagamentoPerdido` (`@estrelinha/core/orders`). Aqui mora
+// só a PRIORIDADE.
+import {
+  cancelledForNonPayment,
+  cartaoParaResolver,
+  pagamentoACombinar,
+  pagamentoPerdido,
+  podeGerarNovoPix,
+  type RepixInput,
+} from '@estrelinha/core/orders'
 import { podePagarComPix } from '@/entities/order'
 
-export type OrderActionState = 'cancelled' | 'material' | 'pix_pending' | 'repix' | 'payment_lost'
+export type OrderActionState =
+  | 'unpaid_cancelled'
+  | 'cancelled'
+  | 'material'
+  | 'pix_pending'
+  | 'repix'
+  | 'card_contact'
+  | 'arrange_payment'
+  | 'payment_lost'
 
 export interface OrderActionInput extends RepixInput {
   material_status?: string | null
+  /** A marca do cancelamento automático por falta de pagamento. */
+  unpaid_cancelled_at?: string | null
 }
 
 /**
  * O estado do topo, ou `null` quando nada pede ação. A primeira regra que casar vence:
- * cancelado → material a enviar → PIX pendente → PIX novo (dentro de 7 dias) → pagamento perdido.
+ * cancelado por falta de pagamento → cancelado → material a enviar → PIX pendente → PIX novo (dentro de 7 dias) → o informativo do
+ * cartão (recusado, expirado ou com tentativa de cobrança sem resposta) → o pagamento a combinar (o
+ * pedido gravado fora da loja, que ela nunca cobrou) → pagamento perdido.
  *
  * "Material a enviar" é pago (`payment_status = 'approved'`, a régua de "pago" da spec) com o
  * envelope ainda não postado (`aguardando_material`). Pedido não pago que espera material cai no
@@ -29,12 +49,17 @@ export function orderActionState(
   agora: Date,
 ): OrderActionState | null {
   if (!order) return null
+  // O cancelado por falta de pagamento diz a razão e oferece o WhatsApp; o resto do cancelado é a
+  // linha do tempo de sempre.
+  if (cancelledForNonPayment(order)) return 'unpaid_cancelled'
   if (order.status === 'cancelled') return 'cancelled'
   if (order.payment_status === 'approved' && order.material_status === 'aguardando_material') {
     return 'material'
   }
   if (podePagarComPix(order)) return 'pix_pending'
   if (podeGerarNovoPix(order, agora)) return 'repix'
+  if (cartaoParaResolver(order)) return 'card_contact'
+  if (pagamentoACombinar(order)) return 'arrange_payment'
   if (pagamentoPerdido(order, agora)) return 'payment_lost'
   return null
 }

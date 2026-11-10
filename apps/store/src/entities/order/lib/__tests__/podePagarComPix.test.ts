@@ -109,11 +109,17 @@ describe('podePagarComPix — as outras três dimensões, uma por vez', () => {
     expect(podePagarComPix(pendenteDePix({ status: 'cancelled' }))).toBe(false)
   })
 
-  it('outros `status` do pedido não interferem — só `cancelled` recorta', () => {
-    // O par inverso. Sem ele, uma régua que exigisse `status === 'pending'` passaria no caso acima
-    // e esconderia o botão de um pedido `paid` cujo pagamento ainda está pendente — que é o estado
-    // real de um dos pedidos de produção (registrado no `design.md` desta feature).
-    expect(podePagarComPix(pendenteDePix({ status: 'paid' }))).toBe(true)
+  it('pedido que a loja avançou à mão para Pago ou além, sem pagamento, não oferece pagar', () => {
+    // Antes só `cancelled` recortava, e um pedido em `paid` com o pagamento pendente continuava
+    // anunciando "Pagar com PIX". O avanço à mão diz que a loja já resolveu o pagamento por fora:
+    // oferecer o QR ali seria convidar a cliente a pagar duas vezes.
+    for (const status of ['paid', 'separating', 'shipped', 'delivered']) {
+      expect(podePagarComPix(pendenteDePix({ status }))).toBe(false)
+    }
+  })
+
+  it('o par inverso: pendente, ou sem `status` legível, continua oferecendo', () => {
+    expect(podePagarComPix(pendenteDePix({ status: 'pending' }))).toBe(true)
     expect(podePagarComPix(pendenteDePix({ status: null }))).toBe(true)
   })
 

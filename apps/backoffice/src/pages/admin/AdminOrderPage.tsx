@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Copy, ExternalLink, ImageOff, MessageSquare, Printer, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { formatPrice } from '@estrelinha/core/formatters'
-import { formatOrderNumber, itemPhoto, orderSummary } from '@estrelinha/core/orders'
+import { canRecordManualPayment, canUndoManualPayment, formatOrderNumber, itemPhoto, needsPaymentRecord, orderSummary, paymentFlags, paymentMethodLabel } from '@estrelinha/core/orders'
 import { queueAgeLabel } from '@estrelinha/core/material'
 import { isPickupOrder, PICKUP_METHOD_NAME } from '@estrelinha/core/shipping'
 import { companionPhrase, orderItemCompanionNames } from '@estrelinha/core/buy-together'
@@ -41,6 +41,9 @@ import { abrirPrevia, fraseDoResultado, OUTRA_GRAVACAO, useGestoComAviso } from 
 import { openPickSlips, PICK_SLIP_BLOCKED } from '@/features/pick-slip'
 import { fetchPickSlipOrders, PICK_SLIP_READ_FAILED } from '@/entities/order'
 import { OrderAdminNoteCard } from '@/features/order-admin-note'
+import { ManualPaymentDetails, UndoManualPaymentAction } from '@/features/manual-payment'
+import { CardLinkAction } from '@/features/card-link'
+import { cardLinkRefusal } from '@estrelinha/core/checkout'
 import { chargeMaterialUrl } from '@/features/order-list/model/chargeMaterial'
 import { ActionButton, OrderPageSkeleton, RecordPageHeader } from '@/shared/ui'
 import { ManualDiscountRow, ProposalOriginLine, type PedidoComOrigem } from '@/features/order-proposal'
@@ -87,9 +90,13 @@ const AdminOrderPage = () => {
   // A lista entrega o próprio endereço ao abrir o pedido (`orderListHref`), e o voltar reabre a lista
   // no mesmo filtro e na mesma página. Só caminho da própria lista é aceito; chegando de outro lugar
   // (link colado, ficha da cliente), volta para a lista sem filtro, como antes.
-  const voltarPara = listaDeVolta(useLocation().state)
+  const estadoDaChegada = useLocation().state
+  const voltarPara = listaDeVolta(estadoDaChegada)
+  // Quem chega de uma tela que some ao confirmar (o registro de pagamento) pede o foco no título do
+  // pedido: sem isso ele fica no `<body>`, e o próximo Tab recomeça do topo.
+  const focarTituloAoChegar = (estadoDaChegada as { focarTitulo?: unknown } | null)?.focarTitulo === true
   const {
-    order, customer, items, itemsError, productRefs, history, notes, emails, emailsError, loading, error, staleError, reload,
+    order, customer, items, itemsError, productRefs, history, notes, emails, emailsError, manualPayment, undoneManualPayments, paymentAlerts, loading, error, staleError, reload,
   } = useAdminOrder(id)
   const {
     updateStatus, cancelOrder, addTrackingCode, addNote, setMaterialStatus, setMaterialTracking,
@@ -120,6 +127,13 @@ const AdminOrderPage = () => {
     setFocarTitulo(false)
   }, [focarTitulo, staleError])
 
+  // O título só existe depois da primeira carga (antes é o esqueleto); focado uma vez, não volta.
+  const focouAoChegar = useRef(false)
+  useEffect(() => {
+    if (!focarTituloAoChegar || loading || focouAoChegar.current) return
+    if (devolverFoco(null, tituloDaPagina)) focouAoChegar.current = true
+  }, [focarTituloAoChegar, loading, order])
+
   // `CRG-06`: a primeira carga é o esqueleto com a grade do pedido. Uma releitura depois de gravar
   // (`'revalidar'`) nunca liga `loading` — a página não pisca (`CRG-03`).
   if (loading) return <OrderPageSkeleton />
@@ -149,16 +163,31 @@ const AdminOrderPage = () => {
     material_status: order.material_status ?? 'nao_aplicavel',
   })
 
-  const eventos = buildHistory(history, emails, notes)
+  // O pedido entra para a oferta de enviar o e-mail que não saiu: só quando o estado ainda o autoriza. Os
+  // registros à mão (o vivo e os desfeitos) dão o nome de quem registrou à linha que cada um gravou.
+  const eventos = buildHistory(history, emails, notes, null, order, [
+    ...(manualPayment ? [manualPayment] : []),
+    ...(undoneManualPayments ?? []),
+  ])
   const numero = formatOrderNumber(order.order_number)
   const rotulo = (s: string) => STATUS_LABELS[s] ?? s
 
   /** A releitura depois de gravar: sem "Carregando...", sem perder rolagem nem campo digitado. */
   const revalidar = () => reload('revalidar')
 
-  // Gestos 1 e 2 — o Próximo passo e o "Outro status".
-  const mudarStatus = (status: string, origem?: HTMLElement | null) =>
-    gesto.acionar({
+  /** A tela própria do registro de pagamento (editor é TELA). */
+  const telaDoRegistro = `/admin/pedidos/${order.id}/pagamento`
+  /** Os selos do bloco Pagamento: pago duas vezes, pago depois de cancelado, pagamento não registrado. */
+  const selosDoPagamento = paymentFlags(order, paymentAlerts ?? [])
+
+  // Gestos 1 e 2 — o Próximo passo e o "Outro status". Levar um pedido não pago a Pago (ou além) não
+  // grava status: abre o registro do pagamento, que é o que torna o pedido pago (`needsPaymentRecord`).
+  const mudarStatus = (status: string, origem?: HTMLElement | null) => {
+    if (needsPaymentRecord(order, status)) {
+      navigate(`${telaDoRegistro}?para=${encodeURIComponent(status)}`)
+      return Promise.resolve(false)
+    }
+    return gesto.acionar({
       ...(origem ? { origem } : {}),
       chave: `status:${status}`,
       trigger: 'order_status_changed',
@@ -178,6 +207,7 @@ const AdminOrderPage = () => {
         return { erro: null, emailSent: r.emailSent }
       },
     })
+  }
 
   // Gesto 3 — o rastreio de saída. Em falha, o código e a transportadora ficam nos campos (`CRG-05`).
   const salvarRastreioDeSaida = async () => {
@@ -775,12 +805,50 @@ const AdminOrderPage = () => {
               )}
               <div className="flex justify-between"><dt className="text-muted-foreground">Frete</dt><dd>{resumo.shipping > 0 ? formatPrice(resumo.shipping) : 'Grátis'}</dd></div>
               <div className="flex justify-between border-t border-border pt-1 font-semibold"><dt>Total</dt><dd>{formatPrice(resumo.total)}</dd></div>
-              <div className="flex justify-between pt-2"><dt className="text-muted-foreground">Método</dt><dd>{order.payment_method}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Situação</dt><dd>{PAYMENT_STATUS_LABELS[order.payment_status] ?? order.payment_status}</dd></div>
-              {order.paid_at && (
+              {/* Com o pagamento registrado à mão, o meio é o informado no registro (abaixo); o método com
+                  que o pedido nasceu não aparece ao lado dele, para o bloco dar uma resposta só. */}
+              {!manualPayment && (
+                <div className="flex justify-between pt-2"><dt className="text-muted-foreground">Método</dt><dd>{paymentMethodLabel(order.payment_method)}</dd></div>
+              )}
+              <div className={manualPayment ? 'flex justify-between pt-2' : 'flex justify-between'}><dt className="text-muted-foreground">Situação</dt><dd>{PAYMENT_STATUS_LABELS[order.payment_status] ?? order.payment_status}</dd></div>
+              {order.paid_at && !manualPayment && (
                 <div className="flex justify-between"><dt className="text-muted-foreground">Pago em</dt><dd>{new Date(order.paid_at).toLocaleString('pt-BR')}</dd></div>
               )}
             </dl>
+            {/* O dinheiro que entrou a mais (marcado pelo banco) e o pedido levado adiante sem pagamento. */}
+            {selosDoPagamento.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {selosDoPagamento.map((selo) => (
+                  <li
+                    key={selo.key}
+                    className="rounded-md bg-estrelinha-admin-amber/10 px-2 py-1 text-xs font-semibold text-estrelinha-admin-amber"
+                  >
+                    {selo.label}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {/* O pagamento feito por fora da loja e registrado à mão (meio, data, quem, observação e
+                comprovantes). Só admin lê; a cliente nunca recebe a observação nem o comprovante. */}
+            {manualPayment && <ManualPaymentDetails registro={manualPayment} />}
+            {/* Desfazer só o registro manual, e só com o pedido em Pago: o aprovado pela loja não tem, e o
+                pago duas vezes (a loja também recebeu) também não. */}
+            {canUndoManualPayment(order, Boolean(manualPayment), paymentAlerts ?? []) && (
+              <UndoManualPaymentAction orderId={order.id} onDone={revalidar} />
+            )}
+            {/* Os registros desfeitos continuam à vista: desfazer não apaga a observação nem os
+                comprovantes (o diálogo do desfazer promete isso). */}
+            {(undoneManualPayments ?? []).map((registro) => (
+              <ManualPaymentDetails key={registro.id} registro={registro} />
+            ))}
+            {canRecordManualPayment(order) && (
+              <Button asChild variant="outline" className="mt-3 min-h-11 w-full">
+                <Link to={telaDoRegistro}>Registrar pagamento</Link>
+              </Button>
+            )}
+            {/* O link de pagamento por cartão: só pedido de cartão pendente, recusado ou vencido, não
+                pago e não cancelado — a mesma regra que a function confere. */}
+            {cardLinkRefusal(order) === null && <CardLinkAction orderId={order.id} />}
           </section>
         </aside>
       </div>

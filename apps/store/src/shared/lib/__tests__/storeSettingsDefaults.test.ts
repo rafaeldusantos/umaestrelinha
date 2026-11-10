@@ -161,10 +161,14 @@ function eventosAcrescentados(fonte: string): Record<string, unknown> {
 
 const acrescimo57 = eventosAcrescentados(SQL_57)
 
-/** O que o banco de fato fica: a semente da 42 com o acrescimo da 57 por cima. */
+/** A migration do cancelamento automático acrescenta um evento, no mesmo molde da 57. */
+const SQL_98 = readFileSync(`${MIGRATIONS}/20261118120000_98-cancelamento-automatico.sql`, 'utf8')
+const acrescimo98 = eventosAcrescentados(SQL_98)
+
+/** O que o banco de fato fica: a semente da 42 com os acrescimos da 57 e do cancelamento automatico por cima. */
 const notificacoesSql = semente42 && {
   ...semente42,
-  events: { ...semente42.events, ...acrescimo57 },
+  events: { ...semente42.events, ...acrescimo57, ...acrescimo98 },
 }
 
 describe('defaults de store_settings — âncoras', () => {
@@ -295,8 +299,8 @@ describe('notifications — os textos dizem o mesmo nos dois lados (PNL-06)', ()
     expect(jsonbSemeado(SQL_NOTIFICACOES, 'chave_que_nao_existe')).toBeUndefined()
   })
 
-  it('a COMPOSICAO das duas migrations e EXATAMENTE `DEFAULT_NOTIFICATIONS`', () => {
-    // Semente da 42 + acrescimo da 57. Ver `SQL_57`.
+  it('a COMPOSICAO das migrations e EXATAMENTE `DEFAULT_NOTIFICATIONS`', () => {
+    // Semente da 42 + acrescimo da 57 + acrescimo do cancelamento automatico. Ver `SQL_57` e `SQL_98`.
     expect(notificacoesSql).toEqual(DEFAULT_NOTIFICATIONS)
   })
 
@@ -334,6 +338,17 @@ describe('notifications — os textos dizem o mesmo nos dois lados (PNL-06)', ()
     expect(sem).not.toContain('grant ')
   })
 
+  it('o acrescimo do cancelamento automatico e idempotente, nasce desligado e nao escreve dado de pedido', () => {
+    const sem = SQL_98.replace(/--[^\r\n]*/g, '').replace(/\s+/g, ' ')
+    expect(sem).toContain("not (value #> '{events}' ? 'order_cancelled_unpaid')")
+    expect(Object.keys(acrescimo98)).toEqual(['order_cancelled_unpaid'])
+    expect((acrescimo98.order_cancelled_unpaid as { email: { enabled: boolean } }).email.enabled).toBe(false)
+    const minusculo = sem.toLowerCase()
+    expect(minusculo).not.toContain('delete from')
+    expect(minusculo).not.toContain('update public.orders')
+    expect(minusculo).not.toContain('create policy')
+  })
+
   it('ANCORA: a 57 de fato acrescenta os dois, e nao uma lista vazia', () => {
     // Sem isto, um regex quebrado devolveria `{}`, a composicao seria a semente da 42 crua, e a
     // igualdade acima reprovaria por um motivo que se leria como "o TypeScript esta errado".
@@ -347,7 +362,7 @@ describe('notifications — os textos dizem o mesmo nos dois lados (PNL-06)', ()
     expect(Object.keys(semente42?.events ?? {})).toHaveLength(15)
   })
 
-  it('cobre os dezessete eventos, e so eles', () => {
+  it('cobre os dezoito eventos, e so eles', () => {
     expect(Object.keys(notificacoesSql?.events ?? {}).sort()).toEqual([...NOTIFICATION_EVENTS].sort())
   })
 
@@ -358,11 +373,11 @@ describe('notifications — os textos dizem o mesmo nos dois lados (PNL-06)', ()
     }
   })
 
-  it('os treze novos nascem DESLIGADOS no SQL e no TypeScript', () => {
+  it('os quatorze novos nascem DESLIGADOS no SQL e no TypeScript', () => {
     const novos = NOTIFICATION_EVENTS.filter((e) => !LEGACY_ENABLED_EVENTS.includes(e))
-    // 11 na feature 42; a 57 acrescentou dois avisos internos, e eles nascem desligados pela
-    // mesma decisao (`PNL-06`).
-    expect(novos).toHaveLength(13)
+    // 11 na feature 42; a 57 acrescentou dois avisos internos e o cancelamento automatico o aviso de falta de
+    // pagamento, todos desligados pela mesma decisao (`PNL-06`).
+    expect(novos).toHaveLength(14)
     for (const event of novos) {
       expect(notificacoesSql?.events[event].email.enabled, `${event} (SQL)`).toBe(false)
       expect(DEFAULT_NOTIFICATIONS.events[event].email.enabled, `${event} (TS)`).toBe(false)

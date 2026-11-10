@@ -26,6 +26,13 @@ import { describe, expect, it } from 'vitest'
  *   2. **pedir um código PIX** ao `create-payment` de outro lugar;
  *   3. **o arquivo apagado voltar** ao disco ou ao barrel.
  *
+ * **A segunda superfície DECLARADA: o link de pagamento por cartão.** A Adri gera no painel
+ * um link (`/pagar-com-cartao#<token>`) para um pedido de cartão que não foi pago, e a cliente paga
+ * por ele sem login. Ela é só cartão (o Brick do checkout), e o dono dela é a página
+ * `pages/CardLinkPaymentPage.tsx` com `features/card-link`. A prova de posse do link
+ * (`card_link_token`) só pode ser mandada por ela, pela porta `useCreatePayment` — um terceiro
+ * remetente seria uma terceira superfície.
+ *
  * ---------------------------------------------------------------------------------------------
  * A METADE POSITIVA, e por que ela não é opcional
  * ---------------------------------------------------------------------------------------------
@@ -415,5 +422,20 @@ describe('a metade positiva — o dono continua sendo o dono', () => {
     // inteira medindo o nada.
     const checkout = cita('apps/store/src/pages/CheckoutPage.tsx')
     expect(/orderPaymentPath\s*\(/.test(checkout.fonte)).toBe(true)
+  })
+
+  it('o link de cartão é a segunda superfície declarada: só a página do link manda a prova do link', () => {
+    const DONO_DO_LINK = 'apps/store/src/pages/CardLinkPaymentPage.tsx'
+    const PORTA = 'apps/store/src/features/checkout/api/useCreatePayment.ts'
+    const remetentes = varridos
+      .filter(a => !ehTeste(a.rel) && a.rel !== PORTA && /\bcard_link_token\b/.test(a.fonte))
+      .map(a => a.rel)
+    expect(remetentes).toEqual([DONO_DO_LINK])
+    // A metade positiva: a página do link cobra pela porta e desenha só o cartão.
+    const pagina = cita(DONO_DO_LINK)
+    expect(/useCreatePayment\s*\(/.test(pagina.fonte)).toBe(true)
+    expect(/method:\s*'card'/.test(pagina.fonte)).toBe(true)
+    expect(/method:\s*'pix'/.test(pagina.fonte)).toBe(false)
+    expect(/card_link_token\b/.test(cita(PORTA).fonte)).toBe(true)
   })
 })

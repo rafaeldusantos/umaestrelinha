@@ -21,6 +21,9 @@ const peca = (extra: Partial<OrderItem> = {}): OrderItem => ({
   ...extra,
 })
 
+/** A order do Mercado Pago de um PIX que a loja cobrou — sem ela, é o pedido gravado fora da loja. */
+const COBRADO = 'ORD01PIX'
+
 const pedido = (id: string, extra: Partial<Order> = {}): Order =>
   ({
     id,
@@ -71,7 +74,7 @@ describe('accountAttention — um caso por tipo', () => {
         [materialPendente('m3', { payment_status: 'rejected', paid_at: null, payment_method: 'card' })],
         AGORA,
       ).map((p) => p.kind),
-    ).toEqual(['payment_lost'])
+    ).toEqual(['card_contact'])
     expect(accountAttention([materialPendente('m4', { material_status: 'material_enviado' })], AGORA)).toEqual([])
   })
 
@@ -91,7 +94,7 @@ describe('accountAttention — um caso por tipo', () => {
     'PIX %s com 6 dias e 23 h (PEN-03): "repix", com o prazo de `created_at + 7 dias`',
     (payment_status) => {
       const criado = new Date(AGORA.getTime() - (6 * DIA + 23 * HORA)).toISOString()
-      const [p] = accountAttention([pedido('r1', { payment_status, paid_at: null, created_at: criado })], AGORA)
+      const [p] = accountAttention([pedido('r1', { payment_status, paid_at: null, created_at: criado, mp_order_id: COBRADO })], AGORA)
 
       expect(p.kind).toBe('repix')
       expect(p.deadline?.toISOString()).toBe(new Date(new Date(criado).getTime() + 7 * DIA).toISOString())
@@ -101,10 +104,37 @@ describe('accountAttention — um caso por tipo', () => {
   it.each(['expired', 'rejected'] as const)('PIX %s com 7 dias e 1 min (PEN-04): "payment_lost"', (payment_status) => {
     const criado = new Date(AGORA.getTime() - (7 * DIA + 60 * 1000)).toISOString()
     expect(
-      accountAttention([pedido('l1', { payment_status, paid_at: null, created_at: criado })], AGORA).map(
+      accountAttention([pedido('l1', { payment_status, paid_at: null, created_at: criado, mp_order_id: COBRADO })], AGORA).map(
         (p) => p.kind,
       ),
     ).toEqual(['payment_lost'])
+  })
+
+  it('cartão recusado ou expirado: "card_contact" — o informativo de WhatsApp, nunca PIX novo', () => {
+    for (const payment_status of ['rejected', 'expired'] as const) {
+      const [p] = accountAttention(
+        [pedido('k1', { payment_method: 'card', payment_status, paid_at: null, mp_order_id: 'ORD01' })],
+        AGORA,
+      )
+      expect(p.kind).toBe('card_contact')
+    }
+  })
+
+  it('cartão pendente com tentativa de cobrança: "card_contact"; criado e nunca cobrado: nada', () => {
+    const pendente = { payment_method: 'card', payment_status: 'pending' as const, paid_at: null }
+    expect(
+      accountAttention([pedido('k2', { ...pendente, mp_order_id: 'ORD01' })], AGORA).map((p) => p.kind),
+    ).toEqual(['card_contact'])
+    expect(accountAttention([pedido('k3', { ...pendente, mp_order_id: null })], AGORA)).toEqual([])
+  })
+
+  it('pedido que a loja avançou à mão para Pago ou além, sem pagamento: nada a pagar', () => {
+    const lista = ['paid', 'separating', 'shipped', 'delivered'].flatMap((status) => [
+      pedido(`a-pix-${status}`, { status, payment_status: 'pending', paid_at: null }),
+      pedido(`a-exp-${status}`, { status, payment_status: 'expired', paid_at: null }),
+      pedido(`a-card-${status}`, { status, payment_method: 'card', payment_status: 'rejected', paid_at: null, mp_order_id: 'O1' }),
+    ])
+    expect(accountAttention(lista, AGORA)).toEqual([])
   })
 
   it('pago e em produção, entregue ou reembolsado: nada', () => {
@@ -139,10 +169,12 @@ describe('accountAttention — a ordem (PEN-06) e o vazio (PEN-07)', () => {
       materialPendente('mat-antigo', { created_at: haDias(5) }),
       pedido('exp-antigo', { payment_status: 'expired', paid_at: null, created_at: haDias(3) }),
       pedido('perdido', { payment_status: 'expired', paid_at: null, created_at: haDias(30) }),
+      pedido('cartao', { payment_method: 'card', payment_status: 'rejected', paid_at: null, mp_order_id: 'O1', created_at: haDias(10) }),
     ]
 
     expect(accountAttention(lista, AGORA).map((p) => p.order.id)).toEqual([
       'perdido',
+      'cartao',
       'exp-antigo',
       'pix-novo',
       'mat-antigo',

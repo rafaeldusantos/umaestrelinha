@@ -176,6 +176,9 @@ const OrderHistory = ({
             const Icone = pulado ? Send : icone(ev.kind)
             const falhou = ev.kind === 'email' && ev.emailSent === false && !pulado
             const emCurso = reenviando === ev.id
+            // O pedido não está mais no estado deste e-mail (`emailOffer`, de `buildHistory`): a linha
+            // fica, sem a oferta de enviar.
+            const oferecer = ev.emailOffer !== false
 
             return (
               <li key={ev.id} className="flex gap-3" data-linha={ev.id} data-pulado={pulado ? 'true' : undefined}>
@@ -210,11 +213,16 @@ const OrderHistory = ({
                       {ev.detail}
                     </p>
                   )}
+                  {ev.registeredBy && (
+                    // O autor pode ser um e-mail, uma palavra só: quebra em qualquer ponto, senão a 390/200 %
+                    // a linha passa da borda e o pedido inteiro rola de lado.
+                    <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{`Registrado por ${ev.registeredBy}`}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {new Date(ev.at).toLocaleString('pt-BR')}
                   </p>
 
-                  {falhou && ev.emailType && (
+                  {falhou && ev.emailType && oferecer && (
                     <ActionButton
                       size="sm"
                       variant="outline"
@@ -229,7 +237,7 @@ const OrderHistory = ({
                   )}
                 </div>
 
-                {pulado && ev.emailType && (
+                {pulado && ev.emailType && oferecer && (
                   <ActionButton
                     size="icon"
                     variant="outline"

@@ -228,3 +228,67 @@ describe('useOrder — o histórico do pedido (feature 59, LIN-01 / LIN-04)', ()
     expect(data?.status_events).toEqual([])
   })
 })
+
+describe('useOrder — o meio do pagamento registrado à mão pela loja', () => {
+  const PAGO = { ...PEDIDO, payment_status: 'approved', paid_at: '2026-10-02T13:00:00Z' }
+
+  /** A RPC do histórico responde o de sempre; a do meio, o que o caso pedir. */
+  const rpcs = (meio: unknown) =>
+    rpc.mockImplementation((nome: string) =>
+      Promise.resolve(nome === 'customer_manual_payment' ? meio : { data: LINHAS_DA_RPC, error: null }),
+    )
+
+  it('com sessão e pedido pago, pede o meio à RPC do PRÓPRIO pedido e o devolve — só o meio', async () => {
+    maybeSingle.mockResolvedValue({ data: PAGO, error: null })
+    rpcs({ data: [{ method: 'transferencia' }], error: null })
+
+    const { data } = await ler('ord-1')
+
+    expect(rpc).toHaveBeenCalledWith('customer_manual_payment', { p_order_id: 'ord-1' })
+    expect(data?.manual_payment).toEqual({ method: 'transferencia' })
+    expect(data?.status_events).toEqual(EVENTOS)
+  })
+
+  it('registro sem meio informado chega como `{ method: null }` — diferente de não ter registro', async () => {
+    maybeSingle.mockResolvedValue({ data: PAGO, error: null })
+    rpcs({ data: [{ method: null }], error: null })
+
+    const { data } = await ler()
+    expect(data?.manual_payment).toEqual({ method: null })
+  })
+
+  it('sem registro vivo (zero linhas), `manual_payment` é `null`', async () => {
+    maybeSingle.mockResolvedValue({ data: PAGO, error: null })
+    rpcs({ data: [], error: null })
+
+    const { data } = await ler()
+    expect(data?.manual_payment).toBeNull()
+  })
+
+  it('a RPC do meio falhando não derruba a página: `null`, e o pedido chega inteiro', async () => {
+    maybeSingle.mockResolvedValue({ data: PAGO, error: null })
+    rpcs(Promise.reject(new Error('Failed to fetch')))
+
+    const { data, isError } = await ler()
+    expect(isError).toBe(false)
+    expect(data?.manual_payment).toBeNull()
+    expect(data?.id).toBe('ord-1')
+  })
+
+  it('pedido não pago não pergunta o meio — só um pago pode ter registro', async () => {
+    await ler()
+    expect(rpc).not.toHaveBeenCalledWith('customer_manual_payment', expect.anything())
+  })
+
+  it('a convidada recebe o meio na própria resposta do `get-order`, sem chamar a RPC', async () => {
+    rememberAccess('ord-1', 'tok-abc')
+    invoke.mockResolvedValue({
+      data: { order: { ...PAGO, status_events: EVENTOS, manual_payment: { method: 'dinheiro' } } },
+      error: null,
+    })
+
+    const { data } = await ler()
+    expect(data?.manual_payment).toEqual({ method: 'dinheiro' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+})

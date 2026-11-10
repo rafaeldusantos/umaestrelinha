@@ -22,6 +22,8 @@
 // nenhuma, mas quem chegar nele pelo endereço tem de conseguir gerar um código novo. Apertar a rota
 // para casar com este predicado trancaria a cliente do lado de fora do próprio pedido.
 
+import { pedidoAguardaPagamento } from '@estrelinha/core/orders'
+
 /** A linha mínima que responde à pergunta. As duas telas leem tipos diferentes do mesmo pedido. */
 export interface PixPayableOrder {
   payment_method?: string | null
@@ -36,13 +38,15 @@ export interface PixPayableOrder {
  *
  * `payment_status === 'pending'` é literal da AC, e não `!== 'approved'`: anunciar o caminho de
  * pagamento de um pedido reembolsado ou estornado seria convidar a cliente a pagar duas vezes.
+ *
+ * Cancelado, pago (`paid_at`) e avançado à mão para Pago ou além sem pagamento são o recorte de
+ * `pedidoAguardaPagamento` (`@estrelinha/core/orders`), o mesmo das outras ofertas de pagar.
  */
 export const podePagarComPix = (order: PixPayableOrder | null | undefined): boolean =>
   !!order &&
   order.payment_method === 'pix' &&
   order.payment_status === 'pending' &&
-  order.status !== 'cancelled' &&
-  !order.paid_at
+  pedidoAguardaPagamento(order)
 
 /** O endereço da superfície de pagamento de um pedido — montado num lugar só. */
 export const orderPaymentPath = (orderId: string): string => `/pedido/${orderId}/pagamento`

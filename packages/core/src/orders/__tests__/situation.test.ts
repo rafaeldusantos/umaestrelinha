@@ -166,11 +166,12 @@ describe('rótulos e tons — um dono só', () => {
     'awaiting_material',
     'in_production',
     'pix_expired',
+    'payment_expired',
     'payment_rejected',
     'awaiting_payment',
   ]
 
-  it('os nove rótulos são os literais da spec', () => {
+  it('os dez rótulos são os literais da spec', () => {
     expect(SITUATION_LABELS).toEqual({
       cancelled: 'Cancelado',
       delivered: 'Entregue',
@@ -179,6 +180,7 @@ describe('rótulos e tons — um dono só', () => {
       awaiting_material: 'Aguardando seu material',
       in_production: 'Em produção',
       pix_expired: 'PIX expirado',
+      payment_expired: 'Pagamento não concluído',
       payment_rejected: 'Pagamento recusado',
       awaiting_payment: 'Aguardando pagamento',
     })
@@ -194,6 +196,7 @@ describe('rótulos e tons — um dono só', () => {
       awaiting_material: 'wait',
       awaiting_payment: 'wait',
       pix_expired: 'alert',
+      payment_expired: 'alert',
       payment_rejected: 'alert',
     })
   })
@@ -204,6 +207,63 @@ describe('rótulos e tons — um dono só', () => {
     }
     const s = orderSituation({ ...base, payment_status: 'expired' })
     expect(s).toEqual({ key: 'pix_expired', label: 'PIX expirado', tone: 'alert' })
+  })
+})
+
+describe('orderSituation — o cartão expirado não é "PIX expirado"', () => {
+  it('cartão com o pagamento expirado: "Pagamento não concluído", no tom de alerta', () => {
+    expect(orderSituation({ ...base, payment_status: 'expired', payment_method: 'card' })).toEqual({
+      key: 'payment_expired',
+      label: 'Pagamento não concluído',
+      tone: 'alert',
+    })
+    expect(orderSituation({ ...base, payment_status: 'expired', payment_method: 'credit_card' }).key).toBe(
+      'payment_expired',
+    )
+  })
+
+  it('PIX expirado continua "PIX expirado" — e sem o meio, também (quem não passa o meio não muda)', () => {
+    expect(orderSituation({ ...base, payment_status: 'expired', payment_method: 'pix' }).key).toBe('pix_expired')
+    expect(orderSituation({ ...base, payment_status: 'expired' }).key).toBe('pix_expired')
+  })
+})
+
+describe('orderSituation — o cartão que o meio de pagamento ainda não respondeu', () => {
+  // O expirador de 24 h leva a `expired` todo pedido pendente, inclusive a cobrança de cartão que o
+  // Mercado Pago ainda está analisando. O pagamento pode ser aprovado depois: o selo espera.
+  it.each(['in_process', 'pending_review_manual', 'pending_contingency'])(
+    'cartão expirado pelo relógio com a cobrança em análise (%s): "Aguardando pagamento"',
+    (detalhe) => {
+      expect(
+        orderSituation({ ...base, payment_status: 'expired', payment_method: 'card', mp_status_detail: detalhe }),
+      ).toEqual({ key: 'awaiting_payment', label: 'Aguardando pagamento', tone: 'wait' })
+    },
+  )
+
+  it('cartão pendente com a cobrança em análise: "Aguardando pagamento"', () => {
+    expect(
+      orderSituation({ ...base, payment_method: 'card', mp_status_detail: 'in_process' }).key,
+    ).toBe('awaiting_payment')
+  })
+
+  it('a resposta final do meio de pagamento não muda: recusado e expirado sem análise ficam como hoje', () => {
+    expect(
+      orderSituation({ ...base, payment_status: 'rejected', payment_method: 'card', mp_status_detail: 'pending_challenge' })
+        .key,
+    ).toBe('payment_rejected')
+    expect(
+      orderSituation({ ...base, payment_status: 'expired', payment_method: 'card', mp_status_detail: '' }).key,
+    ).toBe('payment_expired')
+    expect(
+      orderSituation({ ...base, payment_status: 'expired', payment_method: 'card', mp_status_detail: 'expired' }).key,
+    ).toBe('payment_expired')
+  })
+
+  it('o PIX expirado não entra, mesmo com um detalhe pendente', () => {
+    expect(
+      orderSituation({ ...base, payment_status: 'expired', payment_method: 'pix', mp_status_detail: 'pending_waiting_transfer' })
+        .key,
+    ).toBe('pix_expired')
   })
 })
 

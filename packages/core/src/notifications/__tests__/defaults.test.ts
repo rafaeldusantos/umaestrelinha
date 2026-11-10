@@ -97,11 +97,12 @@ describe('os interruptores (PNL-06, AC 7)', () => {
     }
   })
 
-  it('os treze novos nascem DESLIGADOS', () => {
+  it('os quatorze novos nascem DESLIGADOS', () => {
     const novos = NOTIFICATION_EVENTS.filter((e) => !LEGACY_ENABLED_EVENTS.includes(e))
-    // 11 na feature 42; a 57 acrescentou dois avisos internos, e eles nascem desligados pela mesma
-    // decisão (`PNL-06`): a Adri lê o texto antes de a primeira cliente disparar o gatilho.
-    expect(novos).toHaveLength(13)
+    // 11 na feature 42; a 57 acrescentou dois avisos internos, e depois o cancelamento por falta de
+    // pagamento; todos nascem desligados pela mesma decisão (`PNL-06`): a Adri lê o texto antes de a
+    // primeira cliente disparar o gatilho.
+    expect(novos).toHaveLength(14)
     for (const event of novos) {
       expect(DEFAULT_NOTIFICATIONS.events[event].email.enabled, `${event} nasceu ligado`).toBe(false)
     }
@@ -218,5 +219,24 @@ describe('resolveEventSettings — o recuo para o default (edge case: banco ante
 
   it('resolveAllEventSettings devolve os quinze, na ordem da jornada', () => {
     expect(Object.keys(resolveAllEventSettings(undefined, 'email'))).toEqual([...NOTIFICATION_EVENTS])
+  })
+})
+
+describe('o e-mail do cancelamento automático por falta de pagamento', () => {
+  it('nasce desligado, e o texto diz a razão e oferece o WhatsApp', () => {
+    const { email } = DEFAULT_NOTIFICATIONS.events.order_cancelled_unpaid
+    expect(email.enabled).toBe(false)
+    expect(email.fields.subject).toBe('Pedido {{numero_pedido}} cancelado por falta de pagamento')
+    expect(email.fields.lead).toContain('7 dias')
+    expect(email.fields.lead).toContain('{{whatsapp_atendimento}}')
+    expect(email.fields.subject).not.toBe(DEFAULT_NOTIFICATIONS.events.order_cancelled.email.fields.subject)
+  })
+  it('tom memorial: assunto, título, abertura, linhas extras e botão sem exclamação, urgência nem "últim"', () => {
+    const { fields } = DEFAULT_NOTIFICATIONS.events.order_cancelled_unpaid.email
+    const textos = [fields.subject, fields.heading, fields.lead, ...fields.extra, fields.cta_label]
+    expect(textos.every(t => typeof t === 'string' && t.trim().length > 0)).toBe(true)
+    for (const t of textos) {
+      expect(t).not.toMatch(/!|urgente|últim|corra|agora mesmo|\p{Extended_Pictographic}/iu)
+    }
   })
 })

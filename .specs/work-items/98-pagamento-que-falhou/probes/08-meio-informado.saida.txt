@@ -1,0 +1,7 @@
+ok — get-order devolve o meio do registro vivo: {"method": "transferencia"}
+ok — get-order não devolve observação, comprovante nem autor
+ok — a RPC devolve só o meio à dona do pedido: [{"method":"transferencia"}]
+ok — outra cliente não lê o meio (zero linhas)
+ok — anon não chama a RPC (401)
+ok — a tabela do registro segue fechada à cliente
+ok — registro desfeito: nem a RPC nem o get-order mostram meio

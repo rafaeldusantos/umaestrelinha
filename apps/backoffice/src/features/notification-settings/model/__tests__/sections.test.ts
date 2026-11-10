@@ -4,7 +4,7 @@ import { NOTIFICATION_EVENTS, type NotificationEvent } from '@estrelinha/core/no
 import { NOTIFICATION_SECTIONS, SECTION_LABELS, groupedEvents, sectionFor } from '../sections'
 
 /**
- * ABN-01 — os 17 eventos agrupados em três seções DERIVADAS, cada um em exatamente uma, com a
+ * ABN-01 — os 18 eventos agrupados em três seções DERIVADAS, cada um em exatamente uma, com a
  * ordem de `NOTIFICATION_EVENTS` preservada dentro de cada seção.
  */
 
@@ -52,13 +52,13 @@ describe('sectionFor', () => {
 describe('groupedEvents — âncora de contagem e ordem preservada', () => {
   const grupos = groupedEvents()
 
-  it('os 17 eventos estão distribuídos nas três seções, sem repetição e sem sobra', () => {
+  it('os 18 eventos estão distribuídos nas três seções, sem repetição e sem sobra', () => {
     const total = grupos.customer.length + grupos.material.length + grupos.owner.length
-    expect(total).toBe(17)
+    expect(total).toBe(18)
     expect(total).toBe(NOTIFICATION_EVENTS.length)
 
     const achatado = [...grupos.customer, ...grupos.material, ...grupos.owner]
-    expect(new Set(achatado).size).toBe(17)
+    expect(new Set(achatado).size).toBe(18)
     for (const event of NOTIFICATION_EVENTS) expect(achatado).toContain(event)
   })
 

@@ -39,6 +39,11 @@
 // `model/revisao.ts`: a chave do documento no corpo do `save` (a declaração e o valor — o documento vai ao
 // cadastro da cliente NESTA gravação) e a leitura do documento gravado de volta ao campo, no Editar.
 //
+// **O comprovante do pagamento registrado à mão fica só no painel** (régua 5): o detalhe do pedido mostra
+// o registro — meio, data e observação —, mas nenhum arquivo de produção do app cita a tabela dos
+// comprovantes, o bucket deles ou a palavra "comprovante". Comprovante é dado pessoal e financeiro, e o
+// que não está no código não atravessa a rede nem fica num celular que a Adri pode perder.
+//
 // Escopo: `apps/mobile-adm/src`, só produção. Os arquivos de fixtura (`src/test/`) ficam de fora: são
 // dado sintético de teste.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -239,6 +244,38 @@ describe('régua 2 — cada lista de colunas = a medida no banco, por igualdade 
 describe('régua 3 — nenhum `select(*)` nem `select()` nos arquivos de cliente', () => {
   it('nos arquivos de cliente', () => {
     expect(selectsDeTudoEm(DE_CLIENTE)).toEqual([])
+  })
+})
+
+/** Régua 5 — o comprovante do pagamento registrado à mão: a tabela, o bucket e a palavra. */
+const COMPROVANTE = /receipt|comprovante/i
+const comprovantesEm = (alvo: Arquivo[]): string[] =>
+  alvo.flatMap((a) =>
+    a.codigo.split('\n').flatMap((l, i) => (COMPROVANTE.test(l) ? [`${a.rel}:${i + 1} ${l.trim()}`] : [])),
+  )
+
+describe('régua 5 — nenhum comprovante do pagamento registrado à mão no app', () => {
+  it('nenhum arquivo de produção cita a tabela dos comprovantes, o bucket ou a palavra', () => {
+    expect(comprovantesEm(PRODUCAO)).toEqual([])
+  })
+
+  it('âncora: o app lê o registro manual (a tabela dele está no detalhe), então a régua tem vizinho para não acusar', () => {
+    const detalhe = PRODUCAO.find((a) => a.rel === 'entities/order/api/usePedido.ts')!
+    expect(detalhe.codigo).toContain("from('order_manual_payments')")
+  })
+
+  it.each([
+    ["supabase.from('order_manual_payment_receipts').select('path')"],
+    ["supabase.storage.from('order-payment-receipts').createSignedUrl(p, 60)"],
+    ["const rotulo = 'Abrir comprovante'"],
+    ["const COMPROVANTES = 'Comprovantes'"],
+  ])('sensor: acusa %s', (fonte) => {
+    expect(comprovantesEm([{ rel: 'sintetico.ts', codigo: semComentarios(fonte) }])).toHaveLength(1)
+  })
+
+  it('inverso: o registro sem comprovante e a prosa que explica a regra não são acusados', () => {
+    expect(comprovantesEm([{ rel: 'sintetico.ts', codigo: semComentarios("supabase.from('order_manual_payments').select(COLUNAS_DO_REGISTRO_MANUAL)") }])).toEqual([])
+    expect(comprovantesEm([{ rel: 'sintetico.ts', codigo: semComentarios('// os comprovantes ficam no painel\r\nconst a = 1') }])).toEqual([])
   })
 })
 

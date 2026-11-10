@@ -36,6 +36,8 @@ export { accountAttention, type AttentionItem, type AttentionKind } from './lib/
 export {
   PAYMENT_METHOD_LABELS,
   addressLines,
+  orderPaymentLabel,
   paymentMethodLabel,
+  type ManualPaymentForCustomer,
   type OrderDeliveryInput,
 } from './lib/paymentDelivery'

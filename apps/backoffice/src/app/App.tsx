@@ -13,6 +13,7 @@ import AdminProductFormPage from "@/pages/admin/AdminProductFormPage"
 import AdminQuickGridPage from '@/pages/admin/AdminQuickGridPage';
 import AdminOrdersPage from "@/pages/admin/AdminOrdersPage";
 import AdminOrderPage from "@/pages/admin/AdminOrderPage";
+import AdminRecordPaymentPage from "@/pages/admin/AdminRecordPaymentPage";
 import AdminProposalBuilderPage from "@/pages/admin/AdminProposalBuilderPage";
 import AdminProposalPage from "@/pages/admin/AdminProposalPage";
 import AdminProposalsPage from "@/pages/admin/AdminProposalsPage";
@@ -73,6 +74,8 @@ const App = () => (
             <Route path="/admin/pedidos/montar/:id" element={<AdminProposalBuilderPage />} />
             <Route path="/admin/pedidos/montados/:id" element={<AdminProposalPage />} />
             <Route path="/admin/pedidos/:id" element={<AdminOrderPage />} />
+            {/* Registrar um pagamento feito por fora da loja: tela própria do pedido (editor é TELA). */}
+            <Route path="/admin/pedidos/:id/pagamento" element={<AdminRecordPaymentPage />} />
             <Route path="/admin/carrinhos-abandonados" element={<AdminAbandonedCartsPage />} />
             <Route path="/admin/clientes" element={<AdminClientsPage />} />
             {/* Idem para a ficha da cliente (CLI-08). */}

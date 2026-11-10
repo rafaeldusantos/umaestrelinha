@@ -11,6 +11,9 @@ const HORA = 60 * 60 * 1000
 const DIA = 24 * HORA
 const depois = (ms: number) => new Date(new Date(CRIADO).getTime() + ms)
 
+/** A order do Mercado Pago de um PIX que a loja cobrou — sem ela, é o pedido gravado fora da loja. */
+const COBRADO = 'ORD01PIX'
+
 const pedido = (extra: Partial<OrderActionInput> = {}): OrderActionInput => ({
   payment_method: 'pix',
   payment_status: 'approved',
@@ -71,22 +74,41 @@ describe('orderActionState — um estado por vez (DET-02)', () => {
   })
 
   it.each(['expired', 'rejected'])('PIX %s dentro dos 7 dias: "repix"', (payment_status) => {
-    expect(orderActionState(pedido({ payment_status, paid_at: null }), depois(6 * DIA + 23 * HORA))).toBe(
+    expect(orderActionState(pedido({ payment_status, paid_at: null, mp_order_id: COBRADO }), depois(6 * DIA + 23 * HORA))).toBe(
       'repix',
     )
   })
 
   it.each(['expired', 'rejected'])('PIX %s depois de 7 dias e 1 min: "payment_lost"', (payment_status) => {
     expect(
-      orderActionState(pedido({ payment_status, paid_at: null }), depois(7 * DIA + 60 * 1000)),
+      orderActionState(pedido({ payment_status, paid_at: null, mp_order_id: COBRADO }), depois(7 * DIA + 60 * 1000)),
     ).toBe('payment_lost')
   })
 
-  it('cartão recusado: "payment_lost" — cartão não se refaz pela loja', () => {
+  it('cartão recusado: "card_contact" — o informativo de WhatsApp; cartão não se refaz pela loja', () => {
     expect(
       orderActionState(pedido({ payment_method: 'card', payment_status: 'rejected', paid_at: null }), AGORA),
-    ).toBe('payment_lost')
+    ).toBe('card_contact')
   })
+
+  it('cartão pendente COM tentativa de cobrança: "card_contact"; sem tentativa (abandonado): nada', () => {
+    const pendente = { payment_method: 'card', payment_status: 'pending', paid_at: null }
+    expect(orderActionState(pedido({ ...pendente, mp_order_id: 'ORD01JQ' }), AGORA)).toBe('card_contact')
+    expect(orderActionState(pedido({ ...pendente, mp_order_id: null }), AGORA)).toBeNull()
+  })
+
+  it.each(['paid', 'separating', 'shipped', 'delivered'])(
+    'avançado à mão para %s sem pagamento: nada a pagar no topo',
+    (status) => {
+      for (const extra of [
+        { payment_status: 'pending', paid_at: null },
+        { payment_status: 'expired', paid_at: null },
+        { payment_method: 'card', payment_status: 'rejected', paid_at: null, mp_order_id: 'O1' },
+      ]) {
+        expect(orderActionState(pedido({ ...extra, status }), AGORA)).toBeNull()
+      }
+    },
+  )
 
   it('sem pedido: nada', () => {
     expect(orderActionState(null, AGORA)).toBeNull()
@@ -94,7 +116,7 @@ describe('orderActionState — um estado por vez (DET-02)', () => {
 })
 
 describe('ACAO_PRIMARIA — os estados cujo botão é o cheio da tela (CNF-05)', () => {
-  it('material, PIX pendente e PIX novo têm ação primária; cancelado e perdido, não', () => {
+  it('material, PIX pendente e PIX novo têm ação primária; cancelado, perdido e o informativo do cartão, não', () => {
     expect([...ACAO_PRIMARIA].sort()).toEqual(['material', 'pix_pending', 'repix'])
   })
 })

@@ -3,7 +3,7 @@ export { default as OrderBulkBar } from './ui/OrderBulkBar'
 export { default as QueueTiles } from './ui/QueueTiles'
 export { buildOrderChips, type OrderFilterChip } from './model/filterChips'
 export {
-  runMaterialBulk, runStatusBulk, runBulk, bulkSummary, BULK_LIMIT, NEXT_STATUS,
+  runMaterialBulk, runStatusBulk, runBulk, bulkSummary, BULK_LIMIT, NEXT_STATUS, bulkNextStatus,
   type BulkOutcome, type BulkOptions, type BulkStep, type BulkVerb,
 } from './model/bulkMaterial'
 export { PICK_SLIP_LIMIT, pickSlipBatch, pickSlipLeftOutText, type PickSlipBatch } from './model/pickSlipBatch'

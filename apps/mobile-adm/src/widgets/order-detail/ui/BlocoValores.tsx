@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import {
-  ORDER_PAYMENT_STATUS_LABELS, PAYMENT_STATUS_TONES, paymentMethodLabel, shippingMethodLabel, type OrderSummary,
+  ORDER_PAYMENT_STATUS_LABELS, PAYMENT_STATUS_TONES, manualPaymentMethodLabel, paymentMethodLabel, shippingMethodLabel, type OrderSummary,
 } from '@estrelinha/core/orders'
-import type { PedidoDoDetalhe } from '@/entities/order'
+import { formatStoreDate, formatStoreHour } from '@estrelinha/core/time'
+import type { PedidoDoDetalhe, RegistroManual } from '@/entities/order'
 import Selo from '@/shared/ui/Selo'
 
 /** "− R$ 40,00": o sinal de menos tipográfico, para o desconto não se ler como hífen. */
@@ -35,6 +36,35 @@ const Linha = ({
 )
 
 /**
+ * O pagamento registrado à mão no painel: o meio pelo nome (a voz do painel, nunca o valor técnico), a
+ * data e a hora de Brasília e a observação. Os comprovantes ficam só no painel, e o app não registra
+ * nem desfaz — só mostra.
+ */
+const RegistroManualDoPagamento = ({ registro }: { registro: RegistroManual }) => {
+  const nota = registro.note?.trim()
+  return (
+    <div data-parte="registro-manual" className="mt-2 border-t border-estrelinha-line pt-2 text-sm">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-estrelinha-ink-soft">Registrado à mão</p>
+      <dl className="mt-1">
+        <div data-registro="meio" className="flex flex-wrap items-baseline justify-between gap-x-3 py-0.5">
+          <dt className="text-estrelinha-ink-soft">Meio</dt>
+          <dd className="ml-auto min-w-0 max-w-full text-right [overflow-wrap:anywhere]">{manualPaymentMethodLabel(registro.method, 'admin')}</dd>
+        </div>
+        <div data-registro="pago-em" className="flex flex-wrap items-baseline justify-between gap-x-3 py-0.5">
+          <dt className="text-estrelinha-ink-soft">Pago em</dt>
+          <dd className="ml-auto text-right">{`${formatStoreDate(registro.paid_at)} às ${formatStoreHour(registro.paid_at)}`}</dd>
+        </div>
+      </dl>
+      {nota && (
+        <p data-registro="observacao" className="mt-1 whitespace-pre-line [overflow-wrap:anywhere]">
+          {nota}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
  * O resumo de valores (feature `74`, `MAP-25`, A15, A30) — com a composição de `orderSummary`
  * (`core/orders`), a MESMA da loja, do e-mail e do painel.
  *
@@ -54,8 +84,17 @@ const Linha = ({
  * - O meio de pagamento (`paymentMethodLabel`, que nunca devolve o valor cru — B01) e o selo do `payment_status` — rótulo de
  *   `ORDER_PAYMENT_STATUS_LABELS`, tom de `PAYMENT_STATUS_TONES` (A15), desenhado pelo MESMO `Selo`
  *   da situação: nenhum mapa tom → classe novo.
+ * - O pagamento registrado à mão (`registro`, o vivo), abaixo do selo — sem comprovante.
  */
-const BlocoValores = ({ pedido, resumo }: { pedido: PedidoDoDetalhe; resumo: OrderSummary }) => {
+const BlocoValores = ({
+  pedido,
+  resumo,
+  registro = null,
+}: {
+  pedido: PedidoDoDetalhe
+  resumo: OrderSummary
+  registro?: RegistroManual | null
+}) => {
   const servico = shippingMethodLabel(pedido)
   const meio = paymentMethodLabel(pedido.payment_method)
   const descontosAntesDoPix = resumo.discounts.filter((d) => d.key !== 'pix')
@@ -83,6 +122,7 @@ const BlocoValores = ({ pedido, resumo }: { pedido: PedidoDoDetalhe; resumo: Ord
           {ORDER_PAYMENT_STATUS_LABELS[pedido.payment_status] ?? pedido.payment_status}
         </Selo>
       </div>
+      {registro && <RegistroManualDoPagamento registro={registro} />}
     </div>
   )
 }

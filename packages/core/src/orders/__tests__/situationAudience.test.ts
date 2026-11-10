@@ -23,6 +23,7 @@ const CASOS: Array<[string, SituationInput, string, string, string, string]> = [
   ['em produção', { ...base, payment_status: 'approved', material_status: 'em_producao' }, 'in_production', 'progress', 'Em produção', 'Em produção'],
   ['pago sem material', { ...base, payment_status: 'approved' }, 'in_production', 'progress', 'Em produção', 'Em produção'],
   ['PIX expirado', { ...base, payment_status: 'expired' }, 'pix_expired', 'alert', 'PIX expirado', 'PIX expirado'],
+  ['cartão expirado', { ...base, payment_status: 'expired', payment_method: 'card' }, 'payment_expired', 'alert', 'Pagamento não concluído', 'Pagamento não concluído'],
   ['pagamento recusado', { ...base, payment_status: 'rejected' }, 'payment_rejected', 'alert', 'Pagamento recusado', 'Pagamento recusado'],
   ['aguardando pagamento', base, 'awaiting_payment', 'wait', 'Aguardando pagamento', 'Aguardando pagamento'],
 ]

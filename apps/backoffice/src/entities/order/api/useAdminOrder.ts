@@ -48,6 +48,37 @@ export interface OrderNotificationRow {
 /** Nome anterior, mantido enquanto os consumidores migram. */
 export type OrderEmailEvent = OrderNotificationRow
 
+/** Um comprovante do pagamento registrado à mão — o arquivo mora no bucket privado. */
+export interface ManualPaymentReceipt {
+  id: string
+  path: string
+  content_type: string
+  size_bytes: number
+}
+
+/**
+ * O pagamento registrado à mão (`order_manual_payments`), o VIVO — o desfeito não conta. Só admin lê
+ * a tabela; observação e comprovante nunca são coluna de `orders`.
+ */
+export interface ManualPaymentRecord {
+  id: string
+  method: string | null
+  paid_at: string
+  note: string | null
+  created_by_name: string | null
+  created_at: string
+  undone_at: string | null
+  /** Quem desfez o registro (o nome gravado pela RPC), quando desfeito. */
+  undone_by_name?: string | null
+  /** O motivo do desfazer, quando desfeito. */
+  undone_reason?: string | null
+  order_manual_payment_receipts: ManualPaymentReceipt[]
+}
+
+/** As colunas que o bloco Pagamento lê, com os comprovantes embutidos. */
+export const MANUAL_PAYMENT_COLUMNS =
+  'id, method, paid_at, note, created_by_name, created_at, undone_at, undone_by_name, undone_reason, order_manual_payment_receipts(id, path, content_type, size_bytes)'
+
 /** O resumo da cliente que o aside do pedido mostra (`D3`). */
 export interface OrderCustomerSummary {
   id: string
@@ -99,6 +130,18 @@ export interface AdminOrderDetail {
   history: DbOrderStatusHistory[]
   notes: DbOrderNote[]
   emails: OrderNotificationRow[]
+  /** O pagamento registrado à mão, vivo, ou `null`. A leitura que falha também dá `null` (o bloco some). */
+  manualPayment: ManualPaymentRecord | null
+  /**
+   * Os registros DESFEITOS, do desfazer mais recente ao mais antigo. Desfazer não apaga o registro: a
+   * observação e os comprovantes continuam consultáveis no pedido. A leitura que falha dá `[]`.
+   */
+  undoneManualPayments: ManualPaymentRecord[]
+  /**
+   * Os marcadores de pagamento a mais (`order_payment_alerts`, só admin lê): "pago duas vezes" e "pago
+   * depois de cancelado", gravados pelo banco. A leitura que falha dá `[]` (o selo some).
+   */
+  paymentAlerts: { kind: string }[]
   /**
    * Conserto do QA da `88` (`A-14`): a leitura de `order_notifications` FALHOU. `emails` vem vazio, e
    * vazio aqui não é "nenhum e-mail" — é "não sei". A página recusa o gesto que dependeria da previsão
@@ -131,6 +174,9 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
   const [notes, setNotes] = useState<DbOrderNote[]>([])
   const [emails, setEmails] = useState<OrderNotificationRow[]>([])
   const [emailsError, setEmailsError] = useState(false)
+  const [manualPayment, setManualPayment] = useState<ManualPaymentRecord | null>(null)
+  const [undoneManualPayments, setUndoneManualPayments] = useState<ManualPaymentRecord[]>([])
+  const [paymentAlerts, setPaymentAlerts] = useState<{ kind: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [staleError, setStaleError] = useState<string | null>(null)
@@ -186,7 +232,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
 
     // As quatro leituras auxiliares em paralelo: são independentes entre si, e em série somariam
     // quatro latências para desenhar uma tela só.
-    const [itensRes, historicoRes, notasRes, emailsRes] = await Promise.all([
+    const [itensRes, historicoRes, notasRes, emailsRes, registroRes, alertasRes] = await Promise.all([
       supabase.from('order_items').select('*').eq('order_id', id),
       supabase
         .from('order_status_history')
@@ -203,6 +249,14 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
         .select('*')
         .eq('order_id', id)
         .order('created_at', { ascending: false }),
+      // Todos os registros do pedido, o vivo e os desfeitos: o desfeito continua à vista (a observação
+      // e os comprovantes ficam guardados), marcado como desfeito.
+      supabase
+        .from('order_manual_payments')
+        .select(MANUAL_PAYMENT_COLUMNS)
+        .eq('order_id', id)
+        .order('created_at', { ascending: false }),
+      supabase.from('order_payment_alerts').select('kind').eq('order_id', id),
     ])
 
     // O aside diz o que ela já gastou. Lido de `customer_list` por id **ou por e-mail**, a mesma
@@ -234,6 +288,14 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
     setNotes((notasRes.data ?? []) as DbOrderNote[])
     setEmails((emailsRes.data ?? []) as OrderNotificationRow[])
     setEmailsError(Boolean(emailsRes.error))
+    const registros = (registroRes.data ?? []) as ManualPaymentRecord[]
+    setManualPayment(registros.find((r) => r.undone_at === null) ?? null)
+    setUndoneManualPayments(
+      registros
+        .filter((r) => r.undone_at !== null)
+        .sort((a, b) => String(b.undone_at).localeCompare(String(a.undone_at))),
+    )
+    setPaymentAlerts(((alertasRes?.data ?? []) as { kind: string }[]))
 
     setProductRefs(await lerProdutos((itensRes.data ?? []) as DbOrderItem[]))
 
@@ -245,7 +307,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
   }, [reload])
 
   return {
-    order, customer, items, itemsError, productRefs, history, notes, emails, emailsError, loading, error, staleError, reload,
+    order, customer, items, itemsError, productRefs, history, notes, emails, emailsError, manualPayment, undoneManualPayments, paymentAlerts, loading, error, staleError, reload,
   }
 }
 

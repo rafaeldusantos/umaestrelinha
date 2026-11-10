@@ -266,3 +266,74 @@ describe('get-order — os eventos da linha do tempo (LIN-04, feature 59)', () =
     expect(order.status_events).toEqual([{ status: 'paid', at: '2026-09-10T10:00:00Z' }])
   })
 })
+
+describe('get-order — o meio do pagamento registrado à mão pela loja', () => {
+  /** Os registros do pedido pedido; outro pedido nunca responde. Guarda o select que chegou. */
+  const registros = (linhas: unknown[], vistos: string[] = []) => (eqs: Array<[string, unknown]>, select: string) => {
+    vistos.push(select)
+    const doPedido = eqs.some(([c, v]) => c === 'order_id' && v === 'ord-1')
+    return doPedido ? linhas : []
+  }
+
+  const ler = async (lista: unknown) => {
+    const token = newAccessToken()
+    const supabase = createFakeSupabase({
+      rows: { orders: { ...(await pedidoCom(token)), payment_status: 'approved', paid_at: '2026-09-12T10:00:00Z' } },
+      lists: { order_manual_payments: lista as never },
+    })
+    const res = await route(criarDeps(supabase), pedir({ order_id: 'ord-1', access_token: token }))
+    return { res, texto: await res.text() }
+  }
+
+  it('devolve o meio do registro VIVO, e só o meio', async () => {
+    const vistos: string[] = []
+    const { res, texto } = await ler(
+      registros(
+        [
+          { method: 'pix_direto', undone_at: '2026-09-11T10:00:00Z', note: 'desfeito' },
+          { method: 'transferencia', undone_at: null, note: 'Pagou na conta da Adri' },
+        ],
+        vistos,
+      ),
+    )
+    const { order } = JSON.parse(texto)
+
+    expect(res.status).toBe(200)
+    expect(order.manual_payment).toEqual({ method: 'transferencia' })
+    // Nem a observação nem o comprovante saem — e nem são pedidos ao banco.
+    expect(texto).not.toContain('Pagou na conta da Adri')
+    expect(vistos.join(',')).not.toMatch(/note|receipt|created_by/)
+  })
+
+  it('registro vivo sem meio informado: `{ method: null }`', async () => {
+    const { texto } = await ler(registros([{ method: null, undone_at: null }]))
+    expect(JSON.parse(texto).order.manual_payment).toEqual({ method: null })
+  })
+
+  it('sem registro vivo (nenhum, ou só desfeitos): `manual_payment` é `null`', async () => {
+    expect(JSON.parse((await ler(registros([]))).texto).order.manual_payment).toBeNull()
+    expect(
+      JSON.parse((await ler(registros([{ method: 'dinheiro', undone_at: '2026-09-11T10:00:00Z' }]))).texto).order
+        .manual_payment,
+    ).toBeNull()
+  })
+
+  it('a leitura do registro falhando não derruba o pedido: `null`', async () => {
+    const { res, texto } = await ler(() => null)
+    expect(res.status).toBe(200)
+    expect(JSON.parse(texto).order.manual_payment).toBeNull()
+  })
+
+  it('o registro de OUTRO pedido nunca aparece', async () => {
+    const token = newAccessToken()
+    const supabase = createFakeSupabase({
+      rows: { orders: { ...(await pedidoCom(token)), payment_status: 'approved', paid_at: '2026-09-12T10:00:00Z' } },
+      lists: {
+        order_manual_payments: (eqs: Array<[string, unknown]>) =>
+          eqs.some(([c, v]) => c === 'order_id' && v === 'ord-1') ? [] : [{ method: 'dinheiro', undone_at: null }],
+      },
+    })
+    const res = await route(criarDeps(supabase), pedir({ order_id: 'ord-1', access_token: token }))
+    expect((await res.json()).order.manual_payment).toBeNull()
+  })
+})

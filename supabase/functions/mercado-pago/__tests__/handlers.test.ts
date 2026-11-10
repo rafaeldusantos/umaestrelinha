@@ -31,7 +31,7 @@ describe('route — action inválida', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      error: 'action inválida. Use: create-payment, webhook',
+      error: 'action inválida. Use: create-payment, webhook, close-charge, card-link',
     })
   })
 
@@ -651,6 +651,179 @@ describe('create-payment — guards antes de qualquer chamada ao MP', () => {
       expect(supabase.updates).toHaveLength(0)
     },
   )
+
+  // Pedido cancelado não é cobrado: o PIX copiado antes e o cartão em análise ficaram para trás, e
+  // uma cobrança nova reabriria o pagamento de um pedido que não existe mais para a loja.
+  it('409: pedido cancelado com o pagamento ainda pendente é recusado, e nada sai daqui', async () => {
+    const { supabase, fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'cancelled', payment_status: 'pending' }),
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Este pedido foi cancelado e não pode ser pago.',
+      code: 'order_cancelled',
+    })
+    expect(fetchDouble.calls).toHaveLength(0)
+    expect(supabase.updates).toHaveLength(0)
+  })
+
+  it('409: pedido cancelado é recusado também no cartão', async () => {
+    const { fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'cancelled', payment_status: 'rejected' }),
+    })
+    const response = await createPayment(deps, paymentRequest(), cardBody)
+
+    expect(response.status).toBe(409)
+    expect((await response.json()).code).toBe('order_cancelled')
+    expect(fetchDouble.calls).toHaveLength(0)
+  })
+
+  it('409: pedido com o pagamento já gravado (paid_at) é recusado mesmo com o status de pagamento atrasado, e nada sai daqui', async () => {
+    const { supabase, fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'paid', payment_status: 'pending', paid_at: '2026-11-09T12:00:00Z' }),
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Este pedido já foi pago.',
+      code: 'order_already_paid',
+    })
+    expect(fetchDouble.calls).toHaveLength(0)
+    expect(supabase.updates).toHaveLength(0)
+  })
+
+  it('409: pedido com o pagamento registrado à mão (aprovado) não é cobrado de novo', async () => {
+    const { fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'paid', payment_status: 'approved', paid_at: '2026-11-09T12:00:00Z' }),
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Este pedido já foi pago.',
+      code: 'order_already_paid',
+    })
+    expect(fetchDouble.calls).toHaveLength(0)
+  })
+
+  // O caso real do cancelamento pelo painel: a cobrança fechada leva `payment_status` a `cancelled`
+  // pelo webhook. A recusa ainda diz por quê, com o código.
+  it('409: pedido cancelado com a cobrança já fechada (payment_status=cancelled) responde order_cancelled', async () => {
+    const { supabase, fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'cancelled', payment_status: 'cancelled' }),
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Este pedido foi cancelado e não pode ser pago.',
+      code: 'order_cancelled',
+    })
+    expect(fetchDouble.calls).toHaveLength(0)
+    expect(supabase.updates).toHaveLength(0)
+  })
+
+  // Pedido que a admin levou adiante sem pagamento (combinado com a cliente): ele já está em
+  // Pago, Separando, Enviado ou Entregue, e o endereço de pagamento aberto por um link antigo não
+  // pode emitir cobrança nenhuma — a pergunta é `pedidoAguardaPagamento`, a mesma da tela.
+  it.each([['paid'], ['separating'], ['shipped'], ['delivered']])(
+    '409: pedido em %s sem pagamento é recusado com order_not_awaiting_payment, e nada sai daqui',
+    async (status) => {
+      const { supabase, fetchDouble, deps } = guardEnv({
+        rows: paymentRows({ status, payment_status: 'pending', paid_at: null }),
+      })
+      const response = await createPayment(deps, paymentRequest(), pixBody)
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({
+        error: 'Este pedido não está aguardando pagamento.',
+        code: 'order_not_awaiting_payment',
+      })
+      expect(fetchDouble.calls).toHaveLength(0)
+      expect(supabase.updates).toHaveLength(0)
+    },
+  )
+
+  it('409: pedido em separating com o PIX vencido também é recusado, e nada sai daqui', async () => {
+    const { fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'separating', payment_status: 'expired', paid_at: null }),
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(409)
+    expect((await response.json()).code).toBe('order_not_awaiting_payment')
+    expect(fetchDouble.calls).toHaveLength(0)
+  })
+
+  // O pedido gravado fora da loja (importado, ou escrito direto no banco): o pagamento morreu sem
+  // nenhuma cobrança feita pela loja — nem order nem pagamento do Mercado Pago, nem proposta, nem
+  // cobrança travada. O total gravado nele não é um valor que a loja calculou, e a pergunta é
+  // `pagamentoSemCobrancaDaLoja`, a mesma da tela: a Adri combina o pagamento.
+  it.each([['pix', 'expired'], ['pix', 'rejected'], ['card', 'rejected']])(
+    '409: %s %s num pedido que a loja nunca cobrou é recusado com order_without_store_charge, e nada sai daqui',
+    async (method, payment_status) => {
+      const { supabase, fetchDouble, deps } = guardEnv({
+        rows: paymentRows({ status: 'pending', payment_status, paid_at: null, mp_order_id: null, mp_payment_id: null, total: 10 }),
+      })
+      const response = await createPayment(deps, paymentRequest(), method === 'pix' ? pixBody : cardBody)
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({
+        error: 'O pagamento deste pedido é combinado com a loja.',
+        code: 'order_without_store_charge',
+      })
+      expect(fetchDouble.calls).toHaveLength(0)
+      expect(supabase.updates).toHaveLength(0)
+      expect(supabase.inserts).toHaveLength(0)
+      expect(supabase.deletes).toHaveLength(0)
+    },
+  )
+
+  it('o par: o PIX expirado que a loja cobrou (com a order do Mercado Pago) continua gerando o PIX novo', async () => {
+    const { fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'pending', payment_status: 'expired', paid_at: null, mp_order_id: 'ORDANTIGO' }),
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(200)
+    expect(fetchDouble.calls.filter((c) => c.url.endsWith('/v1/orders'))).toHaveLength(1)
+  })
+
+  it('o par: o PIX expirado com a cobrança travada pelo servidor continua gerando, pelo valor travado', async () => {
+    const { fetchDouble, deps } = guardEnv({
+      rows: {
+        ...paymentRows({ status: 'pending', payment_status: 'expired', paid_at: null, mp_order_id: null }),
+        order_charge_locks: {
+          order_id: ORDER_ID,
+          first_method: 'pix',
+          promotion_id: null,
+          promotion_discount: 0,
+          buy_together_discount: 0,
+          order_bump_discount: 0,
+          pix: { subtotal: 40, discount: 0, pix_discount: 0, shipping: 0, total: 40 },
+          card: { subtotal: 40, discount: 0, pix_discount: 0, shipping: 0, total: 40 },
+          lines: [{ product_id: PRODUCT_ID, variant_id: null, quantity: 2, unit_price: 20, full_unit_price: 20 }],
+        },
+      },
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(200)
+    expect(fetchDouble.calls.filter((c) => c.url.endsWith('/v1/orders'))).toHaveLength(1)
+  })
+
+  it('o par: pedido em pending, sem pagamento, continua gerando o PIX', async () => {
+    const { fetchDouble, deps } = guardEnv({
+      rows: paymentRows({ status: 'pending', payment_status: 'pending', paid_at: null }),
+    })
+    const response = await createPayment(deps, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(200)
+    expect(fetchDouble.calls.filter((c) => c.url.includes('/v1/orders'))).toHaveLength(1)
+  })
 
   it('422: pedido sem itens → "Pedido sem itens" e nada sai daqui', async () => {
     const { supabase, fetchDouble, deps } = guardEnv({
@@ -2300,7 +2473,7 @@ describe('webhook — transições, RPC e duplicidade (WHK-04, LOG-01)', () => {
     expect(supabase.rpcs).toHaveLength(0)
   })
 
-  it('WHK-04: segundo approved de OUTRA order grava duplicate_approved_other_order e NÃO reaplica a RPC', async () => {
+  it('WHK-04: segundo approved de OUTRA order grava duplicate_approved_other_order e passa pela RPC, que marca sem reaplicar', async () => {
     const { req, url } = await notify()
     const supabase = createFakeSupabase({
       rows: {
@@ -2316,13 +2489,82 @@ describe('webhook — transições, RPC e duplicidade (WHK-04, LOG-01)', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ received: true })
-    // Não reaplica efeitos…
-    expect(supabase.rpcs).toHaveLength(0)
-    // …e não regride: só o marcador greppável entra em mp_status_detail.
+    // A aprovação passa pela RPC — é ela, com o pedido travado, que grava o marcador "pago duas vezes"
+    // e não reaplica efeito nenhum (o pedido já tem `paid_at`)…
+    expect(supabase.rpcs).toEqual([
+      {
+        fn: 'apply_payment_approval',
+        args: { p_order_id: ORDER_ID, p_mp_payment_id: MP_PAYMENT_ID, p_status_detail: 'accredited' },
+      },
+    ])
+    // …e o handler não regride nem troca a order gravada: só o marcador greppável entra em
+    // mp_status_detail, mesmo com a RPC respondendo `true`.
     expect(supabase.updates).toHaveLength(1)
     expect(supabase.updates[0].values).toEqual({
       mp_status_detail: `duplicate_approved_other_order: ${MP_ORDER_ID} (accredited)`,
     })
+  })
+
+  // A cobrança fechada no cancelamento vira `payment_status = 'cancelled'` pelo próprio webhook do MP,
+  // e `canTransition` não deixa `cancelled` ir a `approved`. Se um pagamento ainda assim for aprovado,
+  // ele tem de chegar à RPC: é ela que marca "pago depois de cancelado" — sem isso, o dinheiro entra e
+  // o painel não mostra nada.
+  it('aprovação num pedido cancelado chega à RPC (que marca) e não manda e-mail nem compra no GA4', async () => {
+    const { req, url } = await notify()
+    const supabase = createFakeSupabase({
+      rows: { orders: orderRow({ status: 'cancelled', payment_status: 'cancelled' }) },
+      rpc: { data: false },
+    })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
+    let compras = 0
+    const deps: Deps = { ...createDeps(supabase, fetchDouble), sendPurchase: async () => void compras++ }
+
+    const response = await webhook(deps, req, url)
+
+    expect(response.status).toBe(200)
+    expect(supabase.rpcs.map((r) => r.fn)).toEqual(['apply_payment_approval'])
+    expect(compras).toBe(0)
+    expect(fetchDouble.calls.filter((c) => c.url.includes('api.resend.com'))).toHaveLength(0)
+  })
+
+  it('aprovação a mais num pedido já pago (a RPC devolve false) não manda e-mail nem compra no GA4', async () => {
+    const { req, url } = await notify()
+    const supabase = createFakeSupabase({
+      rows: { orders: orderRow({ status: 'paid', payment_status: 'approved', paid_at: '2026-11-09T12:00:00Z' }) },
+      rpc: { data: false },
+    })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
+    let compras = 0
+    const deps: Deps = { ...createDeps(supabase, fetchDouble), sendPurchase: async () => void compras++ }
+
+    await webhook(deps, req, url)
+
+    expect(supabase.rpcs.map((r) => r.fn)).toEqual(['apply_payment_approval'])
+    expect(compras).toBe(0)
+    expect(fetchDouble.calls.filter((c) => c.url.includes('api.resend.com'))).toHaveLength(0)
+  })
+
+  it('segundo approved de OUTRA order não troca o mp_order_id gravado nem dispara efeitos, mesmo com a RPC respondendo true', async () => {
+    const { req, url } = await notify()
+    const supabase = createFakeSupabase({
+      rows: {
+        orders: orderRow({
+          payment_status: 'approved',
+          mp_order_id: 'ORDTST01KAAAAAAAAAAAAAAAAAAAAAA',
+          mp_payment_id: 'PAY01KAAAAAAAAAAAAAAAAAAAAA',
+        }),
+      },
+      rpc: { data: true },
+    })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
+    let compras = 0
+    const deps: Deps = { ...createDeps(supabase, fetchDouble), sendPurchase: async () => void compras++ }
+
+    await webhook(deps, req, url)
+
+    expect(supabase.updates.some((u) => 'mp_order_id' in u.values)).toBe(false)
+    expect(compras).toBe(0)
+    expect(fetchDouble.calls.filter((c) => c.url.includes('api.resend.com'))).toHaveLength(0)
   })
 
   it('WHK-04: webhook duplicado da MESMA order é no-op (RPC devolve false, só o detail é gravado)', async () => {

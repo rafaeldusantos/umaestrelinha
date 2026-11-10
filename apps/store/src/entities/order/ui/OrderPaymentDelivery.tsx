@@ -10,7 +10,7 @@ import { usePickupLocation } from '@/entities/pickup'
 import {
   addressLines,
   limpo,
-  paymentMethodLabel,
+  orderPaymentLabel,
   type OrderDeliveryInput,
 } from '../lib/paymentDelivery'
 
@@ -60,7 +60,7 @@ const OrderPaymentDelivery = ({ order }: OrderPaymentDeliveryProps) => {
       <div className="flex flex-col gap-1">
         <p className="estrelinha-eyebrow text-estrelinha-ink-soft">Pagamento</p>
         <p className="text-[15px] font-medium text-estrelinha-ink">
-          {paymentMethodLabel(order.payment_method)}
+          {orderPaymentLabel(order)}
         </p>
         {aprovadoEm && <p className="text-[13px] text-estrelinha-ink-soft">Aprovado em {aprovadoEm}</p>}
       </div>

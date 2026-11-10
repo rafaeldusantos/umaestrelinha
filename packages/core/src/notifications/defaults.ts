@@ -117,6 +117,17 @@ const EVENTS: Record<NotificationEvent, { email: { enabled: boolean; fields: Ema
     cta_label: CTA_LABEL,
   }),
 
+  // O cancelamento automático: só o job o dispara (o cancelamento pela admin continua com o
+  // e-mail de cima, pela caixa de escolha). Nasce desligado, como todo evento novo.
+  order_cancelled_unpaid: email(false, {
+    subject: 'Pedido {{numero_pedido}} cancelado por falta de pagamento',
+    heading: 'Seu pedido foi cancelado',
+    lead:
+      '{{saudacao}}O pedido {{numero_pedido}} foi cancelado porque o pagamento não foi concluído em 7 dias. Se ainda quiser a peça, fale comigo pelo WhatsApp {{whatsapp_atendimento}} e eu te ajudo a retomar.',
+    extra: ['Status: cancelado por falta de pagamento'],
+    cta_label: CTA_LABEL,
+  }),
+
   payment_refunded: email(false, {
     subject: 'Estorno do pedido {{numero_pedido}}',
     heading: 'O valor foi estornado',

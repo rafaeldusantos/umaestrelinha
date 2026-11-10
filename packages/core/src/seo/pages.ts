@@ -15,6 +15,7 @@ import {
   NON_INDEXABLE_PATHS,
   PRIVACY_POLICY_PATH,
   PROPOSAL_PATH,
+  CARD_LINK_PATH,
   RETURNS_POLICY_PATH,
 } from '../routes/routes.ts'
 import { STORE_BRAND, brandedTitle } from './brand.ts'
@@ -110,6 +111,10 @@ const FIXAS: Readonly<Record<string, Fixa>> = {
   [PROPOSAL_PATH]: {
     titulo: 'Pedido montado',
     descricao: 'O pedido que a Uma Estrelinha montou para você.',
+  },
+  [CARD_LINK_PATH]: {
+    titulo: 'Pagamento com cartão',
+    descricao: 'Pague o seu pedido com cartão na Uma Estrelinha.',
   },
 }
 

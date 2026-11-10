@@ -51,6 +51,15 @@ const CAMINHO_57 = resolve(ROOT, 'supabase/migrations/20260920120000_57-avisos-p
 
 const sql57 = readFileSync(CAMINHO_57, 'utf8')
 
+/**
+ * A migration do cancelamento automático recriou o `check` de `event` de novo, com o
+ * `order_cancelled_unpaid`: desde ela, a VIGENTE é esta. A da 57 continua sendo lida para provar que
+ * deixou de ser — o mesmo movimento que a 57 fez com a 42.
+ */
+const CAMINHO_98 = resolve(ROOT, 'supabase/migrations/20261118120000_98-cancelamento-automatico.sql')
+
+const sql98 = readFileSync(CAMINHO_98, 'utf8')
+
 // -------------------------------------------------------------------------------------------
 // As réguas, como predicados
 // -------------------------------------------------------------------------------------------
@@ -203,15 +212,22 @@ describe('âncoras — a varredura olhou alguma coisa', () => {
   })
 
   it('`NOTIFICATION_EVENTS` tem tamanho de verdade', () => {
-    // 15 na feature 42; 17 desde a 57.
-    expect(NOTIFICATION_EVENTS.length).toBe(17)
+    // 15 na feature 42; 17 desde a 57; 18 desde o cancelamento automático.
+    expect(NOTIFICATION_EVENTS.length).toBe(18)
   })
 })
 
 describe('o `check` de `event` é NOTIFICATION_EVENTS — nos dois sentidos, e na ordem', () => {
   it('a lista do SQL é exatamente a do TypeScript', () => {
-    // Do arquivo da **57**, que e quem recria a constraint por ultimo. Ver `CAMINHO_57`.
-    expect(eventosDoCheck(sql57)).toEqual([...NOTIFICATION_EVENTS])
+    // Do arquivo do **cancelamento automatico**, que e quem recria a constraint por ultimo. Ver `CAMINHO_98`.
+    expect(eventosDoCheck(sql98)).toEqual([...NOTIFICATION_EVENTS])
+  })
+
+  it('e a da 57 NAO e mais a vigente - ela nao conhece o cancelamento por falta de pagamento', () => {
+    const daCinquentaESete = eventosDoCheck(sql57)
+    expect(daCinquentaESete).not.toBeNull()
+    expect(daCinquentaESete).toHaveLength(17)
+    expect(daCinquentaESete).not.toContain('order_cancelled_unpaid')
   })
 
   it('e a da 42 NAO e mais a vigente - senao este guarda mediria o endereco errado', () => {
@@ -224,23 +240,26 @@ describe('o `check` de `event` é NOTIFICATION_EVENTS — nos dois sentidos, e n
     expect(daQuarentaEDois).toHaveLength(15)
   })
 
-  it('a 57 DERRUBA a constraint antes de recria-la - senao o `add` falha no banco existente', () => {
-    const m57 = sql57.toLowerCase()
-    expect(m57).toContain('drop constraint if exists order_notifications_event_check')
-    expect(m57.indexOf('drop constraint if exists order_notifications_event_check')).toBeLessThan(
-      m57.indexOf('add constraint order_notifications_event_check'),
+  it.each([
+    ['57', sql57],
+    ['98', sql98],
+  ])('a %s DERRUBA a constraint antes de recria-la - senao o `add` falha no banco existente', (_n, texto) => {
+    const m = texto.toLowerCase()
+    expect(m).toContain('drop constraint if exists order_notifications_event_check')
+    expect(m.indexOf('drop constraint if exists order_notifications_event_check')).toBeLessThan(
+      m.indexOf('add constraint order_notifications_event_check'),
     )
   })
 
   it('SENSOR: tirar um evento do SQL reprova', () => {
-    const mutado = sql57.replace("\t\t'pix_expired',\n", '')
-    expect(mutado).not.toBe(sql57)
+    const mutado = sql98.replace("\t\t'order_cancelled_unpaid',\n", '')
+    expect(mutado).not.toBe(sql98)
     expect(eventosDoCheck(mutado)).not.toEqual([...NOTIFICATION_EVENTS])
   })
 
   it('SENSOR: um evento a mais no SQL (que `core` não rotula) reprova', () => {
-    const mutado = sql57.replace("\t\t'owner_material_incoming'\n", "\t\t'owner_material_incoming',\n\t\t'order_confirmed'\n")
-    expect(mutado).not.toBe(sql57)
+    const mutado = sql98.replace("\t\t'owner_material_incoming'\n", "\t\t'owner_material_incoming',\n\t\t'order_confirmed'\n")
+    expect(mutado).not.toBe(sql98)
     expect(eventosDoCheck(mutado)).not.toEqual([...NOTIFICATION_EVENTS])
   })
 

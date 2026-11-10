@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
 import { ORDER_STATUS_LABELS } from '@estrelinha/core/orders'
-import { writeMaterialStatus, writeMaterialTracking, writeOrderStatus, writeTrackingCode, type WriteOutcome } from '@estrelinha/core/order-actions'
+import { closeOrderCharge, writeMaterialStatus, writeMaterialTracking, writeOrderStatus, writeTrackingCode, type WriteOutcome } from '@estrelinha/core/order-actions'
 import { notifyOrder } from './notifyOrder'
 
 export const ORDER_STATUSES = ['pending', 'paid', 'separating', 'shipped', 'delivered', 'cancelled'] as const
@@ -148,6 +148,8 @@ export const useAdminOrders = () => {
     const from = orders.find(o => o.id === id)?.status
     const r = await writeOrderStatus({ client: supabase, notify: notifyOrder }, { id, to: status, from, note, ...comEscolha(avisarCliente) })
     if (r.tipo !== 'ok') return falhaDaEscrita(r)
+    // Qualquer cancelamento fecha a cobrança que ficou aberta no Mercado Pago (não lança).
+    if (status === 'cancelled') await closeOrderCharge(supabase, id)
     await fetchOrders()
     await fetchStatusCounts()
     return { error: null, emailSent: r.emailSent }
@@ -163,6 +165,9 @@ export const useAdminOrders = () => {
         to_status: 'cancelled',
         note: `Cancelado: ${reason}`,
       })
+      // O PIX copiado antes ou o cartão em análise deixam de poder ser pagos. Não lança, e a cobrança
+      // que não fecha não desfaz o cancelamento.
+      await closeOrderCharge(supabase, id)
       // Feature 42: o cancelamento deixou de ser mudo. `order_cancelled` nasce DESLIGADO, então até
       // a Adri ligar em `/admin/configuracoes` → Notificações isto é um no-op — e o contido de
       // sempre: falha de aviso não desfaz o cancelamento.

@@ -21,7 +21,10 @@ const ID = '00000000-0000-4000-8000-000000000244'
 const LIDO_EM = '2026-10-23T14:30:00.123456+00:00'
 const RECUSA = { message: 'acesso restrito ao painel', code: '42501' }
 const REDE = { message: 'TypeError: Failed to fetch' }
-const RELACOES = ['order_items', 'order_status_history', 'order_notes', 'order_notifications', 'order_admin_notes'] as const
+const RELACOES = ['order_items', 'order_status_history', 'order_notes', 'order_notifications', 'order_admin_notes', 'order_manual_payments'] as const
+
+/** Um pagamento registrado à mão, o vivo: só as colunas que o app desenha (meio, data, observação). */
+const REGISTRO = { method: 'pix_direto', paid_at: '2026-11-08T15:30:00+00:00', note: 'Pagou pelo PIX da conta pessoal.' }
 
 // Um QueryClient sem padrão nenhum: a regra de repetição tem de vir do PRÓPRIO hook (`retryUnlessDenied`),
 // e é ela que os casos de recusa e de rede medem.
@@ -37,6 +40,7 @@ const tudoBem = () => {
   fake.responderTabela('order_notes', { data: [NOTA], error: null })
   fake.responderTabela('order_notifications', { data: [EMAIL_FALHO], error: null })
   fake.responderTabela('order_admin_notes', { data: null, error: null })
+  fake.responderTabela('order_manual_payments', { data: null, error: null })
 }
 
 beforeEach(() => {
@@ -101,6 +105,7 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
       historico: { estado: 'ok', dado: buildHistory([statusRow()], [EMAIL_FALHO], [NOTA]) },
       avisoDePostagemSaiu: false,
       observacao: { estado: 'ok', dado: null },
+      registroManual: { estado: 'ok', dado: null },
       lido_em: LIDO_EM,
     })
     // Os três fios estão lá — inclusive o e-mail que falhou.
@@ -126,6 +131,36 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
     const { result } = montar()
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.observacao).toEqual({ estado: 'ok', dado: OBSERVACAO })
+  })
+
+  it('o registro manual sai de order_manual_payments, por order_id, só o vivo, com maybeSingle e sem comprovante', async () => {
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fake.cadeiasDe('order_manual_payments')).toEqual([
+      [
+        { metodo: 'select', args: ['method, paid_at, note'] },
+        { metodo: 'eq', args: ['order_id', ID] },
+        { metodo: 'is', args: ['undone_at', null] },
+        { metodo: 'maybeSingle', args: [] },
+      ],
+    ])
+    expect(fake.leiturasDeDado()).not.toContain('order_manual_payment_receipts')
+  })
+
+  it('com registro vivo ⇒ o bloco traz o meio, a data e a observação, como vieram', async () => {
+    fake.responderTabela('order_manual_payments', { data: REGISTRO, error: null })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.registroManual).toEqual({ estado: 'ok', dado: REGISTRO })
+  })
+
+  it('o registro em falha ⇒ só ele em falha; o pedido, os itens e o histórico desenham', async () => {
+    fake.falharTabela('order_manual_payments', REDE)
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.registroManual).toEqual({ estado: 'falhou' })
+    expect(result.current.data?.pedido).toEqual(detalhe())
+    expect(result.current.data?.itens.estado).toBe('ok')
   })
 
   it('a chave é por pedido', () => {

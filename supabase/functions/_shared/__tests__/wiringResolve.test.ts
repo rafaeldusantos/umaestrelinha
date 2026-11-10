@@ -156,7 +156,7 @@ const ENV_APOSENTADA = 'RESEND_FROM'
 const ENVS_DO_REMETENTE = ['RESEND_SENDER_NAME', 'RESEND_SENDER_EMAIL'] as const
 
 /** Os entrypoints que compõem o remetente (os que disparam e-mail). */
-const COMPOEM_REMETENTE = ['send-notification', 'mercado-pago']
+const COMPOEM_REMETENTE = ['send-notification', 'mercado-pago', 'cancel-unpaid-orders']
 
 /** Toda string literal do arquivo — é onde nome de env aparece. */
 function literais(fonte: ts.SourceFile): string[] {

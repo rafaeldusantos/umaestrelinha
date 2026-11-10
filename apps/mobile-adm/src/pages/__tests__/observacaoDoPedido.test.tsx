@@ -38,6 +38,7 @@ const responder = (observacao: RespostaTabela | (() => RespostaTabela) = { data:
   fake.responderTabela('order_notes', { data: [NOTA], error: null })
   fake.responderTabela('order_notifications', { data: [], error: null })
   fake.responderTabela('order_admin_notes', observacao)
+  fake.responderTabela('order_manual_payments', { data: null, error: null })
 }
 
 const abrir = async () => {

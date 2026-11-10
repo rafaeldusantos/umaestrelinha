@@ -163,7 +163,7 @@ export interface DispatchEventOptions {
  */
 const ORDER_COLUMNS = `
   id, order_number, customer_name, customer_email, customer_phone,
-  status, payment_status, paid_at, mp_order_id,
+  status, payment_status, paid_at, mp_order_id, unpaid_cancelled_at,
   tracking_code, shipping_carrier, shipping_service_id, material_status, material_tracking_code,
   subtotal, shipping_cost, discount, pix_discount, total,
   buy_together_discount, promotion_discount, order_bump_discount,

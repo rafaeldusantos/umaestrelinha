@@ -76,15 +76,15 @@ beforeEach(() => {
   })
 })
 
-describe('NotificationsTab (ABN-01) — 17 cards, três seções, ordem preservada', () => {
-  it('renderiza um card por evento — os 17, cada um exatamente uma vez', async () => {
+describe('NotificationsTab (ABN-01) — 18 cards, três seções, ordem preservada', () => {
+  it('renderiza um card por evento — os 18, cada um exatamente uma vez', async () => {
     renderTab()
     await waitFor(() => expect(screen.getByTestId(`event-card-${NOTIFICATION_EVENTS[0]}`)).toBeInTheDocument())
 
     for (const event of NOTIFICATION_EVENTS) {
       expect(screen.getByTestId(`event-card-${event}`)).toBeInTheDocument()
     }
-    expect(screen.getAllByTestId(/^event-card-[a-z_]+$/)).toHaveLength(17)
+    expect(screen.getAllByTestId(/^event-card-[a-z_]+$/)).toHaveLength(18)
   })
 
   it('a ordem do flat de cards é a das TRÊS SEÇÕES, e dentro de cada uma é a de NOTIFICATION_EVENTS', async () => {

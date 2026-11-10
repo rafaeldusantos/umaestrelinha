@@ -27,7 +27,9 @@ const pedido = (extra: Partial<Order> = {}): Order =>
     id: 'order-1', order_number: '0244', customer_name: 'Ana', customer_email: 'ana@x.com',
     status: 'pending', payment_method: 'pix', payment_status: 'approved', subtotal: 400,
     discount: 0, shipping_cost: 12.8, total: 412.8, paid_at: haDias(1),
-    material_status: 'nao_aplicavel', created_at: haDias(1), order_items: [peca()], ...extra,
+    material_status: 'nao_aplicavel', created_at: haDias(1), order_items: [peca()],
+    // Cobrado pela loja: a order do Mercado Pago existe. O pedido sem ela é o gravado fora da loja.
+    mp_order_id: 'ORD01PIX', ...extra,
   }) as Order
 
 const montar = (orders: Order[]) =>

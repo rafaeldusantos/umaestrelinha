@@ -60,7 +60,8 @@ export interface NextStepInput {
 /** RET-16 (feature 63): o rótulo do passo final de um pedido de retirada. */
 export const PICKUP_DONE_ACTION = 'Marcar como retirado'
 
-const PROXIMO: Record<string, string | undefined> = {
+/** O próximo status de cada um — o botão do Próximo passo e o lote "Avançar status" (`bulkMaterial.ts`). */
+export const PROXIMO: Record<string, string | undefined> = {
   pending: 'paid',
   paid: 'separating',
   separating: 'shipped',

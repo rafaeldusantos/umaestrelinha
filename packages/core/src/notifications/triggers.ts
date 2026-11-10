@@ -12,7 +12,7 @@
 import type { NotificationEvent } from './events.ts'
 import type { OrderSnapshot } from './precondition.ts'
 
-/** Os oito gatilhos. Cada um é um FATO sobre o pedido, não uma mensagem. */
+/** Os dez gatilhos. Cada um é um FATO sobre o pedido, não uma mensagem. */
 export const NOTIFICATION_TRIGGERS = [
   'pix_created',
   'payment_approved',
@@ -22,6 +22,13 @@ export const NOTIFICATION_TRIGGERS = [
   'order_status_changed',
   'material_status_changed',
   'material_tracking_set',
+  // O pagamento feito por fora da loja e registrado à mão no painel. É um fato à parte de
+  // `payment_approved` porque o aviso interno "pedido pago" NÃO sai: quem registrou já sabe.
+  'payment_recorded',
+  // O pedido que ficou 7 dias em Pendente sem pagamento e foi cancelado pelo job. É um fato
+  // à parte de `order_status_changed`: o e-mail dele é próprio, e o cancelamento pela admin não o
+  // produz.
+  'order_auto_cancelled',
 ] as const
 
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number]
@@ -57,6 +64,11 @@ export function eventsForTrigger(trigger: NotificationTrigger, order: OrderSnaps
         order.material_status === 'aguardando_material' ? 'material_instructions' : 'order_paid',
         'owner_order_paid',
       ]
+
+    // A mesma bifurcação da aprovação, só com os e-mails da cliente: o aviso interno de pedido pago
+    // não sai para um registro que a própria admin acabou de fazer.
+    case 'payment_recorded':
+      return [order.material_status === 'aguardando_material' ? 'material_instructions' : 'order_paid']
 
     case 'payment_rejected':
       return ['payment_rejected', 'owner_payment_rejected']
@@ -95,5 +107,8 @@ export function eventsForTrigger(trigger: NotificationTrigger, order: OrderSnaps
 
     case 'material_tracking_set':
       return ['material_tracking_registered', 'owner_material_incoming']
+
+    case 'order_auto_cancelled':
+      return ['order_cancelled_unpaid']
   }
 }
