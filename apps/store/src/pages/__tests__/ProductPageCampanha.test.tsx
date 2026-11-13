@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 // A página do produto REAL (com a `ProductInfo` e a barra de compra de verdade) para a peça de
@@ -34,6 +34,7 @@ vi.mock('@/widgets/related-products/ui/RelatedProducts', () => ({ default: () =>
 vi.mock('sonner', () => ({ toast: { custom: vi.fn(), error: vi.fn(), success: vi.fn() } }))
 
 import ProductPage from '../ProductPage'
+import { useCartStore } from '@/entities/cart/model/cartStore'
 import { mapDbToProduct } from '@/entities/product/lib/mapProduct'
 
 const BLACK_FRIDAY = {
@@ -125,5 +126,45 @@ describe('a mesma página fora da vigência', () => {
     expect(screen.getByTestId('galeria').textContent).toBe('Novo')
     expect(screen.queryByTestId('cheio-e-parcelas')).toBeNull()
     expect(within(coluna()).getByText((_, el) => el?.tagName === 'P' && plano(el) === 'ou 6x de R$ 34,98 sem juros')).toBeInTheDocument()
+  })
+})
+
+/**
+ * O toque do celular na barra fixa: a sequência que um dedo produz (touch, pointer, mouse e por fim
+ * o click), disparada no botão da barra da página real. A peça entra na sacola, com campanha e sem.
+ */
+const tocar = (alvo: Element) => {
+  fireEvent.touchStart(alvo)
+  fireEvent.pointerDown(alvo, { pointerType: 'touch' })
+  fireEvent.touchEnd(alvo)
+  fireEvent.pointerUp(alvo, { pointerType: 'touch' })
+  fireEvent.mouseDown(alvo)
+  fireEvent.mouseUp(alvo)
+  fireEvent.click(alvo)
+}
+
+const botaoDaBarra = () =>
+  within(screen.getByTestId('product-buy-bar')).getByRole('button', { name: 'Adicionar à sacola' })
+
+describe('o toque em "Adicionar à sacola" na barra fixa do celular', () => {
+  beforeEach(() => useCartStore.setState({ items: [] }))
+
+  it('a peça de campanha entra na sacola com o preço da campanha', () => {
+    useProductMock.mockReturnValue({ data: peca([{ percent: 20, campaigns: BLACK_FRIDAY }]), isFetching: false })
+    renderPage()
+    tocar(botaoDaBarra())
+    const itens = useCartStore.getState().items
+    expect(itens).toHaveLength(1)
+    expect(itens[0].product.id).toBe('p1')
+    expect(itens[0].unitPrice).toBe(167.92)
+  })
+
+  it('a peça comum entra na sacola com o preço de sempre', () => {
+    useProductMock.mockReturnValue({ data: peca([]), isFetching: false })
+    renderPage()
+    tocar(botaoDaBarra())
+    const itens = useCartStore.getState().items
+    expect(itens).toHaveLength(1)
+    expect(itens[0].unitPrice).toBe(209.9)
   })
 })
