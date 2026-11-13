@@ -1,0 +1,129 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+
+// A página do produto REAL (com a `ProductInfo` e a barra de compra de verdade) para a peça de
+// campanha. Os hooks de dados são dublados; a peça vem do MAPEADOR, como a leitura a entrega.
+
+const { useProductMock } = vi.hoisted(() => ({ useProductMock: vi.fn() }))
+vi.mock('@/entities/product/api/useProduct', () => ({ useProduct: useProductMock }))
+vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: () => ({ data: [] }) }))
+vi.mock('@/entities/product/api/useProductFaqs', () => ({ useProductFaqs: () => ({ data: [] }) }))
+vi.mock('@/entities/product/api/useBuyTogetherData', () => ({
+  useBuyTogetherData: () => ({ status: 'off', addons: [], lists: [], products: [] }),
+}))
+vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
+vi.mock('@/entities/product/ui/ProductGallery', () => ({
+  default: ({ badges }: { badges?: React.ReactNode }) => <div data-testid="galeria">{badges}</div>,
+}))
+vi.mock('@estrelinha/core/hooks/useStoreSettings', async importOriginal => ({
+  ...((await importOriginal()) as object),
+  useSeoSettings: () => ({ title: '', description: '', og_image: '' }),
+  useGeneralSettings: () => ({ whatsapp: '', store_name: 'Uma Estrelinha' }),
+  useShippingSettings: () => ({ free_shipping_enabled: false, free_shipping_threshold: 0 }),
+  usePaymentSettings: () => ({
+    max_installments: 6,
+    min_installment_value: 10,
+    pix_enabled: true,
+    pix_discount_percent: 5,
+  }),
+}))
+vi.mock('@/features/shipping-calc/ui/ShippingCalc', () => ({ default: () => null }))
+vi.mock('@/features/share-product/ui/ShareButtons', () => ({ default: () => null }))
+vi.mock('@/widgets/related-products/ui/RelatedProducts', () => ({ default: () => null }))
+vi.mock('sonner', () => ({ toast: { custom: vi.fn(), error: vi.fn(), success: vi.fn() } }))
+
+import ProductPage from '../ProductPage'
+import { mapDbToProduct } from '@/entities/product/lib/mapProduct'
+
+const BLACK_FRIDAY = {
+  id: 'camp-bf',
+  name: 'Black Friday',
+  badge_text: 'Black Friday',
+  band_color: '#161514',
+  accent_color: '#C2A063',
+  ends_at: '2026-12-01T03:00:00Z',
+}
+
+const peca = (campanhas: unknown[]) =>
+  mapDbToProduct({
+    id: 'p1',
+    name: 'Pingente com cinzas',
+    slug: 'pingente-com-cinzas',
+    base_price: 209.9,
+    original_price: null,
+    images: [{ url: 'capa.webp' }],
+    stock_policy: 'track',
+    stock_total: 10,
+    low_stock_threshold: 5,
+    is_new: true,
+    product_campaigns: campanhas,
+  })
+
+const renderPage = () =>
+  render(
+    <MemoryRouter initialEntries={['/produtos/pingente-com-cinzas']}>
+      <Routes>
+        <Route path="/produtos/:slug" element={<ProductPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+const plano = (el: Element | null) => (el?.textContent ?? '').replace(/\u00a0/g, ' ')
+const coluna = () => screen.getByRole('heading', { level: 1 }).parentElement as HTMLElement
+
+beforeEach(() => useProductMock.mockReset())
+
+describe('a página da peça de campanha, durante a vigência', () => {
+  beforeEach(() => {
+    useProductMock.mockReturnValue({ data: peca([{ percent: 20, campaigns: BLACK_FRIDAY }]), isFetching: false })
+  })
+
+  it('o selo em linha fica ACIMA do nome', () => {
+    renderPage()
+    const selo = within(coluna()).getByRole('img', { name: 'Black Friday, 20% de desconto' })
+    const nome = screen.getByRole('heading', { level: 1, name: 'Pingente com cinzas' })
+    expect(selo).toHaveClass('h-[26px]', 'rounded-[6px]')
+    expect(selo.compareDocumentPosition(nome) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('o preço com desconto e, DEPOIS dele, "De R$ 209,90 · 6x de R$ 27,99 sem juros" na mesma linha', () => {
+    renderPage()
+    const preco = within(coluna()).getByText((_, el) => el?.tagName === 'SPAN' && plano(el) === 'R$ 167,92')
+    const linha = screen.getByTestId('cheio-e-parcelas')
+    // 6x de R$ 27,99 sai do preço com desconto (R$ 167,92 / 6), não do cheio.
+    expect(plano(linha)).toBe('De R$ 209,90 · 6x de R$ 27,99 sem juros')
+    const riscado = linha.querySelector('.line-through')!
+    expect(plano(riscado)).toBe('De R$ 209,90')
+    // O "De " existe só para o leitor de tela.
+    expect(riscado.querySelector('.sr-only')?.textContent).toBe('De ')
+    expect(preco.compareDocumentPosition(linha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Uma linha de parcelas só: a avulsa de hoje não se repete abaixo.
+    expect(within(coluna()).queryByText((_, el) => el?.tagName === 'P' && plano(el).startsWith('ou 6x'))).toBeNull()
+  })
+
+  it('o PIX sai do preço com desconto', () => {
+    renderPage()
+    // 5% de R$ 167,92 = R$ 8,396 ⇒ R$ 8,40 de desconto ⇒ R$ 159,52.
+    expect(within(coluna()).getByText((_, el) => el?.tagName === 'SPAN' && plano(el) === 'R$ 159,52')).toBeInTheDocument()
+  })
+
+  it('a galeria não mostra os selos do canto (desconto e Novo) na peça de campanha', () => {
+    renderPage()
+    expect(screen.getByTestId('galeria').textContent).toBe('')
+  })
+})
+
+describe('a mesma página fora da vigência', () => {
+  it('sem campanha: preço de sempre, sem selo em linha, PIX e parcelas sobre ele', () => {
+    useProductMock.mockReturnValue({ data: peca([]), isFetching: false })
+    renderPage()
+    expect(screen.queryByTestId('selo-em-linha')).toBeNull()
+    expect(within(coluna()).getByText((_, el) => el?.tagName === 'SPAN' && plano(el) === 'R$ 209,90')).toBeInTheDocument()
+    // 5% de R$ 209,90 = R$ 10,495 ⇒ R$ 10,50 ⇒ R$ 199,40.
+    expect(within(coluna()).getByText((_, el) => el?.tagName === 'SPAN' && plano(el) === 'R$ 199,40')).toBeInTheDocument()
+    expect(screen.getByTestId('galeria').textContent).toBe('Novo')
+    expect(screen.queryByTestId('cheio-e-parcelas')).toBeNull()
+    expect(within(coluna()).getByText((_, el) => el?.tagName === 'P' && plano(el) === 'ou 6x de R$ 34,98 sem juros')).toBeInTheDocument()
+  })
+})

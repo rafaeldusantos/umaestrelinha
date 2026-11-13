@@ -144,6 +144,7 @@ describe('PRODUCT_CARD_SELECT — a forma do select', () => {
     expect(colunas.length).toBeGreaterThanOrEqual(20)
     expect(embeds.map(e => e.relacao).sort()).toEqual([
       'categories',
+      'product_campaigns',
       'product_categories',
       'product_filter_values',
       'product_option_filter_values',
@@ -449,5 +450,65 @@ describe('PRODUCT_CARD_SELECT — sensores da régua', () => {
     expect(mapDbToProduct(recortar(comDescricao)).description).toBe(
       '<p>Uma peça feita com o leite que alimentou.</p>',
     )
+  })
+})
+
+describe('campanhas de desconto — a marcação em vigência chega pelos três `select` da vitrine', () => {
+  // A linha completa com a marcação como o banco a tem: com `campaign_id`/`created_at` que o `select`
+  // não pede, e a campanha com colunas a mais (`starts_at`, `active`) que a RLS já filtrou.
+  const COM_CAMPANHA: Record<string, unknown> = {
+    ...LINHA_COMPLETA,
+    base_price: 209.9,
+    original_price: null,
+    product_variants: [],
+    product_campaigns: [
+      {
+        product_id: 'prod-1',
+        campaign_id: 'camp-bf',
+        percent: 20,
+        created_at: '2026-11-01T00:00:00Z',
+        campaigns: {
+          id: 'camp-bf',
+          name: 'Black Friday',
+          badge_text: 'Black Friday',
+          band_color: '#161514',
+          accent_color: '#C2A063',
+          starts_at: '2026-11-27T03:00:00Z',
+          ends_at: '2026-12-01T03:00:00Z',
+          active: true,
+        },
+      },
+    ],
+  }
+
+  it('o embed pede só o percentual e a campanha com as colunas do selo, nunca `*`', () => {
+    for (const select of [PRODUCT_CARD_SELECT, PRODUCT_SELECT]) {
+      const embed = parseSelect(select).embeds.find(e => e.relacao === 'product_campaigns')
+      expect(embed, select).toBeDefined()
+      expect(embed!.colunas).toEqual([
+        'percent',
+        'campaigns(id, name, badge_text, band_color, accent_color, ends_at)',
+      ])
+    }
+  })
+
+  it('a linha recortada chega com o preço efetivo, o cheio e a campanha', () => {
+    for (const select of [PRODUCT_CARD_SELECT, PRODUCT_SELECT, PRODUCT_CARD_SELECT_BY_CATEGORY]) {
+      const p = mapDbToProduct(recortar(select, COM_CAMPANHA))
+      expect(p.price, select).toBe(167.92)
+      expect(p.compare_price, select).toBe(209.9)
+      expect(p.campaign, select).toMatchObject({ badge_text: 'Black Friday', percent: 20, band_color: '#161514' })
+    }
+  })
+
+  it('sensor: sem o embed, a peça chega com o preço de sempre — a régua acima não passa por acaso', () => {
+    const sem = PRODUCT_CARD_SELECT.replace(
+      ', product_campaigns(percent, campaigns(id, name, badge_text, band_color, accent_color, ends_at))',
+      '',
+    )
+    expect(sem).not.toBe(PRODUCT_CARD_SELECT)
+    const p = mapDbToProduct(recortar(sem, COM_CAMPANHA))
+    expect(p.price).toBe(209.9)
+    expect(p.campaign).toBeNull()
   })
 })

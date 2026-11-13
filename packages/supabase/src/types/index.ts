@@ -50,6 +50,7 @@ import type { MenuBanners } from '../../../core/src/menu/banners.ts'
  * importa pacote nenhum), e este pacote só a importa para descrever o campo do `Product`.
  */
 import type { OptionMark } from '../../../core/src/filters/types.ts'
+import type { ProductCampaign } from './campaign'
 
 /**
  * `show_in_menu` e `menu_promo` nasceram na migration `20260803120000_16-store-menu.sql`, e a
@@ -662,6 +663,14 @@ export interface Product {
    * Opcional pela razão de `filter_value_ids`; o mapper da loja sempre devolve um array.
    */
   option_marks?: OptionMark[]
+  /**
+   * Campanhas de desconto — a campanha em vigência desta peça, pelo embed `product_campaigns` dos dois
+   * `select` da loja (filtrado pela RLS por `now()`). Presente só quando ela baixa o preço: aí `price`
+   * e o `price` de cada variação já são o preço com desconto, e `compare_price`, o cheio — então
+   * filtros, ordenação, régua de preço, busca e card leem o preço efetivo sem saber da campanha.
+   * Ausente ou `null`: a peça de sempre.
+   */
+  campaign?: ProductCampaign | null
 }
 
 /** Um vínculo produto↔categoria. `position` é a ordem que o admin arrastou (PST-06 AC 3). */

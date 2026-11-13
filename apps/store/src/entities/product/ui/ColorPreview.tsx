@@ -120,9 +120,14 @@ interface Props {
   product: GridProduct
   selected: OptionValues
   onPick: (thumb: ColorThumb, e: React.MouseEvent) => void
+  /**
+   * A peça tem a faixa da campanha no pé da foto (30 px): a fileira sobe para 40 px do pé no
+   * celular e 42 px a partir de `md`, sem mudar de tamanho nem de quantidade de vagas.
+   */
+  aboveBand?: boolean
 }
 
-const ColorPreview = ({ product, selected, onPick }: Props) => {
+const ColorPreview = ({ product, selected, onPick, aboveBand = false }: Props) => {
   // Uma leitura por faixa, porque a quantidade de vagas é decisão de LARGURA e quem responde por
   // largura é o CSS. Medir com `useIsMobile`/ResizeObserver faria a fileira nascer com o arranjo
   // errado e se corrigir depois da hidratação, na tela mais repetida da loja.
@@ -136,7 +141,7 @@ const ColorPreview = ({ product, selected, onPick }: Props) => {
       aria-label="Cores disponíveis"
       // `hidden @[162px]:flex`: abaixo de 162px de card nem duas miniaturas cabem ao lado do "+",
       // então a fileira não é exibida (`COR-16`).
-      className="absolute bottom-3.5 left-3.5 z-10 hidden items-center gap-1.5 @[162px]:flex"
+      className={`absolute ${aboveBand ? 'bottom-10 md:bottom-[42px]' : 'bottom-3.5'} left-3.5 z-10 hidden items-center gap-1.5 @[162px]:flex`}
     >
       {maior.thumbs.map((thumb, i) => (
         <Miniatura

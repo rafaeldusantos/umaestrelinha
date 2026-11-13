@@ -202,7 +202,12 @@ export const useProductPurchase = (
     sellableGrid,
     price,
     variantLabel: variant ? variantLabel(product.options, variant.option_values) : null,
-    savings: savingsOf(product, price),
+    // Na peça de campanha o "de" é o da LINHA escolhida (o mapeador o calcula por variação); fora
+    // dela, o do produto, como sempre.
+    savings: savingsOf(
+      product.campaign ? { compare_price: variant?.compare_price ?? product.compare_price } : product,
+      price,
+    ),
     stock: stockLineOf(product, variant),
     canAdd,
     add,

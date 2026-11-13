@@ -16,7 +16,8 @@ import { normalizeImages, primaryImage } from '@estrelinha/core/media'
 import { normalizeCategoryLinks, normalizeOptions, normalizeVariants, toStockPolicy } from '@estrelinha/core/product'
 import { toMaterialKinds } from '@estrelinha/core/material'
 import type { OptionMark } from '@estrelinha/core/filters'
-import type { Product } from '@estrelinha/supabase/types'
+import { campaignUnitPrice } from '@estrelinha/core/campaigns'
+import type { Product, ProductCampaign, ProductVariant } from '@estrelinha/supabase/types'
 
 /**
  * Feature 66 — as marcações de filtro do produto, nos dois `select` (o completo e o enxuto).
@@ -39,6 +40,22 @@ export const PRODUCT_FILTER_VALUES_EMBED = 'product_filter_values(value_id)'
 export const PRODUCT_OPTION_MARKS_EMBED = 'product_option_filter_values(option_name, option_value, value_id)'
 
 /**
+ * Campanhas de desconto — a marcação da peça na campanha em vigência, nos dois `select`.
+ *
+ * A RLS de `product_campaigns` e de `campaigns` entrega à loja só a campanha LIGADA com
+ * `starts_at <= now() < ends_at` (relógio do banco) e a marcação de peça ativa. Por isso este
+ * mapeador não olha relógio nenhum: marcação presente com a campanha embutida é campanha valendo.
+ * A agendada, a encerrada e a desligada chegam como lista vazia (ou com a campanha `null`).
+ *
+ * Este arquivo é o ÚNICO da loja que decide o preço da peça de campanha: ele chama
+ * `campaignUnitPrice` (`@estrelinha/core/campaigns`), a mesma função do servidor, e devolve o preço
+ * efetivo em `price` — então filtros, ordenação, régua de preço, busca e card o leem sem saber da
+ * campanha.
+ */
+export const PRODUCT_CAMPAIGNS_EMBED =
+  'product_campaigns(percent, campaigns(id, name, badge_text, band_color, accent_color, ends_at))'
+
+/**
  * O `select` que traz tudo o que este mapper lê. Uma string só, para os 3 hooks não divergirem.
  *
  * **`categories!products_category_id_fkey` não é preciosismo — sem o nome da FK a loja fica vazia.**
@@ -48,7 +65,7 @@ export const PRODUCT_OPTION_MARKS_EMBED = 'product_option_filter_values(option_n
  * a vitrine mostra zero produtos, sem erro visível. Nomear a FK desfaz a ambiguidade.
  */
 export const PRODUCT_SELECT =
-  `*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position, categories(slug, sort_order, active)), ${PRODUCT_FILTER_VALUES_EMBED}, ${PRODUCT_OPTION_MARKS_EMBED}`
+  `*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position, categories(slug, sort_order, active)), ${PRODUCT_FILTER_VALUES_EMBED}, ${PRODUCT_OPTION_MARKS_EMBED}, ${PRODUCT_CAMPAIGNS_EMBED}`
 
 /**
  * O mesmo `select`, mais um embed **aliased** só para filtrar por categoria no servidor.
@@ -140,6 +157,8 @@ export const PRODUCT_CARD_SELECT = [
   PRODUCT_FILTER_VALUES_EMBED,
   // Feature 67 — a marcação por opção, que faz a peça passar pela variação (`matchProduct`).
   PRODUCT_OPTION_MARKS_EMBED,
+  // Campanhas de desconto — o preço efetivo, o selo e a vitrine "Com desconto".
+  PRODUCT_CAMPAIGNS_EMBED,
 ].join(', ')
 
 /**
@@ -183,8 +202,72 @@ const toOptionMarks = (raw: unknown): OptionMark[] =>
       })
     : []
 
+/**
+ * O embed `product_campaigns(...)` → a campanha em vigência com o percentual da peça, ou `null`.
+ * Só há uma campanha ligada por vez (exclusão no banco); a primeira linha com a campanha embutida e
+ * um percentual numérico vale. Linha torta é descartada, nunca página quebrada.
+ */
+type CampaignMark = Omit<ProductCampaign, 'list_prices'>
+
+const toProductCampaign = (raw: unknown): CampaignMark | null => {
+  if (!Array.isArray(raw)) return null
+  for (const r of raw) {
+    if (!r || typeof r !== 'object') continue
+    const { percent, campaigns: c } = r as { percent?: unknown; campaigns?: unknown }
+    if (typeof percent !== 'number' || !Number.isFinite(percent) || percent <= 0) continue
+    if (!c || typeof c !== 'object') continue
+    const camp = c as Record<string, unknown>
+    if (typeof camp.id !== 'string' || typeof camp.badge_text !== 'string') continue
+    return {
+      id: camp.id,
+      name: typeof camp.name === 'string' ? camp.name : '',
+      badge_text: camp.badge_text,
+      band_color: typeof camp.band_color === 'string' ? camp.band_color : '',
+      accent_color: typeof camp.accent_color === 'string' ? camp.accent_color : '',
+      ends_at: typeof camp.ends_at === 'string' ? camp.ends_at : '',
+      percent,
+    }
+  }
+  return null
+}
+
+/**
+ * Aplica a campanha ao produto já mapeado: o preço efetivo e o cheio da peça e de cada variação
+ * (cada uma sobre o PRÓPRIO preço e o próprio "de"), por `campaignUnitPrice`. A peça só fica
+ * marcada (`campaign`) quando a campanha baixa algum preço — senão o selo anunciaria um desconto que
+ * não existe, e a peça segue a de sempre.
+ */
+const withCampaign = (product: Product, campaign: CampaignMark | null): Product => {
+  if (!campaign) return { ...product, campaign: null }
+  const listVariants: ProductCampaign['list_prices']['variants'] = {}
+  for (const v of product.variants) {
+    if (v.price !== null) listVariants[v.id] = { price: v.price, compare_price: v.compare_price }
+  }
+  const list_prices: ProductCampaign['list_prices'] = {
+    price: product.price,
+    compare_price: product.compare_price,
+    variants: listVariants,
+  }
+  const daPeca = campaignUnitPrice(product.price, product.compare_price, campaign.percent)
+  let baixou = daPeca.discounted
+  const variants = product.variants.map((v): ProductVariant => {
+    if (v.price === null) return v
+    const daLinha = campaignUnitPrice(v.price, v.compare_price, campaign.percent)
+    if (!daLinha.discounted) return v
+    baixou = true
+    return { ...v, price: daLinha.charged, compare_price: daLinha.full }
+  })
+  if (!baixou) return { ...product, campaign: null }
+  return {
+    ...product,
+    ...(daPeca.discounted ? { price: daPeca.charged, compare_price: daPeca.full } : {}),
+    variants,
+    campaign: { ...campaign, list_prices },
+  }
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export const mapDbToProduct = (p: any): Product => ({
+const mapRow = (p: any): Product => ({
   id: p.id,
   name: p.name,
   slug: p.slug,
@@ -229,4 +312,7 @@ export const mapDbToProduct = (p: any): Product => ({
   // Feature 67: sempre um array — `[]` quando o embed não veio.
   option_marks: toOptionMarks(p.product_option_filter_values),
 })
+
+export const mapDbToProduct = (p: any): Product =>
+  withCampaign(mapRow(p), toProductCampaign(p.product_campaigns))
 /* eslint-enable @typescript-eslint/no-explicit-any */

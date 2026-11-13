@@ -243,7 +243,8 @@ const ProductPageBody = ({
   }, [product.id])
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
 
-  const galleryBadges = (
+  // Peça de campanha: só o selo em linha (na coluna de informação), nunca os selos do canto da foto.
+  const galleryBadges = product.campaign ? null : (
     <>
       {purchase.savings && (
         <span className="rounded-pill bg-estrelinha-primary px-2.5 py-1 text-[11px] font-bold leading-3 text-white">

@@ -41,3 +41,34 @@ export interface DbCampaignPercentUsage {
   percent: number
   products: number
 }
+
+/**
+ * A campanha EM VIGÊNCIA marcada numa peça, como o mapeador da loja a entrega (`Product.campaign`).
+ *
+ * Só chega à loja a marcação da campanha que a RLS deixa passar (ligada, `starts_at <= now() <
+ * ends_at`, peça ativa): a loja nunca decide a vigência com o relógio do navegador. Presente só
+ * quando a campanha BAIXA o preço da peça; aí `Product.price` já é o preço com desconto e
+ * `Product.compare_price`, o cheio.
+ */
+export interface ProductCampaign {
+  id: string
+  name: string
+  badge_text: string
+  band_color: string
+  accent_color: string
+  /** Exclusivo, como em `campaigns.ends_at`. */
+  ends_at: string
+  /** O percentual marcado nesta peça. */
+  percent: number
+  /**
+   * Os preços de TABELA (os do cadastro, sem a campanha) da peça e de cada variação com preço
+   * próprio, por id. `Product.price` e o `price` das variações já chegam com o desconto; quem
+   * precisa do preço de tabela — o recálculo da sacola, que passa preço cheio + campanha a
+   * `resolveOrderPricing` — lê daqui, nunca aplica a campanha de novo sobre o preço efetivo.
+   */
+  list_prices: {
+    price: number
+    compare_price: number | null
+    variants: Record<string, { price: number; compare_price: number | null }>
+  }
+}
