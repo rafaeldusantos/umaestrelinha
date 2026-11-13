@@ -172,6 +172,85 @@ describe('quando a faixa existe', () => {
   })
 })
 
+/** Volta uma entrada no histórico do roteador — o "voltar" do navegador, sem recarregar. */
+const Voltar = () => {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      voltar
+    </button>
+  )
+}
+
+const montarComVolta = () =>
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route
+          path="*"
+          element={
+            <>
+              <AnnouncementBar />
+              <Navegar />
+              <Voltar />
+            </>
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+const clicar = (nome: string) => fireEvent.click(screen.getByRole('button', { name: nome }))
+
+describe('depois da primeira troca de rota, decide a configuração', () => {
+  it('entrada "0" com a faixa ligada: sem faixa na carga, com os avisos depois de navegar', () => {
+    atributo('0')
+    configurar([texto(1), texto(2)])
+    montarComVolta()
+    expect(faixa()).toBeNull()
+
+    clicar('navegar')
+
+    expect(faixa()).not.toBeNull()
+    expect(faixa()!.textContent).toContain('Destaque 1')
+  })
+
+  it('entrada "1" com a faixa desligada: a vaga na carga, e ela some depois de navegar', () => {
+    atributo('1')
+    configurar([texto(1)], false)
+    montarComVolta()
+    expect(faixa()).not.toBeNull()
+    expect(faixa()!.textContent).toBe('')
+
+    clicar('navegar')
+
+    expect(faixa()).toBeNull()
+  })
+
+  it('voltar pelo histórico à entrada da carga não devolve a decisão ao atributo "0"', () => {
+    atributo('0')
+    configurar([texto(1)])
+    montarComVolta()
+
+    clicar('navegar')
+    clicar('voltar')
+
+    expect(faixa()).not.toBeNull()
+    expect(faixa()!.textContent).toContain('Destaque 1')
+  })
+
+  it('voltar pelo histórico à entrada da carga não devolve a decisão ao atributo "1"', () => {
+    atributo('1')
+    configurar([texto(1)], false)
+    montarComVolta()
+
+    clicar('navegar')
+    clicar('voltar')
+
+    expect(faixa()).toBeNull()
+  })
+})
+
 describe('o giro', () => {
   beforeEach(() => {
     vi.useFakeTimers()
