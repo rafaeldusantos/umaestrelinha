@@ -14,6 +14,8 @@ export interface OrderSummaryItem {
   unit_price: number
   /** O preço cheio da unidade. Nulo nos pedidos de antes: o resumo fica no formato de sempre. */
   full_unit_price?: number | null
+  /** Campanha: o "de" da peça gravado com a campanha da linha. Nulo sem campanha ou sem "de/por". */
+  compare_unit_price?: number | null
   variant_id?: string | null
   engraving_text?: string | null
   /** O produto da linha — é por ele que a peça que acompanha acha o nome do principal. */

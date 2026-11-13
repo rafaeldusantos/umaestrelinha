@@ -31,6 +31,11 @@ export interface OrderSummaryRowInput {
   unit_price: number
   /** O preço cheio da unidade. Nulo nos pedidos de antes. */
   full_unit_price?: number | null
+  /**
+   * Campanha: o "de" da peça que o servidor gravou com a campanha da linha (o `compare_price` da
+   * peça ou da variação). Nulo na linha sem campanha e na peça de campanha sem "de/por".
+   */
+  compare_unit_price?: number | null
   /** Compre Junto: os principais que a peça acompanhava (snapshot validado na gravação). */
   accompanies_product_ids?: readonly string[] | null
 }
@@ -67,7 +72,11 @@ export interface OrderDiscountLine {
 export interface OrderRowPrice {
   /** O valor cobrado da linha (unidade × quantidade). */
   charged: number
-  /** O valor cheio da linha, quando ela teve desconto ("de"); `null` sem desconto. */
+  /**
+   * O valor cheio da linha, quando ela teve desconto ("de"); `null` sem desconto. Na linha de
+   * campanha da peça com "de/por" é o "de" da peça (`compare_unit_price`), o mesmo "De" do checkout
+   * — o Subtotal continua somando o preço de tabela, e a linha da campanha desconta a partir dele.
+   */
   full: number | null
   /**
    * O percentual do Compre Junto da linha ("N% a menos"), quando o desconto dela é o casado; `null`
@@ -162,11 +171,17 @@ export function orderSummary(order: OrderSummaryInput): OrderSummary {
   const candidatesCents = candidates.reduce((s, i) => s + fullCents[i] - chargedCents[i], 0)
   const attributed = new Set(btCents > 0 && candidatesCents === btCents ? candidates : [])
 
+  // O "De" da linha de campanha: o "de" da peça quando ele é maior que o preço de tabela gravado.
+  const shownFullCents = items.map((row, i) => {
+    const compare = cents(Number(row.compare_unit_price) * row.quantity)
+    return compare > fullCents[i] ? compare : fullCents[i]
+  })
+
   const rows: OrderRowPrice[] = items.map((row, i) => {
     const fullUnit = Number(row.full_unit_price)
     return {
       charged: money(chargedCents[i]),
-      full: discounted[i] ? money(fullCents[i]) : null,
+      full: discounted[i] ? money(shownFullCents[i]) : null,
       buyTogetherPercent: attributed.has(i)
         ? Math.round(((fullUnit - Number(row.unit_price)) / fullUnit) * 100)
         : null,

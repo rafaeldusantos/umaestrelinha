@@ -277,3 +277,47 @@ describe('orderSummary — o desconto de campanha tem a linha dele', () => {
     expect(fecha(s)).toBe(cents(s.total))
   })
 })
+
+describe('orderSummary — o "De" da peça de campanha que tem "de/por"', () => {
+  it('"de" R$ 374,00, "por" R$ 349,90, 10%: a linha é "de 374,00 por 336,60", e a conta fecha', () => {
+    const linhas: CartLine[] = [
+      {
+        product_id: 'peca-de-por',
+        unit_price: 349.9,
+        quantity: 2,
+        campaign: { percent: 10, compare_price: 374 },
+      } as CartLine,
+    ]
+    const input: OrderPricingInput = {
+      items: linhas,
+      shipping: 0,
+      pixDiscountPercent: 0,
+      method: 'pix',
+      coupon: null,
+      promotions: [],
+    }
+    const { order, outcome } = pedidoGravado(input, linhas, null)
+    const lines = resolveOrderLines(input, outcome)
+    // O servidor grava, na linha de campanha, o "de" da peça (`compare_unit_price`).
+    const gravado: OrderSummaryInput = {
+      ...order,
+      order_items: order.order_items.map((row) => ({ ...row, compare_unit_price: 374 })),
+      campaign_discount: lines.campaignDiscount,
+    }
+    const s = orderSummary(gravado)
+
+    expect(s.rows[0]).toMatchObject({ charged: 673.2, full: 748 })
+    expect(s.subtotal).toBe(699.8)
+    expect(s.discounts).toEqual([{ key: 'campaign', label: 'Desconto de campanha', amount: 26.6 }])
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+
+  it('"de" menor que o preço de tabela gravado não sobe o "De" — fica o cheio gravado', () => {
+    const s = orderSummary({
+      order_items: [{ quantity: 1, unit_price: 90, full_unit_price: 100, compare_unit_price: 95 }],
+      subtotal: 90,
+      total: 90,
+    })
+    expect(s.rows[0]).toMatchObject({ charged: 90, full: 100 })
+  })
+})
