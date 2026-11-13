@@ -26,6 +26,7 @@ import { useCouponStore } from '@/entities/coupon'
 import { buyTogetherLineFacts, cartLineCampaignPrice } from '@/entities/cart'
 import { CampaignBadgeInline } from '@/entities/campaign'
 import { campaignCouponRefusal } from '@estrelinha/core/coupons'
+import { ORDER_DISCOUNT_LABELS } from '@estrelinha/core/orders'
 import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCheckoutTotals } from '../model/useCheckoutTotals'
@@ -44,6 +45,7 @@ const OrderSummary = ({ variant }: Props) => {
     pixDiscountPercent,
     promotionDiscount,
     buyTogetherDiscount,
+    campaignDiscount,
     buyTogetherLines,
     orderLines,
     buyTogether,
@@ -269,6 +271,21 @@ const OrderSummary = ({ variant }: Props) => {
           {formatPrice(subtotalBeforePromotion)}
         </span>
       </div>
+      {/* O desconto de campanha: a linha e o rótulo do pedido gravado (`orderSummary`), na mesma
+          ordem — o Subtotal acima é o de tabela, e esta linha desconta a diferença. */}
+      {campaignDiscount > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[15px] leading-[18px] text-estrelinha-ink-soft">
+            {ORDER_DISCOUNT_LABELS.campaign}
+          </span>
+          <span
+            data-testid="summary-campaign"
+            className="shrink-0 text-[15px] font-medium leading-[18px] text-estrelinha-ink"
+          >
+            −{formatPrice(campaignDiscount)}
+          </span>
+        </div>
+      )}
       {/* O desconto do Compre Junto: mesma linha da gaveta, mesmo valor (`AD-073`). */}
       {buyTogetherDiscount > 0 && (
         <div className="flex items-center justify-between gap-3">

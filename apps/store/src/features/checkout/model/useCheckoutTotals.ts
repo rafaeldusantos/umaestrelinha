@@ -95,6 +95,12 @@ export interface CheckoutTotals {
    * o cobrado de cada uma, com a linha mista partida em duas. `index` aponta para `pricingItems`.
    */
   orderLines: ChargedLine[]
+  /**
+   * O desconto de campanha (tabela − preço da campanha), já embutido em `totals.subtotal`. Zero sem
+   * peça de campanha. É o mesmo `campaignDiscount` que o servidor grava em `orders.campaign_discount`,
+   * e o resumo o mostra na linha "Desconto de campanha", como o pedido (`orderSummary`).
+   */
+  campaignDiscount: number
   /** O desconto da oferta do checkout, já embutido em `totals.subtotal`. Vai ao pedido como teto. */
   orderBumpDiscount: number
   /**
@@ -273,16 +279,21 @@ export function useCheckoutTotals(): CheckoutTotals {
       bumpProduct,
       cartSubtotal,
       // Reconstituído do outcome, não somado do carrinho: `totals.subtotal` já inclui o bump, e o
-      // carrinho não o conhece. Somar `promotionDiscount` (e o desconto do Compre Junto) de volta é a
-      // única conta que devolve exatamente o subtotal cheio, com o bump preservado — o "Subtotal" do
-      // resumo é o cheio, com cada desconto na linha própria logo abaixo.
+      // carrinho não o conhece. Somar `promotionDiscount`, o desconto do Compre Junto e o da campanha
+      // de volta é a única conta que devolve exatamente o subtotal cheio (o de TABELA), com o bump
+      // preservado — o "Subtotal" do resumo é o cheio, com cada desconto na linha própria logo abaixo,
+      // a mesma forma do pedido gravado.
       subtotalBeforePromotion: round2(
-        outcome.totals.subtotal + outcome.promotionDiscount + (outcome.buyTogetherDiscount ?? 0),
+        outcome.totals.subtotal +
+          outcome.promotionDiscount +
+          (outcome.buyTogetherDiscount ?? 0) +
+          (outcome.campaignDiscount ?? 0),
       ),
       couponDiscount: outcome.totals.couponDiscount,
       shippingCost: outcome.totals.shipping,
       promotionDiscount: outcome.promotionDiscount,
       buyTogetherDiscount: outcome.buyTogetherDiscount ?? 0,
+      campaignDiscount: outcome.campaignDiscount ?? 0,
       buyTogetherLines: outcome.buyTogetherLines ?? [],
       buyTogether,
       orderLines,
