@@ -8,8 +8,8 @@ import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '@estrelinha/ui/lib/utils'
 import {
   apoioDoAviso,
-  campoDaRecusa,
-  recusaDoAviso,
+  recusasDoAviso,
+  recusasPorCampo,
   tituloDoAviso,
   type AvisoRascunho,
 } from '../model/rascunho'
@@ -38,8 +38,8 @@ const AnnouncementList = ({ avisos, abertoId, recados, enviando, onToggle, onMov
       {avisos.map((aviso, indice) => {
         const n = indice + 1
         const aberto = aviso.id === abertoId
-        const recusa = recusaDoAviso(aviso, indice)
-        const campo = campoDaRecusa(aviso, recusa)
+        const recusas = recusasDoAviso(aviso, indice)
+        const recusa = recusas.length > 0
         return (
           <li
             key={aviso.id}
@@ -92,9 +92,11 @@ const AnnouncementList = ({ avisos, abertoId, recados, enviando, onToggle, onMov
             </div>
 
             {!aberto && recusa && (
-              <p data-testid={`recusa-recolhida-${indice}`} className="mt-1 pl-7 text-xs font-medium text-destructive">
-                {recusa}
-              </p>
+              <div data-testid={`recusa-recolhida-${indice}`} className="mt-1 space-y-0.5 pl-7 text-xs font-medium text-destructive">
+                {recusas.map(motivo => (
+                  <p key={motivo}>{motivo}</p>
+                ))}
+              </div>
             )}
 
             {aberto && (
@@ -102,8 +104,7 @@ const AnnouncementList = ({ avisos, abertoId, recados, enviando, onToggle, onMov
                 <AnnouncementFields
                   aviso={aviso}
                   indice={indice}
-                  recusa={recusa}
-                  campoRecusado={campo}
+                  recusas={recusasPorCampo(aviso, recusas)}
                   recados={recados[aviso.id] ?? {}}
                   enviando={enviando[aviso.id] ?? {}}
                   onChange={patch => onChange(aviso.id, patch)}

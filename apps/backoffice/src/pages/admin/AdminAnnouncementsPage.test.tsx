@@ -393,6 +393,31 @@ describe('o envio da arte', () => {
     })
   })
 
+  it('com só a arte do computador, a tela cobra a arte do celular e a descrição ao mesmo tempo', async () => {
+    motor.upload.mockResolvedValueOnce('https://cdn.test/home-images/announcements/d.webp')
+    montar()
+    await pronto()
+    adicionar()
+    fireEvent.click(screen.getByRole('radio', { name: 'Imagem' }))
+
+    fireEvent.change(campo('Enviar arte · 1440 × 48'), { target: { files: [arquivo()] } })
+    await waitFor(() => expect(screen.getByTestId('miniatura-imageDesktop-0')).toBeInTheDocument())
+
+    expect(screen.queryByTestId('recusa-imageDesktop-0')).toBeNull()
+    expect(screen.getByTestId('recusa-imageMobile-0').textContent).toBe('1º aviso: envie a arte do celular.')
+    expect(screen.getByTestId('recusa-alt-0').textContent).toBe(
+      '1º aviso: Descreva a arte: é o que o leitor de tela e o Google leem.',
+    )
+    expect(screen.getByText('Corrija o que está marcado para salvar.')).toBeInTheDocument()
+    expect(salvar()).toBeDisabled()
+
+    // Recolhido, o cabeçalho também diz as duas pendências.
+    fireEvent.click(screen.getByTestId('resumo-aviso-0'))
+    const recolhida = screen.getByTestId('recusa-recolhida-0').textContent
+    expect(recolhida).toContain('1º aviso: envie a arte do celular.')
+    expect(recolhida).toContain('1º aviso: Descreva a arte: é o que o leitor de tela e o Google leem.')
+  })
+
   it('a falha de envio mostra a mensagem no campo', async () => {
     motor.upload.mockResolvedValueOnce(null)
     montar()

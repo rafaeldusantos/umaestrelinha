@@ -1,7 +1,7 @@
 // O corpo de um aviso aberto: o tipo e os campos do tipo escolhido.
 //
-// A recusa vem de `core` (`announcementRefusal`), já com o prefixo "Nº aviso: ", e aparece no campo a
-// que ela se refere — o lugar é escolhido por `campoDaRecusa`, a frase nunca é escrita aqui.
+// As recusas vêm de `core` (`announcementRefusals`), já com o prefixo "Nº aviso: ", e cada uma aparece
+// no campo a que se refere — o lugar é escolhido por `recusasPorCampo`, a frase nunca é escrita aqui.
 
 import { ImagePlus, Loader2 } from 'lucide-react'
 import {
@@ -19,8 +19,8 @@ export type CampoDeArte = 'imageDesktop' | 'imageMobile'
 interface Props {
   aviso: AvisoRascunho
   indice: number
-  recusa: string | null
-  campoRecusado: CampoDoAviso | null
+  /** A recusa de `core` de cada campo recusado; todas aparecem juntas. */
+  recusas: Partial<Record<CampoDoAviso, string>>
   /** A mensagem de falha do envio, por vaga. */
   recados: Partial<Record<CampoDeArte, string>>
   enviando: Partial<Record<CampoDeArte, boolean>>
@@ -33,14 +33,15 @@ const VAGAS: { campo: CampoDeArte; slot: { width: number; height: number }; disp
   { campo: 'imageMobile', slot: ANNOUNCEMENT_ART_SLOTS.mobile, dispositivo: 'celular' },
 ]
 
-const AnnouncementFields = ({ aviso, indice, recusa, campoRecusado, recados, enviando, onChange, onUpload }: Props) => {
+const AnnouncementFields = ({ aviso, indice, recusas, recados, enviando, onChange, onUpload }: Props) => {
   const id = (campo: string) => `aviso-${indice}-${campo}`
   const recusaEm = (campo: CampoDoAviso) =>
-    campoRecusado === campo && recusa ? (
+    recusas[campo] ? (
       <p data-testid={`recusa-${campo}-${indice}`} role="alert" className="text-xs font-medium text-destructive">
-        {recusa}
+        {recusas[campo]}
       </p>
     ) : null
+  const recusado = (campo: CampoDoAviso) => (recusas[campo] ? true : undefined)
 
   const destino = (
     <FieldGroup label="Destino" htmlFor={id('href')} hint="Sem destino, o aviso é só texto.">
@@ -48,7 +49,7 @@ const AnnouncementFields = ({ aviso, indice, recusa, campoRecusado, recados, env
         id={id('href')}
         value={aviso.href}
         placeholder="/ofertas"
-        aria-invalid={campoRecusado === 'href' || undefined}
+        aria-invalid={recusado('href')}
         onChange={e => onChange({ href: e.target.value })}
       />
       {recusaEm('href')}
@@ -96,7 +97,7 @@ const AnnouncementFields = ({ aviso, indice, recusa, campoRecusado, recados, env
             <Input
               id={id('highlight')}
               value={aviso.highlight}
-              aria-invalid={campoRecusado === 'highlight' || undefined}
+              aria-invalid={recusado('highlight')}
               onChange={e => onChange({ highlight: e.target.value })}
             />
             {recusaEm('highlight')}
@@ -109,7 +110,7 @@ const AnnouncementFields = ({ aviso, indice, recusa, campoRecusado, recados, env
             <Input
               id={id('text')}
               value={aviso.text}
-              aria-invalid={campoRecusado === 'text' || undefined}
+              aria-invalid={recusado('text')}
               onChange={e => onChange({ text: e.target.value })}
             />
             {recusaEm('text')}
@@ -123,7 +124,7 @@ const AnnouncementFields = ({ aviso, indice, recusa, campoRecusado, recados, env
               id={id('linkLabel')}
               value={aviso.linkLabel}
               placeholder="Ver ofertas"
-              aria-invalid={campoRecusado === 'linkLabel' || undefined}
+              aria-invalid={recusado('linkLabel')}
               onChange={e => onChange({ linkLabel: e.target.value })}
             />
             {recusaEm('linkLabel')}
@@ -182,7 +183,7 @@ const AnnouncementFields = ({ aviso, indice, recusa, campoRecusado, recados, env
             <Input
               id={id('alt')}
               value={aviso.alt}
-              aria-invalid={campoRecusado === 'alt' || undefined}
+              aria-invalid={recusado('alt')}
               onChange={e => onChange({ alt: e.target.value })}
             />
             {recusaEm('alt')}

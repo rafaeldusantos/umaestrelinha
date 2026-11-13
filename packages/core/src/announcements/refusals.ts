@@ -19,22 +19,22 @@ import {
 const aparado = (valor: unknown): string => (typeof valor === 'string' ? valor.trim() : '')
 
 /**
- * Por que este aviso não pode ser salvo — ou `null` quando pode. `index` começa em zero.
- *
- * Devolve `string | null`, e não união discriminada por booleano: com `strictNullChecks: false` essa
- * união não estreita, e ler o motivo no ramo do `else` seria TS2339.
+ * Todos os motivos por que este aviso não pode ser salvo, na ordem da tela — lista vazia quando pode.
+ * `index` começa em zero.
  *
  * A ordem das cobranças é a da tela: primeiro o que falta, depois o que passa do teto, o destino por
  * último. Texto: o trecho em destaque ou o texto (um dos dois basta); o rótulo só com destino; os
- * tetos por campo; o teto do conjunto. Imagem: as duas artes e a descrição. Destino vazio vale nos
- * dois — o aviso vira texto sem link; o preenchido passa pela régua do Banner principal.
+ * tetos por campo; o teto do conjunto — e só o primeiro que falha. Imagem: cada uma das duas artes e
+ * a descrição que faltam, juntas, para a dona corrigir tudo numa volta. Destino vazio vale nos dois —
+ * o aviso vira texto sem link; o preenchido passa pela régua do Banner principal, e só é cobrado
+ * quando nada mais falta.
  */
-export const announcementRefusal = (
+export const announcementRefusals = (
   item: Announcement | null | undefined,
   index: number,
-): string | null => {
+): string[] => {
   const numero = `${ordinal(index + 1)} aviso`
-  if (!item || typeof item !== 'object') return `${numero}: escolha o tipo — texto ou imagem.`
+  if (!item || typeof item !== 'object') return [`${numero}: escolha o tipo — texto ou imagem.`]
 
   const href = aparado(item.href)
 
@@ -44,44 +44,52 @@ export const announcementRefusal = (
     const rotulo = aparado(item.linkLabel)
 
     if (destaque === '' && texto === '') {
-      return `${numero}: escreva o trecho em destaque ou o texto. Um aviso vazio não aparece na loja.`
+      return [`${numero}: escreva o trecho em destaque ou o texto. Um aviso vazio não aparece na loja.`]
     }
     if (rotulo !== '' && href === '') {
-      return `${numero}: Sem destino, o rótulo do link não aparece.`
+      return [`${numero}: Sem destino, o rótulo do link não aparece.`]
     }
     if (destaque.length > ANNOUNCEMENT_HIGHLIGHT_MAX) {
-      return `${numero}: o trecho em destaque passa de ${ANNOUNCEMENT_HIGHLIGHT_MAX} caracteres.`
+      return [`${numero}: o trecho em destaque passa de ${ANNOUNCEMENT_HIGHLIGHT_MAX} caracteres.`]
     }
     if (texto.length > ANNOUNCEMENT_TEXT_MAX) {
-      return `${numero}: o texto passa de ${ANNOUNCEMENT_TEXT_MAX} caracteres.`
+      return [`${numero}: o texto passa de ${ANNOUNCEMENT_TEXT_MAX} caracteres.`]
     }
     if (rotulo.length > ANNOUNCEMENT_LINK_LABEL_MAX) {
-      return `${numero}: o rótulo do link passa de ${ANNOUNCEMENT_LINK_LABEL_MAX} caracteres.`
+      return [`${numero}: o rótulo do link passa de ${ANNOUNCEMENT_LINK_LABEL_MAX} caracteres.`]
     }
     if (destaque.length + texto.length + rotulo.length > ANNOUNCEMENT_COMBINED_MAX) {
-      return (
+      return [
         `${numero}: juntos, o trecho em destaque, o texto e o rótulo do link passam de ` +
-        `${ANNOUNCEMENT_COMBINED_MAX} caracteres — no celular, o aviso não cabe em duas linhas.`
-      )
+          `${ANNOUNCEMENT_COMBINED_MAX} caracteres — no celular, o aviso não cabe em duas linhas.`,
+      ]
     }
   } else if (item.kind === 'image') {
-    if (aparado(item.imageDesktop) === '') {
-      return `${numero}: envie a arte do computador.`
-    }
-    if (aparado(item.imageMobile) === '') {
-      return `${numero}: envie a arte do celular.`
-    }
-    if (aparado(item.alt) === '') {
-      return `${numero}: Descreva a arte: é o que o leitor de tela e o Google leem.`
-    }
+    const faltam: string[] = []
+    if (aparado(item.imageDesktop) === '') faltam.push(`${numero}: envie a arte do computador.`)
+    if (aparado(item.imageMobile) === '') faltam.push(`${numero}: envie a arte do celular.`)
+    if (aparado(item.alt) === '') faltam.push(`${numero}: Descreva a arte: é o que o leitor de tela e o Google leem.`)
+    if (faltam.length > 0) return faltam
   } else {
-    return `${numero}: escolha o tipo — texto ou imagem.`
+    return [`${numero}: escolha o tipo — texto ou imagem.`]
   }
 
-  if (href === '') return null
+  if (href === '') return []
   const destino = ctaHrefRefusal(href)
-  return destino ? `${numero}: ${destino}` : null
+  return destino ? [`${numero}: ${destino}`] : []
 }
+
+/**
+ * Por que este aviso não pode ser salvo — ou `null` quando pode: o primeiro de `announcementRefusals`.
+ * `index` começa em zero.
+ *
+ * Devolve `string | null`, e não união discriminada por booleano: com `strictNullChecks: false` essa
+ * união não estreita, e ler o motivo no ramo do `else` seria TS2339.
+ */
+export const announcementRefusal = (
+  item: Announcement | null | undefined,
+  index: number,
+): string | null => announcementRefusals(item, index)[0] ?? null
 
 /** Por que esta faixa não pode ser salva — ou `null` quando pode. Lista vazia vale: a faixa some. */
 export const announcementsRefusal = (

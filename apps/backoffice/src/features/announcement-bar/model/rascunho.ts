@@ -4,14 +4,16 @@
 // não pode apagar o que a dona já escreveu. O que se grava (e o que vai à prévia) é só o do tipo
 // escolhido — `paraGravar` monta o aviso de `core` campo a campo, e nada do outro tipo atravessa.
 //
-// Quem diz se um aviso pode ser salvo é `announcementRefusal` (`core/announcements`). Este arquivo só
-// decide EM QUE CAMPO a frase de `core` aparece; a frase, a ordem das cobranças e os tetos são de lá.
+// Quem diz se um aviso pode ser salvo, e por quê, é `core/announcements` (`announcementRefusals`). Este
+// arquivo só decide EM QUE CAMPO cada frase de `core` aparece; as frases, a ordem das cobranças e os
+// tetos são de lá.
 
 import {
   ANNOUNCEMENT_HIGHLIGHT_MAX,
   ANNOUNCEMENT_LINK_LABEL_MAX,
   ANNOUNCEMENT_TEXT_MAX,
   announcementRefusal,
+  announcementRefusals,
   type Announcement,
   type AnnouncementKind,
   type AnnouncementSettings,
@@ -89,6 +91,32 @@ export const paraGravar = (faixa: FaixaRascunho): AnnouncementSettings => ({
 /** A recusa deste aviso, na frase de `core` — ou `null`. */
 export const recusaDoAviso = (r: AvisoRascunho, indice: number): string | null =>
   announcementRefusal(paraAviso(r), indice)
+
+/** Todas as recusas deste aviso, nas frases de `core`, na ordem da tela — vazia quando pode ser salvo. */
+export const recusasDoAviso = (r: AvisoRascunho, indice: number): string[] =>
+  announcementRefusals(paraAviso(r), indice)
+
+/** As vagas do aviso de imagem, na ordem em que `core` cobra o que falta nelas. */
+const CAMPOS_DA_IMAGEM = ['imageDesktop', 'imageMobile', 'alt'] as const
+
+/**
+ * Cada recusa no seu campo. No aviso de imagem `core` cobra juntas as vagas que faltam, uma frase por
+ * vaga vazia e na ordem de `CAMPOS_DA_IMAGEM`; aqui elas só são casadas com as vagas, em ordem. O
+ * destino continua sendo reconhecido pela frase da régua do Banner principal.
+ */
+export const recusasPorCampo = (
+  r: AvisoRascunho,
+  motivos: readonly string[],
+): Partial<Record<CampoDoAviso, string>> => {
+  const porCampo: Partial<Record<CampoDoAviso, string>> = {}
+  const vazias: CampoDoAviso[] = r.kind === 'image' ? CAMPOS_DA_IMAGEM.filter(c => r[c].trim() === '') : []
+  for (const motivo of motivos) {
+    const campo = campoDaRecusa(r, motivo)
+    const lugar = r.kind === 'image' && campo !== 'href' ? vazias.shift() ?? campo : campo
+    if (lugar && porCampo[lugar] === undefined) porCampo[lugar] = motivo
+  }
+  return porCampo
+}
 
 /**
  * Em que campo a recusa aparece. A frase é de `core`; aqui só se escolhe o lugar dela na tela, pela

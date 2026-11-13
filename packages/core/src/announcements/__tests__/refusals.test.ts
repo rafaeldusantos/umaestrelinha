@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   announcementRefusal,
+  announcementRefusals,
   announcementsRefusal,
   type Announcement,
   type ImageAnnouncement,
@@ -113,6 +114,49 @@ describe('um aviso de imagem', () => {
     expect(announcementRefusal(imagem({ alt: '' }), 0)).toBe(
       '1º aviso: Descreva a arte: é o que o leitor de tela e o Google leem.',
     )
+  })
+})
+
+describe('todos os motivos de um aviso de imagem, juntos', () => {
+  it('só com a arte do computador e o alternativo vazio, cobra a arte do celular e a descrição', () => {
+    expect(announcementRefusals(imagem({ imageMobile: '', alt: '' }), 3)).toEqual([
+      '4º aviso: envie a arte do celular.',
+      '4º aviso: Descreva a arte: é o que o leitor de tela e o Google leem.',
+    ])
+  })
+
+  it('sem nenhuma das duas artes e sem descrição, cobra as três, na ordem da tela', () => {
+    expect(announcementRefusals(imagem({ imageDesktop: '', imageMobile: '', alt: '' }), 0)).toEqual([
+      '1º aviso: envie a arte do computador.',
+      '1º aviso: envie a arte do celular.',
+      '1º aviso: Descreva a arte: é o que o leitor de tela e o Google leem.',
+    ])
+  })
+
+  it('com as duas artes e o alternativo só com espaços, cobra só a descrição', () => {
+    expect(announcementRefusals(imagem({ alt: '   ' }), 0)).toEqual([
+      '1º aviso: Descreva a arte: é o que o leitor de tela e o Google leem.',
+    ])
+  })
+
+  it('completo, nenhum motivo', () => {
+    expect(announcementRefusals(imagem(), 0)).toEqual([])
+    expect(announcementRefusals(imagem({ href: '/inverno' }), 0)).toEqual([])
+  })
+
+  it('o primeiro motivo da lista é o que a recusa de um motivo só devolve', () => {
+    const incompleto = imagem({ imageMobile: '', alt: '' })
+    expect(announcementRefusal(incompleto, 0)).toBe('1º aviso: envie a arte do celular.')
+    expect(announcementsRefusal({ enabled: true, items: [incompleto] })).toBe('1º aviso: envie a arte do celular.')
+  })
+})
+
+describe('todos os motivos de um aviso de texto', () => {
+  it('continua com um motivo só, o primeiro que falha', () => {
+    expect(announcementRefusals(texto({ highlight: '', text: '', linkLabel: 'Ver', href: 'https://x.com' }), 0)).toEqual([
+      '1º aviso: escreva o trecho em destaque ou o texto. Um aviso vazio não aparece na loja.',
+    ])
+    expect(announcementRefusals(texto(), 0)).toEqual([])
   })
 })
 
