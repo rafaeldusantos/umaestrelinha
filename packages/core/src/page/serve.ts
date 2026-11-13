@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------------------------------------
 // UMA FUNÇÃO PARA TODO CAMINHO
 // ---------------------------------------------------------------------------------------------
-// A função `api/page` da Vercel recebe todo caminho que não é arquivo estático nem a Home, e a
-// decisão inteira mora aqui, pura: `classifyPath` diz o que o caminho É, e esta função lê o que
+// A função `api/page` da Vercel recebe todo caminho que não é arquivo estático — a Home inclusive —,
+// e a decisão inteira mora aqui, pura: `classifyPath` diz o que o caminho É, e esta função lê o que
 // precisa (pelas `deps`, injetadas) e monta `{ status, headers, body }` — sem `Response`, para ser
 // testável sem runtime nenhum. A função da Vercel é só env, leitura e o shell.
 //
@@ -19,6 +19,15 @@
 // Toda leitura que falha devolve o shell intacto com **200** e `no-store` (SSV-06, SSV-13): a SPA
 // resolve sozinha, e nada é cacheado. Um 404 por banco fora do ar tiraria do Google uma página que
 // existe; um 5xx deixaria a cliente sem loja. Só o "não existe" COMPROVADO vira 404.
+//
+// ---------------------------------------------------------------------------------------------
+// A FAIXA DE AVISOS NO <html>
+// ---------------------------------------------------------------------------------------------
+// Toda resposta HTML leva o veredito "a faixa existe?" na tag `<html>` (`markAnnouncementBar`), e a
+// loja reserva a altura desde a primeira pintura. A configuração é lida UMA vez por resposta, em
+// todo ramo e em paralelo com as leituras dele. Leitura que falha ⇒ o atributo ausente ("não sei"),
+// o status de sempre e `no-store`: um "não existe" cacheado por uma hora esconderia a faixa ligada.
+// O 301 não é HTML e não muda.
 //
 // Imports por ARQUIVO e com extensão explícita: a função empacota este módulo fora do Vite.
 
@@ -48,7 +57,14 @@ import {
 import { productPath } from '../routes/routes.ts'
 import { resolveCategoryRoute, type CategoryRouteNode } from './categoryRoute.ts'
 import { classifyPath } from './classify.ts'
-import { applyHead, imagePreloadLink, jsonLdScript, shellDescription, type ServedHead } from './head.ts'
+import {
+  applyHead,
+  imagePreloadLink,
+  jsonLdScript,
+  markAnnouncementBar,
+  shellDescription,
+  type ServedHead,
+} from './head.ts'
 import { OG_IMAGE_WIDTH, productPageImages } from './images.ts'
 
 /** O produto como a página o lê. A forma é a da `product-page` (features 62 e 68). */
@@ -69,12 +85,17 @@ export interface PageCategory extends CategoryRouteNode {
   image_url?: string | null
 }
 
-/** `store_settings` que a página do produto lê. Ausente ⇒ `null`, e a página sai assim mesmo. */
+/** `store_settings` que a página lê. Ausente ⇒ `null`, e a página sai assim mesmo. */
 export interface PageSettings {
   /** `google_shopping.default_product_category`. */
   defaultProductCategory: string | null
   /** `seo.description` — o recuo da descrição do produto (A16). `null` ⇒ a do shell. */
   storeDescription: string | null
+  /**
+   * A faixa de avisos existe? (`announcementBarExists` de `core/announcements`). `null` =
+   * não sei — a leitura falhou —, e a página sai sem o atributo e sem cache.
+   */
+  announcementBar: boolean | null
 }
 
 export interface PageDeps {
@@ -169,22 +190,48 @@ const falha = (deps: PageDeps, path: string, erro: string, e: unknown): ServedRe
  */
 export const servePage = async (deps: PageDeps, url: URL): Promise<ServedResponse> => {
   const path = url.pathname
+  // Começa antes do ramo, para correr em paralelo com as leituras dele. Nunca rejeita.
+  const configuracoes = lerConfiguracoes(deps, path)
+  let resposta: ServedResponse
   try {
-    const tipo = classifyPath(path)
-    switch (tipo.kind) {
-      case 'product':
-        return await servirProduto(deps, url, tipo.slug)
-      case 'category':
-        return await servirCategoria(deps, path, tipo.slug, tipo.parentSlug)
-      case 'static':
-        return servirFixa(deps, tipo.path)
-      case 'app':
-        return html(deps.shell, 200, PAGE_CACHE.fixed)
-      default:
-        return naoEncontrada(deps.shell)
-    }
+    resposta = await servirRamo(deps, url, configuracoes)
   } catch (e) {
-    return falha(deps, path, 'inesperado', e)
+    resposta = falha(deps, path, 'inesperado', e)
+  }
+  return marcarFaixa(resposta, (await configuracoes).announcementBar)
+}
+
+const servirRamo = async (
+  deps: PageDeps,
+  url: URL,
+  configuracoes: Promise<PageSettings>,
+): Promise<ServedResponse> => {
+  const path = url.pathname
+  const tipo = classifyPath(path)
+  switch (tipo.kind) {
+    case 'product':
+      return await servirProduto(deps, url, tipo.slug, configuracoes)
+    case 'category':
+      return await servirCategoria(deps, path, tipo.slug, tipo.parentSlug)
+    case 'static':
+      return servirFixa(deps, tipo.path)
+    case 'app':
+      return html(deps.shell, 200, PAGE_CACHE.fixed)
+    default:
+      return naoEncontrada(deps.shell)
+  }
+}
+
+/**
+ * O veredito da faixa na tag `<html>` de toda resposta HTML. `null` (a configuração não respondeu)
+ * ⇒ sem atributo e `no-store`, com o status de sempre. Redirect não tem corpo e passa intacto.
+ */
+const marcarFaixa = (resposta: ServedResponse, faixa: boolean | null): ServedResponse => {
+  if (resposta.headers['Content-Type'] !== HTML) return resposta
+  return {
+    ...resposta,
+    headers: faixa === null ? { ...resposta.headers, 'Cache-Control': PAGE_CACHE.error } : resposta.headers,
+    body: markAnnouncementBar(resposta.body, faixa),
   }
 }
 
@@ -287,26 +334,40 @@ const servirCategoriaAtiva = (
 }
 
 // ---------------------------------------------------------------------------------------------
-// Produto (SSV-01, SSV-05..07, SSV-31)
+// A configuração da página (produto e faixa de avisos)
 // ---------------------------------------------------------------------------------------------
 
+/** A configuração da página, lida uma vez por resposta. Nunca rejeita: a falha vira `null`, com log. */
 const lerConfiguracoes = async (deps: PageDeps, path: string): Promise<PageSettings> => {
   try {
     const s = await deps.readSettings()
-    return { defaultProductCategory: s?.defaultProductCategory ?? null, storeDescription: s?.storeDescription ?? null }
+    return {
+      defaultProductCategory: s?.defaultProductCategory ?? null,
+      storeDescription: s?.storeDescription ?? null,
+      announcementBar: s?.announcementBar ?? null,
+    }
   } catch (e) {
-    // A página sai assim mesmo: a descrição cai na do shell (A16).
+    // A página sai assim mesmo: a descrição cai na do shell (A16), e a faixa fica sem veredito.
     deps.log({ fn: 'page', erro: 'configuracoes', path, detalhe: String(e) })
-    return { defaultProductCategory: null, storeDescription: null }
+    return { defaultProductCategory: null, storeDescription: null, announcementBar: null }
   }
 }
 
-const servirProduto = async (deps: PageDeps, url: URL, slug: string): Promise<ServedResponse> => {
+// ---------------------------------------------------------------------------------------------
+// Produto (SSV-01, SSV-05..07, SSV-31)
+// ---------------------------------------------------------------------------------------------
+
+const servirProduto = async (
+  deps: PageDeps,
+  url: URL,
+  slug: string,
+  configuracoes: Promise<PageSettings>,
+): Promise<ServedResponse> => {
   const path = url.pathname
   let dados: ProductPageData | null
   let config: PageSettings
   try {
-    ;[dados, config] = await Promise.all([deps.readProduct(slug), lerConfiguracoes(deps, path)])
+    ;[dados, config] = await Promise.all([deps.readProduct(slug), configuracoes])
   } catch (e) {
     return falha(deps, path, 'leitura', e)
   }

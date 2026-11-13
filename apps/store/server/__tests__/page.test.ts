@@ -241,12 +241,16 @@ describe('pageDeps — cada leitura pede o que deve', () => {
     await expect(pageDeps(erro.client, ctx).readInactiveFallback('x')).rejects.toThrow('rpc')
   })
 
-  it('readSettings: as duas chaves numa consulta, traduzidas', async () => {
+  /** Um aviso de texto que o painel aceitaria. */
+  const AVISO_VALIDO = { id: 'a', kind: 'text', highlight: 'Frete grátis', text: 'acima de R$ 300', linkLabel: '', href: '' }
+
+  it('readSettings: as três chaves numa consulta, traduzidas', async () => {
     const { client, chamadas } = dubleDoClient({
       store_settings: {
         data: [
           { key: 'seo', value: { description: 'Joias afetivas' } },
           { key: 'google_shopping', value: { default_product_category: '188' } },
+          { key: 'announcements', value: { enabled: true, items: [AVISO_VALIDO] } },
         ],
         error: null,
       },
@@ -254,17 +258,57 @@ describe('pageDeps — cada leitura pede o que deve', () => {
     expect(await pageDeps(client, ctx).readSettings()).toEqual({
       defaultProductCategory: '188',
       storeDescription: 'Joias afetivas',
+      announcementBar: true,
     })
+    expect(chamadas).toHaveLength(1)
     expect(chamadas[0].tabela).toBe('store_settings')
     expect(chamadas[0].select).toBe('key,value')
-    expect(chamadas[0].filtros).toEqual([['in', 'key', ['google_shopping', 'seo']]])
+    expect(chamadas[0].filtros).toEqual([['in', 'key', ['google_shopping', 'seo', 'announcements']]])
   })
 
-  it('readSettings: descrição em branco ou ausente ⇒ `null`', async () => {
+  it('readSettings: descrição em branco ou ausente ⇒ `null`; sem a chave da faixa ⇒ a faixa não existe', async () => {
     const { client } = dubleDoClient({
       store_settings: { data: [{ key: 'seo', value: { description: '   ' } }], error: null },
     })
-    expect(await pageDeps(client, ctx).readSettings()).toEqual({ defaultProductCategory: null, storeDescription: null })
+    expect(await pageDeps(client, ctx).readSettings()).toEqual({
+      defaultProductCategory: null,
+      storeDescription: null,
+      announcementBar: false,
+    })
+  })
+
+  it.each([
+    ['desligada, com aviso válido', { enabled: false, items: [AVISO_VALIDO] }],
+    ['ligada, sem aviso', { enabled: true, items: [] }],
+    ['ligada, só com aviso que o painel recusaria (texto vazio, destino externo)', {
+      enabled: true,
+      items: [
+        { ...AVISO_VALIDO, highlight: '', text: '' },
+        { ...AVISO_VALIDO, id: 'b', linkLabel: 'Ver', href: 'https://outro.site' },
+      ],
+    }],
+    ['lixo no jsonb', 'ligada'],
+    ['`enabled` que não é booleano', { enabled: 'true', items: [AVISO_VALIDO] }],
+  ])('readSettings: faixa %s ⇒ não existe, pela regra de core', async (_, valor) => {
+    const { client } = dubleDoClient({
+      store_settings: { data: [{ key: 'announcements', value: valor }], error: null },
+    })
+    expect((await pageDeps(client, ctx).readSettings()).announcementBar).toBe(false)
+  })
+
+  it('readSettings: o par — ligada com um aviso inválido E um válido ⇒ existe', async () => {
+    const { client } = dubleDoClient({
+      store_settings: {
+        data: [{ key: 'announcements', value: { enabled: true, items: [{ ...AVISO_VALIDO, text: '', highlight: '' }, AVISO_VALIDO] } }],
+        error: null,
+      },
+    })
+    expect((await pageDeps(client, ctx).readSettings()).announcementBar).toBe(true)
+  })
+
+  it('readSettings: erro do PostgREST LANÇA — `servePage` decide que vira "não sei"', async () => {
+    const { client } = dubleDoClient({ store_settings: { data: null, error: new Error('fora') } })
+    await expect(pageDeps(client, ctx).readSettings()).rejects.toThrow('fora')
   })
 
   it('shell, origem e log passam como vieram', () => {
@@ -316,13 +360,43 @@ describe('createPageHandler — o handler `fetch`', () => {
     expect(makeClient).toHaveBeenCalledWith('http://127.0.0.1:54441', 'pk')
   })
 
-  it('rota de app: o shell intacto, sem nenhuma leitura', async () => {
-    const { client, chamadas } = dubleDoClient({})
+  it('rota de app: o shell intacto com o veredito da faixa, lendo só `store_settings` — nada do catálogo', async () => {
+    const { client, chamadas } = dubleDoClient({
+      store_settings: { data: [{ key: 'announcements', value: { enabled: false, items: [] } }], error: null },
+    })
     const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
     const r = await fetch(new Request('https://loja.test/api/page?__path=/carrinho'))
     expect(r.status).toBe(200)
+    expect(await r.text()).toBe(SHELL.replace('<html>', '<html data-faixa="0">'))
+    expect(chamadas.map(c => c.tabela)).toEqual(['store_settings'])
+  })
+
+  it('a Home: o shell com data-faixa="1" quando a faixa está ligada, e o cache de 3600 s', async () => {
+    const { client } = dubleDoClient({
+      store_settings: {
+        data: [
+          {
+            key: 'announcements',
+            value: { enabled: true, items: [{ id: 'a', kind: 'text', highlight: 'Frete grátis', text: 'acima de R$ 300', linkLabel: '', href: '' }] },
+          },
+        ],
+        error: null,
+      },
+    })
+    const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
+    const r = await fetch(new Request('https://loja.test/api/page?__path=/'))
+    expect(r.status).toBe(200)
+    expect(r.headers.get('cache-control')).toBe('public, s-maxage=3600')
+    expect(await r.text()).toBe(SHELL.replace('<html>', '<html data-faixa="1">'))
+  })
+
+  it('a leitura de `store_settings` que falha: o shell sem o atributo, 200 e `no-store`', async () => {
+    const { client } = dubleDoClient({ store_settings: { data: null, error: new Error('fora') } })
+    const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
+    const r = await fetch(new Request('https://loja.test/api/page?__path=/'))
+    expect(r.status).toBe(200)
+    expect(r.headers.get('cache-control')).toBe('no-store')
     expect(await r.text()).toBe(SHELL)
-    expect(chamadas).toEqual([])
   })
 
   it('produto inexistente: 404 depois de ler o produto e o redirect pelo slug da URL', async () => {
@@ -410,7 +484,11 @@ describe('readProduct — as colunas pedidas bastam para a página', () => {
     shell: SHELL, origin, log: () => {}, readProduct,
     readOptionMarks: async () => [], readProductRedirect: async () => null, readCategories: async () => [],
     readCategoryRedirect: async () => null, readInactiveFallback: async () => null,
-    readSettings: async () => ({ defaultProductCategory: 'Apparel & Accessories > Jewelry', storeDescription: null }),
+    readSettings: async () => ({
+      defaultProductCategory: 'Apparel & Accessories > Jewelry',
+      storeDescription: null,
+      announcementBar: false,
+    }),
   })
 
   const servir = async (readProduct: PageDeps['readProduct'], caminho: string) =>

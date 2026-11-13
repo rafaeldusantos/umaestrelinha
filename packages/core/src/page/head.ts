@@ -91,6 +91,30 @@ export const injectIntoHead = (shell: string, bloco: string): string => {
   return shell.slice(0, i) + bloco + shell.slice(i)
 }
 
+/**
+ * O atributo da tag `<html>` que diz se a faixa de avisos existe nesta visita: `"1"` existe, `"0"`
+ * não existe, e **ausente** quando a leitura da configuração falhou. A loja o lê na primeira
+ * renderização para reservar a altura da faixa antes de a configuração chegar pelo navegador.
+ */
+export const ANNOUNCEMENT_BAR_ATTRIBUTE = 'data-faixa'
+
+const TAG_HTML = /<html\b[^>]*>/i
+const ATRIBUTO_FAIXA = new RegExp(`\\s+${ANNOUNCEMENT_BAR_ATTRIBUTE}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]*)`, 'gi')
+
+/**
+ * Marca a tag `<html>` com o veredito da faixa. **Substitui, nunca duplica**: o atributo que a tag já
+ * trouxer sai antes de o novo entrar, e os outros atributos (o `lang`) ficam. `null` ⇒ nenhum
+ * atributo. Sem tag `<html>`, devolve o HTML intacto.
+ */
+export const markAnnouncementBar = (html: string, exists: boolean | null): string => {
+  const tag = html.match(TAG_HTML)
+  if (!tag) return html
+  const limpa = tag[0].replace(ATRIBUTO_FAIXA, '')
+  const marcada =
+    exists === null ? limpa : limpa.replace(/>$/, ` ${ANNOUNCEMENT_BAR_ATTRIBUTE}="${exists ? '1' : '0'}">`)
+  return html.slice(0, tag.index) + marcada + html.slice(tag.index + tag[0].length)
+}
+
 /** A `description` que o shell declara — o recuo quando a configuração não respondeu (A16). */
 export const shellDescription = (shell: string): string | null =>
   shell.match(/<meta\s+name="description"\s+content="([^"]*)"/i)?.[1] ?? null

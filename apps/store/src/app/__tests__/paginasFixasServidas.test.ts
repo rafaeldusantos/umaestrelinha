@@ -47,9 +47,11 @@ const SHELL =
   '<meta name="description" content="Joias afetivas"></head><body><div id="root"></div></body></html>'
 
 /**
- * Dublê mínimo: página fixa não lê o banco (SSV-22). Toda leitura LANÇA — se uma página fixa for
+ * Dublê mínimo: página fixa não lê o catálogo (SSV-22). Toda leitura LANÇA — se uma página fixa for
  * parar no ramo de categoria ou de produto, a resposta vira o shell com `no-store`, e as asserções de
- * título e canônica reprovam em vez de passar sobre um dado inventado.
+ * título e canônica reprovam em vez de passar sobre um dado inventado. A configuração (lida em toda
+ * página, para o veredito da faixa de avisos no `<html>`) lançar só tira esse atributo e o cache: o
+ * `<head>` da página fixa não depende dela.
  */
 const lanca = async (): Promise<never> => {
   throw new Error('página fixa não lê o banco')

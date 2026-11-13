@@ -293,11 +293,11 @@ assere é a chamada, nunca a posição. A prova de que a página abre no topo é
 
 ## O HTML servido — a função `api/page` (feature `69`, `AD-053`)
 
-Toda URL que não é arquivo de `dist/` (a home `/`, `/assets`, `/robots.txt`…) nem o feed passa pelo
-catch-all do `vercel.json` para **uma** função Node da Vercel, em `pdx1` (o banco está
-em us-west-2). Ela devolve 200, 301 ou 404 com o `<head>` certo **no HTML**, e o cache de borda é por
-ramo: `s-maxage=300` para produto e categoria, `60` para 404, `3600` para página fixa e rota de app,
-`no-store` quando a leitura falha (que **nunca** vira 404).
+Toda URL que não é arquivo de `dist/` (`/assets`, `/robots.txt`…) nem o feed passa pelo catch-all do
+`vercel.json` para **uma** função Node da Vercel, em `pdx1` (o banco está em us-west-2) — **a Home `/`
+inclusive**, desde a faixa de avisos (WI 101). Ela devolve 200, 301 ou 404 com o `<head>` certo **no
+HTML**, e o cache de borda é por ramo: `s-maxage=300` para produto e categoria, `60` para 404, `3600`
+para página fixa, rota de app e a Home, `no-store` quando a leitura falha (que **nunca** vira 404).
 
 - **A regra é de `@estrelinha/core/page`** (`classifyPath`, `servePage`, `applyHead`); `server/page.ts`
   só tem env, as leituras (chave **publicável**, RLS) e a conversão para `Response`. Nada de SEO se
@@ -309,14 +309,30 @@ ramo: `s-maxage=300` para produto e categoria, `60` para 404, `3600` para págin
 - **Empacotar não é opcional**: `@estrelinha/core` importa com `.ts` explícito (exigência do Deno), e
   o compilador de funções da Vercel não reescreve a extensão.
 - **O caminho original chega em `?__path=`**; o resto da query (`?variant=`) é preservado.
+- **A Home é servida pela função porque o `index.html` sai da saída publicada na Vercel.**
+  `build-server.mjs` o apaga de `dist/` **depois** de embuti-lo, só com `VERCEL` definido (o ramo de
+  `build-robots.mjs`); com ele lá, o filesystem serviria `/` antes do catch-all. Localmente o arquivo
+  fica, para o `vite preview`. O tempo da Home passa a incluir a leitura de `store_settings` na
+  primeira batida de cada hora (o cache de `/` continua `3600`) — risco registrado, não otimizado.
+- **Toda resposta HTML leva `data-faixa` na tag `<html>`** — Home, produto, categoria, página fixa,
+  rota de app (`/checkout` inclusive) e 404: `"1"` a faixa de avisos existe, `"0"` não existe
+  (`announcementBarExists` de `core/announcements`, sobre a chave `announcements`), e **ausente**
+  quando a leitura de `store_settings` falhou — e aí a resposta sai `no-store`, com o status de
+  sempre, para um "não existe" não ficar uma hora no cache. A configuração é lida **uma** vez por
+  resposta, em todo ramo, em paralelo com o catálogo; o caminho com extensão continua 404 sem ler o
+  catálogo (só `store_settings`). O 301 não muda. Quem lê o atributo é a loja, para reservar a altura
+  da faixa desde a primeira pintura (a feature `40` mediu o CLS que um bloco chegando depois causa);
+  `markAnnouncementBar` (`core/page/head.ts`) marca a tag — substitui, nunca duplica, e o `lang` fica.
+  Sem as envs do Supabase o shell sai intacto, sem o atributo.
 - **Env da Vercel**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e **`STORE_PUBLIC_URL`**
   (sem barra final), esta **no build e no runtime**: o build escreve a linha `Sitemap:` do
   `robots.txt` com ela (feature `70`) e **falha** na Vercel sem ela; a função a usa nas canônicas e
   nas `<loc>`. Ela continua ao lado do secret `STORE_PUBLIC_URL` da Supabase (lido pelo feed e pelos
   e-mails) — os dois mudam juntos no dia do domínio. Sem ela no runtime, a página sai **sem**
   canônica, nunca com a errada, e o sitemap responde 503.
-- **Em dev (`pnpm dev:store`) a função não roda**: o Vite serve o SPA para tudo. A prova local é
-  `pnpm build` e importar `api/page.mjs` com `node --env-file=.env`, chamando `fetch` com `?__path=`.
+- **Em dev (`pnpm dev:store`) a função não roda**: o Vite serve o SPA para tudo — e o `<html>` sai
+  sem `data-faixa`, que é o estado "não sei". A prova local é `pnpm build` e importar `api/page.mjs`
+  com `node --env-file=.env`, chamando `fetch` com `?__path=` (a Home é `?__path=/`).
 
 ## Sitemap — `/sitemap.xml` (features `33` e `70`, `AD-022`)
 

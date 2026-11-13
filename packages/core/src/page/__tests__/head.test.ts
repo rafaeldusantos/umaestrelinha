@@ -6,6 +6,7 @@ import {
   imagePreloadLink,
   injectIntoHead,
   jsonLdScript,
+  markAnnouncementBar,
   shellDescription,
   type ServedHead,
 } from '../head.ts'
@@ -230,5 +231,53 @@ describe('imagePreloadLink', () => {
   it('URL vazia devolve string vazia, e não um `<link>` sem destino', () => {
     expect(imagePreloadLink('')).toBe('')
     expect(imagePreloadLink('   ')).toBe('')
+  })
+})
+
+describe('markAnnouncementBar — o <html> diz se a faixa de avisos existe', () => {
+  const COM_LANG = '<!doctype html><html lang="pt-BR"><head><title>x</title></head><body></body></html>'
+
+  it('faixa existe ⇒ data-faixa="1" na tag <html>, com o lang mantido', () => {
+    expect(markAnnouncementBar(COM_LANG, true)).toBe(
+      '<!doctype html><html lang="pt-BR" data-faixa="1"><head><title>x</title></head><body></body></html>',
+    )
+  })
+
+  it('faixa não existe ⇒ data-faixa="0"', () => {
+    expect(markAnnouncementBar(COM_LANG, false)).toBe(
+      '<!doctype html><html lang="pt-BR" data-faixa="0"><head><title>x</title></head><body></body></html>',
+    )
+  })
+
+  it('não sei (null) ⇒ nenhum atributo — o HTML volta igual', () => {
+    expect(markAnnouncementBar(COM_LANG, null)).toBe(COM_LANG)
+  })
+
+  it('tag <html> sem atributo nenhum também é marcada', () => {
+    expect(markAnnouncementBar('<html><head></head></html>', true)).toBe('<html data-faixa="1"><head></head></html>')
+  })
+
+  it('substitui, nunca duplica: um data-faixa que já estava sai e o novo entra uma vez só', () => {
+    const marcado = '<html lang="pt-BR" data-faixa="1"><head></head></html>'
+    const saida = markAnnouncementBar(marcado, false)
+    expect(saida).toBe('<html lang="pt-BR" data-faixa="0"><head></head></html>')
+    expect(saida.match(/data-faixa=/g)).toHaveLength(1)
+  })
+
+  it('o atributo que já estava some quando o veredito é null', () => {
+    expect(markAnnouncementBar('<html lang="pt-BR" data-faixa="1"><head></head></html>', null)).toBe(
+      '<html lang="pt-BR"><head></head></html>',
+    )
+  })
+
+  it('só a tag <html> é marcada — <head>, <header> e o texto ficam intactos', () => {
+    const shell = '<html lang="pt-BR"><head></head><body><header>html</header></body></html>'
+    const saida = markAnnouncementBar(shell, true)
+    expect(saida.match(/data-faixa=/g)).toHaveLength(1)
+    expect(saida).toContain('<head></head><body><header>html</header></body>')
+  })
+
+  it('HTML sem <html> volta intacto', () => {
+    expect(markAnnouncementBar('<div id="root"></div>', true)).toBe('<div id="root"></div>')
   })
 })

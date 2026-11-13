@@ -18,6 +18,7 @@
 // caminho com extensão como 404; as leituras estão em `./sitemap.ts` e a regra em `serveSitemap`.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { announcementBarExists, normalizeAnnouncements } from '@estrelinha/core/announcements'
 import {
   servePage,
   type PageCategory,
@@ -161,13 +162,15 @@ export const pageDeps = (
     return typeof data === 'string' ? data : null
   },
 
-  // Lidas por requisição (com o cache de borda por cima): mudar a categoria padrão ou a descrição
-  // da loja no painel não exige deploy.
+  // Lidas por requisição (com o cache de borda por cima): mudar a categoria padrão, a descrição da
+  // loja ou a faixa de avisos no painel não exige deploy. "A faixa existe?" é a regra de
+  // `core/announcements` — a mesma que a loja e o painel perguntam; a chave ausente é a faixa
+  // desligada.
   readSettings: async (): Promise<PageSettings> => {
     const { data, error } = await supabase
       .from('store_settings')
       .select('key,value')
-      .in('key', ['google_shopping', 'seo'])
+      .in('key', ['google_shopping', 'seo', 'announcements'])
     if (error) throw error
     const valor = (chave: string) =>
       ((data ?? []) as { key: string; value: Record<string, unknown> | null }[]).find(l => l.key === chave)
@@ -177,6 +180,7 @@ export const pageDeps = (
     return {
       defaultProductCategory: typeof categoria === 'string' && categoria.trim() !== '' ? categoria : null,
       storeDescription: typeof descricao === 'string' && descricao.trim() !== '' ? descricao : null,
+      announcementBar: announcementBarExists(normalizeAnnouncements(valor('announcements'))),
     }
   },
 })

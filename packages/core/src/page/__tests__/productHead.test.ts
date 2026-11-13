@@ -75,7 +75,11 @@ const deps = ({ storeDescription, ...over }: Over = {}, d: ProductPageData | nul
   readCategories: async () => [],
   readCategoryRedirect: async () => null,
   readInactiveFallback: async () => null,
-  readSettings: async () => ({ defaultProductCategory: null, storeDescription: storeDescription ?? null }),
+  readSettings: async () => ({
+    defaultProductCategory: null,
+    storeDescription: storeDescription ?? null,
+    announcementBar: false,
+  }),
   log: () => {},
   ...over,
 })
@@ -234,6 +238,7 @@ describe('os caminhos de falha servem a página com o <head> genérico (MTA-18)'
       new URL(`https://x/produtos/${SLUG}`),
     )
     expect(res.status).toBe(200)
-    expect(res.body).toBe(SHELL_REAL)
+    // O shell intacto, só com o veredito da faixa de avisos na tag `<html>` (o `lang` fica).
+    expect(res.body).toBe(SHELL_REAL.replace('<html lang="pt-BR">', '<html lang="pt-BR" data-faixa="0">'))
   })
 })

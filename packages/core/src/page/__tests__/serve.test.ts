@@ -33,6 +33,13 @@ import { PAGE_CACHE, servePage, type PageDeps, type ProductPageData } from '../s
 const SHELL =
   '<!doctype html><html><head><title>Uma Estrelinha</title></head><body><div id="root"></div></body></html>'
 
+/**
+ * O shell como a função o serve com a faixa de avisos desligada — o padrão dos dublês abaixo. Toda
+ * resposta HTML leva o veredito da faixa na tag `<html>`; o resto do shell é o mesmo.
+ */
+const SHELL_SEM_FAIXA =
+  '<!doctype html><html data-faixa="0"><head><title>Uma Estrelinha</title></head><body><div id="root"></div></body></html>'
+
 const ORIGEM = 'https://umaestrelinha.com.br'
 
 const dados = (over: Partial<ProductPageData> = {}): ProductPageData => ({
@@ -80,7 +87,7 @@ const deps = (over: Partial<PageDeps> = {}, d: ProductPageData | null = dados())
   readCategories: async () => [],
   readCategoryRedirect: async () => null,
   readInactiveFallback: async () => null,
-  readSettings: async () => ({ defaultProductCategory: null, storeDescription: null }),
+  readSettings: async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false }),
   log: () => {},
   ...over,
 })
@@ -114,14 +121,14 @@ describe('servePage, produto — o bloco é injetado', () => {
   it('o resto do shell sai intacto', async () => {
     const corpo = (await servePage(deps(), url('?slug=pulseira-7-nos-ajustavel-protecao-kabbalah'))).body
     // Quatro modificações: o preload, o JSON-LD, o <head> do produto e a canônica. Retirar as
-    // quatro devolve o shell byte a byte.
+    // quatro devolve o shell byte a byte — com o veredito da faixa na tag `<html>`.
     const semInjecao = corpo
       .replace(/<link rel="preload"[^>]*>/, '')
       .replace(/<link rel="canonical"[^>]*>/, '')
       .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '')
       .replace(/<meta [^>]*>/g, '')
       .replace(/<title>[^<]*<\/title>/, '<title>Uma Estrelinha</title>')
-    expect(semInjecao).toBe(SHELL)
+    expect(semInjecao).toBe(SHELL_SEM_FAIXA)
   })
 
   it('são QUATRO modificações, e só quatro — a vizinha da asserção acima', async () => {
@@ -214,7 +221,7 @@ describe('servePage, produto — os caminhos de erro', () => {
       url('?slug=x'),
     )
     expect(res.status).toBe(200)
-    expect(res.body).toBe(SHELL)
+    expect(res.body).toBe(SHELL_SEM_FAIXA)
     expect(res.headers['Cache-Control']).toBe('no-store')
   })
 
@@ -230,12 +237,17 @@ describe('servePage, produto — os caminhos de erro', () => {
     d.variants.forEach(v => (v.price = null))
     const res = await servePage(deps({}, d), url('?slug=x'))
     expect(res.status).toBe(200)
-    expect(res.body).toBe(SHELL)
+    expect(res.body).toBe(SHELL_SEM_FAIXA)
   })
 
-  it('shell sem </head> volta intacto, sem quebrar a página', async () => {
+  it('shell sem </head> volta intacto, sem quebrar a página — só a tag <html> ganha o veredito da faixa', async () => {
     const res = await servePage(deps({ shell: '<html></html>' }), url('?slug=x'))
-    expect(res.body).toBe('<html></html>')
+    expect(res.body).toBe('<html data-faixa="0"></html>')
+  })
+
+  it('shell sem <html> nem </head> volta intacto, byte a byte', async () => {
+    const res = await servePage(deps({ shell: '<div id="root"></div>' }), url('?slug=x'))
+    expect(res.body).toBe('<div id="root"></div>')
   })
 })
 
@@ -347,7 +359,8 @@ describe('servePage, produto — o preload da foto principal (PRF-06)', () => {
     const corpo = await corpoDe(d)
     const oferta = resolveOffer(d.product, d.variants[0], { origin: ORIGEM })
     const meta = productPageMeta(d.product)
-    const head = applyHead(SHELL, {
+    // O mesmo de antes, sobre o shell com o veredito da faixa na tag `<html>`.
+    const head = applyHead(SHELL_SEM_FAIXA, {
       title: meta.title,
       description: meta.description,
       canonical: `${ORIGEM}/produtos/${d.product.slug}`,
@@ -695,7 +708,7 @@ describe('servePage, produto — 404 e product_redirects (SSV-07, SSV-12, SSV-31
       url('?slug=x'),
     )
     expect(res.status).toBe(200)
-    expect(res.body).toBe(SHELL)
+    expect(res.body).toBe(SHELL_SEM_FAIXA)
     expect(res.headers['Cache-Control']).toBe('no-store')
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ fn: 'page', path: '/produtos/x' }))
   })
@@ -738,7 +751,16 @@ describe('servePage, produto — 404 e product_redirects (SSV-07, SSV-12, SSV-31
   it('a descrição da configuração vence a do shell quando o produto não tem nenhuma (A16)', async () => {
     const d = dados({ product: { ...dados().product, description: '' } })
     const res = await servePage(
-      deps({ readSettings: async () => ({ defaultProductCategory: null, storeDescription: 'Da configuração.' }) }, d),
+      deps(
+        {
+          readSettings: async () => ({
+            defaultProductCategory: null,
+            storeDescription: 'Da configuração.',
+            announcementBar: false,
+          }),
+        },
+        d,
+      ),
       url('?slug=x'),
     )
     expect(metaDe(res.body, 'description')).toEqual(['Da configuração.'])
@@ -746,7 +768,7 @@ describe('servePage, produto — 404 e product_redirects (SSV-07, SSV-12, SSV-31
 
   it('a categoria padrão da configuração chega ao JSON-LD da oferta', async () => {
     const res = await servePage(
-      deps({ readSettings: async () => ({ defaultProductCategory: '200', storeDescription: null }) }),
+      deps({ readSettings: async () => ({ defaultProductCategory: '200', storeDescription: null, announcementBar: false }) }),
       url('?slug=x&variant=1259936246'),
     )
     const d = dados()
@@ -924,7 +946,7 @@ describe('servePage — categoria (SSV-08, SSV-13..21, SSV-32..34)', () => {
       },
     })
     expect(res.status).toBe(200)
-    expect(res.body).toBe(SHELL)
+    expect(res.body).toBe(SHELL_SEM_FAIXA)
     expect(res.headers['Cache-Control']).toBe('no-store')
   })
 
@@ -948,7 +970,7 @@ describe('servePage — categoria (SSV-08, SSV-13..21, SSV-32..34)', () => {
       },
     })
     expect(res.status).toBe(200)
-    expect(res.body).toBe(SHELL)
+    expect(res.body).toBe(SHELL_SEM_FAIXA)
     expect(res.headers['Cache-Control']).toBe('no-store')
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ erro: 'category_fallback', path: '/qualquer-coisa-xyz' }))
   })
@@ -981,21 +1003,27 @@ describe('servePage — página fixa, rota de app, 3+ segmentos', () => {
     expect(res.headers['Cache-Control']).toBe('public, s-maxage=3600')
   })
 
-  it('SSV-22: a página fixa não toca no banco', async () => {
-    const leituras = {
+  it('SSV-22: a página fixa não toca no catálogo — lê só store_settings, para o veredito da faixa', async () => {
+    const catalogo = {
       readProduct: vi.fn(),
       readCategories: vi.fn(),
-      readSettings: vi.fn(),
+      readProductRedirect: vi.fn(),
+      readCategoryRedirect: vi.fn(),
+      readInactiveFallback: vi.fn(),
+      readOptionMarks: vi.fn(),
     }
-    await servePage(deps(leituras as any), new URL('https://x/sobre'))
-    for (const f of Object.values(leituras)) expect(f).not.toHaveBeenCalled()
+    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: true }))
+    const res = await servePage(deps({ ...(catalogo as any), readSettings }), new URL('https://x/sobre'))
+    for (const f of Object.values(catalogo)) expect(f).not.toHaveBeenCalled()
+    expect(readSettings).toHaveBeenCalledTimes(1)
+    expect(res.body).toContain('<html data-faixa="1">')
   })
 
   it('SSV-10: rota de app ⇒ 200 com o shell intacto e 3600 s', async () => {
     for (const p of ['/carrinho', '/conta/dados', '/pedido/abc/pagamento', '/perguntas-frequentes/x-1a2b3c4d']) {
       const res = await servePage(deps(), new URL(`https://x${p}`))
       expect(res.status).toBe(200)
-      expect(res.body).toBe(SHELL)
+      expect(res.body).toBe(SHELL_SEM_FAIXA)
       expect(res.headers['Cache-Control']).toBe('public, s-maxage=3600')
     }
   })
@@ -1006,11 +1034,22 @@ describe('servePage — página fixa, rota de app, 3+ segmentos', () => {
     expect(robots(res.body)).toEqual(['noindex'])
   })
 
-  it('caminho com extensão ⇒ 404 sem ler nada', async () => {
-    const readCategories = vi.fn(async () => [])
-    const res = await servePage(deps({ readCategories }), new URL('https://x/x.png'))
+  it('caminho com extensão ⇒ 404 sem ler o catálogo — só store_settings, para o veredito da faixa', async () => {
+    const catalogo = {
+      readProduct: vi.fn(),
+      readCategories: vi.fn(async () => []),
+      readProductRedirect: vi.fn(),
+      readCategoryRedirect: vi.fn(),
+      readInactiveFallback: vi.fn(),
+      readOptionMarks: vi.fn(),
+    }
+    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false }))
+    const res = await servePage(deps({ ...(catalogo as any), readSettings }), new URL('https://x/x.png'))
     expect(res.status).toBe(404)
-    expect(readCategories).not.toHaveBeenCalled()
+    for (const f of Object.values(catalogo)) expect(f).not.toHaveBeenCalled()
+    expect(readSettings).toHaveBeenCalledTimes(1)
+    expect(res.body).toContain('<html data-faixa="0">')
+    expect(res.headers['Cache-Control']).toBe('public, s-maxage=60')
   })
 
   it('exceção inesperada (uma dep que lança SÍNCRONO, fora da promessa) ⇒ 200 shell no-store, com log', async () => {
@@ -1027,5 +1066,114 @@ describe('servePage — página fixa, rota de app, 3+ segmentos', () => {
     expect(res.status).toBe(200)
     expect(res.headers['Cache-Control']).toBe('no-store')
     expect(log).toHaveBeenCalled()
+  })
+})
+
+/**
+ * A faixa de avisos acima do cabeçalho. A configuração chega ao navegador depois da primeira
+ * pintura; por isso TODA resposta HTML sai do servidor com o veredito na tag `<html>`, e a loja
+ * reserva a altura desde o primeiro quadro. Leitura de `store_settings` que falha ⇒ o atributo
+ * ausente ("não sei"), o status de sempre e nada cacheado.
+ */
+describe('servePage — o <html> diz se a faixa de avisos existe', () => {
+  const ARVORE = [{ id: 'c-raiz', slug: 'joias-afetivas', parent_id: null, name: 'Joias afetivas', description: null }]
+  const config = (announcementBar: boolean | null) => ({ defaultProductCategory: null, storeDescription: null, announcementBar })
+
+  /** Um caminho de cada ramo HTML, com o status que ele responde. */
+  const RAMOS: [string, string, number][] = [
+    ['Home', '/', 200],
+    ['produto', '/produtos/pulseira-7-nos-ajustavel-protecao-kabbalah', 200],
+    ['categoria', '/joias-afetivas', 200],
+    ['página fixa', '/politica-de-privacidade', 200],
+    ['rota de app (checkout)', '/checkout', 200],
+    ['404 por classificação', '/a/b/c', 404],
+    ['404 de produto inexistente', '/produtos/nao-existe', 404],
+    ['404 de categoria inexistente', '/qualquer-coisa-xyz', 404],
+  ]
+
+  const servir = (path: string, over: Partial<PageDeps> = {}) =>
+    servePage(
+      deps({
+        readProduct: async slug => (slug === 'nao-existe' ? null : dados()),
+        readCategories: async () => ARVORE,
+        ...over,
+      }),
+      new URL(`https://x${path}`),
+    )
+
+  const atributos = (corpo: string) => [...corpo.matchAll(/data-faixa="([^"]*)"/g)].map(m => m[1])
+  const tagHtml = (corpo: string) => corpo.match(/<html\b[^>]*>/)?.[0]
+
+  it.each(RAMOS)('%s: faixa ligada com aviso válido ⇒ data-faixa="1", uma vez, na tag <html>', async (_, path, status) => {
+    const res = await servir(path, { readSettings: async () => config(true) })
+    expect(res.status).toBe(status)
+    expect(tagHtml(res.body)).toBe('<html data-faixa="1">')
+    expect(atributos(res.body)).toEqual(['1'])
+  })
+
+  it.each(RAMOS)('%s: faixa desligada ou sem aviso ⇒ data-faixa="0"', async (_, path, status) => {
+    const res = await servir(path, { readSettings: async () => config(false) })
+    expect(res.status).toBe(status)
+    expect(tagHtml(res.body)).toBe('<html data-faixa="0">')
+    expect(atributos(res.body)).toEqual(['0'])
+  })
+
+  it.each(RAMOS)(
+    '%s: a leitura de store_settings que falha ⇒ <html> sem o atributo, o status de sempre e no-store',
+    async (_, path, status) => {
+      const log = vi.fn()
+      const res = await servir(path, {
+        log,
+        readSettings: async () => {
+          throw new Error('fora')
+        },
+      })
+      expect(res.status).toBe(status)
+      expect(tagHtml(res.body)).toBe('<html>')
+      expect(atributos(res.body)).toEqual([])
+      expect(res.headers['Cache-Control']).toBe('no-store')
+      expect(log).toHaveBeenCalledWith(expect.objectContaining({ erro: 'configuracoes', path }))
+    },
+  )
+
+  it('o par da falha: com a leitura boa, a mesma página fixa guarda o cache de 3600 s', async () => {
+    const res = await servir('/politica-de-privacidade', { readSettings: async () => config(true) })
+    expect(res.headers['Cache-Control']).toBe('public, s-maxage=3600')
+  })
+
+  it('a configuração é lida UMA vez por resposta, também no produto (que a usa para o <head>)', async () => {
+    const readSettings = vi.fn(async () => config(true))
+    await servir('/produtos/pulseira-7-nos-ajustavel-protecao-kabbalah', { readSettings })
+    expect(readSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('a configuração é lida em paralelo com o catálogo — a categoria não espera por ela para começar', async () => {
+    let soltar: (v: ReturnType<typeof config>) => void = () => {}
+    const readSettings = vi.fn(() => new Promise<ReturnType<typeof config>>(r => (soltar = r)))
+    const readCategories = vi.fn(async () => ARVORE)
+    const resposta = servir('/joias-afetivas', { readSettings, readCategories })
+    await Promise.resolve()
+    expect(readSettings).toHaveBeenCalledTimes(1)
+    expect(readCategories).toHaveBeenCalledTimes(1)
+    soltar(config(true))
+    expect(tagHtml((await resposta).body)).toBe('<html data-faixa="1">')
+  })
+
+  it('falha de leitura do catálogo com a configuração boa: o shell intacto leva o veredito, e no-store', async () => {
+    const res = await servir('/joias-afetivas', {
+      readSettings: async () => config(true),
+      readCategories: async () => {
+        throw new Error('fora')
+      },
+    })
+    expect(res.status).toBe(200)
+    expect(res.body).toBe(SHELL.replace('<html>', '<html data-faixa="1">'))
+    expect(res.headers['Cache-Control']).toBe('no-store')
+  })
+
+  it('o lang da tag <html> fica', async () => {
+    const shell = SHELL.replace('<html>', '<html lang="pt-BR">')
+    const res = await servir('/checkout', { shell, readSettings: async () => config(true) })
+    expect(tagHtml(res.body)).toBe('<html lang="pt-BR" data-faixa="1">')
   })
 })
