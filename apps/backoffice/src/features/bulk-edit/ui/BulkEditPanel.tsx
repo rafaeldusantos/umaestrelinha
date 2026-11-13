@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatPrice } from '@estrelinha/core/formatters'
 import { MoneyInput } from '@/shared/ui'
 import type { AdminListRow } from '@/entities/product/api/productQuery'
+import type { AdminCampaign } from '@/entities/campaign'
 import {
   buildBulkPatch,
   type BulkFields,
@@ -21,6 +22,7 @@ import {
   type StatusMode,
   type StockMode,
 } from '../model/buildBulkPatch'
+import { bulkCampaignChoice, bulkCampaignOptions, type BulkCampaignChoice } from '../model/bulkCampaign'
 
 interface Props {
   open: boolean
@@ -28,7 +30,10 @@ interface Props {
   selection: AdminListRow[]
   /** Para o campo Categorias. Vazio = o campo aparece explicando que não há categoria cadastrada. */
   categories?: { id: string; name: string }[]
-  onApply: (result: BulkResult) => void
+  /** As campanhas em que as peças podem ser marcadas: as agendadas e a em vigência, na ordem do início. */
+  campaigns?: AdminCampaign[]
+  /** `campaign` é a marcação na campanha, gravada pela porta das marcações — nunca patch de `products`. */
+  onApply: (result: BulkResult, campaign: BulkCampaignChoice | null) => void
   applying?: boolean
 }
 
@@ -46,7 +51,7 @@ const STOCK_MODES: { value: StockMode; label: string }[] = [
 ]
 
 const BulkEditPanel = ({
-  open, onOpenChange, selection, categories = [], onApply, applying = false,
+  open, onOpenChange, selection, categories = [], campaigns = [], onApply, applying = false,
 }: Props) => {
   const [priceOn, setPriceOn] = useState(false)
   const [priceMode, setPriceMode] = useState<PriceMode>('increase')
@@ -69,6 +74,10 @@ const BulkEditPanel = ({
   const [tagsMode, setTagsMode] = useState<'add' | 'remove'>('add')
   const [tagsText, setTagsText] = useState('')
 
+  const [campaignOn, setCampaignOn] = useState(false)
+  const [campaignId, setCampaignId] = useState('')
+  const [campaignValue, setCampaignValue] = useState('')
+
   const fields: BulkFields = {
     ...(priceOn ? { price: { mode: priceMode, value: priceValue ?? 0, endingIn90 } } : {}),
     ...(stockOn ? { stock: { mode: stockMode, value: stockValue } } : {}),
@@ -82,9 +91,15 @@ const BulkEditPanel = ({
   }
 
   const result = buildBulkPatch(selection, fields)
+  const campaign = campaigns.find(c => c.id === campaignId) ?? null
+  const campaignChoice = campaignOn ? bulkCampaignChoice(campaign, campaignValue) : null
   // `Agendar` sem data não é um agendamento — é tirar o produto da loja sem dizer até quando.
   const scheduleMissingDate = statusOn && statusMode === 'schedule' && scheduledAt === ''
-  const nothingOn = result.patches.length === 0 || scheduleMissingDate
+  // A campanha ligada sem a escolha completa também não aplica: ela não pode sair calada.
+  const campaignIncomplete = campaignOn && campaigns.length > 0 && campaignChoice === null
+  const nothingOn =
+    (result.patches.length === 0 && campaignChoice === null) || scheduleMissingDate || campaignIncomplete
+  const alvo = campaignChoice ? selection.length : result.patches.length
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,6 +265,44 @@ const BulkEditPanel = ({
             )}
           </section>
 
+          {/* A campanha de desconto: primeiro a campanha, depois o percentual (ou tirar). */}
+          <section className="space-y-2 rounded-xl border border-border p-3">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <Switch aria-label="Editar campanha" checked={campaignOn} onCheckedChange={setCampaignOn} /> Campanha
+            </label>
+            {campaignOn && campaigns.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma campanha agendada ou em vigência.</p>
+            )}
+            {campaignOn && campaigns.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Select
+                  value={campaignId}
+                  onValueChange={v => { setCampaignId(v); setCampaignValue('') }}
+                >
+                  <SelectTrigger className="h-9 w-[200px] max-w-full" aria-label="Campanha das peças">
+                    <SelectValue placeholder="Escolha a campanha" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {campaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={campaignValue} onValueChange={setCampaignValue} disabled={!campaign}>
+                  <SelectTrigger className="h-9 w-[220px] max-w-full" aria-label="Percentual na campanha">
+                    <SelectValue placeholder="Escolha o percentual" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {campaign && bulkCampaignOptions(campaign).map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {campaignIncomplete && (
+              <p className="text-xs font-medium text-amber-700">Escolha a campanha e o percentual.</p>
+            )}
+          </section>
+
           {/* PLS-06 AC 8: antes → depois, ticket médio e avisos, ANTES de gravar. */}
           <section className="space-y-2 rounded-xl border border-border bg-muted/40 p-3" aria-label="Prévia do impacto">
             <p className="text-sm font-semibold">Prévia do impacto</p>
@@ -278,10 +331,19 @@ const BulkEditPanel = ({
                 {result.preview.warnings.map(warning => (
                   <p key={warning} className="text-xs font-medium text-amber-700">{warning}</p>
                 ))}
-                <p className="text-xs text-muted-foreground">
-                  {result.patches.length} produto(s) serão alterados
-                  {result.ignored.length > 0 && ` · ${result.ignored.length} ignorado(s)`}
-                </p>
+                {result.patches.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {result.patches.length} produto(s) serão alterados
+                    {result.ignored.length > 0 && ` · ${result.ignored.length} ignorado(s)`}
+                  </p>
+                )}
+                {campaignChoice && (
+                  <p className="text-xs text-muted-foreground">
+                    {campaignChoice.percent === null
+                      ? `${selection.length} peça(s) saem da ${campaignChoice.campaignName}; o preço de sempre não muda.`
+                      : `${selection.length} peça(s) entram na ${campaignChoice.campaignName} com ${campaignChoice.percent}%; o preço de sempre não muda.`}
+                  </p>
+                )}
               </>
             )}
           </section>
@@ -293,9 +355,9 @@ const BulkEditPanel = ({
             type="button"
             className="gradient-cta text-white"
             disabled={nothingOn || applying}
-            onClick={() => onApply(result)}
+            onClick={() => onApply(result, campaignChoice)}
           >
-            Aplicar a {result.patches.length} produto(s)
+            Aplicar a {alvo} produto(s)
           </Button>
         </div>
       </DialogContent>

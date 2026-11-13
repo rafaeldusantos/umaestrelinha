@@ -30,6 +30,8 @@ const P = {
   tag: 'tag',
   precoMin: 'preco-min',
   precoMax: 'preco-max',
+  campanha: 'campanha',
+  percentual: 'percentual',
   busca: 'busca',
   pagina: 'pagina',
   porPagina: 'por-pagina',
@@ -64,6 +66,11 @@ export const productQueryToParams = (query: ProductQuery): URLSearchParams => {
   for (const tag of f.tags) p.append(P.tag, tag)
   if (f.priceMin !== null) p.set(P.precoMin, String(f.priceMin))
   if (f.priceMax !== null) p.set(P.precoMax, String(f.priceMax))
+  // O percentual só recorta dentro de uma campanha: sem ela, não é escrito.
+  if (f.campaignId) {
+    p.set(P.campanha, f.campaignId)
+    if (f.campaignPercent !== null && f.campaignPercent !== undefined) p.set(P.percentual, String(f.campaignPercent))
+  }
   if (query.search.trim()) p.set(P.busca, query.search)
   if (query.sort.key !== padrao.sort.key || query.sort.dir !== padrao.sort.dir) {
     p.set(P.ordem, `${query.sort.key}-${query.sort.dir}`)
@@ -88,6 +95,7 @@ export const productQueryFromParams = (params: URLSearchParams): ProductQuery =>
   }
 
   const porPagina = inteiroPositivo(params.get(P.porPagina))
+  const campanha = params.get(P.campanha)?.trim() || null
 
   return {
     page: inteiroPositivo(params.get(P.pagina)) ?? 1,
@@ -103,6 +111,8 @@ export const productQueryFromParams = (params: URLSearchParams): ProductQuery =>
       tags: lista(params, P.tag),
       priceMin: preco(params.get(P.precoMin)),
       priceMax: preco(params.get(P.precoMax)),
+      campaignId: campanha,
+      campaignPercent: campanha ? inteiroPositivo(params.get(P.percentual)) : null,
     },
   }
 }

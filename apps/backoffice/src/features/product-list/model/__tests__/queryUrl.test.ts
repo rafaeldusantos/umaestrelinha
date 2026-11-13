@@ -27,6 +27,8 @@ describe('o recorte da lista de produtos na URL', () => {
         tags: ['prata', 'dia das mães'],
         priceMin: 49.9,
         priceMax: 300,
+        campaignId: 'camp-1',
+        campaignPercent: 15,
       },
     }
     expect(ida(q)).toEqual(q)

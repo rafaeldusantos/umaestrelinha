@@ -41,6 +41,10 @@ import CategoriesCell from '@/features/product-list/ui/CategoriesCell'
 import ProductThumb from '@/features/product-list/ui/ProductThumb'
 import SupplierCell from '@/features/product-list/ui/SupplierCell'
 import { useSuppliers } from '@/entities/supplier'
+import { campaignsOpenForMarking, setProductsCampaign, useCampaigns } from '@/entities/campaign'
+import type { BulkCampaignChoice } from '@/features/bulk-edit/model/bulkCampaign'
+import { campaignsForList, rowCampaignMarks } from '@/features/product-list/model/campaignMarks'
+import CampaignMarksCell from '@/features/product-list/ui/CampaignMarksCell'
 import { priceCell, rowBadges, statusCell, stockCell } from '@/features/product-list/model/rowSummary'
 import { LIST_COLUMNS, isVisible, useColumnPrefs } from '@/features/product-list/model/columns'
 import { useSavedViews } from '@/features/product-list/model/savedViews'
@@ -104,6 +108,25 @@ const AdminProductsPage = () => {
   const viewCounts = useProductViewCounts()
   const { categories } = useAdminCategories()
   const { suppliers } = useSuppliers()
+  const { campaigns, refetch: refetchCampaigns } = useCampaigns()
+  // O instante que decide "agendada ou em vigência" — um por montagem, para a lista não mudar de
+  // opções no meio da edição.
+  const [agora] = useState(() => Date.now())
+  const selectedCampaignId = query.filters.campaignId ?? null
+  const listCampaigns = useMemo(
+    () => campaignsForList(campaigns, agora, selectedCampaignId),
+    [campaigns, agora, selectedCampaignId],
+  )
+  const markingCampaigns = useMemo(() => campaignsOpenForMarking(campaigns, agora), [campaigns, agora])
+  const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId) ?? null
+  // O percentual do endereço entra nas opções mesmo antes de a campanha carregar.
+  const percentOptions = useMemo(() => {
+    const doFiltro = query.filters.campaignPercent ?? null
+    const daCampanha = selectedCampaign?.percents ?? []
+    return doFiltro !== null && !daCampanha.includes(doFiltro)
+      ? [...daCampanha, doFiltro].sort((a, b) => a - b)
+      : daCampanha
+  }, [selectedCampaign, query.filters.campaignPercent])
   const { views: savedViews, save: saveView } = useSavedViews()
   const { prefs, toggle, setDensity } = useColumnPrefs()
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -197,7 +220,36 @@ const AdminProductsPage = () => {
     })
   }
 
-  const applyBulk = (result: BulkResult) => applyPatches(result, selectedRows)
+  /**
+   * A marcação na campanha não é patch de `products`: vai pela porta das marcações, e o preço de
+   * sempre da peça fica como está. O desfazer do toast é só do patch de `products`.
+   */
+  const applyCampaign = async (choice: BulkCampaignChoice) => {
+    setApplying(true)
+    try {
+      const gravadas = await setProductsCampaign(selectedRows.map(r => r.id), choice.campaignId, choice.percent)
+      toast({
+        title: choice.percent === null
+          ? `${gravadas} peça(s) tiradas da ${choice.campaignName}`
+          : `${gravadas} peça(s) na ${choice.campaignName} com ${choice.percent}%`,
+      })
+      await Promise.all([refetch(), refetchCampaigns()])
+    } catch (e) {
+      toast({
+        title: 'As peças não mudaram de campanha',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setApplying(false)
+      setBulkOpen(false)
+    }
+  }
+
+  const applyBulk = async (result: BulkResult, campaign: BulkCampaignChoice | null) => {
+    if (result.patches.length > 0) await applyPatches(result, selectedRows)
+    if (campaign) await applyCampaign(campaign)
+  }
 
   /** RFN-01: `Ativar` / `Pausar` são o mesmo patch do painel, sem abrir o painel. */
   const applyStatus = (mode: 'activate' | 'pause') =>
@@ -291,6 +343,10 @@ const AdminProductsPage = () => {
   const supplierNames = useMemo(
     () => Object.fromEntries(suppliers.map(s => [s.id, s.name])) as Record<string, string>,
     [suppliers],
+  )
+  const campaignNames = useMemo(
+    () => Object.fromEntries(campaigns.map(c => [c.id, c.name])) as Record<string, string>,
+    [campaigns],
   )
   const categoryNames = useMemo(
     () => Object.fromEntries(categories.map(c => [c.id, c.name])) as Record<string, string>,
@@ -412,6 +468,7 @@ const AdminProductsPage = () => {
                   ))}
                 </div>
               )}
+              <CampaignMarksCell marks={rowCampaignMarks(row.campaigns, campaigns, agora, selectedCampaignId)} />
               <CategoriesCell
                 names={row.category_ids.map(id => categoryNames[id]).filter(Boolean)}
                 productName={row.name}
@@ -649,6 +706,30 @@ const AdminProductsPage = () => {
           </SelectContent>
         </Select>
 
+        {/* O filtro pela campanha: primeiro a campanha, depois o percentual dela. */}
+        <Select
+          value={selectedCampaignId ?? 'all'}
+          onValueChange={v => setFilters({ ...query.filters, campaignId: v === 'all' ? null : v, campaignPercent: null })}
+        >
+          <SelectTrigger className="w-[180px]" aria-label="Campanha"><SelectValue placeholder="Campanha" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as peças</SelectItem>
+            {listCampaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {selectedCampaignId && (
+          <Select
+            value={query.filters.campaignPercent === null ? 'all' : String(query.filters.campaignPercent)}
+            onValueChange={v => setFilters({ ...query.filters, campaignPercent: v === 'all' ? null : Number(v) })}
+          >
+            <SelectTrigger className="w-[180px]" aria-label="Percentual da campanha"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os percentuais</SelectItem>
+              {percentOptions.map(p => <SelectItem key={p} value={String(p)}>{p}%</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* PLS-09 AC 13 */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -697,7 +778,13 @@ const AdminProductsPage = () => {
       </div>
 
       <div className="mb-3">
-        <FilterChips filters={query.filters} categoryNames={categoryNames} supplierNames={supplierNames} onChange={setFilters} />
+        <FilterChips
+          filters={query.filters}
+          categoryNames={categoryNames}
+          supplierNames={supplierNames}
+          campaignNames={campaignNames}
+          onChange={setFilters}
+        />
       </div>
 
       {/* PLS-05 AC 1 / RFN-01: a barra de massa, com as seis ações. */}
@@ -747,6 +834,7 @@ const AdminProductsPage = () => {
         onOpenChange={setBulkOpen}
         selection={selectedRows}
         categories={categories}
+        campaigns={markingCampaigns}
         onApply={applyBulk}
         applying={applying}
       />

@@ -16,6 +16,7 @@ export const buildChips = (
   filters: ProductFilters,
   categoryNames: Record<string, string>,
   supplierNames: Record<string, string> = {},
+  campaignNames: Record<string, string> = {},
 ): FilterChip[] => {
   const chips: FilterChip[] = []
 
@@ -40,6 +41,17 @@ export const buildChips = (
       key: `tag-${tag}`,
       label: `Tag: ${tag}`,
       clear: f => ({ ...f, tags: f.tags.filter(t => t !== tag) }),
+    })
+  }
+
+  // A campanha e o percentual são UM recorte: o `x` tira os dois.
+  if (filters.campaignId) {
+    const nome = campaignNames[filters.campaignId] ?? filters.campaignId
+    const percentual = filters.campaignPercent ?? null
+    chips.push({
+      key: 'campanha',
+      label: percentual === null ? `Campanha: ${nome}` : `Campanha: ${nome} · ${percentual}%`,
+      clear: f => ({ ...f, campaignId: null, campaignPercent: null }),
     })
   }
 

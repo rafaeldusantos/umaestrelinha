@@ -41,6 +41,12 @@ vi.mock('@/entities/supplier', async importOriginal => ({
   ...(await importOriginal<typeof import('@/entities/supplier')>()),
   useSuppliers: () => ({ suppliers: fornecedores.atual, loading: false, error: null }),
 }))
+// A leitura das campanhas também é React Query; o filtro e a edição pela campanha são provados em
+// `AdminProductsPage.campanha.test.tsx`.
+vi.mock('@/entities/campaign', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/campaign')>()),
+  useCampaigns: () => ({ campaigns: [], loading: false, error: null, refetch: vi.fn() }),
+}))
 // `VITE_STORE_URL` é lido no carregamento do módulo: com a env, o teste mediria o `.env` da máquina.
 vi.mock('@/shared/lib/storeOrigin', () => ({ storeOrigin: () => lojaOrigem.atual }))
 vi.mock('@/features/csv-import/ui/CsvImportDialog', () => ({ default: () => null }))

@@ -96,6 +96,9 @@ const ARQUIVOS = [
   // O desconto da peça na campanha — os botões de percentual do cartão na aba de preço trocam de
   // cor com o par `motion-reduce:` na mesma linha. +2 tokens / +1 par; a régua mediu 66/32 com ele.
   'features/product-form/ui/CampaignPriceCards.tsx',
+  // A campanha na linha da lista de produtos — sem movimento próprio: as contagens não mudam, e a
+  // âncora de arquivos lidos sobe junto (+1).
+  'features/product-list/ui/CampaignMarksCell.tsx',
 ] as const
 
 /**
