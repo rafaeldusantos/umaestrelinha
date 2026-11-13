@@ -98,6 +98,8 @@ describe('navGroups — os quatro eixos', () => {
     expect(loja.items.map(i => i.to)).toEqual([
       '/admin/home',
       '/admin/menu',
+      // A faixa de avisos: o que a cliente vê acima do cabeçalho, logo depois do menu.
+      '/admin/faixa-de-avisos',
       '/admin/perguntas-frequentes',
       // Feature 61: a seção Google substituiu a tela do Google Shopping (`ANL-01`). A lista foi
       // reescrita, e ganhou vizinha (o caso do redirect, abaixo) em vez de virar `toContain`.
@@ -198,6 +200,7 @@ describe('navGroups — os quatro eixos', () => {
     expect(loja.items.map(i => i.label)).toEqual([
       'Home',
       'Menu da loja',
+      'Faixa de avisos',
       'Página de perguntas',
       'Google',
     ])

@@ -40,6 +40,11 @@ const arquivos = (dir: string): string[] =>
 
 const FONTES = arquivos(AQUI).filter(f => !/\.test\.tsx?$/.test(f))
 const FONTES_MENU = arquivos(MENU).filter(f => !/\.test\.tsx?$/.test(f))
+
+/** A terceira prévia: a faixa de avisos, que também é a loja num iframe. */
+const FAIXA = resolve(__dirname, '../../announcement-bar')
+const FAIXA_UI = join(FAIXA, 'ui')
+const FONTES_FAIXA = arquivos(FAIXA).filter(f => !/\.test\.tsx?$/.test(f))
 const ler = (caminho: string) => readFileSync(caminho, 'utf8')
 
 /**
@@ -371,10 +376,11 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
   it('a lista de arquivos `…Preview` continua sendo UM por feature', () => {
     expect(previasEm(UI)).toEqual(['HomeLivePreview.tsx'])
     expect(previasEm(MENU_UI)).toEqual(['MenuLivePreview.tsx'])
+    expect(previasEm(FAIXA_UI)).toEqual(['AnnouncementLivePreview.tsx'])
   })
 
   it('nenhum arquivo com nome de tela cheia apareceu nas duas pastas de UI', () => {
-    for (const pasta of [UI, MENU_UI]) {
+    for (const pasta of [UI, MENU_UI, FAIXA_UI]) {
       for (const nome of ['FullscreenPreview.tsx', 'PreviewModal.tsx', 'PreviewOverlay.tsx']) {
         expect(existsSync(join(pasta, nome))).toBe(false)
       }
@@ -382,17 +388,22 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
   })
 
   it('cada palco continua montando UM `<iframe>`, e nenhum outro arquivo monta iframe', () => {
-    const comIframe = [...FONTES, ...FONTES_MENU]
+    const comIframe = [...FONTES, ...FONTES_MENU, ...FONTES_FAIXA]
       .filter(f => semComentarios(ler(f)).includes('<iframe'))
       .map(f => f.replace(/\\/g, '/').replace(/^.*\/(features\/.*)$/, '$1'))
       .sort()
 
     expect(comIframe).toEqual([
+      'features/announcement-bar/ui/AnnouncementLivePreview.tsx',
       'features/home-composition/ui/HomeLivePreview.tsx',
       'features/store-menu/ui/MenuLivePreview.tsx',
     ])
 
-    for (const palco of [join(UI, 'HomeLivePreview.tsx'), join(MENU_UI, 'MenuLivePreview.tsx')]) {
+    for (const palco of [
+      join(UI, 'HomeLivePreview.tsx'),
+      join(MENU_UI, 'MenuLivePreview.tsx'),
+      join(FAIXA_UI, 'AnnouncementLivePreview.tsx'),
+    ]) {
       const iframes = semComentarios(ler(palco)).match(/<iframe/g) ?? []
       expect(iframes).toHaveLength(1)
     }
@@ -407,8 +418,12 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
     }
   })
 
-  it('o modo vem do hook compartilhado — os dois palcos não podem divergir na medida', () => {
-    for (const palco of [join(UI, 'HomeLivePreview.tsx'), join(MENU_UI, 'MenuLivePreview.tsx')]) {
+  it('o modo vem do hook compartilhado — os palcos não podem divergir na medida', () => {
+    for (const palco of [
+      join(UI, 'HomeLivePreview.tsx'),
+      join(MENU_UI, 'MenuLivePreview.tsx'),
+      join(FAIXA_UI, 'AnnouncementLivePreview.tsx'),
+    ]) {
       const fonte = semComentarios(ler(palco))
       expect(fonte).toContain('useFullscreenStage')
       // Nenhum palco escreve a própria moldura: se escrevesse, a medida teria dois donos de novo.
@@ -438,6 +453,52 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
       expect(injetado).toContain('<iframe')
     } finally {
       rmSync(pasta, { recursive: true, force: true })
+    }
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// A FAIXA DE AVISOS — a terceira prévia, e o painel também não a desenha
+// ───────────────────────────────────────────────────────────────────────────
+//
+// A faixa é a superfície mais fácil de redesenhar no painel: uma linha de texto com um link. "Só uma
+// tarja de exemplo acima do formulário" é o segundo desenho voltando. A prévia é a loja, num iframe,
+// e o rascunho chega a ela pela ponte.
+
+/** O que um desenho da faixa leria: os campos do aviso que a loja escreve na tela. */
+const DESENHO_DA_FAIXA = /\.(highlight|linkLabel|imageDesktop|imageMobile)\b/
+
+describe('a faixa de avisos — o painel não desenha a faixa', () => {
+  it('âncora: leu os arquivos da faixa e achou as superfícies dela', () => {
+    expect(FONTES_FAIXA.length).toBeGreaterThan(4)
+    for (const alvo of [
+      'ui/AnnouncementLivePreview.tsx',
+      'ui/AnnouncementList.tsx',
+      'model/useAnnouncementsPreviewBridge.ts',
+    ]) {
+      expect(FONTES_FAIXA.some(f => f.replace(/\\/g, '/').endsWith(alvo))).toBe(true)
+    }
+  })
+
+  it('o palco monta a loja — `<iframe>` com `previewSrc` — e não lê campo de aviso nenhum', () => {
+    const fonte = semComentarios(ler(join(FAIXA_UI, 'AnnouncementLivePreview.tsx')))
+    expect(fonte).toContain('<iframe')
+    expect(fonte).toContain('previewSrc')
+    expect(fonte).not.toMatch(DESENHO_DA_FAIXA)
+  })
+
+  it('a faixa não importa nada de `apps/store`', () => {
+    const infratores = FONTES_FAIXA.filter(f => /from ['"].*apps\/store/.test(ler(f)))
+    expect(infratores).toEqual([])
+  })
+
+  it('SENSOR: um palco que desenhasse o aviso seria acusado, e a prosa não', () => {
+    const desenho = 'const Faixa = ({ aviso }) => <p><strong>{aviso.highlight}</strong> {aviso.text}</p>'
+    expect(DESENHO_DA_FAIXA.test(semComentarios(desenho))).toBe(true)
+    for (const quebra of ['\r\n', '\n']) {
+      const comentado = `const a = 1${quebra}// o palco não lê aviso.highlight${quebra}const b = 2`
+      expect(DESENHO_DA_FAIXA.test(semComentarios(comentado))).toBe(false)
+      expect(semComentarios(comentado)).toContain('const b = 2')
     }
   })
 })

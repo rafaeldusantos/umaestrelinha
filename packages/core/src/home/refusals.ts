@@ -129,7 +129,9 @@ export const destinationRefusal = (item: Partial<HomeSectionItem>): string | nul
  * - `INFRA_SLUGS` (`assets`, `api`, `_vercel`): não passam pelo React Router — seriam servidos como
  *   arquivo, ou pela plataforma, e a página nunca montaria;
  * - três segmentos ou mais sob um primeiro segmento que não é rota: a canônica de categoria tem no
- *   **máximo dois** (`AD-018`), então `/a/b/c` só existiria se `a` fosse uma rota com sub-rota.
+ *   **máximo dois** (`AD-018`), então `/a/b/c` só existiria se `a` fosse uma rota com sub-rota;
+ * - endereço que começa com duas barras, ou com uma barra e uma contrabarra: começa com `/`, mas o
+ *   navegador o lê como **outro domínio** (endereço relativo ao protocolo), e o link sairia da loja.
  */
 export const ctaHrefRefusal = (href: string): string | null => {
   const valor = (href ?? '').trim()
@@ -137,6 +139,9 @@ export const ctaHrefRefusal = (href: string): string | null => {
 
   if (!valor.startsWith('/')) {
     return 'O endereço precisa começar com “/”: a loja só aponta para páginas dela.'
+  }
+  if (valor.startsWith('//') || valor.startsWith('/\\')) {
+    return 'Este endereço leva para fora da loja. Use um caminho da loja, começando com uma só “/” — por exemplo, “/ofertas”.'
   }
   if (/\s/.test(valor)) return 'O endereço não pode ter espaço.'
 

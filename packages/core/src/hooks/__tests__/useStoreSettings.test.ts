@@ -236,3 +236,21 @@ describe('useAnalyticsSettings', () => {
     expect(DEFAULT_ANALYTICS.enabled).toBe(false)
   })
 })
+
+describe('a chave `announcements` (a faixa de avisos)', () => {
+  it('sem a linha no banco, devolve a faixa desligada e sem avisos', async () => {
+    rows([{ key: 'general', value: { store_name: 'Uma Estrelinha' } }])
+    const result = await loadSettings()
+    expect(result.current.query.data?.announcements).toEqual({ enabled: false, items: [] })
+  })
+
+  it('a linha `announcements` do banco sobrevive ao fetchAllSettings e não é descartada', async () => {
+    const value = {
+      enabled: true,
+      items: [{ id: 'a', kind: 'text', highlight: 'Frete grátis', text: '', linkLabel: '', href: '' }],
+    }
+    rows([{ key: 'announcements', value }])
+    const result = await loadSettings()
+    expect(result.current.query.data?.announcements).toEqual(value)
+  })
+})

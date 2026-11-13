@@ -44,13 +44,15 @@ const declaraFolga = (codigo: string): boolean =>
   /caixa\.(?:width|height)\s*-\s*\d+/.test(codigo)
 
 describe('a folga do palco — dono único (feature 47)', () => {
-  it('ÂNCORA: a varredura leu arquivos, e achou os DOIS palcos', () => {
+  it('ÂNCORA: a varredura leu arquivos, e achou os TRÊS palcos', () => {
     // Sem as duas âncoras, um caminho errado varreria zero arquivo e a régua abaixo passaria em
     // silêncio — que é a pior falha possível num teste que lê fonte.
     expect(FONTES.length).toBeGreaterThan(100)
 
     const palcos = FONTES.filter(f => /LivePreview\.tsx$/.test(f.caminho))
+    // A Faixa de avisos trouxe o terceiro palco; a lista foi reescrita, não afrouxada.
     expect(palcos.map(f => f.caminho).sort()).toEqual([
+      'features/announcement-bar/ui/AnnouncementLivePreview.tsx',
       'features/home-composition/ui/HomeLivePreview.tsx',
       'features/store-menu/ui/MenuLivePreview.tsx',
     ])

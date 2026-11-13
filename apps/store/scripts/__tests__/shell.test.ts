@@ -49,29 +49,39 @@ describe('lerShell — arquivo vazio', () => {
 // pelo `node_modules` de cima), com uma entrada e um tsconfig MÍNIMOS — sem eles o esbuild falharia
 // sozinho e o teste passaria pelo motivo errado (rodada 3 da verificação). O par positivo prova que,
 // com o mesmo ambiente e um shell válido, o build SAI 0 e gera o bundle com o shell dentro.
-describe('build-server.mjs — sem shell, o build PARA; com shell, gera o bundle', () => {
-  const loja = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const loja = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-  const rodar = (comShell: string | null) => {
-    const raiz = mkdtempSync(join(TEMP, 'tmp-build-server-'))
-    try {
-      mkdirSync(join(raiz, 'scripts'))
-      mkdirSync(join(raiz, 'server'))
-      for (const f of ['build-server.mjs', 'shell.mjs']) copyFileSync(join(loja, 'scripts', f), join(raiz, 'scripts', f))
-      writeFileSync(join(raiz, 'server/page.ts'), 'declare const __SHELL__: string\nexport default { shell: __SHELL__ }\n')
-      writeFileSync(join(raiz, 'tsconfig.server.json'), '{}\n')
-      if (comShell !== null) {
-        mkdirSync(join(raiz, 'dist'))
-        writeFileSync(join(raiz, 'dist/index.html'), comShell)
-      }
-      const r = spawnSync(process.execPath, [join(raiz, 'scripts/build-server.mjs')], { encoding: 'utf8' })
-      const bundle = join(raiz, '.server/page.mjs')
-      return { status: r.status, stderr: r.stderr, bundle: existsSync(bundle) ? readFileSync(bundle, 'utf8') : null }
-    } finally {
-      rmSync(raiz, { recursive: true, force: true })
+const rodar = (comShell: string | null, env: Record<string, string | undefined> = {}) => {
+  const raiz = mkdtempSync(join(TEMP, 'tmp-build-server-'))
+  try {
+    mkdirSync(join(raiz, 'scripts'))
+    mkdirSync(join(raiz, 'server'))
+    for (const f of ['build-server.mjs', 'shell.mjs']) copyFileSync(join(loja, 'scripts', f), join(raiz, 'scripts', f))
+    writeFileSync(join(raiz, 'server/page.ts'), 'declare const __SHELL__: string\nexport default { shell: __SHELL__ }\n')
+    writeFileSync(join(raiz, 'tsconfig.server.json'), '{}\n')
+    if (comShell !== null) {
+      mkdirSync(join(raiz, 'dist'))
+      writeFileSync(join(raiz, 'dist/index.html'), comShell)
     }
+    // `VERCEL` sai do ambiente herdado: quem decide se o build "roda na Vercel" é o caso.
+    const { VERCEL: _herdada, ...ambiente } = process.env
+    const r = spawnSync(process.execPath, [join(raiz, 'scripts/build-server.mjs')], {
+      encoding: 'utf8',
+      env: { ...ambiente, ...env },
+    })
+    const bundle = join(raiz, '.server/page.mjs')
+    return {
+      status: r.status,
+      stderr: r.stderr,
+      bundle: existsSync(bundle) ? readFileSync(bundle, 'utf8') : null,
+      shellNaSaida: existsSync(join(raiz, 'dist/index.html')),
+    }
+  } finally {
+    rmSync(raiz, { recursive: true, force: true })
   }
+}
 
+describe('build-server.mjs — sem shell, o build PARA; com shell, gera o bundle', () => {
   it('sem `dist/index.html`: exit ≠ 0, mensagem do `vite build`, nenhum `.server/page.mjs`', () => {
     const r = rodar(null)
     expect(r.status).not.toBe(0)
@@ -89,5 +99,30 @@ describe('build-server.mjs — sem shell, o build PARA; com shell, gera o bundle
     const r = rodar('<html><body><div id="root"></div><!-- marca-do-build-69 --></body></html>')
     expect(r.status).toBe(0)
     expect(r.bundle).toContain('marca-do-build-69')
+  })
+})
+
+// A Home passa pela função como toda página: na Vercel o `index.html` não pode ficar na saída
+// publicada, senão o filesystem o serve em `/` antes do catch-all — sem o veredito da faixa de avisos
+// no `<html>`. Fora da Vercel ele fica, para o `vite preview` continuar servindo a loja.
+describe('build-server.mjs — o `index.html` sai da saída publicada só na Vercel', () => {
+  const SHELL_DA_LOJA = '<html><body><div id="root"></div><!-- marca-da-home --></body></html>'
+
+  it('com `VERCEL` definido: o bundle leva o shell, e `dist/index.html` não está mais lá', () => {
+    const r = rodar(SHELL_DA_LOJA, { VERCEL: '1' })
+    expect(r.status).toBe(0)
+    expect(r.bundle).toContain('marca-da-home')
+    expect(r.shellNaSaida).toBe(false)
+  })
+
+  it('sem `VERCEL`: o mesmo build mantém `dist/index.html`, para o `vite preview`', () => {
+    const r = rodar(SHELL_DA_LOJA)
+    expect(r.status).toBe(0)
+    expect(r.bundle).toContain('marca-da-home')
+    expect(r.shellNaSaida).toBe(true)
+  })
+
+  it('`VERCEL` vazio não é a Vercel — o arquivo fica', () => {
+    expect(rodar(SHELL_DA_LOJA, { VERCEL: '' }).shellNaSaida).toBe(true)
   })
 })

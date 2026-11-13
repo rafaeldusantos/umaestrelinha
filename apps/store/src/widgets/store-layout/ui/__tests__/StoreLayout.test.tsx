@@ -6,6 +6,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 // somava 133px de rodapé — com o header, 30% de um iPhone SE. O que se prova aqui é que as duas
 // nunca coexistem, e que a folga do fim do documento vem DEPOIS do rodapé.
 
+// A faixa de avisos lê a configuração pelo React Query; aqui ela não é o assunto.
+vi.mock('@/widgets/announcement-bar', () => ({ AnnouncementBar: () => null }))
 vi.mock('@/widgets/header/ui/Header', () => ({ default: () => <div>header</div> }))
 vi.mock('@/widgets/footer/ui/Footer', () => ({ default: () => <div data-testid="footer" /> }))
 vi.mock('@/widgets/mobile-nav/ui/MobileNav', () => ({

@@ -1,6 +1,7 @@
 // Feature 69 — o que um caminho É, antes de qualquer leitura do banco (`AD-053`).
 //
-// A função da Vercel recebe TODO caminho que não é arquivo estático nem a Home. Esta é a primeira
+// A função da Vercel recebe TODO caminho que não é arquivo estático — a Home inclusive (o
+// `index.html` sai da saída publicada na Vercel). Esta é a primeira
 // decisão dela, e é pura: só a tabela de rotas de `core/routes`. O que depende do catálogo (o produto
 // existe? a categoria está ativa?) é de `servePage`, depois.
 //
@@ -51,7 +52,8 @@ const reservado = (s: string): boolean => RESERVED_SLUGS.includes(s.toLowerCase(
 /**
  * A classificação de um `pathname` (sem query), na ordem da tabela do `design.md` da 69:
  *
- * 1. `/` ⇒ `app` — a Home é servida pelo filesystem; se chegar aqui, sai o shell intacto.
+ * 1. `/` ⇒ `app` — a Home é o shell, com o `<head>` do build e o cache de página fixa; ela passa
+ *    pela função como toda página, para o veredito da faixa de avisos sair no `<html>`.
  * 2. segmento vazio, com `.` ou `%` ⇒ `notfound` (extensão de arquivo, `..`, codificado).
  * 3. rota de aplicação (`APP_ROUTE_PATTERNS`) ⇒ `app`.
  * 4. página fixa indexável (`SITEMAP_STATIC_PATHS` − `/`) ⇒ `static`, com o caminho declarado.

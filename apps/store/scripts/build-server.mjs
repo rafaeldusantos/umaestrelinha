@@ -9,10 +9,14 @@
 // layout medido no spike; se o preview mostrar que a Vercel não detecta a função assim, o plano B é
 // trocar `SAIDA` por `api/page.mjs` e tirar a reexportação — este é o único ponto a mudar.
 //
+// Na Vercel (`VERCEL` definido) o `dist/index.html` sai da saída publicada DEPOIS de embutido: com ele
+// lá, o filesystem serviria `/` antes do catch-all, e a Home sairia sem o veredito da faixa de avisos
+// no `<html>`. Fora da Vercel ele fica, para o `vite preview` (o mesmo ramo de `build-robots.mjs`).
+//
 // `paths` do `tsconfig.server.json` resolvem `@estrelinha/core/*` para o fonte (sem build por
 // pacote), e o banner devolve `require` ao ESM — o supabase-js tem dependência CommonJS.
 import { build } from 'esbuild'
-import { lerShell } from './shell.mjs'
+import { lerShell, tirarShellDaSaida } from './shell.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -41,3 +45,6 @@ await build({
   logLevel: 'warning',
 })
 console.log(`build-server: ${SAIDA} (shell de ${shell.length} bytes)`)
+if (tirarShellDaSaida(SHELL, process.env)) {
+  console.log(`build-server: ${SHELL} retirado da saída — na Vercel a Home é servida pela função`)
+}

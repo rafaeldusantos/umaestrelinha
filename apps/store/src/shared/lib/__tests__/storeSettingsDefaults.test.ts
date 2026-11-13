@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_ANALYTICS,
+  DEFAULT_ANNOUNCEMENTS,
   DEFAULT_BUY_TOGETHER,
   DEFAULT_GENERAL,
   DEFAULT_GOOGLE_SHOPPING,
@@ -13,6 +14,7 @@ import {
   DEFAULT_SHIPPING,
 } from '@estrelinha/supabase/types/settings'
 import { DEFAULT_BUY_TOGETHER_FORM } from '@estrelinha/core/buy-together'
+import { DEFAULT_ANNOUNCEMENTS as DEFAULT_ANNOUNCEMENTS_DO_CORE } from '@estrelinha/core/announcements'
 import { readdirSync } from 'node:fs'
 import { LEGACY_ENABLED_EVENTS, NOTIFICATION_EVENTS } from '@estrelinha/core/notifications'
 
@@ -589,6 +591,28 @@ describe('a forma do bloco Compre Junto', () => {
     expect(nomes.length).toBeGreaterThan(50)
     const quem = nomes.filter(n =>
       semComentarioSql(readFileSync(`${MIGRATIONS}/${n}`, 'utf8')).includes("'buy_together'"),
+    )
+    expect(quem).toEqual([])
+  })
+})
+
+/**
+ * A faixa de avisos também não tem migration: a ausência da linha `announcements` É a faixa desligada.
+ * Semear a chave ligaria (ou fixaria) uma faixa que a dona nunca montou. O default do TypeScript é o
+ * de `core` — a mesma referência, não uma cópia com os mesmos valores.
+ */
+describe('a faixa de avisos', () => {
+  it('nasce desligada e sem avisos, e o default é o de core', () => {
+    expect(DEFAULT_ANNOUNCEMENTS).toBe(DEFAULT_ANNOUNCEMENTS_DO_CORE)
+    expect(DEFAULT_ANNOUNCEMENTS.enabled).toBe(false)
+    expect(DEFAULT_ANNOUNCEMENTS.items).toEqual([])
+  })
+
+  it('nenhuma migration grava a chave `announcements`', () => {
+    const nomes = readdirSync(MIGRATIONS).filter(n => n.endsWith('.sql'))
+    expect(nomes.length).toBeGreaterThan(50)
+    const quem = nomes.filter(n =>
+      semComentarioSql(readFileSync(`${MIGRATIONS}/${n}`, 'utf8')).includes("'announcements'"),
     )
     expect(quem).toEqual([])
   })

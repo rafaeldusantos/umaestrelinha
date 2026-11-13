@@ -43,7 +43,8 @@
     "./stats": "./src/stats/index.ts",
     "./customers": "./src/customers/index.ts",
     "./live": "./src/live/index.ts",
-    "./product-search": "./src/product-search/index.ts"
+    "./product-search": "./src/product-search/index.ts",
+    "./announcements": "./src/announcements/index.ts"
   },
   "scripts": {
     "test": "vitest run"

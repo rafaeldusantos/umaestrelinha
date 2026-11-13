@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { ANNOUNCEMENT_BAR_ID } from './storeChrome'
 
 /**
  * Para que lado a pessoa está rolando, e se ainda está no topo.
@@ -26,6 +27,20 @@ const FLIP_THRESHOLD = 8
  * a pessoa ter visto que ele existe.
  */
 const TOP_ZONE = 64
+
+/**
+ * A zona do topo desta medida: a do cabeçalho mais a altura da faixa de avisos, quando ela está na
+ * página. A faixa rola com a página e fica acima do cabeçalho; sem somá-la, a primeira rolagem
+ * esconderia o cabeçalho com a faixa ainda na tela.
+ *
+ * A altura é **medida** a cada vez, e não lida de uma constante: a faixa está em `rem` e cresce com
+ * a fonte do sistema, e numa rota sem faixa (desligada, ou fora do `StoreLayout`) o elemento não
+ * existe e a soma é zero.
+ */
+const topZone = (): number => {
+  const faixa = document.getElementById(ANNOUNCEMENT_BAR_ID)
+  return TOP_ZONE + (faixa ? faixa.offsetHeight : 0)
+}
 
 export interface ScrollDirection {
   direction: 'up' | 'down'
@@ -88,10 +103,11 @@ export const useScrollDirection = (): ScrollDirection => {
         }
       }
 
+      const noTopo = y <= topZone()
       setState(prev =>
-        prev.direction === direction.current && prev.atTop === y <= TOP_ZONE
+        prev.direction === direction.current && prev.atTop === noTopo
           ? prev
-          : { direction: direction.current, atTop: y <= TOP_ZONE },
+          : { direction: direction.current, atTop: noTopo },
       )
     }
 
@@ -123,7 +139,7 @@ export const useScrollDirection = (): ScrollDirection => {
     const y = clampedScrollY()
     anchor.current = y
     direction.current = 'up'
-    setState({ direction: 'up', atTop: y <= TOP_ZONE })
+    setState({ direction: 'up', atTop: y <= topZone() })
   }, [pathname])
 
   return state

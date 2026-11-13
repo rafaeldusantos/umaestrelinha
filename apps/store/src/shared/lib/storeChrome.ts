@@ -18,6 +18,15 @@ import { productPath } from '@estrelinha/core/routes'
 export const BOTTOM_BAR_H = '4rem'
 
 /**
+ * O id da faixa de avisos, que fica no fluxo logo acima do `<header>`.
+ *
+ * Dois leitores no mesmo app: o widget da faixa o escreve, e `useScrollDirection` o procura para somar
+ * a altura dela à zona do topo — o cabeçalho só se recolhe depois que a faixa sai da tela. Uma
+ * constante aqui, e não o widget exportando, porque `shared/lib` não importa de `widgets/`.
+ */
+export const ANNOUNCEMENT_BAR_ID = 'avisos-da-loja'
+
+/**
  * A altura da barra de COMPRA da página do produto.
  *
  * Ela é maior que a das abas desde a feature 42, e isso desfez a igualdade que deixava a reserva do

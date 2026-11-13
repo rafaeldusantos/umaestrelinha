@@ -69,6 +69,18 @@ describe('internalMenuHrefRefusal (MNM-12)', () => {
     expect(internalMenuHrefRefusal(href)).toBeNull()
   })
 
+  it('recusa barra e contrabarra no começo — o navegador lê como outro domínio — com o motivo do externo', () => {
+    const externo = internalMenuHrefRefusal('https://exemplo.com')
+    expect(internalMenuHrefRefusal('/\\exemplo.com')).toBe(externo)
+    expect(internalMenuHrefRefusal('//exemplo.com')).toBe(externo)
+    expect(externo).toContain('só a páginas da loja')
+  })
+
+  it('continua aceitando /ofertas e /a/b', () => {
+    expect(internalMenuHrefRefusal('/ofertas')).toBeNull()
+    expect(internalMenuHrefRefusal('/a/b')).toBeNull()
+  })
+
   it('não-texto recusa', () => {
     expect(internalMenuHrefRefusal(undefined)).toEqual(expect.any(String))
     expect(internalMenuHrefRefusal(3)).toEqual(expect.any(String))

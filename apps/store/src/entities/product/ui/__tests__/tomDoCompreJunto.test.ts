@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { tomProibido } from '@/test/tomProibido'
 
 /**
  * O registro do negócio é memorial: o Compre Junto não usa urgência, contagem, escassez, prova
@@ -50,10 +51,8 @@ const lidos = [
 const literais = (fonte: string): string[] =>
   [...fonte.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`]*)`/g)].map(m => m[1] ?? m[2] ?? m[3] ?? '')
 
-export const tomProibido = (texto: string): boolean =>
-  /economiz|últim[ao]s?\b|\brestam?\b|\bresta\b|corra|aproveite|\bhoje\b|por tempo limitado|\bsó (?:até|hoje)|esgotando|poucas unidades|mais (?:vendid|comprad)|\bclientes? (?:amam|escolheram)|!|\p{Extended_Pictographic}/iu.test(
-    texto,
-  )
+/** A régua do tom — mora em `@/test/tomProibido`, lida também pelo guarda da faixa de avisos. */
+export { tomProibido }
 
 describe('o Compre Junto mantém o tom memorial', () => {
   it('âncora: o bloco, as regras e as quatro pontas foram lidos', () => {

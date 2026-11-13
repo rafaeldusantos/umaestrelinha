@@ -103,7 +103,7 @@ describe('FOCUS_ROUTES — âncora: toda rota de foco é um destino da navegaç�
     expect(destinosDoTrilho()).not.toContain('/admin/inventada')
   })
 
-  it('são exatamente QUATRO — as duas com prévia, Configurações (55) e os Filtros (66)', () => {
+  it('são exatamente CINCO — as duas com prévia, Configurações (55), os Filtros (66) e a Faixa de avisos', () => {
     // A lista foi REESCRITA para o conteúdo novo, e ganhou vizinhas (os dois casos de CFG-09 acima),
     // em vez de virar um `toContain` que deixaria passar uma quarta entrada silenciosa.
     // Feature 66: QUATRO. Reescrita de novo para o conteúdo novo, com vizinha logo abaixo.
@@ -112,7 +112,13 @@ describe('FOCUS_ROUTES — âncora: toda rota de foco é um destino da navegaç�
       '/admin/menu',
       '/admin/configuracoes',
       '/admin/filtros',
+      '/admin/faixa-de-avisos',
     ])
+  })
+
+  it('a faixa de avisos pede foco — edição ao lado da loja — e o vizinho de prefixo não', () => {
+    expect(isFocusRoute('/admin/faixa-de-avisos')).toBe(true)
+    expect(isFocusRoute('/admin/faixa-de-avisos-antiga')).toBe(false)
   })
 
   it('os filtros da loja pedem foco, com as duas subrotas — e o vizinho de prefixo não (feature 66)', () => {

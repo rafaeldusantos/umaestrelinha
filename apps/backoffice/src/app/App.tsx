@@ -27,6 +27,7 @@ import AdminBuyTogetherListPage from "@/pages/admin/AdminBuyTogetherListPage";
 import AdminBuyTogetherAdoptionPage from "@/pages/admin/AdminBuyTogetherAdoptionPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
+import AdminAnnouncementsPage from "@/pages/admin/AdminAnnouncementsPage";
 import AdminStoreFaqPage from "@/pages/admin/AdminStoreFaqPage";
 import AdminGooglePage from "@/pages/admin/AdminGooglePage";
 import AdminClientsPage from "@/pages/admin/AdminClientsPage";
@@ -126,6 +127,7 @@ const App = () => (
                 nível, mesma régua da grade rápida. */}
             <Route path="/admin/home/:sectionId" element={<AdminHomePage />} />
             <Route path="/admin/menu" element={<AdminMenuPage />} />
+            <Route path="/admin/faixa-de-avisos" element={<AdminAnnouncementsPage />} />
             <Route path="/admin/perguntas-frequentes" element={<AdminStoreFaqPage />} />
             {/* Feature 61 — as integrações com o Google numa tela só, com uma seção por endereço
                 (`AD-046`, molde de Configurações). As três são IRMÃS AUTO-FECHADAS pelo mesmo motivo
