@@ -557,6 +557,8 @@ export interface DbOrderItem {
    */
   accompanies_product_ids?: string[] | null
   accompanies_list_ids?: (string | null)[] | null
+  /** A campanha de desconto que valeu nesta linha (`on delete restrict`: campanha usada não se apaga). */
+  campaign_id?: string | null
 }
 
 // === Frontend types (used by storefront components) ===
@@ -782,3 +784,7 @@ export * from './filters'
 // === Compre Junto (listas de peças e adicionais de cada joia) ===
 
 export * from './buyTogether'
+
+// === Campanhas de desconto (a campanha, os percentuais e a marcação da peça) ===
+
+export * from './campaign'

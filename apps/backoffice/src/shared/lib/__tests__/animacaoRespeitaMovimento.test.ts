@@ -82,6 +82,17 @@ const ARQUIVOS = [
   // Compre Junto — as abas Listas | Adesão (o sublinhado que troca de cor). O relatório de adesão não
   // declara movimento próprio (o esqueleto do `StatCard` já está em escopo). +1 token / +1 par.
   'features/buy-together-lists/ui/BuyTogetherTabs.tsx',
+  // As campanhas de desconto — a lista, o cadastro, os percentuais, as cores e as três peças do
+  // selo. Nenhum deles declara movimento próprio: as contagens de tokens e de pares não mudam, e a
+  // âncora de arquivos lidos sobe junto (+8).
+  'pages/admin/AdminCampaignsPage.tsx',
+  'pages/admin/AdminCampaignFormPage.tsx',
+  'features/campaign-form/ui/PercentsCard.tsx',
+  'features/campaign-form/ui/ColorsCard.tsx',
+  'entities/campaign/ui/CampaignBadgeInline.tsx',
+  'entities/campaign/ui/CampaignCardPreview.tsx',
+  'entities/campaign/ui/CampaignStatusPill.tsx',
+  'entities/campaign/ui/badgeColors.ts',
 ] as const
 
 /**

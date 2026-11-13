@@ -114,6 +114,14 @@ describe('toda rota `/admin/*` está sob `RequireAdmin`', () => {
     expect(dentro).toContain('/admin/conta')
   })
 
+  it('as três telas das campanhas de desconto estão dentro — nomeadas, porque gravam desconto', () => {
+    const dentro = rotas(codigo)
+      .filter(r => bloco !== null && r.at > bloco.inicio && r.at < bloco.fim)
+      .map(r => r.path)
+
+    expect(dentro).toEqual(expect.arrayContaining(['/admin/campanhas', '/admin/campanhas/nova', '/admin/campanhas/:id']))
+  })
+
   it('`/admin/login` está FORA, e é a única — quem não entrou precisa alcançá-la', () => {
     // O sentido inverso. Sem ele, um guarda que exigisse TUDO dentro passaria trancando a própria
     // porta de entrada, e ninguém conseguiria fazer login.

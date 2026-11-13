@@ -200,6 +200,10 @@ const RPCS = [
   // Feature 89 — a function `order-proposals` grava a proposta (criar e editar) numa transação. Só
   // toca as tabelas da proposta e `customers` (`pedidoMontadoSchema.test.ts`).
   'save_order_proposal',
+  // O cadastro da campanha de desconto e os percentuais dela numa transação
+  // (`apps/backoffice/src/entities/campaign/api/campaignWrite.ts`). Só toca `campaigns` e
+  // `campaign_percents` (`campanhasSchema.test.ts` e o probe `01-campanhas.sql`).
+  'save_campaign',
   'set_kit_showcase',
   'set_material_status',
   'set_material_tracking',

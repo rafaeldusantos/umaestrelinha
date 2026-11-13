@@ -37,6 +37,8 @@ import AdminCouponsPage from "@/pages/admin/AdminCouponsPage";
 import AdminCouponFormPage from "@/pages/admin/AdminCouponFormPage";
 import AdminPromotionsPage from "@/pages/admin/AdminPromotionsPage";
 import AdminPromotionFormPage from "@/pages/admin/AdminPromotionFormPage";
+import AdminCampaignsPage from "@/pages/admin/AdminCampaignsPage";
+import AdminCampaignFormPage from "@/pages/admin/AdminCampaignFormPage";
 import AdminAbandonedCartsPage from "@/pages/admin/AdminAbandonedCartsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -89,6 +91,9 @@ const App = () => (
             <Route path="/admin/promocoes" element={<AdminPromotionsPage />} />
             <Route path="/admin/promocoes/nova" element={<AdminPromotionFormPage />} />
             <Route path="/admin/promocoes/:id/editar" element={<AdminPromotionFormPage />} />
+            <Route path="/admin/campanhas" element={<AdminCampaignsPage />} />
+            <Route path="/admin/campanhas/nova" element={<AdminCampaignFormPage />} />
+            <Route path="/admin/campanhas/:id" element={<AdminCampaignFormPage />} />
 
             {/* Catálogo */}
             <Route path="/admin/produtos" element={<AdminProductsPage />} />
