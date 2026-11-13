@@ -28,3 +28,33 @@ export const bulkCampaignChoice = (
   const percent = Number(value)
   return campaign.percents.includes(percent) ? { campaignId: campaign.id, campaignName: campaign.name, percent } : null
 }
+
+/**
+ * O que o "Desfazer" do lote regrava: as peças que o lote mudou, agrupadas pela marcação que cada
+ * uma tinha NAQUELA campanha antes dele — o percentual, ou `null` (não estava na campanha, e volta a
+ * não estar). Peça que já estava como o lote a deixou não entra: não há o que voltar nela.
+ *
+ * O estado de antes vem das linhas selecionadas (a seleção guarda a linha, com as marcações lidas da
+ * lista), e a volta é a mesma porta das marcações, um grupo por chamada.
+ */
+export interface CampaignUndoGroup {
+  campaignId: string
+  percent: number | null
+  productIds: string[]
+}
+
+export const campaignUndoGroups = (
+  rows: { id: string; campaigns?: { campaign_id: string; percent: number }[] }[],
+  choice: BulkCampaignChoice,
+): CampaignUndoGroup[] => {
+  const grupos = new Map<number | null, string[]>()
+  const vistos = new Set<string>()
+  for (const row of rows) {
+    if (vistos.has(row.id)) continue
+    vistos.add(row.id)
+    const antes = (row.campaigns ?? []).find(m => m.campaign_id === choice.campaignId)?.percent ?? null
+    if (antes === choice.percent) continue
+    grupos.set(antes, [...(grupos.get(antes) ?? []), row.id])
+  }
+  return [...grupos].map(([percent, productIds]) => ({ campaignId: choice.campaignId, percent, productIds }))
+}

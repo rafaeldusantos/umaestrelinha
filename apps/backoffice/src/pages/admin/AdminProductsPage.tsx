@@ -42,7 +42,7 @@ import ProductThumb from '@/features/product-list/ui/ProductThumb'
 import SupplierCell from '@/features/product-list/ui/SupplierCell'
 import { useSuppliers } from '@/entities/supplier'
 import { campaignsOpenForMarking, setProductsCampaign, useCampaigns } from '@/entities/campaign'
-import type { BulkCampaignChoice } from '@/features/bulk-edit/model/bulkCampaign'
+import { campaignUndoGroups, type BulkCampaignChoice, type CampaignUndoGroup } from '@/features/bulk-edit/model/bulkCampaign'
 import { campaignsForList, rowCampaignMarks } from '@/features/product-list/model/campaignMarks'
 import CampaignMarksCell from '@/features/product-list/ui/CampaignMarksCell'
 import { priceCell, rowBadges, statusCell, stockCell } from '@/features/product-list/model/rowSummary'
@@ -142,6 +142,8 @@ const AdminProductsPage = () => {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [applying, setApplying] = useState(false)
   const undo = useUndoBuffer()
+  /** O desfazer do lote de campanha: as marcações de antes, que voltam pela porta das marcações. */
+  const campaignUndo = useUndoBuffer<CampaignUndoGroup>()
 
   const selectedRows = [...selected.values()]
 
@@ -220,18 +222,42 @@ const AdminProductsPage = () => {
     })
   }
 
+  /** Regrava as marcações de antes do lote, um grupo por chamada à porta, e relê a lista. */
+  const undoCampaign = async () => {
+    const grupos = campaignUndo.take()
+    if (!grupos) return
+    try {
+      for (const g of grupos) await setProductsCampaign(g.productIds, g.campaignId, g.percent)
+    } catch (e) {
+      toast({
+        title: 'As peças não voltaram à campanha de antes',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    }
+    await Promise.all([refetch(), refetchCampaigns()])
+  }
+
   /**
    * A marcação na campanha não é patch de `products`: vai pela porta das marcações, e o preço de
-   * sempre da peça fica como está. O desfazer do toast é só do patch de `products`.
+   * sempre da peça fica como está. O desfazer guarda, antes da escrita, a marcação que cada peça
+   * tinha naquela campanha — o percentual, ou nenhuma — e a devolve pela mesma porta.
    */
   const applyCampaign = async (choice: BulkCampaignChoice) => {
     setApplying(true)
+    const antes = campaignUndoGroups(selectedRows, choice)
     try {
       const gravadas = await setProductsCampaign(selectedRows.map(r => r.id), choice.campaignId, choice.percent)
+      campaignUndo.capture({ snapshot: antes, label: `${gravadas} peça(s) na campanha` })
       toast({
         title: choice.percent === null
           ? `${gravadas} peça(s) tiradas da ${choice.campaignName}`
           : `${gravadas} peça(s) na ${choice.campaignName} com ${choice.percent}%`,
+        action: antes.length > 0 ? (
+          <ToastAction altText="Desfazer" onClick={undoCampaign}>
+            Desfazer
+          </ToastAction>
+        ) : undefined,
       })
       await Promise.all([refetch(), refetchCampaigns()])
     } catch (e) {

@@ -254,3 +254,92 @@ describe('a edição em massa põe e tira as peças da campanha', () => {
     expect(campaignsRefetchMock).not.toHaveBeenCalled()
   })
 })
+
+describe('o "Desfazer" do lote de campanha devolve as marcações de antes', () => {
+  const QUATRO_A_15 = ['p1', 'p2', 'p3', 'p4'].map(id =>
+    row({ id, name: `Peça ${id}`, slug: `peca-${id}`, campaigns: [{ campaign_id: 'bf', percent: 15 }] }),
+  )
+
+  const aplicar = async (rows: AdminListRow[], opcao: string) => {
+    setCampaignMock.mockResolvedValue(rows.length)
+    abrir('/admin/produtos', rows)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Selecionar a página' }))
+    fireEvent.click(barra().getByRole('button', { name: 'Editar em massa' }))
+    fireEvent.click(await screen.findByLabelText('Editar campanha'))
+    const dialogo = screen.getByRole('dialog')
+    fireEvent.click(within(dialogo).getByRole('combobox', { name: 'Campanha das peças' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Black Friday' }))
+    fireEvent.click(within(dialogo).getByRole('combobox', { name: 'Percentual na campanha' }))
+    fireEvent.click(await screen.findByRole('option', { name: opcao }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(`Aplicar a ${rows.length} produto`) }))
+    })
+  }
+
+  /** O aviso do lote (o que tem `Desfazer`) e o toque nele. */
+  const desfazer = async () => {
+    const aviso = toastMock.mock.calls.map(c => c[0]).find(p => p.action)
+    expect(aviso?.action.props.altText).toBe('Desfazer')
+    setCampaignMock.mockClear()
+    refetchMock.mockClear()
+    campaignsRefetchMock.mockClear()
+    await act(async () => {
+      await aviso.action.props.onClick()
+    })
+  }
+
+  it('quatro peças a 15% levadas a 10%: o aviso tem "Desfazer", e ele as devolve a 15%', async () => {
+    await aplicar(QUATRO_A_15, 'Black Friday: 10%')
+
+    expect(setCampaignMock).toHaveBeenCalledWith(['p1', 'p2', 'p3', 'p4'], 'bf', 10)
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: '4 peça(s) na Black Friday com 10%' }),
+    )
+
+    await desfazer()
+
+    expect(setCampaignMock.mock.calls).toEqual([[['p1', 'p2', 'p3', 'p4'], 'bf', 15]])
+    expect(refetchMock).toHaveBeenCalled()
+    expect(campaignsRefetchMock).toHaveBeenCalled()
+  })
+
+  it('peças com percentuais diferentes e uma fora da campanha: cada uma volta ao que tinha', async () => {
+    await aplicar(
+      [
+        row({ id: 'p1', name: 'Peça 1', slug: 'peca-1', campaigns: [{ campaign_id: 'bf', percent: 15 }] }),
+        row({ id: 'p2', name: 'Peça 2', slug: 'peca-2', campaigns: [{ campaign_id: 'bf', percent: 20 }] }),
+        // Marcada em OUTRA campanha: na Black Friday ela não estava, e volta a não estar.
+        row({ id: 'p3', name: 'Peça 3', slug: 'peca-3', campaigns: [{ campaign_id: 'natal', percent: 30 }] }),
+        row({ id: 'p4', name: 'Peça 4', slug: 'peca-4', campaigns: [] }),
+      ],
+      'Black Friday: 10%',
+    )
+
+    await desfazer()
+
+    expect(setCampaignMock.mock.calls).toEqual([
+      [['p1'], 'bf', 15],
+      [['p2'], 'bf', 20],
+      [['p3', 'p4'], 'bf', null],
+    ])
+  })
+
+  it('"Tirar da Black Friday" em lote e "Desfazer": as peças voltam com o percentual que tinham', async () => {
+    await aplicar(
+      [
+        row({ id: 'p1', name: 'Peça 1', slug: 'peca-1', campaigns: [{ campaign_id: 'bf', percent: 15 }] }),
+        row({ id: 'p2', name: 'Peça 2', slug: 'peca-2', campaigns: [{ campaign_id: 'bf', percent: 20 }] }),
+        row({ id: 'p3', name: 'Peça 3', slug: 'peca-3', campaigns: [] }),
+      ],
+      'Tirar da Black Friday',
+    )
+    expect(setCampaignMock).toHaveBeenCalledWith(['p1', 'p2', 'p3'], 'bf', null)
+
+    await desfazer()
+
+    expect(setCampaignMock.mock.calls).toEqual([
+      [['p1'], 'bf', 15],
+      [['p2'], 'bf', 20],
+    ])
+  })
+})
