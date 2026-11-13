@@ -133,6 +133,7 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
 | guia de material | `/como-enviar-seu-material-de-dna` | `/como-enviar-o-material` — **301** |
 | trocas e devoluções | `/politicas-de-trocas-e-devolucoes` | — |
 | privacidade | `/politica-de-privacidade` | — |
+| vitrine da campanha de desconto | `/ofertas` (o mesmo para toda campanha) | `/black-friday` — **301** |
 
 **Os dois endereços de política são LITERAIS do site em produção** (feature `45`), lidos do
 `sitemap.xml` de `umaestrelinha.com.br` em 2026-09-12 — plural no primeiro, **singular** no segundo.
@@ -205,6 +206,21 @@ que a página continua abrindo pelo endereço novo. É a mesma decisão que a `3
   `CategoryPage` vem de `categories`, o widget da home se chama "Coleções" e o 404 diz "Coleção não
   encontrada". A tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook
   engolia o erro e a tela mostrava grade vazia para sempre. **Não recriar.**
+  - **A exceção declarada é `/ofertas`** (campanhas de desconto, WI 102): a vitrine da campanha em
+    vigência é um conjunto de produtos que **não** é categoria — ele é DERIVADO das marcações da
+    campanha (`product_campaigns`, pela leitura pública filtrada por `now()` do banco), nunca uma
+    linha em `categories` com vínculos gravados. Um endereço fixo para toda campanha (`OFFERS_PATH`
+    em `core/routes`, reservado em `ROUTE_SLUGS`), e uma **terceira classe** de rota: nem
+    `SITEMAP_STATIC_PATHS` nem `NON_INDEXABLE_PATHS`. Com campanha em vigência a página é indexável,
+    com o nome dela no título (`offersPageMeta`, `core/seo`), e entra no sitemap; sem campanha diz
+    que não há ofertas, leva `noindex` e sai do sitemap. O servidor a classifica `offers`
+    (`classifyPath`) e a serve com `s-maxage=300` — a virada acontece em até 5 minutos. O recorte por
+    percentual é `?percentual=<p>`; filtros, ordenação e rolagem são os da categoria.
+  - **`/black-friday` → `/ofertas` (301)** sem reservar o slug: a categoria "Black Friday" da loja
+    anterior continua desligada e com o slug dela. É a única entrada de `LEGACY_REDIRECTS` cujo
+    primeiro segmento não está em `ROUTE_SLUGS`, por isso ela não tem rota no `App.tsx` nem entra em
+    `APP_ROUTE_PATTERNS`: o espelho na SPA é a `CategoryPage` (`legacyRedirectTo` de caminho fixo), e
+    no servidor de páginas o ramo de categoria devolve o 301 antes de ler a árvore.
 
 ### O `<title>` e a descrição de cada rota (feature `62`, `AD-048`)
 

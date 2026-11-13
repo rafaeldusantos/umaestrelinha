@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { validateCoupon } from '@estrelinha/core/hooks/useCoupons'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { campaignCouponRefusal } from '@estrelinha/core/coupons'
 
 interface Props {
   subtotal: number
@@ -25,6 +26,10 @@ interface Props {
   discount?: number
   /** O cupom perdeu para outro desconto (`AD-015`): o selo diz "Não aplicado", nunca um valor. */
   notApplied?: boolean
+  /** O subtotal das peças que entram no cupom (sem as de campanha), de `couponEligibleSubtotal`. */
+  eligibleSubtotal?: number
+  /** O nome da campanha em vigência com peça na sacola, ou `null`. */
+  campaignName?: string | null
 }
 
 const CouponInput = ({
@@ -34,6 +39,8 @@ const CouponInput = ({
   variant = 'default',
   discount,
   notApplied = false,
+  eligibleSubtotal,
+  campaignName = null,
 }: Props) => {
   const { applied, setCoupon, clearCoupon } = useCouponStore()
   const [code, setCode] = useState('')
@@ -42,7 +49,7 @@ const CouponInput = ({
   const apply = async () => {
     if (!code.trim()) return
     setLoading(true)
-    const res = await validateCoupon({ code, subtotal, shippingCost, customerEmail })
+    const res = await validateCoupon({ code, subtotal, shippingCost, customerEmail, eligibleSubtotal, campaignName })
     setLoading(false)
     if (!res.ok || !res.coupon) {
       toast.error(res.error || 'Cupom inválido.')
@@ -55,6 +62,11 @@ const CouponInput = ({
 
   const drawer = variant === 'drawer'
   const shownDiscount = discount ?? applied?.discount ?? 0
+  // A sacola mudou e ficou só com peças de campanha: o cupom de desconto não vale para elas.
+  const recusaDaCampanha =
+    applied && !applied.freeShipping && campaignName && eligibleSubtotal !== undefined && eligibleSubtotal <= 0
+      ? campaignCouponRefusal(campaignName)
+      : null
 
   const remove = () => {
     clearCoupon()
@@ -68,14 +80,16 @@ const CouponInput = ({
       <div className="flex items-center gap-2.5 px-5 py-3.5 md:px-6">
         <Tag className="h-4 w-4 shrink-0 text-estrelinha-primary" strokeWidth={2.2} />
         <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-[18px] text-estrelinha-ink">
-          {applied.code} aplicado
+          {recusaDaCampanha ?? `${applied.code} aplicado`}
         </p>
         <span className="shrink-0 text-sm font-semibold leading-[18px] text-estrelinha-primary">
-          {notApplied
+          {recusaDaCampanha
             ? 'Não aplicado'
-            : applied.freeShipping
-              ? 'Frete grátis'
-              : `−${formatPrice(shownDiscount)}`}
+            : notApplied
+              ? 'Não aplicado'
+              : applied.freeShipping
+                ? 'Frete grátis'
+                : `−${formatPrice(shownDiscount)}`}
         </span>
         <button
           type="button"
@@ -97,11 +111,13 @@ const CouponInput = ({
           <div className="min-w-0">
             <p className="text-sm font-medium text-estrelinha-ink truncate">{applied.code}</p>
             <p className="text-xs text-estrelinha-ink-soft">
-              {notApplied
-                ? 'Não aplicado'
-                : applied.freeShipping
-                  ? 'Frete grátis'
-                  : `Desconto de ${formatPrice(shownDiscount)}`}
+              {recusaDaCampanha
+                ? recusaDaCampanha
+                : notApplied
+                  ? 'Não aplicado'
+                  : applied.freeShipping
+                    ? 'Frete grátis'
+                    : `Desconto de ${formatPrice(shownDiscount)}`}
             </p>
           </div>
         </div>

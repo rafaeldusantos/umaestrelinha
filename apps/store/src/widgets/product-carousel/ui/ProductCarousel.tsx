@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { TAP_44 } from '@/shared/lib/touchTarget'
+import { TAP_44, TAP_ROW } from '@/shared/lib/touchTarget'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ProductCard from '@/entities/product/ui/ProductCard'
@@ -82,6 +82,12 @@ interface Props {
   badgeLabel?: string
   linkHref?: string
   linkText?: string
+  /**
+   * O link também no celular. Sem isto ele aparece só a partir de `md`, que é a forma das fileiras
+   * de coleção da Home (`HOME-04`). Com isto o link fica visível em toda largura, com alvo de 44 px
+   * de altura (`TAP_ROW`) — é o "Ver todas" do bloco da campanha, a entrada direta para `/ofertas`.
+   */
+  linkOnMobile?: boolean
   tone?: CarouselTone
   /**
    * O card de banner que abre a fileira — board `7CF-0`, seção "Decorativos Afetivos".
@@ -130,6 +136,7 @@ const ProductCarousel = ({
   badgeLabel,
   linkHref,
   linkText,
+  linkOnMobile = false,
   tone = 'ground',
   banner,
   loading = false,
@@ -162,16 +169,22 @@ const ProductCarousel = ({
     <section className={`py-12 md:py-20 ${TONES[tone]}`}>
       <div className="container">
         <SectionHeading
-          className="mb-6"
+          // Com o link no celular, o cabeçalho embrulha em vez de empurrar a página para o lado: o
+          // título, o link e as setas não cabem numa linha estreita (390 com zoom, fonte grande).
+          className={linkOnMobile ? 'mb-6 flex-wrap gap-y-3' : 'mb-6'}
           title={title}
           subtitle={subtitle}
           badge={badgeLabel}
           action={
-            <div className="flex shrink-0 items-center gap-3 pb-1">
+            <div className={`flex shrink-0 items-center gap-3 pb-1${linkOnMobile ? ' ml-auto flex-wrap' : ''}`}>
               {linkHref && linkText && (
                 <Link
                   to={linkHref}
-                  className="hidden text-[15px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 md:inline"
+                  className={
+                    linkOnMobile
+                      ? `${TAP_ROW} whitespace-nowrap text-[13px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 motion-reduce:transition-none md:text-[15px]`
+                      : 'hidden text-[15px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 md:inline'
+                  }
                 >
                   {linkText}
                 </Link>

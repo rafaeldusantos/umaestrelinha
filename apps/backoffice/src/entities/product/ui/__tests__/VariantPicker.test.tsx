@@ -16,6 +16,7 @@ const v = (over: Partial<VariacaoDaPeca>): VariacaoDaPeca => ({
   imagem: null,
   valores: {},
   peso: null,
+  campanha: null,
   ...over,
 })
 

@@ -50,6 +50,7 @@ import type { MenuBanners } from '../../../core/src/menu/banners.ts'
  * importa pacote nenhum), e este pacote só a importa para descrever o campo do `Product`.
  */
 import type { OptionMark } from '../../../core/src/filters/types.ts'
+import type { ProductCampaign } from './campaign'
 
 /**
  * `show_in_menu` e `menu_promo` nasceram na migration `20260803120000_16-store-menu.sql`, e a
@@ -395,6 +396,12 @@ export interface DbOrder {
    */
   buy_together_discount?: number
   order_bump_discount?: number
+  /**
+   * O desconto de campanha do pedido (preço de tabela − preço da campanha, por linha), calculado pelo
+   * SERVIDOR — o `create-order` com o relógio dele, o `create-payment` pela campanha gravada na
+   * linha. Zero nos pedidos de antes. Opcional porque nem toda leitura o pede no `select`.
+   */
+  campaign_discount?: number
 }
 
 export interface DbOrderStatusHistory {
@@ -557,6 +564,12 @@ export interface DbOrderItem {
    */
   accompanies_product_ids?: string[] | null
   accompanies_list_ids?: (string | null)[] | null
+  /** A campanha de desconto que valeu nesta linha (`on delete restrict`: campanha usada não se apaga). */
+  campaign_id?: string | null
+  /** O percentual da campanha nesta peça, no instante do pedido. Nulo na linha sem campanha. */
+  campaign_percent?: number | null
+  /** O "de" da peça no instante do pedido (`original_price`/`compare_price`), quando havia. */
+  compare_unit_price?: number | null
 }
 
 // === Frontend types (used by storefront components) ===
@@ -660,6 +673,14 @@ export interface Product {
    * Opcional pela razão de `filter_value_ids`; o mapper da loja sempre devolve um array.
    */
   option_marks?: OptionMark[]
+  /**
+   * Campanhas de desconto — a campanha em vigência desta peça, pelo embed `product_campaigns` dos dois
+   * `select` da loja (filtrado pela RLS por `now()`). Presente só quando ela baixa o preço: aí `price`
+   * e o `price` de cada variação já são o preço com desconto, e `compare_price`, o cheio — então
+   * filtros, ordenação, régua de preço, busca e card leem o preço efetivo sem saber da campanha.
+   * Ausente ou `null`: a peça de sempre.
+   */
+  campaign?: ProductCampaign | null
 }
 
 /** Um vínculo produto↔categoria. `position` é a ordem que o admin arrastou (PST-06 AC 3). */
@@ -782,3 +803,7 @@ export * from './filters'
 // === Compre Junto (listas de peças e adicionais de cada joia) ===
 
 export * from './buyTogether'
+
+// === Campanhas de desconto (a campanha, os percentuais e a marcação da peça) ===
+
+export * from './campaign'

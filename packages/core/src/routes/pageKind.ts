@@ -39,7 +39,7 @@ export function presencePage(pathname: string): { kind: PresencePageKind; slug: 
 
   const c = classifyPath(caminho)
   if (c.kind === 'product') return { kind: 'joia', slug: c.slug }
-  if (c.kind === 'category') return { kind: 'lista', slug: null }
+  if (c.kind === 'category' || c.kind === 'offers') return { kind: 'lista', slug: null }
   return { kind: 'outra', slug: null }
 }
 

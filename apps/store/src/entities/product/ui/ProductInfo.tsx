@@ -22,6 +22,8 @@ import BuyTogetherBlock from './buy-together/BuyTogetherBlock'
 import EngravingField from './EngravingField'
 import VariantPicker from './VariantPicker'
 import { PixIcon, SacolaIcon } from '@estrelinha/ui/icons'
+// O selo da campanha mora em `entities/campaign`: o cartão, esta página e a sacola o leem (`AD-033`).
+import { CampaignBadgeInline } from '@/entities/campaign'
 
 interface Props {
   product: Product
@@ -77,6 +79,10 @@ const ProductInfo = ({ product, categoryName, purchase, buyTogether, action }: P
   const hasWhatsApp = phone.length >= 10
   const waMessage = `Olá! Tenho interesse na joia "${product.name}" (${formatPrice(price)}) da ${store_name || 'Uma Estrelinha'}. Pode me ajudar?\n\n${currentUrl}`
   const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(waMessage)}`
+  // Campanha de desconto: `price` e `savings` JÁ são os da campanha (o mapeador os calcula pela
+  // função do servidor). Aqui só o desenho: o selo em linha acima do nome e o cheio riscado acima do
+  // preço, sem o "Economize" — o percentual já está no selo.
+  const campanha = product.campaign ?? null
 
   return (
     <div className="flex flex-col">
@@ -95,25 +101,54 @@ const ProductInfo = ({ product, categoryName, purchase, buyTogether, action }: P
         </div>
       )}
 
+      {campanha && (
+        <div className="mb-2.5 flex">
+          <CampaignBadgeInline campaign={campanha} percent={campanha.percent} />
+        </div>
+      )}
+
       <h1 className="font-display text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-estrelinha-ink">
         {product.name}
       </h1>
 
-      <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="font-display text-[32px] font-semibold leading-[38px] text-estrelinha-primary">
-          {formatPrice(price)}
-        </span>
-        {savings && (
-          <>
-            <span className="text-[16px] leading-5 text-estrelinha-ink-soft line-through">
+      {campanha && savings ? (
+        // Peça de campanha: o preço com desconto, e logo abaixo "De R$ X (riscado) · Nx de R$ Y sem
+        // juros" — o cheio e as parcelas na mesma linha.
+        <div className="mt-5 flex flex-col gap-1">
+          <span className="font-display text-[32px] font-semibold leading-[38px] text-estrelinha-primary">
+            {formatPrice(price)}
+          </span>
+          <p data-testid="cheio-e-parcelas" className="text-[13px] leading-4 text-estrelinha-ink-soft">
+            <span className="line-through">
+              <span className="sr-only">De </span>
               {formatPrice(savings.compareAt)}
             </span>
-            <span className="rounded-sm bg-estrelinha-primary/[0.09] px-2 py-0.5 text-[12px] font-bold leading-4 text-estrelinha-primary">
-              Economize {formatPrice(savings.saved)}
-            </span>
-          </>
-        )}
-      </div>
+            {installments && installments.count > 1 && (
+              <>
+                {' · '}
+                {installments.count}x de {formatPrice(installments.value)} sem juros
+              </>
+            )}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="font-display text-[32px] font-semibold leading-[38px] text-estrelinha-primary">
+            {formatPrice(price)}
+          </span>
+          {savings && (
+            <>
+              <span className="text-[16px] leading-5 text-estrelinha-ink-soft line-through">
+                <span className="sr-only">De </span>
+                {formatPrice(savings.compareAt)}
+              </span>
+              <span className="rounded-sm bg-estrelinha-primary/[0.09] px-2 py-0.5 text-[12px] font-bold leading-4 text-estrelinha-primary">
+                Economize {formatPrice(savings.saved)}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* PDP-11: o desconto do Pix chega à tela onde a compra se decide. A vitrine já mostrava o
           número em cada card; a página do produto, não — e é aqui que a cliente escolhe.
@@ -127,7 +162,7 @@ const ProductInfo = ({ product, categoryName, purchase, buyTogether, action }: P
         </p>
       )}
 
-      {installments && installments.count > 1 && (
+      {!(campanha && savings) && installments && installments.count > 1 && (
         <p className="mt-1 text-[13px] leading-4 text-estrelinha-ink-soft">
           ou {installments.count}x de {formatPrice(installments.value)} sem juros
         </p>

@@ -114,6 +114,9 @@ export const sitemapDeps = (
     countVariants: () => contar('product_variants', 'id'),
     readVariants: (from, to) => ler<SitemapVariant>('product_variants', COLUNAS_VARIACAO_SITEMAP, from, to),
     countOptionMarks: () => contar('product_option_filter_values', 'product_id'),
+    // A vitrine da campanha entra só com campanha em vigência — e a RLS de `campaigns` só deixa passar
+    // a ligada dentro da vigência, pelo relógio do banco. Uma contagem basta.
+    readOffersLive: async () => (await contar('campaigns', 'id')) > 0,
     readOptionMarks: (from, to) =>
       ler<SitemapOptionMark>(
         'product_option_filter_values',

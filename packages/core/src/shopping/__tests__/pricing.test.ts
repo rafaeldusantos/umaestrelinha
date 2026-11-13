@@ -94,3 +94,55 @@ describe('offerAvailability — os quatro ramos', () => {
     ).toBe('out_of_stock')
   })
 })
+
+describe('offerPricing — a campanha de desconto em vigência', () => {
+  const campanha = (percent: number) => ({
+    percent,
+    starts_at: '2026-11-13T03:00:00+00:00',
+    ends_at: '2026-12-01T03:00:00+00:00',
+  })
+
+  it('o g:price é o cheio, o g:sale_price é o com desconto, e a vigência acompanha', () => {
+    // 15% sobre R$ 199,90 = R$ 169,915 ⇒ R$ 169,92, meio centavo para cima.
+    expect(offerPricing({ price: 199.9, compare_price: null, stock: 5 }, campanha(15))).toEqual({
+      price: 199.9,
+      salePrice: 169.92,
+      saleEffective: { start: '2026-11-13T03:00:00+00:00', end: '2026-12-01T03:00:00+00:00' },
+    })
+  })
+
+  it('com "de/por", o desconto vale sobre o "de" e o cobrado é o MENOR — campanha vence', () => {
+    // 15% sobre 200 = 170, menor que os 180 de hoje.
+    expect(offerPricing({ price: 180, compare_price: 200, stock: 5 }, campanha(15))).toEqual({
+      price: 200,
+      salePrice: 170,
+      saleEffective: { start: '2026-11-13T03:00:00+00:00', end: '2026-12-01T03:00:00+00:00' },
+    })
+  })
+
+  it('com "de/por" mais barato que a campanha, fica o "de/por" de sempre, sem vigência — nunca os dois somados', () => {
+    // 15% sobre 200 = 170, maior que os 150 de hoje; multiplicar daria 127,50.
+    expect(offerPricing({ price: 150, compare_price: 200, stock: 5 }, campanha(15))).toEqual({
+      price: 200,
+      salePrice: 150,
+    })
+  })
+
+  it('sem campanha, idêntico a hoje', () => {
+    expect(offerPricing({ price: 199.9, compare_price: null, stock: 5 }, null)).toEqual({
+      price: 199.9,
+      salePrice: null,
+    })
+    expect(offerPricing({ price: 84, compare_price: 120, stock: 5 }, undefined)).toEqual({
+      price: 120,
+      salePrice: 84,
+    })
+  })
+
+  it('linha sem preço continua sem preço, com campanha', () => {
+    expect(offerPricing({ price: null, compare_price: null, stock: 5 }, campanha(15))).toEqual({
+      price: null,
+      salePrice: null,
+    })
+  })
+})

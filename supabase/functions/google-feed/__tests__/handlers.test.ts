@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createFakeSupabase } from '../../_shared/testing/fakes.ts'
 import {
+  FEED_CAMPAIGN_CHUNK,
   FEED_PAGE_SIZE,
   handleFeed,
   readAllRows,
+  readFeedCampaign,
   toOffers,
   type FeedDeps,
   type FeedRow,
@@ -51,6 +54,7 @@ const deps = (over: Partial<FeedDeps> = {}, linhas: FeedRow[] = [linha(0)]): Fee
   countRows: async () => linhas.length,
   readPage: async (from, to) => linhas.slice(from, to + 1),
   markFetched: async () => {},
+  readCampaign: async () => ({ percentOf: new Map(), window: null }),
   origin: 'https://umaestrelinha.com.br',
   channel: CANAL,
   ...over,
@@ -315,5 +319,131 @@ describe('GSH-23 — a taxonomia herdada da categoria', () => {
   it('produto sem categoria nenhuma não quebra a geração', async () => {
     const res = await handleFeed(deps({}, [linha(0)]))
     expect(res.status).toBe(200)
+  })
+})
+
+/**
+ * A campanha de desconto em vigência chega ao feed pelo leitor único das functions
+ * (`_shared/campaigns.ts`), com o relógio DA FUNCTION — a service role ignora a RLS. O banco é o
+ * dublê de `_shared/testing`, que enxerga o `.in()` e o `.eq()` de cada leitura.
+ */
+describe('handleFeed — a campanha de desconto em vigência', () => {
+  const CAMPANHA = {
+    id: 'camp-black',
+    name: 'Black Friday',
+    starts_at: '2026-11-27T03:00:00.000Z',
+    ends_at: '2026-11-30T03:00:00.000Z',
+    active: true,
+  }
+  const DENTRO = Date.parse('2026-11-28T12:00:00.000Z')
+  const ANTES = Date.parse('2026-11-27T02:59:59.999Z')
+  const NO_FIM = Date.parse('2026-11-30T03:00:00.000Z')
+
+  // `p-0` marcado com 15%; `p-1` fora da campanha. `p-0` tem duas variações.
+  const banco = () =>
+    createFakeSupabase({
+      lists: {
+        campaigns: [CAMPANHA],
+        product_campaigns: (eqs, _select, read) => {
+          if (!eqs.some(([c, v]) => c === 'campaign_id' && v === 'camp-black')) return []
+          const pedidos = (read.in.find(([c]) => c === 'product_id')?.[1] ?? []) as string[]
+          return [{ product_id: 'p-0', percent: 15 }].filter(m => pedidos.includes(m.product_id))
+        },
+      },
+    })
+
+  const catalogo: FeedRow[] = [
+    linha(0, { variant: { id: 'v-0a', nuvemshop_id: 1001, price: 199.9 } as FeedRow['variant'] }),
+    linha(0, { variant: { id: 'v-0b', nuvemshop_id: 1002, price: 180, compare_price: 200 } as FeedRow['variant'] }),
+    linha(1, { variant: { id: 'v-1', nuvemshop_id: 1003, price: 50 } as FeedRow['variant'] }),
+  ]
+
+  const itens = (xml: string): Map<string, Record<string, string>> => {
+    const mapa = new Map<string, Record<string, string>>()
+    for (const bloco of xml.split('<item>').slice(1)) {
+      const campos: Record<string, string> = {}
+      for (const m of bloco.matchAll(/<g:([a-z_]+)>([^<]*)<\/g:\1>/g)) campos[m[1]] = m[2]
+      mapa.set(campos.id, campos)
+    }
+    return mapa
+  }
+
+  const feed = async (agora: number) => {
+    const supabase = banco()
+    const res = await handleFeed(
+      deps({ readCampaign: ids => readFeedCampaign(supabase.client, () => agora, ids) }, catalogo),
+    )
+    return { res, supabase }
+  }
+
+  it('dentro da vigência: sale_price e sale_price_effective_date em cada variação marcada', async () => {
+    const { res } = await feed(DENTRO)
+    expect(res.status).toBe(200)
+    const porId = itens(await res.text())
+    // 15% sobre 199,90 = 169,915 ⇒ 169,92.
+    expect(porId.get('1001')).toMatchObject({
+      price: '199.90 BRL',
+      sale_price: '169.92 BRL',
+      sale_price_effective_date: '2026-11-27T03:00:00Z/2026-11-30T03:00:00Z',
+    })
+    // 15% sobre o "de" (200) = 170, menor que os 180 de hoje.
+    expect(porId.get('1002')).toMatchObject({
+      price: '200.00 BRL',
+      sale_price: '170.00 BRL',
+      sale_price_effective_date: '2026-11-27T03:00:00Z/2026-11-30T03:00:00Z',
+    })
+    // A peça fora da campanha segue a de sempre.
+    expect(porId.get('1003')?.price).toBe('50.00 BRL')
+    expect(porId.get('1003')?.sale_price).toBeUndefined()
+    expect(porId.get('1003')?.sale_price_effective_date).toBeUndefined()
+  })
+
+  it('antes do início e no instante do fim: nenhuma oferta leva a campanha', async () => {
+    for (const agora of [ANTES, NO_FIM]) {
+      const { res } = await feed(agora)
+      const porId = itens(await res.text())
+      expect(porId.get('1001')).toMatchObject({ price: '199.90 BRL' })
+      expect(porId.get('1001')?.sale_price).toBeUndefined()
+      expect(porId.get('1002')).toMatchObject({ price: '200.00 BRL', sale_price: '180.00 BRL' })
+      for (const item of porId.values()) expect(item.sale_price_effective_date).toBeUndefined()
+    }
+  })
+
+  it('as marcações são pedidas só para as peças que estão no feed', async () => {
+    const { supabase } = await feed(DENTRO)
+    const pedidos = supabase.reads
+      .filter(l => l.table === 'product_campaigns')
+      .flatMap(l => l.in.flatMap(([, v]) => v as string[]))
+    expect([...pedidos].sort()).toEqual(['p-0', 'p-1'])
+  })
+
+  it('a leitura da campanha falhando ⇒ 503 sem feed, nunca o preço sem a campanha', async () => {
+    const supabase = createFakeSupabase({ listErrorByTable: { campaigns: { message: 'fora do ar' } } })
+    const markFetched = vi.fn(async () => {})
+    const res = await handleFeed(
+      deps({ readCampaign: ids => readFeedCampaign(supabase.client, () => DENTRO, ids), markFetched }, catalogo),
+    )
+    expect(res.status).toBe(503)
+    expect(await res.text()).not.toContain('<rss')
+    expect(markFetched).not.toHaveBeenCalled()
+  })
+
+  it('catálogo grande: as peças vão em lotes, e todas as marcadas levam a campanha', async () => {
+    const muitas = Array.from({ length: FEED_CAMPAIGN_CHUNK * 2 + 3 }, (_, n) => `p-${n}`)
+    const supabase = createFakeSupabase({
+      lists: {
+        campaigns: [CAMPANHA],
+        product_campaigns: (_eqs, _select, read) => {
+          const pedidos = (read.in.find(([c]) => c === 'product_id')?.[1] ?? []) as string[]
+          return pedidos.map(id => ({ product_id: id, percent: 10 }))
+        },
+      },
+    })
+    const r = await readFeedCampaign(supabase.client, () => DENTRO, muitas)
+    expect(r.percentOf.size).toBe(muitas.length)
+    expect(r.window).toEqual({ starts_at: CAMPANHA.starts_at, ends_at: CAMPANHA.ends_at })
+    const lotes = supabase.reads.filter(l => l.table === 'product_campaigns')
+    expect(lotes).toHaveLength(3)
+    for (const l of lotes) expect((l.in[0][1] as string[]).length).toBeLessThanOrEqual(FEED_CAMPAIGN_CHUNK)
   })
 })

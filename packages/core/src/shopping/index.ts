@@ -9,8 +9,10 @@
 
 export type {
   OfferAvailability,
+  OfferCampaign,
   OfferProductEligibility,
   OfferProductIdentity,
+  OfferSaleWindow,
   OfferVariantEligibility,
   OfferVariantIdentity,
   ShoppingOffer,
@@ -36,12 +38,14 @@ export type { OfferInputProduct, OfferInputVariant } from './types.ts'
 export {
   escapeXml,
   formatFeedPrice,
+  formatSaleEffectiveDate,
   renderFeedXml,
   type FeedChannel,
 } from './xml.ts'
 export {
   VARIES_BY,
   payablePrice,
+  priceValidUntil,
   productGroupJsonLd,
   productJsonLd,
   schemaAvailability,

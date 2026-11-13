@@ -1,7 +1,7 @@
 // A linha de peça da montagem, antes e depois de a peça ser relida (feature 89, `MON-05`, `MON-06`).
 // Puro: o teste lê a mesma regra que a tela aplica.
 
-import type { PecaParaProposta, ProdutoDoPool, VariacaoDaPeca } from '@/entities/product'
+import type { CampanhaDaLinha, PecaParaProposta, ProdutoDoPool, VariacaoDaPeca } from '@/entities/product'
 import { novaChave, type DraftLine } from './draft'
 
 export const MATERIAL_TAG = 'Pede material da cliente'
@@ -25,6 +25,10 @@ export const linhaNova = (p: Pick<ProdutoDoPool, 'id' | 'name'>): DraftLine => (
   stock_cap: null,
 })
 
+/** A campanha da linha com o nome dela, ou `null`. */
+const campanhaComNome = (peca: PecaParaProposta, c: CampanhaDaLinha | null) =>
+  c && peca.campanha ? { ...c, nome: peca.campanha.nome } : null
+
 /** O que a peça relida corrige na linha. Puro: o teste lê a mesma regra que a tela aplica. */
 export const acertoDaLinha = (line: DraftLine, peca: PecaParaProposta): Partial<DraftLine> => {
   const comum: Partial<DraftLine> = {
@@ -36,14 +40,14 @@ export const acertoDaLinha = (line: DraftLine, peca: PecaParaProposta): Partial<
   const medidas = (v: VariacaoDaPeca | null) => ({ ...peca.medidas, weight_kg: v?.peso ?? peca.medidas.weight_kg })
 
   if (peca.variacoes.length === 0) {
-    return { ...comum, needsVariant: false, variant_id: null, variant_label: null, list_price: peca.precoBase, engraves: false, dimensions: medidas(null), stock_cap: tetoDoEstoque(peca.politica, peca.estoqueTotal) }
+    return { ...comum, needsVariant: false, variant_id: null, variant_label: null, list_price: peca.precoBase, campanha: campanhaComNome(peca, peca.campanhaBase), engraves: false, dimensions: medidas(null), stock_cap: tetoDoEstoque(peca.politica, peca.estoqueTotal) }
   }
   const atual = line.variant_id ? peca.variacoes.find((v) => v.id === line.variant_id) ?? null : null
   // Uma linha só oferecível: entra sozinha — escolher a única opção é um clique sem decisão.
   const oferecivel = peca.variacoes.filter((v) => v.disponivel && v.preco !== null)
   const escolhida = atual ?? (line.variant_id === null && oferecivel.length === 1 ? oferecivel[0] : null)
   if (!escolhida) {
-    return { ...comum, needsVariant: true, variant_id: null, variant_label: null, list_price: null, engraves: false, dimensions: medidas(null), stock_cap: null }
+    return { ...comum, needsVariant: true, variant_id: null, variant_label: null, list_price: null, campanha: null, engraves: false, dimensions: medidas(null), stock_cap: null }
   }
   return {
     ...comum,
@@ -51,6 +55,7 @@ export const acertoDaLinha = (line: DraftLine, peca: PecaParaProposta): Partial<
     variant_id: escolhida.id,
     variant_label: escolhida.rotulo,
     list_price: escolhida.preco,
+    campanha: campanhaComNome(peca, escolhida.campanha),
     engraves: escolhida.grava,
     dimensions: medidas(escolhida),
     image_url: escolhida.imagem ?? peca.imagem,

@@ -9,6 +9,7 @@
 
 import {
   APP_ROUTE_PATTERNS,
+  OFFERS_PATH,
   RESERVED_SLUGS,
   SITEMAP_STATIC_PATHS,
 } from '../routes/routes.ts'
@@ -20,6 +21,7 @@ export type PathKind =
   | { kind: 'product'; slug: string }
   | { kind: 'category'; slug: string; parentSlug: string | null }
   | { kind: 'static'; path: string }
+  | { kind: 'offers' }
   | { kind: 'app' }
   | { kind: 'notfound' }
 
@@ -57,6 +59,8 @@ const reservado = (s: string): boolean => RESERVED_SLUGS.includes(s.toLowerCase(
  * 2. segmento vazio, com `.` ou `%` ⇒ `notfound` (extensão de arquivo, `..`, codificado).
  * 3. rota de aplicação (`APP_ROUTE_PATTERNS`) ⇒ `app`.
  * 4. página fixa indexável (`SITEMAP_STATIC_PATHS` − `/`) ⇒ `static`, com o caminho declarado.
+ *    A vitrine da campanha (`OFFERS_PATH`) ⇒ `offers`: dinâmica como o produto, porque o `<head>` e a
+ *    indexação dela dependem da campanha em vigência.
  * 5. `/produtos/:slug` ⇒ `product`.
  * 6. um ou dois segmentos, o primeiro NÃO reservado ⇒ `category` — um segmento reservado que não
  *    casou rota nenhuma (`/produtos`, `/conta/x`, `/api`) não é categoria por definição (`AD-018`).
@@ -76,6 +80,8 @@ export const classifyPath = (path: string): PathKind => {
 
   const fixa = SITEMAP_STATIC_PATHS.find(p => p !== '/' && casa(p, segmentos))
   if (fixa) return { kind: 'static', path: fixa }
+
+  if (casa(OFFERS_PATH, segmentos)) return { kind: 'offers' }
 
   if (segmentos.length === 2 && segmentos[0].toLowerCase() === PRODUTO) {
     return { kind: 'product', slug: segmentos[1] }

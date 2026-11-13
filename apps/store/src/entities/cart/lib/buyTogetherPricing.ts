@@ -18,6 +18,7 @@ import {
   type BuyTogetherDiscountConfig,
 } from '@estrelinha/core/buy-together'
 import { companionsOf, type CartItem } from '../model/cartStore'
+import { cartLineCampaign } from './campaignPricing'
 
 /** Os ids que a leitura da configuração pede: as linhas da sacola e as joias que as marcas citam. */
 export const cartBuyTogetherIds = (items: readonly CartItem[]): string[] => {
@@ -38,12 +39,18 @@ export const cartBuyTogetherIds = (items: readonly CartItem[]): string[] => {
 export const cartPricingItem = (
   item: CartItem,
   buyTogether: BuyTogetherPricingInput | undefined,
-): PricingItem => ({
-  product_id: item.product.id,
-  unit_price: item.unitPrice,
-  quantity: item.quantity,
-  ...(buyTogether && item.variantId ? { variant_id: item.variantId } : {}),
-})
+): PricingItem => {
+  // A peça de campanha entra com o preço de TABELA e a campanha (`cartLineCampaign`): quem desconta
+  // é `resolveOrderPricing`. Sem campanha, a linha é a de sempre.
+  const campanha = cartLineCampaign(item)
+  return {
+    product_id: item.product.id,
+    unit_price: campanha ? campanha.listPrice : item.unitPrice,
+    quantity: item.quantity,
+    ...(buyTogether && item.variantId ? { variant_id: item.variantId } : {}),
+    ...(campanha ? { campaign: campanha.pricing } : {}),
+  }
+}
 
 /**
  * A entrada `buyTogether` de `resolveOrderPricing`, com as marcas da sacola alinhadas às linhas.

@@ -29,6 +29,7 @@ vi.mock('@estrelinha/supabase/client', () => ({
 
 import {
   NeedsOtpError,
+  OrderDiscountChangedError,
   PickupUnavailableError,
   useCreateOrder,
   useOrdersByCustomerId,
@@ -197,6 +198,30 @@ describe('useCreateOrder — o 422 de `pickup_unavailable` é distinguível (fea
     const erro = await criar().catch((e) => e)
     expect(erro).toBeInstanceOf(Error)
     expect(erro).not.toBeInstanceOf(PickupUnavailableError)
+  })
+})
+
+describe('useCreateOrder — a campanha de desconto acabou entre a sacola e o pedido', () => {
+  it('o 422 do desconto mudado vira `OrderDiscountChangedError`, com o total que a tela mostrou', async () => {
+    invoke.mockResolvedValue(
+      erroDaFunction(422, {
+        error: 'Um desconto deste pedido mudou. Nada foi cobrado.',
+        code: 'promotion_no_longer_valid',
+        displayed_total: 267.92,
+        total: null,
+        piece: null,
+      }),
+    )
+    const erro = await criar().catch((e) => e)
+    expect(erro).toBeInstanceOf(OrderDiscountChangedError)
+    expect(erro.displayedTotal).toBe(267.92)
+    expect(erro).not.toBeInstanceOf(PickupUnavailableError)
+  })
+
+  it('outro 422 NÃO vira `OrderDiscountChangedError`', async () => {
+    invoke.mockResolvedValue(erroDaFunction(422, { error: 'missing_payer_cpf' }))
+    const erro = await criar().catch((e) => e)
+    expect(erro).not.toBeInstanceOf(OrderDiscountChangedError)
   })
 })
 

@@ -19,8 +19,8 @@ import {
  * porta por onde eles voltariam — com a dona clicando, sem ninguém decidir nada.
  */
 
-describe('HOME_SECTION_TYPES — os onze tipos', () => {
-  it('tem exatamente 11 tipos, na ordem em que o painel os oferece', () => {
+describe('HOME_SECTION_TYPES — os doze tipos', () => {
+  it('tem exatamente 12 tipos, na ordem em que o painel os oferece', () => {
     expect(HOME_SECTION_TYPES).toEqual([
       'hero',
       'trust_bar',
@@ -33,8 +33,9 @@ describe('HOME_SECTION_TYPES — os onze tipos', () => {
       'product_carousel',
       'category_grid',
       'hero_carousel',
+      'campaign_offers',
     ])
-    expect(HOME_SECTION_TYPES).toHaveLength(11)
+    expect(HOME_SECTION_TYPES).toHaveLength(12)
   })
 
   it('não repete tipo', () => {
@@ -62,8 +63,8 @@ describe('HOME_SECTION_TYPES — o que NÃO pode entrar (HOME-06)', () => {
   })
 })
 
-describe('UNIQUE_SECTION_TYPES — os seis que só existem uma vez', () => {
-  it('declara os seis únicos', () => {
+describe('UNIQUE_SECTION_TYPES — os sete que só existem uma vez', () => {
+  it('declara os sete únicos', () => {
     expect(UNIQUE_SECTION_TYPES).toEqual([
       'hero',
       'trust_bar',
@@ -71,8 +72,9 @@ describe('UNIQUE_SECTION_TYPES — os seis que só existem uma vez', () => {
       'brand_statement',
       'trending_tags',
       'newsletter',
+      'campaign_offers',
     ])
-    expect(UNIQUE_SECTION_TYPES).toHaveLength(6)
+    expect(UNIQUE_SECTION_TYPES).toHaveLength(7)
   })
 
   it('todo tipo único é um tipo do catálogo', () => {
@@ -151,7 +153,7 @@ describe('sectionMeta — o que ainda é "em breve" (emenda E3)', () => {
     expect(emBreve).toEqual([])
   })
 
-  it('os ONZE estão prontos — os dez de antes mais a Lista de categorias', () => {
+  it('os DOZE estão prontos — os onze de antes mais Joias em oferta', () => {
     const prontos = HOME_SECTION_TYPES.filter(t => !sectionMeta(t)!.comingSoon)
     expect(prontos).toEqual([
       'hero',
@@ -165,7 +167,22 @@ describe('sectionMeta — o que ainda é "em breve" (emenda E3)', () => {
       'product_carousel',
       'category_grid',
       'hero_carousel',
+      'campaign_offers',
     ])
+  })
+
+  it('Joias em oferta: o rótulo que a dona lê, único na Home, sem `limit` e pronto', () => {
+    expect(sectionMeta('campaign_offers')).toEqual({
+      type: 'campaign_offers',
+      label: 'Joias em oferta',
+      comingSoon: false,
+      limit: null,
+      unique: true,
+    })
+    const rotulos = HOME_SECTION_TYPES.filter(t => t !== 'campaign_offers').map(
+      t => sectionMeta(t)!.label,
+    )
+    expect(rotulos).not.toContain('Joias em oferta')
   })
 
   it('a Lista de categorias tem o rótulo que a dona lê, e é repetível (LCT-14)', () => {
@@ -268,6 +285,7 @@ describe('core/home — módulo puro', () => {
     const nomes = FONTES.map(f => f.nome)
     expect(nomes).toEqual(
       expect.arrayContaining([
+        'campaignOffers.ts',
         'catalog.ts',
         'defaults.ts',
         'derive.ts',
@@ -279,7 +297,7 @@ describe('core/home — módulo puro', () => {
         'types.ts',
       ]),
     )
-    expect(FONTES.length).toBeGreaterThanOrEqual(10)
+    expect(FONTES.length).toBeGreaterThanOrEqual(14)
   })
 
   it('nenhum arquivo importa React nem Supabase', () => {

@@ -22,12 +22,17 @@ import { lerComPapel } from '@/shared/api/lerComPapel'
 
 export const CATALOGO_DA_MONTAGEM_KEY = 'atelie-montagem-catalogo'
 
-/** As colunas da peça. Nomeadas, nunca tudo (a descrição é o grosso do catálogo e ninguém aqui a lê). */
+/**
+ * As colunas da peça. Nomeadas, nunca tudo (a descrição é o grosso do catálogo e ninguém aqui a lê). O
+ * "de" e as marcações nas campanhas de desconto vêm junto: a peça marcada na campanha em vigência
+ * mostra o preço dela.
+ */
 export const COLUNAS_DA_PECA =
-  'id, name, base_price, image_url, capa:images->0->>url, is_active, stock_policy, stock_total, requires_material, engraving_max_chars, options, weight_kg, width_cm, height_cm, length_cm'
+  'id, name, base_price, original_price, image_url, capa:images->0->>url, is_active, stock_policy, stock_total, requires_material, engraving_max_chars, options, weight_kg, width_cm, height_cm, length_cm, product_campaigns(percent, campaigns(id, name, starts_at, ends_at, active))'
 
 /** As colunas da variação. */
-export const COLUNAS_DA_VARIACAO = 'id, product_id, price, option_values, image_url, is_active, stock, position, weight_kg'
+export const COLUNAS_DA_VARIACAO =
+  'id, product_id, price, compare_price, option_values, image_url, is_active, stock, position, weight_kg'
 
 const contagemDe = (count: number | null | undefined, oQue: string): number => {
   if (typeof count !== 'number') throw new Error(`a leitura de ${oQue} veio sem a contagem`)
@@ -76,7 +81,9 @@ const lerVariacoes = async (): Promise<LinhaDaVariacao[]> => {
 }
 
 const lerCatalogo = async (): Promise<PecaParaProposta[]> => {
-  const { resultado } = await lerComPapel(async () => {
+  // A vigência da campanha é conferida pelo instante do BANCO (`lido_em`), nunca pelo relógio do
+  // aparelho; a function confere de novo, pelo dela, ao gravar.
+  const { resultado, lido_em } = await lerComPapel(async () => {
     const [pecas, variacoes] = await Promise.all([lerPecas(), lerVariacoes()])
     return { pecas, variacoes }
   })
@@ -87,7 +94,7 @@ const lerCatalogo = async (): Promise<PecaParaProposta[]> => {
     if (lista) lista.push(v)
     else porPeca.set(id, [v])
   }
-  return resultado.pecas.map((p) => mapearPecaParaProposta(p, porPeca.get(String(p.id)) ?? []))
+  return resultado.pecas.map((p) => mapearPecaParaProposta(p, porPeca.get(String(p.id)) ?? [], lido_em))
 }
 
 /** O catálogo da montagem: lido uma vez, enquanto a tela o pede. */

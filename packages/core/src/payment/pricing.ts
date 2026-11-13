@@ -7,6 +7,7 @@ import {
   type BuyTogetherDiscountConfig,
   type BuyTogetherSegment,
 } from '../buy-together/cartDiscount.ts'
+import { campaignUnitPrice } from '../campaigns/price.ts'
 
 export interface PricingItem {
   unit_price: number
@@ -18,6 +19,62 @@ export interface PricingItem {
    * a da peça pode não ter sido liberada. `null`/ausente = produto sem grade.
    */
   variant_id?: string | null
+  /**
+   * Opcional (desconto de campanha): a campanha em vigência marcada nesta peça. `unit_price` continua
+   * sendo o preço de TABELA; quem desconta é esta função, por `campaignUnitPrice`
+   * (`core/campaigns/price.ts`). Ausente ou nulo deixa a linha como era. A linha marcada fica fora da
+   * base do cupom, não conta para a faixa da promoção progressiva e não recebe o desconto casado; a
+   * oferta do checkout sobre ela cobra o menor dos dois.
+   */
+  campaign?: PricingCampaign | null
+}
+
+/** A campanha de uma linha: o percentual e, quando a peça tem "de/por", o preço "de". */
+export interface PricingCampaign {
+  percent: number
+  /** O "de" (`original_price` do produto ou `compare_price` da variação), quando existe. */
+  compare_price?: number | null
+}
+
+/**
+ * A linha é de campanha quando a campanha BAIXA o preço dela. Marcada sem baixar (o "de/por" já é
+ * menor que o cheio com o desconto) ela é peça comum — é a mesma regra do selo da loja, que só marca
+ * a peça cuja campanha baixa o preço.
+ */
+const hasCampaign = (item: PricingItem): boolean =>
+  item.campaign != null && campaignPriceOf(item) < item.unit_price
+
+/** O percentual de campanha que vale na linha (a campanha baixa o preço dela), ou `null`. */
+export const lineCampaignPercent = (item: PricingItem): number | null =>
+  hasCampaign(item) ? (item.campaign as PricingCampaign).percent : null
+
+/** O preço por unidade da linha com a campanha (o de tabela quando ela não tem campanha). */
+function campaignPriceOf(item: PricingItem): number {
+  if (!item.campaign) return item.unit_price
+  return campaignUnitPrice(item.unit_price, item.campaign.compare_price, item.campaign.percent).charged
+}
+
+/** As linhas com a campanha aplicada sobre o preço de tabela. Sem campanha nenhuma, a mesma lista. */
+function applyCampaign(items: PricingItem[]): PricingItem[] {
+  if (!items.some(hasCampaign)) return items
+  return items.map((item) => (hasCampaign(item) ? { ...item, unit_price: campaignPriceOf(item) } : item))
+}
+
+/**
+ * O desconto de campanha das partes cobradas: por parte marcada cujo cobrado É o da campanha (a oferta
+ * do checkout, quando mais barata, fica com o desconto dela), o cheio menos o da campanha.
+ */
+function campaignDiscountOf(full: PricingItem[], charged: PricingItem[]): number {
+  let total = 0
+  charged.forEach((item, k) => {
+    const line = full[k]
+    if (!line || !hasCampaign(line)) return
+    const price = campaignPriceOf(line)
+    if (price < line.unit_price && item.unit_price === price) {
+      total += (line.unit_price - price) * item.quantity
+    }
+  })
+  return round2(total)
 }
 
 /**
@@ -219,6 +276,7 @@ export interface ProgressivePromotion {
 
 /** Um item é elegível quando o escopo é `all` ou quando seu `product_id` está na lista da view. */
 function isEligible(item: PricingItem, promo: ProgressivePromotion): boolean {
+  if (hasCampaign(item)) return false
   if (promo.scope === 'all') return true
   if (!item.product_id) return false
   return promo.eligibleProductIds.indexOf(item.product_id) !== -1
@@ -388,7 +446,7 @@ export function perItemMin(a: PricingItem[], b: PricingItem[]): PricingItem[] {
  */
 function resolveChargedItems(input: CalculateOrderTotalsInput): PricingItem[] {
   if (input.buyTogether) return buyTogetherParts(input).charged
-  const bumped = applyOrderBump(input.items, input.bump)
+  const bumped = perItemMin(applyOrderBump(input.items, input.bump), applyCampaign(input.items))
   if (!input.promotions || input.promotions.length === 0) return bumped
 
   const progressive = applyProgressiveDiscount(input.items, input.promotions).items
@@ -414,7 +472,11 @@ interface BuyTogetherParts {
   bumped: PricingItem[]
   /** Por unidade, o menor entre o bump e o casado. */
   base: PricingItem[]
-  /** Por unidade, o menor entre a base e a faixa. */
+  /** Por unidade, o menor entre a base e a campanha (a base, sem campanha nenhuma). */
+  withCampaign: PricingItem[]
+  /** Por unidade, a linha a preço de tabela (para medir o desconto de campanha). */
+  full: PricingItem[]
+  /** Por unidade, o menor entre a base com a campanha e a faixa. */
   charged: PricingItem[]
   segments: Map<number, BuyTogetherSegment[]>
 }
@@ -426,11 +488,17 @@ function buyTogetherParts(input: CalculateOrderTotalsInput): BuyTogetherParts {
   const progressiveLines =
     promotions.length > 0 ? applyProgressiveDiscount(input.items, promotions).items : input.items
   const allocation = allocateBuyTogetherDiscount(input.items, config, config.marks ?? [])
-  const segments = new Map(allocation.map(a => [a.index, a.segments]))
+  // A peça de campanha não recebe o desconto casado, nem como principal nem como adicional.
+  const segments = new Map(
+    allocation.filter(a => !hasCampaign(input.items[a.index])).map(a => [a.index, a.segments]),
+  )
+  const campaignLines = applyCampaign(input.items)
 
   const owner: number[] = []
   const bumped: PricingItem[] = []
   const casado: PricingItem[] = []
+  const campaign: PricingItem[] = []
+  const full: PricingItem[] = []
   const progressive: PricingItem[] = []
   input.items.forEach((item, index) => {
     const push = (quantity: number, price: number) => {
@@ -438,6 +506,8 @@ function buyTogetherParts(input: CalculateOrderTotalsInput): BuyTogetherParts {
       owner.push(index)
       bumped.push({ ...bumpedLines[index], quantity })
       casado.push({ ...item, unit_price: price, quantity })
+      campaign.push({ ...campaignLines[index], quantity })
+      full.push({ ...item, quantity })
       progressive.push({ ...progressiveLines[index], quantity })
     }
     let used = 0
@@ -449,7 +519,8 @@ function buyTogetherParts(input: CalculateOrderTotalsInput): BuyTogetherParts {
   })
 
   const base = perItemMin(bumped, casado)
-  return { owner, bumped, base, charged: perItemMin(base, progressive), segments }
+  const withCampaign = perItemMin(base, campaign)
+  return { owner, bumped, base, withCampaign, full, charged: perItemMin(withCampaign, progressive), segments }
 }
 
 /** O desconto casado de uma linha, como a sacola e o checkout o mostram. */
@@ -581,6 +652,35 @@ export interface OrderPricingOutcome {
   buyTogetherDiscount?: number
   /** Só presente com `buyTogether`: o desconto casado de cada linha que recebeu alguma unidade. */
   buyTogetherLines?: BuyTogetherLinePricing[]
+  /**
+   * Só presente quando alguma linha da entrada trouxe `campaign`: o desconto de campanha (preço de
+   * tabela − preço da campanha), já embutido em `totals.subtotal`. Nunca entra em `promotionDiscount`
+   * nem no desconto casado.
+   */
+  campaignDiscount?: number
+}
+
+/**
+ * A soma das linhas que entram na base do cupom: as que não são de campanha. Quem decide se a linha é
+ * de campanha é a linha a preço de TABELA (`full[k]`, alinhada com `charged[k]`): a cobrada já traz o
+ * preço da campanha, e com "de/por" ela deixaria de parecer baixada pela campanha.
+ */
+const couponBaseOf = (full: PricingItem[], charged: PricingItem[]) =>
+  sumItems(charged.filter((_item, k) => !(full[k] && hasCampaign(full[k]))))
+
+/**
+ * O subtotal sobre o qual o cupom incide e o pedido mínimo é conferido: as linhas cobradas sem as
+ * peças de campanha. A loja o passa a `couponRefusal` (`core/coupons/rules.ts`) e o servidor também.
+ */
+export function couponEligibleSubtotal(
+  input: Pick<CalculateOrderTotalsInput, 'items' | 'bump' | 'buyTogether' | 'promotions'>,
+): number {
+  const priced = { ...input, shipping: 0, couponDiscount: 0, pixDiscountPercent: 0, method: 'card' as const }
+  if (input.buyTogether) {
+    const parts = buyTogetherParts(priced)
+    return couponBaseOf(parts.full, parts.charged)
+  }
+  return couponBaseOf(input.items, resolveChargedItems(priced))
 }
 
 /**
@@ -600,27 +700,32 @@ function priceOnePath(
 
   const applied = applyProgressiveDiscount(input.items, promotions).applied
 
-  const withoutPromotion = sumItems(applyOrderBump(input.items, input.bump))
-  const chargedSubtotal = sumItems(
-    resolveChargedItems({ ...input, couponDiscount: 0, promotions }),
+  const withoutPromotion = sumItems(
+    perItemMin(applyOrderBump(input.items, input.bump), applyCampaign(input.items)),
   )
+  const chargedItems = resolveChargedItems({ ...input, couponDiscount: 0, promotions })
+  const chargedSubtotal = sumItems(chargedItems)
 
   const totals = calculateOrderTotals({
     ...input,
     promotions,
-    // O cupom incide sobre o subtotal REALMENTE cobrado. Com `promotions` vazio isso é o subtotal
-    // com bump — idêntico ao que os dois chamadores já faziam.
-    couponDiscount: resolveCouponDiscount(chargedSubtotal, coupon),
+    // O cupom incide sobre o subtotal REALMENTE cobrado, sem as peças de campanha. Com `promotions`
+    // vazio e sem campanha isso é o subtotal com bump — idêntico ao que os dois chamadores já faziam.
+    couponDiscount: resolveCouponDiscount(couponBaseOf(input.items, chargedItems), coupon),
     shipping: coupon && coupon.type === 'free_shipping' ? 0 : input.shipping,
   })
 
-  return {
+  const outcome: OrderPricingOutcome = {
     totals,
     promotionDiscount: round2(withoutPromotion - chargedSubtotal),
     applied,
     winner: 'none',
     discarded: null,
   }
+  if (input.items.some((item) => item.campaign != null)) {
+    outcome.campaignDiscount = campaignDiscountOf(input.items, chargedItems)
+  }
+  return outcome
 }
 
 /**
@@ -636,24 +741,29 @@ function priceOnePathWithBuyTogether(
   const parts = buyTogetherParts({ ...input, couponDiscount: 0, promotions })
   const bumpedSubtotal = sumItems(parts.bumped)
   const baseSubtotal = sumItems(parts.base)
+  const withCampaignSubtotal = sumItems(parts.withCampaign)
   const chargedSubtotal = sumItems(parts.charged)
 
   const totals = calculateOrderTotals({
     ...input,
     promotions,
-    couponDiscount: resolveCouponDiscount(chargedSubtotal, coupon),
+    couponDiscount: resolveCouponDiscount(couponBaseOf(parts.full, parts.charged), coupon),
     shipping: coupon && coupon.type === 'free_shipping' ? 0 : input.shipping,
   })
 
-  return {
+  const outcome: OrderPricingOutcome = {
     totals,
-    promotionDiscount: round2(baseSubtotal - chargedSubtotal),
+    promotionDiscount: round2(withCampaignSubtotal - chargedSubtotal),
     applied: appliedAgainstBase(input, promotions, parts),
     winner: 'none',
     discarded: null,
     buyTogetherDiscount: round2(bumpedSubtotal - baseSubtotal),
     buyTogetherLines: buyTogetherLines(parts),
   }
+  if (input.items.some((item) => item.campaign != null)) {
+    outcome.campaignDiscount = campaignDiscountOf(parts.full, parts.charged)
+  }
+  return outcome
 }
 
 /**
@@ -739,6 +849,8 @@ export interface OrderLinesOutcome {
   buyTogetherDiscount: number
   /** O desconto da faixa (`outcome.promotionDiscount`). */
   promotionDiscount: number
+  /** Só presente quando o `outcome` o trouxe: o desconto de campanha, fora do resíduo do bump. */
+  campaignDiscount?: number
 }
 
 /**
@@ -787,12 +899,17 @@ export function resolveOrderLines(
 
   const full = sumItems(input.items)
   const buyTogetherDiscount = outcome.buyTogetherDiscount ?? 0
-  return {
+  const campaignDiscount = outcome.campaignDiscount ?? 0
+  const out: OrderLinesOutcome = {
     lines,
     // `|| 0`: a subtração em ponto flutuante pode dar `-0`, e o pedido gravaria "−0".
     orderBumpDiscount:
-      round2(full - outcome.totals.subtotal - outcome.promotionDiscount - buyTogetherDiscount) || 0,
+      round2(
+        full - outcome.totals.subtotal - outcome.promotionDiscount - buyTogetherDiscount - campaignDiscount,
+      ) || 0,
     buyTogetherDiscount,
     promotionDiscount: outcome.promotionDiscount,
   }
+  if (outcome.campaignDiscount !== undefined) out.campaignDiscount = outcome.campaignDiscount
+  return out
 }

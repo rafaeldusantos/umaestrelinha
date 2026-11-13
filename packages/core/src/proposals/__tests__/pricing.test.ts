@@ -292,3 +292,78 @@ describe('proposalPricing — o que a cliente paga (PRC-03, PRC-05, PRC-06, A-11
     expect(t.total).toBe(19.55)
   })
 })
+
+describe('priceProposalDraft — a peça de campanha na montagem', () => {
+  // Peça de R$ 209,90 marcada com 20% na campanha em vigência: R$ 167,92 (feito à mão: 209,90 × 0,8).
+  const campanha = linha({ product_id: 'bf', variant_id: null, list_price: 209.9, campaign: { percent: 20 } })
+  const comum = linha({ product_id: 'comum', variant_id: null, list_price: 100 })
+
+  it('a peça marcada trava com o preço da campanha, e a comum com o de tabela', () => {
+    const p = priceProposalDraft({ lines: [campanha, comum], coupon: null, promotions: [], manualDiscount: null })
+    expect(p.lockedLines.map((l) => l.unit_price)).toEqual([167.92, 100])
+    expect(p.subtotal).toBe(267.92)
+    expect(p.campaignDiscount).toBe(41.98)
+    expect(p.itemsTotal).toBe(267.92)
+    expect(lockProposal(p).lines).toEqual([
+      { unit_price: 167.92, quantity: 1 },
+      { unit_price: 100, quantity: 1 },
+    ])
+  })
+
+  it('o cupom de 10% desconta só da peça comum (R$ 10,00)', () => {
+    const p = priceProposalDraft({
+      lines: [campanha, comum],
+      coupon: { type: 'percent', value: 10 },
+      promotions: [],
+      manualDiscount: null,
+      campaignName: 'Black Friday',
+    })
+    expect(p.couponDiscount).toBe(10)
+    expect(p.couponEligibleSubtotal).toBe(100)
+    expect(p.itemsTotal).toBe(257.92)
+    expect(p.refusal).toBeNull()
+  })
+
+  it('só peças de campanha: o cupom de desconto é recusado com o nome da campanha', () => {
+    const p = priceProposalDraft({
+      lines: [campanha],
+      coupon: { type: 'percent', value: 10 },
+      promotions: [],
+      manualDiscount: null,
+      campaignName: 'Black Friday',
+    })
+    expect(p.refusal).toBe('Este cupom não vale para peças da Black Friday.')
+    expect(p.couponDiscount).toBe(0)
+  })
+
+  it('o cupom de frete grátis continua valendo numa montagem só de campanha', () => {
+    const p = priceProposalDraft({
+      lines: [campanha],
+      coupon: { type: 'free_shipping', value: 0 },
+      promotions: [],
+      manualDiscount: null,
+      campaignName: 'Black Friday',
+    })
+    expect(p.refusal).toBeNull()
+    expect(p.couponFreeShipping).toBe(true)
+  })
+
+  it('o desconto combinado entra por cima do preço da campanha', () => {
+    const p = priceProposalDraft({
+      lines: [campanha],
+      coupon: null,
+      promotions: [],
+      manualDiscount: { kind: 'amount', value: 7.92, reason: motivo },
+    })
+    expect(p.lockedLines[0].unit_price).toBe(167.92)
+    expect(p.itemsTotal).toBe(160)
+  })
+
+  it('a peça de campanha não entra na faixa da promoção progressiva', () => {
+    const cinco = [linha({ product_id: 'bf', list_price: 30, quantity: 5, campaign: { percent: 10 } })]
+    const p = priceProposalDraft({ lines: cinco, coupon: null, promotions: [KIT], manualDiscount: null })
+    // 30 × 0,9 = 27 por unidade: a campanha, não a faixa de R$ 4,60.
+    expect(p.lockedLines[0].unit_price).toBe(27)
+    expect(p.promotionDiscount).toBe(0)
+  })
+})

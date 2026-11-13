@@ -140,3 +140,14 @@ describe('toQuotePayload', () => {
     expect(toQuotePayload([])).toEqual([])
   })
 })
+
+describe('o seguro da cotação com o preço relido', () => {
+  it('depois da releitura (`syncCatalog`), o seguro é o preço de agora, por unidade', async () => {
+    const { useCartStore } = await import('../../model/cartStore')
+    useCartStore.setState({ items: [item({ unitPrice: 209.9, quantity: 2 })] })
+    useCartStore.getState().syncCatalog([product({ price: 167.92 })])
+    const [linha] = toQuotePayload(useCartStore.getState().items)
+    expect(linha.insurance_value).toBe(167.92)
+    expect(linha.quantity).toBe(2)
+  })
+})

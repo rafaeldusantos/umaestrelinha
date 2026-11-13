@@ -88,6 +88,7 @@ const deps = (over: Partial<PageDeps> = {}, d: ProductPageData | null = dados())
   readCategoryRedirect: async () => null,
   readInactiveFallback: async () => null,
   readSettings: async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false }),
+  readLiveCampaign: async () => null,
   log: () => {},
   ...over,
 })
@@ -283,6 +284,45 @@ describe('paridade: a página declara o que o feed anuncia', () => {
     const corpo = (await servePage(deps({}, d), url('?slug=x&variant=1259936246'))).body
     const oferta = resolveOffer(d.product, d.variants[0], { origin: ORIGEM })
     expect(ld(corpo)!.offers.url).toBe(oferta.link)
+  })
+})
+
+describe('servePage, produto — a campanha de desconto em vigência', () => {
+  // A leitura da página é pela chave publicável: a RLS só entrega a marcação da campanha em vigência,
+  // então `campaign` presente é campanha valendo — a página não olha relógio.
+  const CAMPANHA = { percent: 15, starts_at: '2026-11-13T03:00:00+00:00', ends_at: '2026-12-01T03:00:00+00:00' }
+  const marcada = () => {
+    const d = dados({ campaign: CAMPANHA })
+    d.variants[0] = { ...d.variants[0], price: 199.9 }
+    return d
+  }
+
+  it('o JSON-LD do produto marcado declara o preço da campanha e o último dia que ele vale', async () => {
+    const corpo = (await servePage(deps({}, marcada()), url('?slug=x&variant=1259936246'))).body
+    // 15% sobre 199,90 = 169,915 ⇒ 169,92.
+    expect(ld(corpo)!.offers.price).toBe('169.92')
+    expect(ld(corpo)!.offers.priceValidUntil).toBe('2026-11-30')
+  })
+
+  it('o preço da página é o sale_price do feed para a mesma variação marcada', async () => {
+    const d = marcada()
+    const corpo = (await servePage(deps({}, d), url('?slug=x&variant=1259936246'))).body
+    const oferta = resolveOffer(d.product, d.variants[0], { origin: ORIGEM, campaign: CAMPANHA })
+    const xml = renderFeedXml([oferta], { title: 't', link: ORIGEM, description: 'd' })
+    expect(ld(corpo)!.offers.price).toBe(xml.match(/<g:sale_price>([\d.]+) BRL<\/g:sale_price>/)![1])
+  })
+
+  it('a representante, sem ?variant=, também leva o preço da campanha', async () => {
+    const corpo = (await servePage(deps({}, marcada()), url('?slug=x'))).body
+    expect(ld(corpo)!.offers.price).toBe('169.92')
+  })
+
+  it('sem marcação em vigência, o preço de sempre e nenhum priceValidUntil', async () => {
+    const d = dados({ campaign: null })
+    d.variants[0] = { ...d.variants[0], price: 199.9 }
+    const corpo = (await servePage(deps({}, d), url('?slug=x&variant=1259936246'))).body
+    expect(ld(corpo)!.offers.price).toBe('199.90')
+    expect(ld(corpo)!.offers.priceValidUntil).toBeUndefined()
   })
 })
 
@@ -1175,5 +1215,90 @@ describe('servePage — o <html> diz se a faixa de avisos existe', () => {
     const shell = SHELL.replace('<html>', '<html lang="pt-BR">')
     const res = await servir('/checkout', { shell, readSettings: async () => config(true) })
     expect(tagHtml(res.body)).toBe('<html lang="pt-BR" data-faixa="1">')
+  })
+})
+
+describe('servePage — a vitrine da campanha (/ofertas)', () => {
+  // `ends_at` exclusivo: 01/12 00:00 de Brasília ⇒ o último minuto que vale é 30/11 23:59.
+  const BLACK_FRIDAY = { name: 'Black Friday', percents: [10, 15, 20], ends_at: '2026-12-01T03:00:00.000Z' }
+  const servir = (over: Partial<PageDeps> = {}, path = '/ofertas') =>
+    servePage(deps(over), new URL(`https://x${path}`))
+
+  it('com campanha em vigência: o nome dela no título, a linha da vitrine, a canônica e 300 s', async () => {
+    const res = await servir({ readLiveCampaign: async () => BLACK_FRIDAY })
+    expect(res.status).toBe(200)
+    expect(tituloDe(res.body)).toEqual(['Black Friday | Uma Estrelinha'])
+    expect(metaDe(res.body, 'og:title')).toEqual(['Black Friday | Uma Estrelinha'])
+    expect(metaDe(res.body, 'description')).toEqual(['Peças com 10%, 15% e 20% de desconto até 30 de novembro.'])
+    expect(canonicasDe(res.body)).toEqual([`${ORIGEM}/ofertas`])
+    expect(robots(res.body)).toEqual([])
+    expect(res.headers['Cache-Control']).toBe('public, s-maxage=300')
+  })
+
+  it('outra campanha ("Dia das Mães") muda o título sem mudança de código', async () => {
+    const maes = { name: 'Dia das Mães', percents: [15], ends_at: '2027-05-11T03:00:00.000Z' }
+    const res = await servir({ readLiveCampaign: async () => maes })
+    expect(tituloDe(res.body)).toEqual(['Dia das Mães | Uma Estrelinha'])
+    expect(metaDe(res.body, 'description')).toEqual(['Peças com 15% de desconto até 10 de maio.'])
+  })
+
+  it('sem campanha: 200, "Ofertas" no título, noindex no HTML e sem canônica — também com 300 s', async () => {
+    const res = await servir({ readLiveCampaign: async () => null })
+    expect(res.status).toBe(200)
+    expect(tituloDe(res.body)).toEqual(['Ofertas | Uma Estrelinha'])
+    expect(robots(res.body)).toEqual(['noindex'])
+    expect(canonicasDe(res.body)).toEqual([])
+    // A troca na virada acontece em até 5 minutos: a mesma janela da campanha valendo.
+    expect(res.headers['Cache-Control']).toBe('public, s-maxage=300')
+  })
+
+  it('a caixa diferente serve a mesma vitrine', async () => {
+    const res = await servir({ readLiveCampaign: async () => BLACK_FRIDAY }, '/Ofertas')
+    expect(tituloDe(res.body)).toEqual(['Black Friday | Uma Estrelinha'])
+    expect(canonicasDe(res.body)).toEqual([`${ORIGEM}/ofertas`])
+  })
+
+  it('a leitura da campanha falhando ⇒ o shell intacto, 200 e no-store, com log — nunca noindex', async () => {
+    const log = vi.fn()
+    const res = await servir({
+      log,
+      readLiveCampaign: async () => {
+        throw new Error('fora do ar')
+      },
+    })
+    expect(res.status).toBe(200)
+    // O shell intacto, com o veredito da faixa que toda resposta HTML leva (WI 101).
+    expect(res.body).toBe(SHELL.replace('<html>', '<html data-faixa="0">'))
+    expect(res.headers['Cache-Control']).toBe('no-store')
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ erro: 'campanha', path: '/ofertas' }))
+  })
+
+  it('a vitrine não lê produto nem categoria — só a configuração da faixa, uma vez (WI 101)', async () => {
+    const leituras = { readProduct: vi.fn(), readCategories: vi.fn() }
+    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false }))
+    await servePage(deps({ ...(leituras as any), readSettings, readLiveCampaign: async () => BLACK_FRIDAY }), new URL('https://x/ofertas'))
+    for (const f of Object.values(leituras)) expect(f).not.toHaveBeenCalled()
+    expect(readSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('origem não absoluta ⇒ nenhuma canônica, nunca relativa', async () => {
+    const res = await servir({ origin: '', readLiveCampaign: async () => BLACK_FRIDAY })
+    expect(canonicasDe(res.body)).toEqual([])
+  })
+})
+
+describe('servePage — /black-friday leva à vitrine', () => {
+  it('301 para /ofertas, sem ler a árvore — a categoria homônima continua desligada', async () => {
+    const readCategories = vi.fn(async () => [])
+    const res = await servePage(deps({ readCategories }), new URL('https://x/black-friday'))
+    expect(res.status).toBe(301)
+    expect(res.headers.Location).toBe('/ofertas')
+    expect(readCategories).not.toHaveBeenCalled()
+  })
+
+  it('uma categoria de um segmento qualquer continua sendo categoria', async () => {
+    const readCategories = vi.fn(async () => [])
+    await servePage(deps({ readCategories }), new URL('https://x/joias-afetivas'))
+    expect(readCategories).toHaveBeenCalled()
   })
 })

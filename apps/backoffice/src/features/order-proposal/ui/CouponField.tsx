@@ -16,6 +16,12 @@ interface Props {
   coupon: DraftCoupon | null
   /** O subtotal cheio das peças prontas, antes de qualquer desconto. */
   subtotal: number
+  /**
+   * A soma cheia das peças que entram na base do cupom (sem as de campanha), e o nome da campanha em
+   * vigência — só quando há peça de campanha na montagem. O cupom de desconto não vale nela.
+   */
+  eligibleSubtotal?: number | null
+  campaignName?: string | null
   email: string
   /** O cupom perdeu para a promoção vigente (não acumula). */
   descartado?: boolean
@@ -23,7 +29,7 @@ interface Props {
   onRemove: () => void
 }
 
-const CouponField = ({ coupon, subtotal, email, descartado = false, onApply, onRemove }: Props) => {
+const CouponField = ({ coupon, subtotal, eligibleSubtotal = null, campaignName = null, email, descartado = false, onApply, onRemove }: Props) => {
   const id = useId()
   const [codigo, setCodigo] = useState('')
   const [recusa, setRecusa] = useState<string | null>(null)
@@ -37,6 +43,7 @@ const CouponField = ({ coupon, subtotal, email, descartado = false, onApply, onR
       const r = await validateCoupon({
         code: codigo,
         subtotal,
+        ...(campaignName ? { eligibleSubtotal, campaignName } : {}),
         shippingCost: 0,
         customerEmail: isValidEmail(limpo) ? limpo : undefined,
       })

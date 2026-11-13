@@ -558,3 +558,18 @@ describe('a conta que perde o papel no passo 4', () => {
     expect(instantes.findIndex((t) => t.includes('PAC · 5 dias úteis'))).toBe(-1)
   })
 })
+
+describe('passo 4 · a peça na campanha de desconto em vigência', () => {
+  // Em vigência no instante do banco (`AGORA`): o Colar de R$ 120,00 com 20% sai a R$ 96,00.
+  const BLACK_FRIDAY = { id: 'c-bf', name: 'Black Friday', starts_at: '2026-11-06T03:00:00Z', ends_at: '2026-11-08T03:00:00Z', active: true }
+
+  it('a linha da peça mostra o preço da campanha, e fecha com o subtotal que a function devolve', async () => {
+    fake.responderTabela('products', comoOPostgrest(PECAS.map((p) => ({ ...p, product_campaigns: [{ percent: 20, campaigns: BLACK_FRIDAY }] }))))
+    totalDoServidor = 96
+    await abrirARevisao()
+    const peca = screen.getByTestId('peca-da-revisao')
+    expect(texto(peca)).toContain('R$ 96,00')
+    expect(texto(peca)).not.toContain('R$ 120,00')
+    expect(texto(screen.getByTestId('revisao-subtotal'))).toContain('R$ 96,00')
+  })
+})

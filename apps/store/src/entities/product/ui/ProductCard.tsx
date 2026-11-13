@@ -26,6 +26,8 @@ import {
   type ColorThumb,
 } from '../lib/variantSelection'
 import ColorPreview from './ColorPreview'
+// O selo da campanha mora em `entities/campaign` porque o cartão, a página e a sacola o leem (`AD-033`).
+import { CampaignBand } from '@/entities/campaign'
 
 /**
  * Selo do card.
@@ -165,6 +167,14 @@ const ProductCard = ({
 
   const installments = resolveInstallments(selectedPrice, max_installments, min_installment_value)
 
+  /*
+    Campanha de desconto: o preço e o "de" acima JÁ são os da campanha — quem os calcula é o
+    mapeador (`campaignUnitPrice`, a mesma função do servidor). Aqui só se decide o desenho: na peça
+    de campanha a faixa substitui TODOS os selos do canto (nunca dois selos na mesma foto), e o cheio
+    riscado sobe para cima do preço. A campanha só chega à loja em vigência (RLS por `now()`).
+  */
+  const campanha = product.campaign ?? null
+
   const imagemEmDestaque = corEscolhida ?? product.image_url
 
   /*
@@ -301,7 +311,9 @@ const ProductCard = ({
             onLoad={() => setImgLoaded(true)}
           />
 
-          {hasDiscount ? (
+          {campanha ? (
+            <CampaignBand campaign={campanha} percent={campanha.percent} />
+          ) : hasDiscount ? (
             <CardBadge tone="jam">-{discountPercent}%</CardBadge>
           ) : product.is_new ? (
             <CardBadge tone="ink">Novo</CardBadge>
@@ -336,7 +348,7 @@ const ProductCard = ({
             Ela nunca disputa espaço com o véu de "Esgotado": a placa exige grade vendável, e com
             grade vendável `isOutOfStock` é sempre falso (é a mesma condição, negada).
           */}
-          <ColorPreview product={product} selected={selected} onPick={pickColor} />
+          <ColorPreview product={product} selected={selected} onPick={pickColor} aboveBand={campanha !== null} />
 
           {isOutOfStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
@@ -361,16 +373,28 @@ const ProductCard = ({
           <h3 className="line-clamp-2 min-h-[40px] font-display text-[14px] font-medium leading-[20px] text-estrelinha-ink transition-colors group-hover:text-estrelinha-primary">
             {product.name}
           </h3>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-[20px] font-semibold leading-[1.2] text-estrelinha-primary">
-              {formatPrice(selectedPrice)}
-            </span>
-            {hasDiscount && (
-              <span className="text-[14px] font-medium text-estrelinha-ink-soft line-through">
+          {campanha && hasDiscount ? (
+            <div className="flex flex-col">
+              <span className="text-[13px] font-medium leading-[16px] text-estrelinha-ink-soft line-through">
+                <span className="sr-only">De </span>
                 {formatPrice(selectedCompare!)}
               </span>
-            )}
-          </div>
+              <span className="font-display text-[20px] font-semibold leading-[1.2] text-estrelinha-primary">
+                {formatPrice(selectedPrice)}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-[20px] font-semibold leading-[1.2] text-estrelinha-primary">
+                {formatPrice(selectedPrice)}
+              </span>
+              {hasDiscount && (
+                <span className="text-[14px] font-medium text-estrelinha-ink-soft line-through">
+                  {formatPrice(selectedCompare!)}
+                </span>
+              )}
+            </div>
+          )}
 
           {/*
             Parcela na vitrine — board `7CF-0`. É a informação pela qual quem parcela decide, e ela

@@ -248,3 +248,127 @@ describe('orderSummary — pedido de antes das colunas de preço cheio fica como
     expect(orderSummary({ ...antigo, coupon_code: ' FLOR ' }).discounts[0].label).toBe('Cupom FLOR')
   })
 })
+
+describe('orderSummary — o desconto de campanha tem a linha dele', () => {
+  it('peça de campanha (209,90 → 167,92) e comum (100) com cupom de 10%: a conta fecha', () => {
+    const linhas: CartLine[] = [
+      { product_id: 'peca-black', unit_price: 209.9, quantity: 1, campaign: { percent: 20 } } as CartLine,
+      { product_id: 'comum', unit_price: 100, quantity: 1 } as CartLine,
+    ]
+    const input: OrderPricingInput = {
+      items: linhas,
+      shipping: 20,
+      pixDiscountPercent: 5,
+      method: 'pix',
+      coupon: { type: 'percent', value: 10 },
+      promotions: [],
+    }
+    const { order, outcome } = pedidoGravado(input, linhas, 'DEZ')
+    const lines = resolveOrderLines(input, outcome)
+    const s = orderSummary({ ...order, campaign_discount: lines.campaignDiscount })
+
+    expect(s.subtotal).toBe(309.9)
+    expect(s.discounts).toEqual([
+      { key: 'campaign', label: 'Desconto de campanha', amount: 41.98 },
+      { key: 'coupon', label: 'Cupom DEZ', amount: 10 },
+      { key: 'pix', label: 'Desconto PIX', amount: 12.9 },
+    ])
+    expect(s.rows[0]).toMatchObject({ charged: 167.92, full: 209.9 })
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+})
+
+describe('orderSummary — o "De" da peça de campanha que tem "de/por"', () => {
+  it('"de" R$ 374,00, "por" R$ 349,90, 10%: a linha é "de 374,00 por 336,60", e a conta fecha', () => {
+    const linhas: CartLine[] = [
+      {
+        product_id: 'peca-de-por',
+        unit_price: 349.9,
+        quantity: 2,
+        campaign: { percent: 10, compare_price: 374 },
+      } as CartLine,
+    ]
+    const input: OrderPricingInput = {
+      items: linhas,
+      shipping: 0,
+      pixDiscountPercent: 0,
+      method: 'pix',
+      coupon: null,
+      promotions: [],
+    }
+    const { order, outcome } = pedidoGravado(input, linhas, null)
+    const lines = resolveOrderLines(input, outcome)
+    // O servidor grava, na linha de campanha, o "de" da peça (`compare_unit_price`).
+    const gravado: OrderSummaryInput = {
+      ...order,
+      order_items: order.order_items.map((row) => ({ ...row, compare_unit_price: 374 })),
+      campaign_discount: lines.campaignDiscount,
+    }
+    const s = orderSummary(gravado)
+
+    expect(s.rows[0]).toMatchObject({ charged: 673.2, full: 748 })
+    expect(s.subtotal).toBe(699.8)
+    expect(s.discounts).toEqual([{ key: 'campaign', label: 'Desconto de campanha', amount: 26.6 }])
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+
+  it('"de" menor que o preço de tabela gravado não sobe o "De" — fica o cheio gravado', () => {
+    const s = orderSummary({
+      order_items: [{ quantity: 1, unit_price: 90, full_unit_price: 100, compare_unit_price: 95 }],
+      subtotal: 90,
+      total: 90,
+    })
+    expect(s.rows[0]).toMatchObject({ charged: 90, full: 100 })
+  })
+})
+
+describe('orderSummary — promoção progressiva com PIX: o "Desconto PIX" tem a linha dele', () => {
+  // O pedido como o banco o guarda: peça de campanha com "de/por", duas unidades e uma terceira peça
+  // com o desconto progressivo, pago com PIX.
+  const comPromocao: OrderSummaryInput = {
+    order_items: [
+      { product_id: 'mc', quantity: 1, unit_price: 336.6, full_unit_price: 349.9, compare_unit_price: 374 },
+      { product_id: 'me', quantity: 2, unit_price: 306, full_unit_price: 340 },
+      { product_id: 'me2', quantity: 1, unit_price: 314.91, full_unit_price: 349.9 },
+    ],
+    subtotal: 1263.51,
+    discount: 0,
+    campaign_discount: 13.3,
+    promotion_discount: 102.99,
+    pix_discount: 88.45,
+    shipping_cost: 19.9,
+    total: 1194.96,
+  }
+
+  it('Subtotal, campanha, progressivo, PIX e frete — e as linhas somam o Total', () => {
+    const s = orderSummary(comPromocao)
+    expect(s.subtotal).toBe(1379.8)
+    expect(s.discounts).toEqual([
+      { key: 'campaign', label: 'Desconto de campanha', amount: 13.3 },
+      { key: 'promotion', label: 'Desconto progressivo', amount: 102.99 },
+      { key: 'pix', label: 'Desconto PIX', amount: 88.45 },
+    ])
+    expect(s.shipping).toBe(19.9)
+    expect(s.total).toBe(1194.96)
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+
+  it('o par sem promoção, com cupom: o PIX continua na lista e a conta fecha', () => {
+    const s = orderSummary({
+      order_items: [
+        { product_id: 'ma', quantity: 1, unit_price: 346.5, full_unit_price: 385 },
+        { product_id: 'me', quantity: 1, unit_price: 340, full_unit_price: 340 },
+      ],
+      subtotal: 686.5,
+      discount: 34,
+      coupon_code: 'QA10',
+      campaign_discount: 38.5,
+      promotion_discount: 0,
+      pix_discount: 45.68,
+      shipping_cost: 19.9,
+      total: 626.72,
+    })
+    expect(s.discounts.map((d) => d.key)).toEqual(['campaign', 'coupon', 'pix'])
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+})

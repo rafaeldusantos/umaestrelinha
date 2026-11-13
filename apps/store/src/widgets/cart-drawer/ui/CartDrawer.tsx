@@ -56,6 +56,8 @@ const CartDrawer = () => {
     buyTogetherLines,
     buyTogether,
     orderLines,
+    couponEligibleSubtotal,
+    campaignName,
   } = useCartPromotion()
 
   /**
@@ -277,6 +279,8 @@ const CartDrawer = () => {
                   shippingCost={progress.reached ? 0 : default_shipping_cost}
                   discount={discount}
                   notApplied={discarded === 'coupon'}
+                  eligibleSubtotal={couponEligibleSubtotal}
+                  campaignName={campaignName}
                 />
               </div>
 

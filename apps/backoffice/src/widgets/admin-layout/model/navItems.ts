@@ -1,4 +1,4 @@
-import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings, ClipboardList, Link2, Megaphone } from 'lucide-react'
+import { BadgePercent, HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings, ClipboardList, Link2, Megaphone } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -77,6 +77,9 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/cupons', icon: Ticket, label: 'Cupons' },
       { to: '/admin/promocoes', icon: Percent, label: 'Promoções' },
+      // As campanhas de desconto por percentual, com início e fim: a terceira forma de baixar o preço,
+      // ao lado das outras duas.
+      { to: '/admin/campanhas', icon: BadgePercent, label: 'Campanhas' },
     ],
   },
   {

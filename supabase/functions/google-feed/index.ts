@@ -7,7 +7,7 @@
 // nenhum. Não há o que autenticar — o conteúdo servido é o mesmo catálogo que a vitrine publica.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { handleFeed, type FeedDeps, type FeedRow } from './handlers.ts'
+import { handleFeed, readFeedCampaign, type FeedDeps, type FeedRow } from './handlers.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -81,6 +81,10 @@ Deno.serve(async () => {
         }
       })
     },
+
+    // A campanha pelo leitor único das functions, com o relógio DESTA function: a service role
+    // ignora a RLS, então a vigência é decidida aqui, e não pela leitura.
+    readCampaign: (productIds) => readFeedCampaign(supabase, () => Date.now(), productIds),
 
     markFetched: async () => {
       const { error } = await supabase

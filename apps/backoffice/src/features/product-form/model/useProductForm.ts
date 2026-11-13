@@ -28,6 +28,7 @@ import type { OptionMark } from '@estrelinha/core/filters'
 import type { ProductFaqSelection } from './planFaqLinks'
 import { EMPTY_SUPPLIER_ROW, supplierRowsToSave, type SupplierDraft } from './persistSupplier'
 import { addonsFromRow, addonsToSave, type AddonDraft } from './addons'
+import { campaignMarksFromRow, type CampaignMark } from './campaignMarks'
 import { supplierLinksOfRow } from '@/entities/supplier'
 
 /**
@@ -133,6 +134,12 @@ export interface ProductFormState {
    * eixo leva junto, remover texto apaga), nunca este campo cru.
    */
   option_marks: OptionMark[]
+  /**
+   * O percentual da peça em cada campanha de desconto (`product_campaigns`). No estado pelo mesmo
+   * motivo das marcações acima — rascunho, restauração e diff contra o snapshot —, e gravado pela
+   * porta de `entities/campaign` depois do produto (`persistCampaignMarks`).
+   */
+  campaign_marks: CampaignMark[]
 }
 
 /** O que estava no banco na última carga (ou no último save) — é contra isto que o diff é feito. */
@@ -150,6 +157,8 @@ export interface ProductFormSnapshot {
   suppliers?: SupplierDraft[]
   /** O Compre Junto como está no banco — a base do diff de `persistAddons`. */
   addons?: AddonDraft[]
+  /** As marcações de campanha como estão no banco — a base do diff de `persistCampaignMarks`. */
+  campaignMarks?: CampaignMark[]
 }
 
 const SNAPSHOT_VAZIO: ProductFormSnapshot = {
@@ -162,6 +171,7 @@ const SNAPSHOT_VAZIO: ProductFormSnapshot = {
   options: [],
   suppliers: [],
   addons: [],
+  campaignMarks: [],
 }
 
 /**
@@ -215,11 +225,12 @@ export const emptyProductForm = (): ProductFormState => ({
   faqs: [],
   filter_value_ids: [],
   option_marks: [],
+  campaign_marks: [],
 })
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, position, suppliers(name)), product_buy_together!product_buy_together_product_id_fkey(id, position, kind, target_product_id, list_id, target_variant_ids, hidden_on_variant_ids, discount_percent)'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, position, suppliers(name)), product_buy_together!product_buy_together_product_id_fkey(id, position, kind, target_product_id, list_id, target_variant_ids, hidden_on_variant_ids, discount_percent), product_campaigns(campaign_id, percent)'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Os fornecedores do embed, na ordem; sem nenhum, a linha vazia onde a dona digita. */
@@ -321,6 +332,9 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
         }))
         .filter((m: OptionMark) => m.option_name !== '' && m.option_value !== '' && m.value_id !== '')
     : [],
+  // A cópia nasce rascunho e FORA das campanhas: pôr a peça nova em desconto é decisão da dona, no
+  // cartão da campanha, e não herança do original.
+  campaign_marks: opts.asCopy ? [] : campaignMarksFromRow(row),
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -424,6 +438,7 @@ export const useProductForm = (
           options: loaded.options,
           suppliers: supplierRowsToSave(loaded.supplier_rows),
           addons: addonsToSave(loaded.buy_together_addons),
+          campaignMarks: loaded.campaign_marks,
         })
       }
     },

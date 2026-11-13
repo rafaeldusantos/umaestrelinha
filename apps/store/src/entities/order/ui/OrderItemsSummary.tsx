@@ -29,6 +29,8 @@ export interface OrderItemsSummaryProps {
     buy_together_discount?: number | null
     promotion_discount?: number | null
     order_bump_discount?: number | null
+    /** O desconto de campanha, calculado pelo servidor. Zero (ou ausente) nos pedidos sem campanha. */
+    campaign_discount?: number | null
   }
 }
 

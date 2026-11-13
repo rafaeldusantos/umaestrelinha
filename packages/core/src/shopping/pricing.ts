@@ -26,17 +26,32 @@
 // `price_override` tampouco: a coluna está depreciada desde a migration `20260801120000`, tem
 // semântica ambígua no seed, e nenhum código novo a lê.
 
+//
+// ---------------------------------------------------------------------------------------------
+// A CAMPANHA DE DESCONTO É A EXCEÇÃO, E TEM DONO
+// ---------------------------------------------------------------------------------------------
+// A campanha não é condicional: em vigência, toda cliente paga o preço dela. Ele sai de
+// `campaignUnitPrice` (`core/campaigns/price.ts`) — a mesma função da loja, do checkout e das
+// functions —, e vai em `<g:sale_price>` com a vigência em `<g:sale_price_effective_date>`. O cheio
+// vai em `<g:price>`. Quando a campanha não baixa o preço de hoje (o "de/por" já é menor), fica o
+// "de/por" de sempre: desconto não soma.
+
+import { campaignUnitPrice } from '../campaigns/price.ts'
 import type {
   OfferAvailability,
+  OfferCampaign,
   OfferPricingProduct,
   OfferPricingVariant,
+  OfferSaleWindow,
 } from './types.ts'
 
 export interface OfferPrice {
-  /** O `<g:price>`. É o `compare_price` quando há "de/por" de verdade. */
+  /** O `<g:price>`. É o `compare_price` quando há "de/por" de verdade, ou o cheio da campanha. */
   price: number
   /** O `<g:sale_price>`, ou `null` quando não há promoção incondicional. */
   salePrice: number | null
+  /** A vigência do `<g:sale_price>`, só quando ele é o preço da campanha. */
+  saleEffective?: OfferSaleWindow
 }
 
 /**
@@ -44,10 +59,26 @@ export interface OfferPrice {
  *
  * `compare_price` maior que `price` ⇒ o "de" vai em `<g:price>` e o "por" em `<g:sale_price>`.
  * Igual ou menor ⇒ só `<g:price>`, porque um "de" que não é maior não é desconto.
+ *
+ * Com a campanha em vigência da peça, e só quando ela baixa o preço de hoje: o cheio em `<g:price>`,
+ * o da campanha em `<g:sale_price>` e a vigência junto.
  */
-export const offerPricing = (variant: OfferPricingVariant): OfferPrice => {
+export const offerPricing = (
+  variant: OfferPricingVariant,
+  campaign?: OfferCampaign | null,
+): OfferPrice => {
   const price = variant.price
   const compare = variant.compare_price
+  if (campaign && price != null) {
+    const comCampanha = campaignUnitPrice(price, compare, campaign.percent)
+    if (comCampanha.discounted) {
+      return {
+        price: comCampanha.full,
+        salePrice: comCampanha.charged,
+        saleEffective: { start: campaign.starts_at, end: campaign.ends_at },
+      }
+    }
+  }
   if (compare != null && price != null && compare > price) {
     return { price: compare, salePrice: price }
   }

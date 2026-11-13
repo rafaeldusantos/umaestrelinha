@@ -5,8 +5,8 @@
 // não, sem nada quebrar.
 //
 // O resumo parte do preço CHEIO: Subtotal é a soma dos preços cheios das peças, e cada
-// desconto que houve tem a sua linha — o do Compre Junto, o progressivo, o da oferta do checkout, o
-// cupom e o PIX. Mostrar uma linha de desconto abaixo de um subtotal já líquido contaria o mesmo
+// desconto que houve tem a sua linha — o de campanha, o do Compre Junto, o progressivo, o da oferta
+// do checkout, o cupom e o PIX. Mostrar uma linha de desconto abaixo de um subtotal já líquido contaria o mesmo
 // dinheiro duas vezes para quem lê. A conta fecha por construção: o servidor grava o desconto da
 // oferta como o resto (cheio − cobrado − progressivo − casado, `resolveOrderLines`), e o total do
 // pedido é o subtotal cobrado − cupom − PIX + frete.
@@ -31,6 +31,11 @@ export interface OrderSummaryRowInput {
   unit_price: number
   /** O preço cheio da unidade. Nulo nos pedidos de antes. */
   full_unit_price?: number | null
+  /**
+   * Campanha: o "de" da peça que o servidor gravou com a campanha da linha (o `compare_price` da
+   * peça ou da variação). Nulo na linha sem campanha e na peça de campanha sem "de/por".
+   */
+  compare_unit_price?: number | null
   /** Compre Junto: os principais que a peça acompanhava (snapshot validado na gravação). */
   accompanies_product_ids?: readonly string[] | null
 }
@@ -50,9 +55,11 @@ export interface OrderSummaryInput {
   buy_together_discount?: number | null
   promotion_discount?: number | null
   order_bump_discount?: number | null
+  /** O desconto de campanha (tabela − preço da campanha), calculado pelo servidor. */
+  campaign_discount?: number | null
 }
 
-export type OrderDiscountKey = 'buy_together' | 'promotion' | 'order_bump' | 'coupon' | 'pix'
+export type OrderDiscountKey = 'campaign' | 'buy_together' | 'promotion' | 'order_bump' | 'coupon' | 'pix'
 
 export interface OrderDiscountLine {
   key: OrderDiscountKey
@@ -65,7 +72,11 @@ export interface OrderDiscountLine {
 export interface OrderRowPrice {
   /** O valor cobrado da linha (unidade × quantidade). */
   charged: number
-  /** O valor cheio da linha, quando ela teve desconto ("de"); `null` sem desconto. */
+  /**
+   * O valor cheio da linha, quando ela teve desconto ("de"); `null` sem desconto. Na linha de
+   * campanha da peça com "de/por" é o "de" da peça (`compare_unit_price`), o mesmo "De" do checkout
+   * — o Subtotal continua somando o preço de tabela, e a linha da campanha desconta a partir dele.
+   */
   full: number | null
   /**
    * O percentual do Compre Junto da linha ("N% a menos"), quando o desconto dela é o casado; `null`
@@ -92,6 +103,7 @@ export interface OrderSummary {
 }
 
 export const ORDER_DISCOUNT_LABELS: Readonly<Record<Exclude<OrderDiscountKey, 'coupon'>, string>> = {
+  campaign: 'Desconto de campanha',
   buy_together: 'Desconto do Compre Junto',
   promotion: 'Desconto progressivo',
   order_bump: 'Desconto da oferta',
@@ -159,11 +171,17 @@ export function orderSummary(order: OrderSummaryInput): OrderSummary {
   const candidatesCents = candidates.reduce((s, i) => s + fullCents[i] - chargedCents[i], 0)
   const attributed = new Set(btCents > 0 && candidatesCents === btCents ? candidates : [])
 
+  // O "De" da linha de campanha: o "de" da peça quando ele é maior que o preço de tabela gravado.
+  const shownFullCents = items.map((row, i) => {
+    const compare = cents(Number(row.compare_unit_price) * row.quantity)
+    return compare > fullCents[i] ? compare : fullCents[i]
+  })
+
   const rows: OrderRowPrice[] = items.map((row, i) => {
     const fullUnit = Number(row.full_unit_price)
     return {
       charged: money(chargedCents[i]),
-      full: discounted[i] ? money(fullCents[i]) : null,
+      full: discounted[i] ? money(shownFullCents[i]) : null,
       buyTogetherPercent: attributed.has(i)
         ? Math.round(((fullUnit - Number(row.unit_price)) / fullUnit) * 100)
         : null,
@@ -177,6 +195,7 @@ export function orderSummary(order: OrderSummaryInput): OrderSummary {
     if (c > 0) discounts.push({ key, label, amount: money(c) })
   }
   if (detailed) {
+    push('campaign', ORDER_DISCOUNT_LABELS.campaign, order.campaign_discount)
     push('buy_together', ORDER_DISCOUNT_LABELS.buy_together, order.buy_together_discount)
     push('promotion', ORDER_DISCOUNT_LABELS.promotion, order.promotion_discount)
     push('order_bump', ORDER_DISCOUNT_LABELS.order_bump, order.order_bump_discount)

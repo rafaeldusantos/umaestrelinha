@@ -124,3 +124,41 @@ describe('textoDoEstoque', () => {
     expect(textoDoEstoque({ estoque: 0, disponivel: true }, 'backorder')).toBe('Estoque livre')
   })
 })
+
+describe('mapearPecaParaProposta — o preço da campanha em vigência', () => {
+  const AGORA = '2026-11-28T15:00:00Z'
+  const viva = { id: 'c-bf', name: 'Black Friday', starts_at: '2026-11-27T03:00:00Z', ends_at: '2026-12-01T03:00:00Z', active: true }
+  const marcada = { ...produto, base_price: 209.9, product_campaigns: [{ percent: 20, campaigns: viva }] }
+
+  it('cada variação traz o preço da campanha sobre o preço dela, e a peça diz o nome e o percentual', () => {
+    const peca = mapearPecaParaProposta(marcada, variacoes, AGORA)
+    expect(peca.campanha).toEqual({ nome: 'Black Friday', percentual: 20 })
+    // 199 × 0,8 = 159,20 · 179 × 0,8 = 143,20
+    expect(peca.variacoes.map((v) => v.campanha)).toEqual([
+      { percent: 20, compare_price: null, preco: 159.2 },
+      { percent: 20, compare_price: null, preco: 143.2 },
+    ])
+  })
+
+  it('a peça sem grade traz o preço da campanha sobre o preço base', () => {
+    const peca = mapearPecaParaProposta(marcada, [], AGORA)
+    expect(peca.campanhaBase).toEqual({ percent: 20, compare_price: null, preco: 167.92 })
+  })
+
+  it('o desconto vale sobre o "de" quando ele é maior que o preço de hoje', () => {
+    const peca = mapearPecaParaProposta({ ...marcada, original_price: 250 }, [], AGORA)
+    // 250 × 0,8 = 200, menor que 209,90.
+    expect(peca.campanhaBase).toEqual({ percent: 20, compare_price: 250, preco: 200 })
+    // 300 × 0,8 = 240, maior que os 199 de hoje: a campanha não baixa o preço, e a linha é comum.
+    const [v] = mapearPecaParaProposta(marcada, [{ ...variacoes[0], compare_price: 300 }], AGORA).variacoes
+    expect(v.campanha).toBeNull()
+  })
+
+  it('fora da vigência, ou desligada, ou sem relógio: o preço de sempre', () => {
+    expect(mapearPecaParaProposta(marcada, [], '2026-12-01T03:00:00Z').campanhaBase).toBeNull()
+    expect(mapearPecaParaProposta(marcada, [], '2026-11-27T02:59:59Z').campanha).toBeNull()
+    const desligada = { ...marcada, product_campaigns: [{ percent: 20, campaigns: { ...viva, active: false } }] }
+    expect(mapearPecaParaProposta(desligada, [], AGORA).campanhaBase).toBeNull()
+    expect(mapearPecaParaProposta(marcada, variacoes).variacoes[0].campanha).toBeNull()
+  })
+})

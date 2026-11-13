@@ -61,7 +61,12 @@ import { useCookieConsentStore } from '@/entities/cookie-consent'
 import { gaIds } from '@/shared/lib/analytics'
 import { useBeginCheckout } from '@/features/checkout/model/checkoutAnalytics'
 import { useGoogleLoginReturn } from '@/features/auth/model/authAnalytics'
-import { NeedsOtpError, PickupUnavailableError, useCreateOrder } from '@/entities/order/api/useOrders'
+import {
+  NeedsOtpError,
+  OrderDiscountChangedError,
+  PickupUnavailableError,
+  useCreateOrder,
+} from '@/entities/order/api/useOrders'
 import { orderPaymentPath } from '@/entities/order/lib/podePagarComPix'
 import { rememberAccess } from '@/entities/order/model/orderAccess'
 import { AuthOverlay, useAuthUiStore } from '@/features/auth'
@@ -114,7 +119,8 @@ const TRUST_ITEMS = [{ icon: ShieldCheck, label: 'Pagamento processado por Merca
 /** O que a tela "o valor do seu pedido mudou" mostra (`PriceChangedError`). */
 interface PriceChangedFacts {
   displayedTotal: number
-  total: number
+  /** `null` quando quem recusou foi o `create-order`: o total novo é o que esta tela recalcula. */
+  total: number | null
   piece: string | null
   reason: 'buy_together' | 'discount'
 }
@@ -524,7 +530,7 @@ const CheckoutPage = () => {
       // A montagem vive em `features/checkout/lib/buildOrderPayload` desde a feature `49`: ela
       // estava no meio desta função de sete passos, e é exatamente aqui que o caminho de gravação
       // muda. Regra nenhuma mudou de lugar — só saiu de dentro do CTA para onde pode ser exercida.
-      const orderItems = buildOrderItems({ items, bumpProduct, lines: orderLines })
+      const orderItems = buildOrderItems({ items, bumpProduct, lines: orderLines, pricingItems })
 
       // PGM-08: pedido `pending` já existente é REUSADO — só cria quem ainda não tem. Criar um
       // segundo deixaria lixo `pending` e faria a retentativa cobrar um pedido diferente do que a
@@ -595,6 +601,18 @@ const CheckoutPage = () => {
           // Feature 63: a retirada foi recusada pelo servidor. A escolha é desfeita (senão a
           // retentativa repetiria a recusa) e o bloco de entrega reabre para ela escolher outra.
           // O resto do rascunho e o carrinho ficam intactos, como em CHK-09.
+          // A campanha de desconto acabou entre a sacola e o pedido: nada foi gravado. A sacola é
+          // relida (o preço e a campanha de agora) e a tela mostra o total novo para ela confirmar.
+          if (err instanceof OrderDiscountChangedError) {
+            buyTogether.refresh?.()
+            setPriceChanged({
+              displayedTotal: err.displayedTotal ?? totals.total,
+              total: null,
+              piece: null,
+              reason: 'discount',
+            })
+            return
+          }
           if (err instanceof PickupUnavailableError) {
             useCheckoutStore.getState().setShipping(null)
             setEditing('delivery')
@@ -797,7 +815,7 @@ const CheckoutPage = () => {
             {priceChanged ? (
               <PriceChangedCheckout
                 displayedTotal={priceChanged.displayedTotal}
-                total={priceChanged.total}
+                total={priceChanged.total ?? totals.total}
                 piece={priceChanged.piece}
                 reason={priceChanged.reason}
                 busy={busy}

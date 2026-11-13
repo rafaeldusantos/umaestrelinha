@@ -80,6 +80,7 @@ const deps = ({ storeDescription, ...over }: Over = {}, d: ProductPageData | nul
     storeDescription: storeDescription ?? null,
     announcementBar: false,
   }),
+  readLiveCampaign: async () => null,
   log: () => {},
   ...over,
 })

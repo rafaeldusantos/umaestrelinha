@@ -126,3 +126,47 @@ describe('couponRuleOf', () => {
     })
   })
 })
+
+describe('couponRefusal — peças de campanha ficam fora do cupom', () => {
+  it('sacola só com peças de campanha: recusa com o nome da campanha', () => {
+    expect(
+      couponRefusal(cupom(), { subtotal: 167.92, eligibleSubtotal: 0, campaignName: 'Black Friday', now: NOW }),
+    ).toBe('Este cupom não vale para peças da Black Friday.')
+  })
+
+  it('cupom de valor também é recusado na sacola só de campanha', () => {
+    expect(
+      couponRefusal(cupom({ type: 'fixed', value: 20 }), {
+        subtotal: 167.92,
+        eligibleSubtotal: 0,
+        campaignName: 'Black Friday',
+        now: NOW,
+      }),
+    ).toBe('Este cupom não vale para peças da Black Friday.')
+  })
+
+  it('o cupom de frete grátis continua valendo na sacola só de campanha', () => {
+    expect(
+      couponRefusal(cupom({ type: 'free_shipping', value: 0 }), {
+        subtotal: 167.92,
+        eligibleSubtotal: 0,
+        campaignName: 'Black Friday',
+        now: NOW,
+      }),
+    ).toBeNull()
+  })
+
+  it('o pedido mínimo é conferido só sobre as peças comuns', () => {
+    const minimo = cupom({ min_order: 150 })
+    expect(
+      couponRefusal(minimo, { subtotal: 267.92, eligibleSubtotal: 100, campaignName: 'Black Friday', now: NOW }),
+    ).toBe('Pedido mínimo de R$ 150,00.')
+    expect(
+      couponRefusal(minimo, { subtotal: 267.92, eligibleSubtotal: 160, campaignName: 'Black Friday', now: NOW }),
+    ).toBeNull()
+  })
+
+  it('sem o subtotal elegível, a regra é a de antes', () => {
+    expect(couponRefusal(cupom({ min_order: 150 }), { subtotal: 160, now: NOW })).toBeNull()
+  })
+})

@@ -10,6 +10,7 @@ import { feedExclusion } from './eligibility.ts'
 import { publicProductId, publicVariantId } from './identity.ts'
 import { offerAvailability, offerPricing } from './pricing.ts'
 import type {
+  OfferCampaign,
   OfferInputProduct,
   OfferInputVariant,
   OfferVariantIdentity,
@@ -32,6 +33,11 @@ export interface OfferContext {
    * `pickCategoryProductCategory`. Fica entre o produto e o padrão da loja.
    */
   categoryProductCategory?: string | null
+  /**
+   * A campanha de desconto em vigência DESTA peça (o percentual dela e a vigência), ou `null`. Quem
+   * decide a vigência é quem lê: a RLS na página servida, o leitor único das functions no feed.
+   */
+  campaign?: OfferCampaign | null
 }
 
 /** O mínimo para a categoria participar da precedência (`GSH-23`). */
@@ -173,7 +179,7 @@ export const resolveOffer = (
   variant: OfferInputVariant,
   context: OfferContext,
 ): ShoppingOffer => {
-  const { price, salePrice } = offerPricing(variant)
+  const { price, salePrice, saleEffective } = offerPricing(variant, context.campaign)
   const { imageLink, additionalImageLinks } = offerImages(product, variant)
   return {
     id: publicVariantId(variant),
@@ -186,6 +192,7 @@ export const resolveOffer = (
     availability: offerAvailability(product, variant),
     price,
     salePrice,
+    ...(saleEffective ? { saleEffective } : {}),
     brand: product.brand || null,
     mpn: product.mpn || null,
     ageGroup: product.age_group || null,

@@ -40,6 +40,7 @@
     "./visits": "./src/visits/index.ts",
     "./suppliers": "./src/suppliers/index.ts",
     "./buy-together": "./src/buy-together/index.ts",
+    "./campaigns": "./src/campaigns/index.ts",
     "./stats": "./src/stats/index.ts",
     "./customers": "./src/customers/index.ts",
     "./live": "./src/live/index.ts",

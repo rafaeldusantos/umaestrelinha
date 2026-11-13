@@ -14,12 +14,14 @@ import {
   DICA_DA_BUSCA_DE_JOIA,
   EDITAR,
   PEDE_MATERIAL_DA_CLIENTE,
+  etiquetaDaCampanha,
   etiquetaDaPromocao,
   buscarPecas,
   editarPeca,
   gravacaoDaLinha,
   nenhumaJoiaCom,
   pecasNaSacola,
+  precoDaLinha,
   quantidadeVezesPreco,
   removerPeca,
   resumoDaPeca,
@@ -79,11 +81,16 @@ const PassoDasPecas = ({ sacola, catalogo, geracaoDaBusca, aoEscolherPeca, aoEdi
                   <p className="text-base text-estrelinha-ink [overflow-wrap:anywhere]">{l.nome}</p>
                   {l.rotulo && <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{l.rotulo}</p>}
                   {l.gravacao !== '' && <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{gravacaoDaLinha(l.gravacao)}</p>}
-                  <p className="text-sm tabular-nums text-estrelinha-ink-soft">{quantidadeVezesPreco(l.quantidade, l.preco)}</p>
-                  {(l.pedeMaterial || promocoes?.get(l.chave)) && (
+                  <p className="text-sm tabular-nums text-estrelinha-ink-soft">{quantidadeVezesPreco(l.quantidade, precoDaLinha(l))}</p>
+                  {(l.pedeMaterial || promocoes?.get(l.chave) || l.campanha) && (
                     <p className="flex flex-wrap gap-1">
                       {l.pedeMaterial && (
                         <span className="inline-block rounded-full bg-estrelinha-ground-deep px-2 py-0.5 text-xs text-estrelinha-ink">{PEDE_MATERIAL_DA_CLIENTE}</span>
+                      )}
+                      {l.campanha && (
+                        <span data-testid="etiqueta-da-campanha" className="inline-block rounded-full bg-estrelinha-ground-deep px-2 py-0.5 text-xs text-estrelinha-ink [overflow-wrap:anywhere]">
+                          {etiquetaDaCampanha(l.campanha)}
+                        </span>
                       )}
                       {promocoes?.get(l.chave) && (
                         <span className="inline-block rounded-full bg-estrelinha-ground-deep px-2 py-0.5 text-xs text-estrelinha-ink [overflow-wrap:anywhere]">
@@ -93,7 +100,7 @@ const PassoDasPecas = ({ sacola, catalogo, geracaoDaBusca, aoEscolherPeca, aoEdi
                     </p>
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <p className="font-medium tabular-nums text-estrelinha-ink">{formatPrice(l.preco * l.quantidade)}</p>
+                    <p className="font-medium tabular-nums text-estrelinha-ink">{formatPrice(precoDaLinha(l) * l.quantidade)}</p>
                     <div className="flex items-center gap-1">
                       <button
                         type="button"

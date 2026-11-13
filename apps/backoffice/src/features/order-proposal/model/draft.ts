@@ -13,6 +13,7 @@ import {
   manualDiscountRefusal,
   priceProposalDraft,
   type ManualDiscountDraft,
+  type CampanhaDaLinha,
   type ProposalDraftPrice,
   type ProposalLine,
 } from '@estrelinha/core/proposals'
@@ -83,6 +84,12 @@ export interface DraftLine {
   image_url?: string | null
   /** Campo de TELA: o estoque da variação escolhida, para o teto do contador. `null` = livre. */
   stock_cap?: number | null
+  /**
+   * Campo de TELA: a campanha em vigência na linha escolhida (o percentual, o "de", o preço com ela e o
+   * nome), quando ela baixa o preço. Entra no preço do resumo (`priceProposalDraft`) e nunca vai ao
+   * servidor: a function relê a campanha pelo relógio dela.
+   */
+  campanha?: (CampanhaDaLinha & { nome: string }) | null
 }
 
 export interface DraftCoupon {
@@ -180,6 +187,8 @@ export interface DraftPricing {
   price: ProposalDraftPrice<DraftProposalLine>
   /** A primeira recusa do preço (linhas, avulso, A-12), ou `null`. */
   refusal: string | null
+  /** O nome da campanha em vigência com peça na montagem, ou `null` — vai na conferência do cupom. */
+  campaignName: string | null
 }
 
 export const priceDraft = (d: ProposalDraft, promotions: readonly ProgressivePromotion[]): DraftPricing => {
@@ -189,7 +198,9 @@ export const priceDraft = (d: ProposalDraft, promotions: readonly ProgressivePro
     variant_id: l.variant_id,
     list_price: l.list_price as number,
     quantity: l.quantity,
+    campaign: l.campanha ? { percent: l.campanha.percent, compare_price: l.campanha.compare_price } : null,
   }))
+  const campaignName = d.lines.find((l) => lineReady(l) && l.campanha)?.campanha?.nome ?? null
   const manual = toManualDraft(d.manual)
   // O avulso inválido (vazio, sem motivo, fora da faixa) não entra no preço: os números do resumo
   // ficam os de sem ele, e a recusa diz o que falta. Com ele dentro, um `NaN` contaminaria o total.
@@ -199,8 +210,9 @@ export const priceDraft = (d: ProposalDraft, promotions: readonly ProgressivePro
     coupon: d.coupon?.rule ?? null,
     promotions,
     manualDiscount: manualRefusal ? null : manual,
+    campaignName,
   })
-  return { price, refusal: price.refusal ?? manualRefusal }
+  return { price, refusal: price.refusal ?? manualRefusal, campaignName }
 }
 
 // ---------------------------------------------------------------------------------------------

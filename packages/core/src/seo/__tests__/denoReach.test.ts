@@ -80,7 +80,28 @@ describe('core/seo é alcançável por Deno', () => {
     ]) {
       expect(nomes.some(n => n.endsWith(fim)), fim).toBe(true)
     }
-    expect(grafo.visitados.length).toBe(15)
+    // 22 ⇒ 23, medido em 2026-11-13: `offerPricing` (`shopping/pricing.ts`) passou a ler o preço da
+    // campanha de desconto pelo dono, `campaigns/price.ts` (folha, sem import).
+    expect(grafo.visitados.length).toBe(23)
+  })
+
+  // Campanhas de desconto: `offersPageMeta` (`seo/pages.ts`) diz a linha da vitrine pela MESMA função
+  // que a página mostra (`campaignShowcaseLine`), e isso puxa a folha de texto de `core/campaigns` e
+  // o fuso de `core/time`. 15 ⇒ 22, medido em 2026-11-13.
+  it('âncora: o grafo alcança a linha da vitrine de core/campaigns e o fuso de core/time (22 arquivos)', () => {
+    const nomes = grafo.visitados.map(c => c.replace(/\\/g, '/'))
+    for (const fim of [
+      'campaigns/text.ts',
+      'campaigns/end.ts',
+      'campaigns/price.ts',
+      'campaigns/status.ts',
+      'campaigns/live.ts',
+      'campaigns/types.ts',
+      'time/zone.ts',
+      'time/local.ts',
+    ]) {
+      expect(nomes.some(n => n.endsWith(fim)), fim).toBe(true)
+    }
   })
 
   it('todo especificador relativo do grafo tem `.ts` explícito', () => {

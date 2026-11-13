@@ -1,6 +1,6 @@
 // As formas da proposta que atravessam painel, functions e loja (feature 89). Só tipos.
 
-import type { ManualDiscount } from '../payment/pricing.ts'
+import type { ManualDiscount, PricingCampaign } from '../payment/pricing.ts'
 
 /** Uma linha do rascunho, como o painel a monta e o servidor a relê do banco. */
 export interface ProposalLine {
@@ -9,6 +9,11 @@ export interface ProposalLine {
   /** O preço CHEIO da variação (ou do produto), antes de qualquer promoção. */
   list_price: number
   quantity: number
+  /**
+   * A campanha em vigência marcada na peça, ou ausente/`null`. `list_price` continua o de TABELA; quem
+   * desconta é `resolveOrderPricing` (`core/payment/pricing.ts`), pelo mesmo `campaignUnitPrice` da loja.
+   */
+  campaign?: PricingCampaign | null
 }
 
 /** A linha com o preço travado (já com a promoção que venceu). */

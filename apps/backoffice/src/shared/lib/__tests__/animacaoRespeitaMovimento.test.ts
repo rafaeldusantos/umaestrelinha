@@ -89,6 +89,23 @@ const ARQUIVOS = [
   'features/announcement-bar/ui/AnnouncementList.tsx',
   'features/announcement-bar/ui/AnnouncementFields.tsx',
   'features/announcement-bar/ui/AnnouncementLivePreview.tsx',
+  // As campanhas de desconto — a lista, o cadastro, os percentuais, as cores e as três peças do
+  // selo. Nenhum deles declara movimento próprio: as contagens de tokens e de pares não mudam, e a
+  // âncora de arquivos lidos sobe junto (+8).
+  'pages/admin/AdminCampaignsPage.tsx',
+  'pages/admin/AdminCampaignFormPage.tsx',
+  'features/campaign-form/ui/PercentsCard.tsx',
+  'features/campaign-form/ui/ColorsCard.tsx',
+  'entities/campaign/ui/CampaignBadgeInline.tsx',
+  'entities/campaign/ui/CampaignCardPreview.tsx',
+  'entities/campaign/ui/CampaignStatusPill.tsx',
+  'entities/campaign/ui/badgeColors.ts',
+  // O desconto da peça na campanha — os botões de percentual do cartão na aba de preço trocam de
+  // cor com o par `motion-reduce:` na mesma linha. +2 tokens / +1 par; a régua mediu 66/32 com ele.
+  'features/product-form/ui/CampaignPriceCards.tsx',
+  // A campanha na linha da lista de produtos — sem movimento próprio: as contagens não mudam, e a
+  // âncora de arquivos lidos sobe junto (+1).
+  'features/product-list/ui/CampaignMarksCell.tsx',
 ] as const
 
 /**
@@ -187,14 +204,14 @@ describe('o movimento do painel respeita `prefers-reduced-motion` (ANI-05)', () 
 
     const tokens = FONTES.flatMap(f => movimentoDe(semComentarios(f.fonte)))
     // 8/4 na 50, 14/7 na 51, 38/18 na 56, 44/20 na 71 (task 24, com o `StatCard`), 45/21 com o bloco (task 25), 47/22 com o botão da 84, 48/23 com
-    // os três da 85 (só o visualizador move: a desarmação da entrada do `DialogContent`), 54/26 com os dois da 86, 62/30 com a aba Compre junto do produto, 63/31 com as abas Listas | Adesão, 68/33 com a Faixa de avisos — o número sobe
+    // os três da 85 (só o visualizador move: a desarmação da entrada do `DialogContent`), 54/26 com os dois da 86, 62/30 com a aba Compre junto do produto, 63/31 com as abas Listas | Adesão, 68/33 com a Faixa de avisos, 71/34 com o cartão da campanha no produto (WI 102, mesclado sobre o 101) — o número sobe
     // com o escopo, sempre medido, nunca arredondado para baixo "por segurança": uma âncora folgada
     // é uma âncora que para de acusar.
-    expect(tokens.length).toBeGreaterThanOrEqual(68)
+    expect(tokens.length).toBeGreaterThanOrEqual(71)
 
     // E a terceira: os pares existem mesmo. Uma régua que nunca visse `motion-reduce:` também
     // passaria na segunda âncora, acusando tudo — ou, com o filtro invertido, nada.
-    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(33)
+    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(34)
   })
 
   it('nenhum arquivo em escopo declara movimento sem o par `motion-reduce:`', () => {

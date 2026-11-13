@@ -102,11 +102,14 @@ export const LIST_SELECT = [
   'product_categories(category_id, position)',
   // Feature 80: só o admin lê (RLS). Um produto pode ter vários fornecedores, na ordem da dona.
   'product_suppliers(url, position, suppliers(name))',
+  // As marcações da peça nas campanhas; o nome e a vigência vêm da lista de campanhas da tela.
+  'product_campaigns(campaign_id, percent)',
 ].join(', ')
 
 /** Apelidos dos embeds que só filtram — nunca lidos por `toListRow`. */
 const CATEGORY_FILTER = 'filtro_categoria'
 const SUPPLIER_FILTER = 'filtro_fornecedor'
+const CAMPAIGN_FILTER = 'filtro_campanha'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** O primeiro fornecedor (a coluna mostra ele) e quantos há além dele. */
@@ -131,6 +134,9 @@ export const toListRow = (row: any): AdminListRow => ({
   variants: normalizeVariants(row.product_variants, row.id),
   category_ids: categoryIdsFromLinks(row.product_categories),
   ...supplierOfRow(row),
+  campaigns: Array.isArray(row.product_campaigns)
+    ? row.product_campaigns.map((m: any) => ({ campaign_id: m.campaign_id, percent: m.percent }))
+    : [],
   seo_title: row.seo_title ?? null,
   seo_description: row.seo_description ?? null,
   scheduled_at: row.scheduled_at ?? null,
@@ -256,10 +262,13 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
     // categorias da linha. Com os dois filtros, os dois `!inner` dão a INTERSEÇÃO (FOR-18).
     const categoryIds = current.filters.categoryIds
     const supplierIds = current.filters.supplierIds ?? []
+    const campaignId = current.filters.campaignId ?? null
+    const campaignPercent = current.filters.campaignPercent ?? null
     const select = [
       LIST_SELECT,
       ...(categoryIds.length > 0 ? [`${CATEGORY_FILTER}:product_categories!inner(category_id)`] : []),
       ...(supplierIds.length > 0 ? [`${SUPPLIER_FILTER}:product_suppliers!inner(supplier_id)`] : []),
+      ...(campaignId ? [`${CAMPAIGN_FILTER}:product_campaigns!inner(campaign_id, percent)`] : []),
     ].join(', ')
 
     const term = escapeSearchTerm(current.search)
@@ -282,6 +291,10 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
     builder = applyView(builder, current.filters.view)
     if (categoryIds.length > 0) builder = builder.in(`${CATEGORY_FILTER}.category_id`, categoryIds)
     if (supplierIds.length > 0) builder = builder.in(`${SUPPLIER_FILTER}.supplier_id`, supplierIds)
+    if (campaignId) {
+      builder = builder.eq(`${CAMPAIGN_FILTER}.campaign_id`, campaignId)
+      if (campaignPercent !== null) builder = builder.eq(`${CAMPAIGN_FILTER}.percent`, campaignPercent)
+    }
     if (current.filters.tags.length > 0) builder = builder.contains('tags', current.filters.tags)
     if (current.filters.priceMin !== null) builder = builder.gte('base_price', current.filters.priceMin)
     if (current.filters.priceMax !== null) builder = builder.lte('base_price', current.filters.priceMax)

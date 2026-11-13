@@ -6,6 +6,7 @@
 // loja, e sem o motivo escrito aqui a dona só descobriria abrindo o site.
 
 import {
+  BadgePercent,
   ChevronRight,
   CircleDot,
   CornerDownRight,
@@ -56,6 +57,7 @@ const ICONS: Record<HomeSectionType, LucideIcon> = {
   // já é do Banner principal, logo abaixo. Dois blocos com o mesmo ícone se confundem na lista.
   category_grid: CircleDot,
   hero_carousel: GalleryHorizontal,
+  campaign_offers: BadgePercent,
 }
 
 const aspas = (texto: string | undefined): string | null => {
@@ -117,6 +119,10 @@ const resumo = (entry: ResolvedSection): string => {
       return [aspas(config.title), plural(items.length, 'categoria', 'categorias')]
         .filter(Boolean)
         .join(' · ')
+    // Joias em oferta não tem conteúdo próprio: sem este ramo a linha cairia no padrão e
+    // diria "automático" de um bloco que só repete a campanha em vigência.
+    case 'campaign_offers':
+      return 'o título e os percentuais vêm da campanha em vigência'
     default:
       return fonte
   }

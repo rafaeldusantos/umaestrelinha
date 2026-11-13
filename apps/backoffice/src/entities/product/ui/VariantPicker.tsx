@@ -166,7 +166,7 @@ const VariantPicker = ({
                 >
                   {v.rotulo}
                   {!semPreco && (
-                    <span className="tabular-nums"> · {formatPrice(v.preco as number)}</span>
+                    <span className="tabular-nums"> · {formatPrice(v.campanha ? v.campanha.preco : (v.preco as number))}</span>
                   )}
                 </span>
                 <span className="block text-xs text-muted-foreground">

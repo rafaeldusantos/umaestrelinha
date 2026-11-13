@@ -220,6 +220,8 @@ export interface EmailOrder {
   buy_together_discount?: number | null
   promotion_discount?: number | null
   order_bump_discount?: number | null
+  /** O desconto de campanha, calculado pelo servidor. Zero (ou ausente) sem campanha. */
+  campaign_discount?: number | null
   order_items: EmailOrderItem[]
 }
 
@@ -230,7 +232,7 @@ function variantLabel(item: EmailOrderItem): string {
 
 /** Os descontos por item do pedido — o que a regra do resumo lê para atribuir o da peça. */
 type ItemDiscounts = Partial<
-  Pick<EmailOrder, 'buy_together_discount' | 'promotion_discount' | 'order_bump_discount'>
+  Pick<EmailOrder, 'buy_together_discount' | 'promotion_discount' | 'order_bump_discount' | 'campaign_discount'>
 >
 
 /** O preço de cada linha, pela regra do resumo — a mesma da loja, do painel e do app. */

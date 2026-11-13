@@ -11,11 +11,12 @@ interface Props {
   filters: ProductFilters
   categoryNames: Record<string, string>
   supplierNames?: Record<string, string>
+  campaignNames?: Record<string, string>
   onChange: (next: ProductFilters) => void
 }
 
-const FilterChips = ({ filters, categoryNames, supplierNames, onChange }: Props) => {
-  const chips = buildChips(filters, categoryNames, supplierNames)
+const FilterChips = ({ filters, categoryNames, supplierNames, campaignNames, onChange }: Props) => {
+  const chips = buildChips(filters, categoryNames, supplierNames, campaignNames)
   if (chips.length === 0) return null
 
   return (

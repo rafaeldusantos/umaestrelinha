@@ -7,7 +7,12 @@
 //
 // Aqui não há mudança de regra nenhuma: é o mesmo código, com os mesmos comentários, num lugar
 // onde ele pode ser exercido sem montar a página inteira.
-import type { ChargedLine, OrderBumpConfig, PricingItem } from '@estrelinha/core/payment/pricing'
+import {
+  lineCampaignPercent,
+  type ChargedLine,
+  type OrderBumpConfig,
+  type PricingItem,
+} from '@estrelinha/core/payment/pricing'
 import { primaryImage } from '@estrelinha/core/media'
 import { materialKindsOf, requiresMaterial } from '@estrelinha/core/material'
 import { markColumns, orderItemMarks } from '@estrelinha/core/buy-together'
@@ -41,7 +46,7 @@ export interface OrderPayloadInput {
   paymentMethod: 'pix' | 'card' | null
   /** O documento do pagador, já resolvido pelo CTA (`AD-013`: quem coleta depende do método). */
   payerDocument: string
-  totals: { subtotal: number; couponDiscount: number; shipping: number; total: number }
+  totals: { subtotal: number; couponDiscount: number; pixDiscount: number; shipping: number; total: number }
   coupon: { id?: string; code?: string } | null
   /** As promoções que a tela aplicou — `PRM-12`. */
   applied: { promotion_id: string }[]
@@ -71,9 +76,16 @@ export interface OrderPayloadInput {
  * Nenhuma conta aqui: quem decide o preço é `resolveOrderPricing`, a MESMA função do servidor.
  */
 export function buildOrderItems(
-  input: Pick<OrderPayloadInput, 'items' | 'bumpProduct' | 'lines'>,
+  input: Pick<OrderPayloadInput, 'items' | 'bumpProduct' | 'lines'> &
+    Partial<Pick<OrderPayloadInput, 'pricingItems'>>,
 ): CreateOrderInput['items'] {
   const { items, bumpProduct, lines } = input
+  // O percentual de campanha que a tela MOSTROU em cada linha (`pricingItems`, a mesma entrada de
+  // `resolveOrderPricing`): o `create-order` só o compara com o que ele resolve — nunca o grava.
+  const percentualExibido = (index: number): number | null => {
+    const item = input.pricingItems?.[index]
+    return item ? lineCampaignPercent(item) : null
+  }
   // Os principais da sacola: a marca "acompanha" só vai quando o principal dela está no pedido. A
   // regra é a de `core/buy-together`, a MESMA que a function `checkout` chama ao gravar.
   const idsDoPedido = items.map((i) => i.product.id)
@@ -140,12 +152,17 @@ export function buildOrderItems(
 
   return lines
     .filter((line) => snapshots[line.index] !== undefined)
-    .map((line) => ({
-      ...snapshots[line.index],
-      quantity: line.quantity,
-      unit_price: line.unitPrice,
-      full_unit_price: line.fullUnitPrice,
-    }))
+    .map((line) => {
+      const percentual = percentualExibido(line.index)
+      return {
+        ...snapshots[line.index],
+        quantity: line.quantity,
+        unit_price: line.unitPrice,
+        full_unit_price: line.fullUnitPrice,
+        // Só na linha de campanha: a linha comum segue com as chaves de sempre.
+        ...(percentual !== null ? { campaign_percent: percentual } : {}),
+      }
+    })
 }
 
 /**
@@ -186,6 +203,9 @@ export function buildOrderPayload(input: OrderPayloadInput): CreateOrderInput {
     discount: totals.couponDiscount,
     shipping_cost: totals.shipping,
     total: totals.total,
+    // O PIX que a tela descontou do `total` acima: sem a linha dele o pedido recém-criado mostra
+    // linhas que não somam o total até o `create-payment` regravar (o recálculo dele vence).
+    pix_discount: totals.pixDiscount,
     coupon_code: coupon?.code,
     coupon_id: coupon?.id,
     // PRM-12: registra o desconto de faixa que ESTA tela exibiu, para o `create-payment` ter contra

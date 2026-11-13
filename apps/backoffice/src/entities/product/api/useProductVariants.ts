@@ -12,7 +12,10 @@
 //   - estoque e política, para mostrar e para não oferecer a linha esgotada (`isVariantAvailable`);
 //   - se a linha grava (`hasEngraving`) e o teto da peça (`engraving_max_chars`);
 //   - se a peça pede material (`requiresMaterial`, `MON-06`);
-//   - as medidas, para a prévia do frete (`toQuoteProducts`).
+//   - as medidas, para a prévia do frete (`toQuoteProducts`);
+//   - o "de" e as marcações nas campanhas de desconto, para a peça marcada mostrar o preço da campanha
+//     em vigência (`campanhaVivaDaPeca`, `core/proposals`). O servidor confere de novo ao gravar, pelo
+//     relógio da function.
 //
 // **Só variação ativa** (`MON-05`): pedida ao banco com `is_active = true` E filtrada de novo aqui. O
 // filtro do banco poupa a rede; o daqui é o que garante a regra se a consulta mudar — uma linha
@@ -22,18 +25,19 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import { mapearPecaParaProposta, type LinhaDaPeca, type PecaParaProposta } from '@estrelinha/core/proposals'
+import type { Instant } from '@estrelinha/core/campaigns'
 
 // O mapeamento da peça (variações, estoque, foto com recuo para a capa) tem um dono em `core`, lido
 // também pelo app do ateliê; os tipos são reexportados daqui para os chamadores do painel.
-export type { MedidasDaPeca, PecaParaProposta, VariacaoDaPeca } from '@estrelinha/core/proposals'
+export type { CampanhaDaLinha, CampanhaDaPeca, MedidasDaPeca, PecaParaProposta, VariacaoDaPeca } from '@estrelinha/core/proposals'
 
 /** As colunas da peça. Nomeadas, nunca `*` (a `description` é o grosso do catálogo e ninguém aqui a lê). */
 export const PROPOSAL_PRODUCT_COLUMNS =
-  'id, name, base_price, image_url, capa:images->0->>url, is_active, stock_policy, stock_total, requires_material, engraving_max_chars, options, weight_kg, width_cm, height_cm, length_cm'
+  'id, name, base_price, original_price, image_url, capa:images->0->>url, is_active, stock_policy, stock_total, requires_material, engraving_max_chars, options, weight_kg, width_cm, height_cm, length_cm, product_campaigns(percent, campaigns(id, name, starts_at, ends_at, active))'
 
 /** As colunas da variação. */
 export const PROPOSAL_VARIANT_COLUMNS =
-  'id, product_id, price, option_values, image_url, is_active, stock, position, weight_kg'
+  'id, product_id, price, compare_price, option_values, image_url, is_active, stock, position, weight_kg'
 
 export const PRODUCT_VARIANTS_KEY = ['products', 'variants'] as const
 
@@ -54,6 +58,8 @@ export const lerPecaParaProposta = async (
   // para o dublê do teste, e é o dublê que torna o filtro `is_active` auditável.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: any = supabase,
+  /** O instante em que a campanha em vigência é conferida (o relógio do painel). */
+  agora: Instant = Date.now(),
 ): Promise<PecaParaProposta | null> => {
   const { data: produto, error: erroProduto } = await client
     .from('products')
@@ -75,7 +81,7 @@ export const lerPecaParaProposta = async (
     throw new Error((erroVariacoes as ErroDeLeitura).message || 'não foi possível ler as variações')
   }
 
-  return mapearPecaParaProposta(produto as LinhaDaPeca, (linhas ?? []) as Array<Record<string, unknown>>)
+  return mapearPecaParaProposta(produto as LinhaDaPeca, (linhas ?? []) as Array<Record<string, unknown>>, agora)
 }
 
 export interface PecaDaProposta {

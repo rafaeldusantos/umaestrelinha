@@ -73,7 +73,7 @@ const montar = (over: Partial<OrderPayloadInput> = {}): OrderPayloadInput =>
     },
     paymentMethod: 'pix',
     payerDocument: '529.982.247-25',
-    totals: { subtotal: 100, couponDiscount: 0, shipping: 10, total: 110 },
+    totals: { subtotal: 100, couponDiscount: 0, pixDiscount: 0, shipping: 10, total: 110 },
     coupon: null,
     applied: [],
     promotionDiscount: 0,
@@ -325,6 +325,31 @@ describe('buildOrderPayload — o corpo do pedido', () => {
     expect(corpo.order_bump_discount).toBe(20)
   })
 
+  it('o desconto PIX que a tela mostrou vai junto do total que já o desconta', () => {
+    // O total do corpo é o da tela, já sem o PIX. Sem a linha do PIX gravada ao lado, o pedido nasce
+    // com linhas que não somam o total até o `create-payment` regravar.
+    const corpo = buildOrderPayload(
+      entrada({
+        promotionDiscount: 102.99,
+        totals: { subtotal: 1263.51, couponDiscount: 0, pixDiscount: 88.45, shipping: 19.9, total: 1194.96 },
+      }),
+    )
+
+    expect(corpo.pix_discount).toBe(88.45)
+    expect(corpo.total).toBe(1194.96)
+  })
+
+  it('no cartão o desconto PIX vai zerado', () => {
+    const corpo = buildOrderPayload(
+      entrada({
+        paymentMethod: 'card',
+        totals: { subtotal: 100, couponDiscount: 0, pixDiscount: 0, shipping: 10, total: 110 },
+      }),
+    )
+
+    expect(corpo.pix_discount).toBe(0)
+  })
+
   it('o CEP vai com 8 dígitos, sem máscara (ADR-05)', () => {
     // Sem isto `orders.address_zip` fica com hífen e o backoffice estoura em `MelhorEnvioTab`.
     expect(buildOrderPayload(entrada()).address_zip).toBe('01310100')
@@ -417,7 +442,7 @@ describe('buildOrderPayload — pedido de retirada (RET-07)', () => {
           estimateMin: '',
           estimateMax: '',
         },
-        totals: { subtotal: 100, couponDiscount: 0, shipping: 0, total: 100 },
+        totals: { subtotal: 100, couponDiscount: 0, pixDiscount: 0, shipping: 0, total: 100 },
       }),
     )
 
@@ -446,5 +471,46 @@ describe('buildOrderPayload — pedido de retirada (RET-07)', () => {
     expect(corpo.address_complement).toBe('Casa 2')
     expect(corpo.address_zip).toBe('91240010')
     expect(corpo.address_city).toBe('Porto Alegre')
+  })
+})
+
+describe('buildOrderItems — o percentual de campanha exibido em cada linha', () => {
+  const linhaDaSacola = (id: string) =>
+    ({
+      product: produto({ id, requires_material: false, material_kinds: [] }),
+      size: '',
+      finish: '',
+      variantId: null,
+      variantLabel: '',
+      optionValues: {},
+      unitPrice: 100,
+      quantity: 1,
+    }) as never
+
+  it('a linha de campanha leva o percentual que a tela mostrou; a comum não leva a chave', () => {
+    const itens = buildOrderItems({
+      items: [linhaDaSacola('p-black'), linhaDaSacola('p-comum')],
+      pricingItems: [
+        { product_id: 'p-black', unit_price: 209.9, quantity: 1, campaign: { percent: 20 } },
+        { product_id: 'p-comum', unit_price: 100, quantity: 1 },
+      ],
+      lines: [
+        { index: 0, quantity: 1, fullUnitPrice: 209.9, unitPrice: 167.92 },
+        { index: 1, quantity: 1, fullUnitPrice: 100, unitPrice: 100 },
+      ],
+      bumpProduct: null,
+    })
+    expect(itens[0].campaign_percent).toBe(20)
+    expect(itens[1]).not.toHaveProperty('campaign_percent')
+  })
+
+  it('marcada sem baixar o preço: sem a chave (não é peça de campanha)', () => {
+    const itens = buildOrderItems({
+      items: [linhaDaSacola('p-black')],
+      pricingItems: [{ product_id: 'p-black', unit_price: 199.9, quantity: 1, campaign: { percent: 15, compare_price: 250 } }],
+      lines: [{ index: 0, quantity: 1, fullUnitPrice: 199.9, unitPrice: 199.9 }],
+      bumpProduct: null,
+    })
+    expect(itens[0]).not.toHaveProperty('campaign_percent')
   })
 })

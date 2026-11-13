@@ -377,6 +377,48 @@ describe('useAdminProductList — busca e filtros (PLS-02 AC 5-6)', () => {
   })
 })
 
+describe('useAdminProductList — o filtro pela campanha', () => {
+  it('a campanha vira embed `!inner` de `product_campaigns` filtrado no servidor', async () => {
+    await renderList({ filters: { ...emptyFilters(), campaignId: 'bf' } })
+
+    const call = lastProductsCall()
+    expect(call.select?.[0]).toContain('filtro_campanha:product_campaigns!inner(campaign_id, percent)')
+    expect(filterArgs(call, 'eq')).toEqual([['filtro_campanha.campaign_id', 'bf']])
+    expect(calls.filter(c => c.table === 'product_campaigns')).toHaveLength(0)
+  })
+
+  it('com o percentual, o recorte é a campanha E o percentual', async () => {
+    await renderList({ filters: { ...emptyFilters(), campaignId: 'bf', campaignPercent: 15 } })
+
+    expect(filterArgs(lastProductsCall(), 'eq')).toEqual([
+      ['filtro_campanha.campaign_id', 'bf'],
+      ['filtro_campanha.percent', 15],
+    ])
+  })
+
+  it('percentual sem campanha não filtra nada', async () => {
+    await renderList({ filters: { ...emptyFilters(), campaignPercent: 15 } })
+
+    const call = lastProductsCall()
+    expect(call.select?.[0]).toBe(LIST_SELECT)
+    expect(filterArgs(call, 'eq')).toEqual([])
+  })
+
+  it('a campanha conta como UM filtro ativo, com ou sem o percentual', () => {
+    expect(activeFilterCount({ ...emptyFilters(), campaignId: 'bf' })).toBe(1)
+    expect(activeFilterCount({ ...emptyFilters(), campaignId: 'bf', campaignPercent: 15 })).toBe(1)
+    expect(activeFilterCount(emptyFilters())).toBe(0)
+  })
+
+  it('a linha traz as marcações da peça do embed, e lista vazia sem ele', () => {
+    expect(LIST_SELECT).toContain('product_campaigns(campaign_id, percent)')
+    expect(
+      toListRow({ id: 'p1', name: 'Anel', product_campaigns: [{ campaign_id: 'bf', percent: 15 }] }).campaigns,
+    ).toEqual([{ campaign_id: 'bf', percent: 15 }])
+    expect(toListRow({ id: 'p1', name: 'Anel', product_campaigns: null }).campaigns).toEqual([])
+  })
+})
+
 describe('useAdminProductList — lote (PLS-08)', () => {
   it('`createProductsBatch` de 20 linhas faz UM insert e UM refetch', async () => {
     const { result } = await renderList()

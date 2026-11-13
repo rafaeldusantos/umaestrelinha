@@ -37,10 +37,10 @@ const fonteDa = (pagina: string): string => readFileSync(resolve(SRC, `pages/${p
 describe('toda página lazy do App.tsx chama usePageMeta (MTA-10 a)', () => {
   const paginas = paginasLazy(APP)
 
-  it('âncora: o App.tsx declara 20 páginas lazy (com ProposalCheckoutPage e CardLinkPaymentPage)', () => {
+  it('âncora: o App.tsx declara 21 páginas lazy (com ProposalCheckoutPage, CardLinkPaymentPage e OffersPage)', () => {
     // Número cravado de propósito: uma página nova muda esta contagem, e quem a acrescenta é
     // obrigado a passar por aqui — é exatamente o momento de lembrar do `usePageMeta`.
-    expect(paginas).toHaveLength(20)
+    expect(paginas).toHaveLength(21)
   })
 
   it.each(paginasLazy(APP))('`pages/%s.tsx` declara o próprio metadado', pagina => {

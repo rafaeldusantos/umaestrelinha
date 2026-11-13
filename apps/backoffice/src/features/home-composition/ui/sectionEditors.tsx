@@ -24,6 +24,7 @@ import {
   textSectionRefusal,
 } from '../model/sectionRefusals'
 import BannerGridEditor from './BannerGridEditor'
+import CampaignOffersEditor from './CampaignOffersEditor'
 import CategoryListEditor from './CategoryListEditor'
 import CollectionFeatureEditor from './CollectionFeatureEditor'
 import CollectionRowsEditor from './CollectionRowsEditor'
@@ -96,4 +97,6 @@ export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry
   brand_statement: { Body: TextSectionEditor, refusal: textSectionRefusal('brand_statement') },
   trending_tags: { Body: TextSectionEditor, refusal: textSectionRefusal('trending_tags') },
   newsletter: { Body: TextSectionEditor, refusal: textSectionRefusal('newsletter') },
+  // Joias em oferta: sem campo nem recusa; o conteúdo é o da campanha em vigência.
+  campaign_offers: { Body: CampaignOffersEditor },
 }

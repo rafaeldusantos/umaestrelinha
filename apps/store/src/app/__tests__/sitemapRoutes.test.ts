@@ -47,6 +47,12 @@ const declaredRoutes = (): string[] => [
  */
 const DINAMICAS = ['/produtos/:slug', '/:slug', '/:parentSlug/:slug', '/perguntas-frequentes/:pergunta']
 
+/**
+ * A vitrine da campanha de desconto: nem fixa nem não indexável. Entra no sitemap só com campanha em
+ * vigência, e quem decide é `serveSitemap` lendo o banco — não uma lista. Escrita por extenso.
+ */
+const VITRINE = '/ofertas'
+
 /** O curinga da 404. Não é conteúdo; é o que sobra. */
 const CURINGA = '*'
 
@@ -67,8 +73,9 @@ describe('sitemapRoutes — âncora da varredura (SMP-25)', () => {
     // precisa olhar — em vez de a classificação passar a cobrir um roteador menor sem aviso.
     // 24 desde a feature 59: `/conta/dados`, a aba "Meus dados", irmã de `/conta`.
     // 25 com `/perguntas-frequentes/:pergunta`, o endereço próprio de cada pergunta; 26 com
-    // `/pedido-montado` (feature 89); 27 com `/pagar-com-cartao` (o link de pagamento por cartão).
-    expect(declaredRoutes()).toHaveLength(27)
+    // `/pedido-montado` (feature 89); 27 com `/pagar-com-cartao` (o link de pagamento por cartão);
+    // 28 com `/ofertas`, a vitrine da campanha de desconto.
+    expect(declaredRoutes()).toHaveLength(28)
   })
 })
 
@@ -79,6 +86,7 @@ describe('sitemapRoutes — classificação obrigatória (SMP-24)', () => {
         SITEMAP_STATIC_PATHS.includes(path) ? 'sitemap' : null,
         FORA.includes(path) ? 'nao-indexavel' : null,
         DINAMICAS.includes(path) ? 'dinamica' : null,
+        path === VITRINE ? 'vitrine' : null,
         LEGADAS.includes(path) ? 'legada' : null,
         path === CURINGA ? 'curinga' : null,
       ].filter(Boolean) as string[]
@@ -122,6 +130,12 @@ describe('sitemapRoutes — o que a classificação significa', () => {
       expect(SITEMAP_STATIC_PATHS).not.toContain(path)
       expect(FORA).not.toContain(path)
     }
+  })
+
+  it('a vitrine da campanha não está em lista fixa nenhuma — a indexação dela depende do banco', () => {
+    expect(declaredRoutes()).toContain(VITRINE)
+    expect(SITEMAP_STATIC_PATHS).not.toContain(VITRINE)
+    expect(FORA).not.toContain(VITRINE)
   })
 
   it('o curinga da 404 não é conteúdo', () => {

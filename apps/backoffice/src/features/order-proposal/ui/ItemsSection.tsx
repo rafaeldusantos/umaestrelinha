@@ -27,6 +27,7 @@ import { Input } from '@estrelinha/ui/input'
 import { Button } from '@estrelinha/ui/button'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { campaignPercentBadge } from '@estrelinha/core/campaigns'
 import { engravingLimit, engravingRefusal } from '@estrelinha/core/material'
 import { PROPOSAL_MAX_QTY } from '@estrelinha/core/proposals'
 import {
@@ -178,6 +179,9 @@ const PecaEscolhida = ({
   const variacao: VariacaoDaPeca | null = peca?.variacoes.find((v) => v.id === variacaoId) ?? null
   const semGrade = !!peca && peca.variacoes.length === 0
   const preco = semGrade ? peca.precoBase : variacao?.preco ?? null
+  // A peça marcada na campanha em vigência entra com o preço dela (o que o resumo vai cobrar).
+  const campanha = semGrade ? peca.campanhaBase : variacao?.campanha ?? null
+  const precoDaEscolha = campanha && preco !== null ? campanha.preco : preco
   const grava = !!variacao?.grava
   const limite = engravingLimit(peca?.limiteDeGravacao ?? null)
   const teto = peca ? tetoDaQuantidade(tetoDoEstoque(peca.politica, semGrade ? peca.estoqueTotal : variacao?.estoque ?? 0)) : PROPOSAL_MAX_QTY
@@ -244,7 +248,7 @@ const PecaEscolhida = ({
           disabled={!pronta}
           onClick={() => peca && onAcrescentar(linhaEscolhida(peca, semGrade ? null : variacao, qtd, gravacao))}
         >
-          {pronta && preco !== null ? `Acrescentar · ${formatPrice(preco * qtd)}` : peca && !semGrade && !variacao ? 'Escolha a variação' : 'Acrescentar'}
+          {pronta && precoDaEscolha !== null ? `Acrescentar · ${formatPrice(precoDaEscolha * qtd)}` : peca && !semGrade && !variacao ? 'Escolha a variação' : 'Acrescentar'}
         </Button>
       </div>
     </div>
@@ -319,7 +323,9 @@ const LinhaDaPeca = ({
   const detalhe = [line.variant_label, line.engraves && line.engraving_text.trim() ? `Gravação: “${line.engraving_text.trim()}”` : null]
     .filter(Boolean)
     .join(' · ')
-  const promocao = preco && preco.unitario < preco.cheio ? Math.round((1 - preco.unitario / preco.cheio) * 100) : 0
+  // A peça de campanha mostra o selo da campanha, não o da promoção (ela não entra na promoção).
+  const campanha = line.campanha ?? null
+  const promocao = !campanha && preco && preco.unitario < preco.cheio ? Math.round((1 - preco.unitario / preco.cheio) * 100) : 0
   const total = preco ? preco.unitario * line.quantity : line.list_price !== null ? line.list_price * line.quantity : null
 
   return (
@@ -329,7 +335,7 @@ const LinhaDaPeca = ({
         <div className="min-w-0 flex-1 basis-40">
           <p className="break-words text-sm font-semibold text-foreground">{line.product_name}</p>
           {detalhe && <p className="break-words text-xs text-muted-foreground">{detalhe}</p>}
-          {(line.requires_material || promocao > 0) && (
+          {(line.requires_material || promocao > 0 || campanha) && (
             <div className="mt-1 flex flex-wrap gap-1.5">
               {line.requires_material && (
                 <span data-testid="pede-material" className={SELO_AMBAR}>
@@ -337,6 +343,11 @@ const LinhaDaPeca = ({
                 </span>
               )}
               {promocao > 0 && <span className={SELO_VERDE}>Promoção · −{promocao}%</span>}
+              {campanha && (
+                <span data-testid="selo-da-campanha" className={SELO_VERDE}>
+                  {`${campanha.nome} · ${campaignPercentBadge(campanha.percent)}`}
+                </span>
+              )}
             </div>
           )}
         </div>

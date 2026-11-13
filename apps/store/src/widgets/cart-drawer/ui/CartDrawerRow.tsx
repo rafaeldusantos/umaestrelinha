@@ -4,7 +4,8 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
 import { renditionUrl } from '@estrelinha/core/media'
 import { companionsOf, useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
-import type { BuyTogetherLineFacts } from '@/entities/cart'
+import { cartLineCampaignPrice, type BuyTogetherLineFacts } from '@/entities/cart'
+import { CampaignBadgeInline } from '@/entities/campaign'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
 import { removeFromCartEvent } from '@estrelinha/core/analytics'
@@ -42,6 +43,9 @@ const CartDrawerRow = ({ item, onNavigate, buyTogether }: Props) => {
   const acompanha =
     buyTogether?.phrase ?? companionPhrase(companionsOf(item, cartItems).map((p) => p.name))
   const comDesconto = buyTogether?.total != null && buyTogether.fullTotal != null
+  // A campanha de desconto da linha: o "de/por" e o selo em linha. O preço é o de `core`
+  // (`campaignUnitPrice`, por `cartLineCampaignPrice`); a peça de campanha nunca tem o desconto casado.
+  const campanha = comDesconto ? null : cartLineCampaignPrice(item)
 
   // O `variantId` faz parte da identidade da linha (`cartStore.itemKey`). Omiti-lo — como as duas
   // telas antigas faziam — monta a chave legada `p:id-size-finish` e a remoção não casa com nada:
@@ -109,6 +113,20 @@ const CartDrawerRow = ({ item, onNavigate, buyTogether }: Props) => {
                 </span>
               </span>
             </span>
+          ) : campanha ? (
+            <span className="relative shrink-0">
+              <span className="sr-only">
+                {`de ${formatPrice(campanha.full * quantity)} por ${formatPrice(campanha.charged * quantity)}`}
+              </span>
+              <span aria-hidden="true" data-testid="preco-campanha" className="flex flex-col items-end">
+                <s className="text-[12px] leading-4 text-estrelinha-ink-soft">
+                  {formatPrice(campanha.full * quantity)}
+                </s>
+                <span className="text-sm font-bold leading-5 text-estrelinha-primary">
+                  {formatPrice(campanha.charged * quantity)}
+                </span>
+              </span>
+            </span>
           ) : (
             <span className="shrink-0 text-sm font-bold leading-5 text-estrelinha-primary">
               {formatPrice(item.unitPrice * quantity)}
@@ -135,8 +153,9 @@ const CartDrawerRow = ({ item, onNavigate, buyTogether }: Props) => {
           </p>
         )}
 
-        {chips.length > 0 && (
+        {(chips.length > 0 || campanha) && (
           <div className="flex flex-wrap gap-1.5">
+            {campanha && <CampaignBadgeInline campaign={campanha.campaign} percent={campanha.campaign.percent} />}
             {chips.map((chip) => (
               <span
                 key={chip}

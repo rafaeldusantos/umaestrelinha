@@ -37,6 +37,12 @@ export type HomeSectionType =
    * nenhum. É a `AD-029` valendo: desde a 41 a Home não tem bloco indelével.
    */
   | 'hero_carousel'
+  /**
+   * O bloco "Joias em oferta": os percentuais e algumas peças da campanha de desconto em vigência.
+   * Sem campos — o título, o rótulo e os percentuais vêm da campanha, e sem campanha em vigência a
+   * loja não o desenha. Único na Home.
+   */
+  | 'campaign_offers'
 
 /**
  * Os arranjos da grade de banners.

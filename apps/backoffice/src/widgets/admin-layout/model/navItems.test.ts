@@ -55,8 +55,23 @@ describe('navGroups — os quatro eixos', () => {
     expect(vendas.items.map(i => i.label).slice(0, 2)).toEqual(['Pedidos', 'Pedidos montados'])
 
     const descontos = navGroups.find(g => g.label === 'Descontos')!
-    expect(descontos.items.map(i => i.to)).toEqual(['/admin/cupons', '/admin/promocoes'])
-    expect(descontos.items.map(i => i.label)).toEqual(['Cupons', 'Promoções'])
+    // As campanhas de desconto: o grupo foi de dois para TRÊS — a lista foi reescrita para o conteúdo
+    // novo, e ganhou vizinha (o caso de `Campanhas`, abaixo) em vez de virar `toContain`.
+    expect(descontos.items.map(i => i.to)).toEqual(['/admin/cupons', '/admin/promocoes', '/admin/campanhas'])
+    expect(descontos.items.map(i => i.label)).toEqual(['Cupons', 'Promoções', 'Campanhas'])
+  })
+
+  it('`Campanhas` entra em Descontos logo depois de Promoções, e as telas dela só pelo índice', () => {
+    const descontos = navGroups.find(g => g.label === 'Descontos')!
+    const rotas = descontos.items.map(i => i.to)
+    expect(rotas.indexOf('/admin/campanhas')).toBe(rotas.indexOf('/admin/promocoes') + 1)
+    // A nova e a edição são alcançadas de dentro da lista, e não são destino da sidebar.
+    expect(allItems.map(i => i.to).some(to => to.startsWith('/admin/campanhas/'))).toBe(false)
+    expect(appRoutePaths().filter(p => p.startsWith('/admin/campanhas'))).toEqual([
+      '/admin/campanhas',
+      '/admin/campanhas/nova',
+      '/admin/campanhas/:id',
+    ])
   })
 
   it('a sequência das rotas de `App.tsx` casa com a de `navGroups` (PRM-20)', () => {

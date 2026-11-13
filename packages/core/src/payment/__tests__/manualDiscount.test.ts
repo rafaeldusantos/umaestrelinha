@@ -240,7 +240,7 @@ describe('pricing.ts alcançável pelo Deno por caminho', () => {
   }
   const disco = (c: string) => readFileSync(c, 'utf8')
 
-  it('âncora: pricing.ts e as folhas do Compre Junto que ele alcança foram lidos', () => {
+  it('âncora: pricing.ts, as folhas do Compre Junto e o preço de campanha que ele alcança foram lidos', () => {
     const fonte = disco(fileURLToPath(new URL('../pricing.ts', import.meta.url)))
     expect(fonte.length).toBeGreaterThan(1000)
     expect(fonte).toContain('export function resolveOrderPricing')
@@ -250,6 +250,7 @@ describe('pricing.ts alcançável pelo Deno por caminho', () => {
       'buy-together/cartDiscount.ts',
       'buy-together/discount.ts',
       'buy-together/types.ts',
+      'campaigns/price.ts',
       'payment/pricing.ts',
     ])
   })

@@ -40,6 +40,10 @@ export interface ProductFilters {
   tags: string[]
   priceMin: number | null
   priceMax: number | null
+  /** A campanha de desconto. Visão salva antes dela não tem o campo — ver `savedViews`. */
+  campaignId: string | null
+  /** Um percentual da campanha; sem `campaignId`, não recorta nada. */
+  campaignPercent: number | null
 }
 
 export interface ProductQuery {
@@ -57,6 +61,8 @@ export const emptyFilters = (): ProductFilters => ({
   tags: [],
   priceMin: null,
   priceMax: null,
+  campaignId: null,
+  campaignPercent: null,
 })
 
 export const defaultQuery = (): ProductQuery => ({
@@ -72,7 +78,8 @@ export const activeFilterCount = (filters: ProductFilters): number =>
   (filters.categoryIds.length > 0 ? 1 : 0) +
   ((filters.supplierIds ?? []).length > 0 ? 1 : 0) +
   (filters.tags.length > 0 ? 1 : 0) +
-  (filters.priceMin !== null || filters.priceMax !== null ? 1 : 0)
+  (filters.priceMin !== null || filters.priceMax !== null ? 1 : 0) +
+  (filters.campaignId ? 1 : 0)
 
 /** A coluna do `order` do PostgREST para cada chave de ordenação da tela. */
 export const SORT_COLUMN: Record<ProductSortKey, string> = {
@@ -111,6 +118,8 @@ export interface AdminListRow {
   supplier?: { name: string; url: string } | null
   /** Quantos fornecedores o produto tem além do primeiro (o da coluna). */
   moreSuppliers?: number
+  /** As marcações da peça nas campanhas de desconto, só do painel. Ausente = nenhuma. */
+  campaigns?: { campaign_id: string; percent: number }[]
   seo_title: string | null
   seo_description: string | null
   scheduled_at: string | null

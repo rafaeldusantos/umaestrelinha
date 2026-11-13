@@ -72,6 +72,11 @@ export interface SitemapDeps {
   readVariants: (from: number, to: number) => Promise<SitemapVariant[]>
   countOptionMarks: () => Promise<number>
   readOptionMarks: (from: number, to: number) => Promise<SitemapOptionMark[]>
+  /**
+   * Há campanha de desconto em vigência? Pela leitura pública, que a RLS filtra por `now()` do banco.
+   * Decide se `/ofertas` entra. Falhar falha o sitemap inteiro, pela régua de sempre.
+   */
+  readOffersLive: () => Promise<boolean>
   log: (entry: Record<string, unknown>) => void
 }
 
@@ -115,6 +120,7 @@ export const readCatalog = async (
   faqQuestions: SitemapFaqQuestion[]
   variants: SitemapVariant[]
   optionMarks: SitemapOptionMark[]
+  offers: boolean
 }> => {
   const [totalProdutos, totalCategorias, totalVariacoes, totalMarcacoes] = await Promise.all([
     deps.countProducts(),
@@ -164,7 +170,10 @@ export const readCatalog = async (
     grupo.items.map(item => ({ id: item.id, question: item.question })),
   )
 
-  return { products, categories, faqQuestions, variants, optionMarks }
+  // A vitrine da campanha: uma linha, sem paginação. Falhar falha o sitemap, como as perguntas.
+  const offers = (await deps.readOffersLive()) === true
+
+  return { products, categories, faqQuestions, variants, optionMarks, offers }
 }
 
 export const serveSitemap = async (deps: SitemapDeps): Promise<SitemapResponse> => {
@@ -200,6 +209,7 @@ export const serveSitemap = async (deps: SitemapDeps): Promise<SitemapResponse> 
         faqQuestions: catalogo.faqQuestions,
         variants: catalogo.variants,
         optionMarks: catalogo.optionMarks,
+        offers: catalogo.offers,
       }),
     )
   } catch (e) {
@@ -216,6 +226,7 @@ export const serveSitemap = async (deps: SitemapDeps): Promise<SitemapResponse> 
     perguntas: catalogo.faqQuestions.length,
     variacoes: catalogo.variants.length,
     marcacoes: catalogo.optionMarks.length,
+    ofertas: catalogo.offers,
   })
 
   return {

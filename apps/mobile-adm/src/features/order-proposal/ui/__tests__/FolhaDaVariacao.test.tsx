@@ -25,6 +25,8 @@ const COLAR: PecaParaProposta = {
   limiteDeGravacao: null,
   medidas: { weight_kg: null, width_cm: null, height_cm: null, length_cm: null },
   variacoes: [],
+  campanha: null,
+  campanhaBase: null,
 }
 
 const montar = (aoConfirmar = vi.fn()) => {

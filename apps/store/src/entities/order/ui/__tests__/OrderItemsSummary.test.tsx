@@ -408,3 +408,134 @@ describe('OrderItemsSummary — o desconto da compra casada no pedido', () => {
     expect(container.textContent).not.toMatch(/!|economi/i)
   })
 })
+
+describe('o resumo do pedido com desconto de campanha', () => {
+  it('a linha "Desconto de campanha" aparece com o valor do servidor, e a conta fecha', () => {
+    render(
+      <OrderItemsSummary
+        order={pedido({
+          order_items: [
+            item({ id: 'i-1', unit_price: 167.92, full_unit_price: 209.9 } as Partial<OrderSummaryItem>),
+            item({ id: 'i-2', product_name: 'Corrente', unit_price: 100, full_unit_price: 100 } as Partial<OrderSummaryItem>),
+          ],
+          subtotal: 267.92,
+          discount: 10,
+          coupon_code: 'DEZ',
+          pix_discount: 12.9,
+          shipping_cost: 20,
+          total: 265.02,
+          campaign_discount: 41.98,
+        })}
+      />,
+    )
+    expect(emReais(valorDa('Subtotal'))).toBe(309.9)
+    expect(emReais(valorDa('Desconto de campanha'))).toBe(-41.98)
+    expect(emReais(valorDa('Cupom DEZ'))).toBe(-10)
+    expect(emReais(valorDa('Total'))).toBe(265.02)
+  })
+})
+
+describe('o "De" da peça de campanha que tem "de/por" no pedido gravado', () => {
+  // A peça com "de" R$ 374,00 e "por" R$ 349,90, com 10 % de campanha: cobrada a
+  // min(349,90; 374,00 × 0,9) = R$ 336,60. O "De" riscado é o preço cheio da peça — o mesmo do
+  // checkout —, nunca o "por" de tabela.
+  const linhaDeCampanha = item({
+    id: 'i-mc',
+    product_name: 'Pulseira Afetiva Esferas',
+    unit_price: 336.6,
+    full_unit_price: 349.9,
+    compare_unit_price: 374,
+    campaign_percent: 10,
+  } as Partial<OrderSummaryItem>)
+
+  it('a linha diz "de R$ 374,00 por R$ 336,60"', () => {
+    render(
+      <OrderItemsSummary
+        order={pedido({
+          order_items: [linhaDeCampanha],
+          subtotal: 336.6,
+          shipping_cost: 0,
+          total: 336.6,
+          campaign_discount: 13.3,
+        })}
+      />,
+    )
+    const par = screen.getByTestId('item-de-por')
+    expect(par.previousElementSibling?.textContent).toBe(`de ${formatPrice(374)} por ${formatPrice(336.6)}`)
+    expect(par.querySelector('s')?.textContent).toBe(formatPrice(374))
+    expect(par.textContent).toBe(`${formatPrice(374)}${formatPrice(336.6)}`)
+  })
+
+  it('o resumo segue o do checkout: Subtotal de tabela, a linha da campanha, e a conta fecha', () => {
+    render(
+      <OrderItemsSummary
+        order={pedido({
+          order_items: [linhaDeCampanha],
+          subtotal: 336.6,
+          shipping_cost: 0,
+          total: 336.6,
+          campaign_discount: 13.3,
+        })}
+      />,
+    )
+    expect(emReais(valorDa('Subtotal'))).toBe(349.9)
+    expect(emReais(valorDa('Desconto de campanha'))).toBe(-13.3)
+    expect(emReais(valorDa('Total'))).toBe(336.6)
+  })
+
+  it('a linha comum, sem campanha, segue com o cheio gravado', () => {
+    render(
+      <OrderItemsSummary
+        order={pedido({
+          order_items: [item({ unit_price: 71.1, full_unit_price: 79 } as Partial<OrderSummaryItem>)],
+          subtotal: 71.1,
+          shipping_cost: 0,
+          total: 71.1,
+        })}
+      />,
+    )
+    expect(screen.getByTestId('item-de-por').previousElementSibling?.textContent).toBe(
+      `de ${formatPrice(79)} por ${formatPrice(71.1)}`,
+    )
+  })
+})
+
+describe('o resumo do pedido com promoção progressiva e PIX', () => {
+  const comPromocao = () =>
+    pedido({
+      order_items: [
+        item({ id: 'mc', quantity: 1, unit_price: 336.6, full_unit_price: 349.9, compare_unit_price: 374 } as Partial<OrderSummaryItem>),
+        item({ id: 'me', quantity: 2, unit_price: 306, full_unit_price: 340 } as Partial<OrderSummaryItem>),
+        item({ id: 'me2', quantity: 1, unit_price: 314.91, full_unit_price: 349.9 } as Partial<OrderSummaryItem>),
+      ],
+      subtotal: 1263.51,
+      discount: 0,
+      campaign_discount: 13.3,
+      promotion_discount: 102.99,
+      pix_discount: 88.45,
+      shipping_cost: 19.9,
+      total: 1194.96,
+    })
+
+  it('as linhas são as do checkout: Subtotal, campanha, progressivo, PIX, Frete e Total', () => {
+    render(<OrderItemsSummary order={comPromocao()} />)
+    const rotulos = Array.from(document.querySelectorAll('dl dt')).map((dt) => dt.textContent)
+    expect(rotulos).toEqual([
+      'Subtotal',
+      'Desconto de campanha',
+      'Desconto progressivo',
+      'Desconto PIX',
+      'Frete',
+      'Total',
+    ])
+    expect(emReais(valorDa('Desconto PIX'))).toBe(-88.45)
+  })
+
+  it('as linhas somam o Total', () => {
+    render(<OrderItemsSummary order={comPromocao()} />)
+    const linhas = ['Subtotal', 'Desconto de campanha', 'Desconto progressivo', 'Desconto PIX', 'Frete']
+    const soma = linhas.reduce((s, r) => s + Math.round(emReais(valorDa(r)) * 100), 0)
+    expect(soma).toBe(Math.round(emReais(valorDa('Total')) * 100))
+    expect(emReais(valorDa('Total'))).toBe(1194.96)
+  })
+})

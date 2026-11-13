@@ -12,14 +12,18 @@ import type { BulkPatch } from './buildBulkPatch'
 
 export const UNDO_TTL_MS = 30_000
 
-export interface UndoEntry {
+/**
+ * O que se guarda para desfazer. Por padrão, os patches de `products`; o lote de campanha guarda as
+ * marcações de antes (`CampaignUndoGroup`, em `bulkCampaign`), que voltam pela porta das marcações.
+ */
+export interface UndoEntry<T = BulkPatch> {
   /** Só as linhas efetivamente alteradas: falha parcial não promete voltar o que não foi. */
-  snapshot: BulkPatch[]
+  snapshot: T[]
   label: string
 }
 
-export const useUndoBuffer = (ttlMs: number = UNDO_TTL_MS) => {
-  const [pending, setPending] = useState<UndoEntry | null>(null)
+export const useUndoBuffer = <T = BulkPatch>(ttlMs: number = UNDO_TTL_MS) => {
+  const [pending, setPending] = useState<UndoEntry<T> | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /**
    * O mesmo valor do estado, em `ref`.
@@ -28,20 +32,20 @@ export const useUndoBuffer = (ttlMs: number = UNDO_TTL_MS) => {
    * foi aplicada — antes de `capture` existir no estado. Lendo só o `pending` do closure, `take()`
    * enxergaria `null` e o desfazer não faria nada, calado. O `ref` é lido no momento do clique.
    */
-  const pendingRef = useRef<UndoEntry | null>(null)
+  const pendingRef = useRef<UndoEntry<T> | null>(null)
 
   const clearTimer = () => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
   }
 
-  const set = (entry: UndoEntry | null) => {
+  const set = useCallback((entry: UndoEntry<T> | null) => {
     pendingRef.current = entry
     setPending(entry)
-  }
+  }, [])
 
   const capture = useCallback(
-    (entry: UndoEntry) => {
+    (entry: UndoEntry<T>) => {
       clearTimer()
       if (entry.snapshot.length === 0) {
         set(null)
@@ -50,22 +54,22 @@ export const useUndoBuffer = (ttlMs: number = UNDO_TTL_MS) => {
       set(entry)
       timerRef.current = setTimeout(() => set(null), ttlMs)
     },
-    [ttlMs],
+    [ttlMs, set],
   )
 
   const discard = useCallback(() => {
     clearTimer()
     set(null)
-  }, [])
+  }, [set])
 
   /** Devolve o snapshot e apaga o buffer — desfazer é operação de uma vez só. */
-  const take = useCallback((): BulkPatch[] | null => {
+  const take = useCallback((): T[] | null => {
     const entry = pendingRef.current
     if (!entry) return null
     clearTimer()
     set(null)
     return entry.snapshot
-  }, [])
+  }, [set])
 
   useEffect(() => clearTimer, [])
 
