@@ -51,6 +51,8 @@ const PercentsCard = ({ percents, onChange, usage, campaignId, listRefusal }: Pr
       setEmUso({ percent: p, message: recusa })
       return
     }
+    // A recusa do campo fala da lista de antes; com a lista mudada ela pode afirmar o que já não é.
+    setErro(null)
     setEmUso(null)
     onChange(percents.filter(x => x !== p))
   }

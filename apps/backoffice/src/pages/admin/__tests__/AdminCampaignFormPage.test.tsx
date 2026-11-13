@@ -187,6 +187,20 @@ describe('as recusas do cadastro, cada uma com o motivo, nada gravado', () => {
     rpcNaoChamada()
   })
 
+  it('a recusa do repetido sai junto com o percentual, e o motivo da lista vazia aparece', async () => {
+    renderizar('/admin/campanhas/nova')
+    await screen.findByRole('heading', { name: 'Nova campanha' })
+    digitar('Nome', 'Black Friday')
+    adicionarPercentual('10')
+    adicionarPercentual('10')
+    expect(screen.getByRole('alert')).toHaveTextContent('10% já está na campanha.')
+    fireEvent.click(screen.getByRole('button', { name: 'Tirar 10%' }))
+    expect(screen.getByText('Nenhum percentual ainda.')).toBeInTheDocument()
+    expect(screen.queryByText('10% já está na campanha.')).toBeNull()
+    expect(screen.getByText('Acrescente ao menos um percentual.')).toBeInTheDocument()
+    expect(salvar()).toBeDisabled()
+  })
+
   it('vigência que cruza a de outra campanha ligada', async () => {
     comCampanhas([BLACK_FRIDAY])
     await preencherValida()
