@@ -80,7 +80,9 @@ describe('core/seo é alcançável por Deno', () => {
     ]) {
       expect(nomes.some(n => n.endsWith(fim)), fim).toBe(true)
     }
-    expect(grafo.visitados.length).toBe(22)
+    // 22 ⇒ 23, medido em 2026-11-13: `offerPricing` (`shopping/pricing.ts`) passou a ler o preço da
+    // campanha de desconto pelo dono, `campaigns/price.ts` (folha, sem import).
+    expect(grafo.visitados.length).toBe(23)
   })
 
   // Campanhas de desconto: `offersPageMeta` (`seo/pages.ts`) diz a linha da vitrine pela MESMA função
@@ -91,6 +93,7 @@ describe('core/seo é alcançável por Deno', () => {
     for (const fim of [
       'campaigns/text.ts',
       'campaigns/end.ts',
+      'campaigns/price.ts',
       'campaigns/status.ts',
       'campaigns/live.ts',
       'campaigns/types.ts',

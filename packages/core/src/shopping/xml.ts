@@ -12,7 +12,7 @@
 // throw em **503**, o Google mantém a última leitura boa e tenta de novo. Nenhum dos dois é
 // recuperável dentro do serializador.
 
-import type { ShoppingOffer } from './types.ts'
+import type { OfferSaleWindow, ShoppingOffer } from './types.ts'
 import { escapeXml } from '../xml/escape.ts'
 
 const NS = 'http://base.google.com/ns/1.0'
@@ -34,6 +34,22 @@ export const formatFeedPrice = (value: number): string => `${value.toFixed(2)} B
 const tag = (name: string, value: string | null | undefined): string =>
   value == null || value === '' ? '' : `      <${name}>${escapeXml(String(value))}</${name}>\n`
 
+/** Um instante no formato do Google: UTC, sem milissegundo. `null` quando o texto não é instante. */
+const instanteDoFeed = (valor: string): string | null => {
+  const ms = new Date(valor).getTime()
+  return Number.isFinite(ms) ? new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z') : null
+}
+
+/**
+ * O `<g:sale_price_effective_date>`: o intervalo ISO 8601 `início/fim` da campanha. Uma ponta
+ * ilegível ⇒ `null`, e a tag não sai — recusar o feed inteiro por ela tiraria o catálogo do ar.
+ */
+export const formatSaleEffectiveDate = (janela: OfferSaleWindow): string | null => {
+  const inicio = instanteDoFeed(janela.start)
+  const fim = instanteDoFeed(janela.end)
+  return inicio && fim ? `${inicio}/${fim}` : null
+}
+
 export interface FeedChannel {
   title: string
   link: string
@@ -52,6 +68,9 @@ const item = (offer: ShoppingOffer): string =>
   tag('g:availability', offer.availability) +
   tag('g:price', formatFeedPrice(offer.price)) +
   (offer.salePrice != null ? tag('g:sale_price', formatFeedPrice(offer.salePrice)) : '') +
+  (offer.salePrice != null && offer.saleEffective
+    ? tag('g:sale_price_effective_date', formatSaleEffectiveDate(offer.saleEffective))
+    : '') +
   tag('g:condition', offer.condition) +
   tag('g:brand', offer.brand) +
   tag('g:mpn', offer.mpn) +

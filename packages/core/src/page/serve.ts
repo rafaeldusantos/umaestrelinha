@@ -48,6 +48,7 @@ import {
   variantByPublicId,
   variesByFor,
   withPageUrl,
+  type OfferCampaign,
   type OfferInputProduct,
   type OfferInputVariant,
 } from '../shopping/index.ts'
@@ -65,6 +66,12 @@ export interface ProductPageData {
     options?: readonly VariantSeoAxis[] | null
   }
   variants: (OfferInputVariant & { option_values?: Readonly<Record<string, string>> | null })[]
+  /**
+   * A campanha de desconto em vigência DESTA peça, ou `null`/ausente. Vem do embed das marcações pela
+   * chave publicável: a RLS só entrega a campanha em vigência (relógio do banco), e a página não
+   * decide vigência nenhuma.
+   */
+  campaign?: OfferCampaign | null
 }
 
 /** O que a página lê de uma categoria da árvore ativa. */
@@ -387,7 +394,11 @@ const servirProduto = async (deps: PageDeps, url: URL, slug: string): Promise<Se
   // Peça ativa sem variação elegível: a página existe e a SPA a desenha — o shell intacto, como hoje.
   if (!variante) return html(deps.shell, 200, PAGE_CACHE.page)
 
-  const contexto = { origin: deps.origin, defaultProductCategory: config.defaultProductCategory }
+  const contexto = {
+    origin: deps.origin,
+    defaultProductCategory: config.defaultProductCategory,
+    campaign: dados.campaign ?? null,
+  }
   const oferta = resolveOffer(dados.product, variante, contexto)
 
   // Feature 68 — as marcações por opção, restritas como a leitura pública (SVR-20). Falha ⇒ a peça,
@@ -449,7 +460,7 @@ const dadoEstruturado = (
   abriuVariacao: boolean,
   canonica: string | null,
   origem: string,
-  contexto: { origin: string; defaultProductCategory: string | null },
+  contexto: { origin: string; defaultProductCategory: string | null; campaign: OfferCampaign | null },
 ): Record<string, unknown> => {
   const grupo = publicProductId(dados.product)
   if (abriuVariacao) return withPageUrl(productJsonLd(oferta), { url: canonica, groupId: grupo })

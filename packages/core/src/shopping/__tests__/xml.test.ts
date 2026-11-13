@@ -93,6 +93,42 @@ describe('renderFeedXml — o documento', () => {
   })
 })
 
+describe('renderFeedXml — a vigência da campanha', () => {
+  it('emite g:sale_price_effective_date com o intervalo ISO 8601 quando o "por" é da campanha', () => {
+    const doc = parse(
+      renderFeedXml(
+        [
+          oferta({
+            price: 199.9,
+            salePrice: 169.92,
+            saleEffective: { start: '2026-11-13T03:00:00+00:00', end: '2026-12-01T03:00:00.000Z' },
+          }),
+        ],
+        CANAL,
+      ),
+    )
+    expect(g(doc, 'sale_price')).toBe('169.92 BRL')
+    expect(g(doc, 'sale_price_effective_date')).toBe('2026-11-13T03:00:00Z/2026-12-01T03:00:00Z')
+  })
+
+  it('não emite a vigência sem campanha — nem no "de/por" incondicional', () => {
+    expect(g(parse(renderFeedXml([oferta()], CANAL)), 'sale_price_effective_date')).toBeNull()
+    const dePor = parse(renderFeedXml([oferta({ price: 120, salePrice: 84 })], CANAL))
+    expect(g(dePor, 'sale_price_effective_date')).toBeNull()
+  })
+
+  it('vigência ilegível não vira tag: o "por" sai sem ela, e o documento continua de pé', () => {
+    const doc = parse(
+      renderFeedXml(
+        [oferta({ price: 120, salePrice: 84, saleEffective: { start: 'ontem', end: '2026-12-01T03:00:00Z' } })],
+        CANAL,
+      ),
+    )
+    expect(g(doc, 'sale_price')).toBe('84.00 BRL')
+    expect(g(doc, 'sale_price_effective_date')).toBeNull()
+  })
+})
+
 describe('renderFeedXml — identificadores', () => {
   it('declara identifier_exists no por padrão', () => {
     expect(g(parse(renderFeedXml([oferta()], CANAL)), 'identifier_exists')).toBe('no')

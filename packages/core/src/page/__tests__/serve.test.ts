@@ -275,6 +275,45 @@ describe('paridade: a página declara o que o feed anuncia', () => {
   })
 })
 
+describe('servePage, produto — a campanha de desconto em vigência', () => {
+  // A leitura da página é pela chave publicável: a RLS só entrega a marcação da campanha em vigência,
+  // então `campaign` presente é campanha valendo — a página não olha relógio.
+  const CAMPANHA = { percent: 15, starts_at: '2026-11-13T03:00:00+00:00', ends_at: '2026-12-01T03:00:00+00:00' }
+  const marcada = () => {
+    const d = dados({ campaign: CAMPANHA })
+    d.variants[0] = { ...d.variants[0], price: 199.9 }
+    return d
+  }
+
+  it('o JSON-LD do produto marcado declara o preço da campanha e o último dia que ele vale', async () => {
+    const corpo = (await servePage(deps({}, marcada()), url('?slug=x&variant=1259936246'))).body
+    // 15% sobre 199,90 = 169,915 ⇒ 169,92.
+    expect(ld(corpo)!.offers.price).toBe('169.92')
+    expect(ld(corpo)!.offers.priceValidUntil).toBe('2026-11-30')
+  })
+
+  it('o preço da página é o sale_price do feed para a mesma variação marcada', async () => {
+    const d = marcada()
+    const corpo = (await servePage(deps({}, d), url('?slug=x&variant=1259936246'))).body
+    const oferta = resolveOffer(d.product, d.variants[0], { origin: ORIGEM, campaign: CAMPANHA })
+    const xml = renderFeedXml([oferta], { title: 't', link: ORIGEM, description: 'd' })
+    expect(ld(corpo)!.offers.price).toBe(xml.match(/<g:sale_price>([\d.]+) BRL<\/g:sale_price>/)![1])
+  })
+
+  it('a representante, sem ?variant=, também leva o preço da campanha', async () => {
+    const corpo = (await servePage(deps({}, marcada()), url('?slug=x'))).body
+    expect(ld(corpo)!.offers.price).toBe('169.92')
+  })
+
+  it('sem marcação em vigência, o preço de sempre e nenhum priceValidUntil', async () => {
+    const d = dados({ campaign: null })
+    d.variants[0] = { ...d.variants[0], price: 199.9 }
+    const corpo = (await servePage(deps({}, d), url('?slug=x&variant=1259936246'))).body
+    expect(ld(corpo)!.offers.price).toBe('199.90')
+    expect(ld(corpo)!.offers.priceValidUntil).toBeUndefined()
+  })
+})
+
 describe('servePage, produto — o preload da foto principal (PRF-06)', () => {
   const STORAGE =
     'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/pulseira.webp'

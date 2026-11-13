@@ -16,7 +16,9 @@
 // página declarar 120 enquanto o feed anuncia 84: a incompatibilidade que este módulo existe para
 // impedir, criada por ele mesmo.
 
-import type { OfferAvailability, ShoppingOffer } from './types.ts'
+import { lastMinuteOf } from '../campaigns/end.ts'
+import { storeLocalInput } from '../time/local.ts'
+import type { OfferAvailability, OfferSaleWindow, ShoppingOffer } from './types.ts'
 
 const SCHEMA = 'https://schema.org'
 
@@ -32,27 +34,44 @@ export const payablePrice = (offer: ShoppingOffer): number =>
   offer.salePrice != null ? offer.salePrice : offer.price
 
 /**
+ * O `priceValidUntil` do preço de campanha: o ÚLTIMO dia em que ele vale, em Brasília
+ * (`AAAA-MM-DD`). A vigência guarda o fim EXCLUSIVO, e o último minuto que vale é dono de
+ * `lastMinuteOf` — a mesma conversão que o painel mostra. Fim ilegível ⇒ `null`, e o campo não sai.
+ */
+export const priceValidUntil = (janela: OfferSaleWindow): string | null => {
+  if (!Number.isFinite(new Date(janela.end).getTime())) return null
+  const dia = storeLocalInput(lastMinuteOf(janela.end)).slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(dia) ? dia : null
+}
+
+/**
  * O bloco `application/ld+json` da página do produto.
  *
  * Parte do **mesmo `ShoppingOffer`** que o feed serializa. É o que faz os dois números serem iguais
  * por construção, e não por alguém ter lembrado de mudar os dois lugares.
  */
-export const productJsonLd = (offer: ShoppingOffer): Record<string, unknown> => ({
-  '@context': SCHEMA,
-  '@type': 'Product',
-  name: offer.title,
-  image: [offer.imageLink, ...offer.additionalImageLinks].filter(Boolean),
-  sku: offer.id,
-  offers: {
-    '@type': 'Offer',
-    url: offer.link,
-    priceCurrency: 'BRL',
-    // String e não number: `price` de `schema.org` é texto, e `0.1 + 0.2` em JSON vira
-    // `0.30000000000000004` — que o rastreador leria como preço diferente do feed.
-    price: payablePrice(offer).toFixed(2),
-    availability: schemaAvailability(offer.availability),
-  },
-})
+export const productJsonLd = (offer: ShoppingOffer): Record<string, unknown> => {
+  // O preço da campanha vale até o fim dela: a página declara o último dia, como o feed declara a
+  // vigência em `<g:sale_price_effective_date>`.
+  const ate = offer.salePrice != null && offer.saleEffective ? priceValidUntil(offer.saleEffective) : null
+  return {
+    '@context': SCHEMA,
+    '@type': 'Product',
+    name: offer.title,
+    image: [offer.imageLink, ...offer.additionalImageLinks].filter(Boolean),
+    sku: offer.id,
+    offers: {
+      '@type': 'Offer',
+      url: offer.link,
+      priceCurrency: 'BRL',
+      // String e não number: `price` de `schema.org` é texto, e `0.1 + 0.2` em JSON vira
+      // `0.30000000000000004` — que o rastreador leria como preço diferente do feed.
+      price: payablePrice(offer).toFixed(2),
+      ...(ate ? { priceValidUntil: ate } : {}),
+      availability: schemaAvailability(offer.availability),
+    },
+  }
+}
 
 // ---------------------------------------------------------------------------------------------
 // Feature 68 · SVR-22, SVR-30..33 — a página de opção e o `ProductGroup`

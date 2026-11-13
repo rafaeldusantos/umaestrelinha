@@ -149,3 +149,61 @@ describe('sensor: a régua reprova a divergência que ela existe para pegar', ()
     expect(paginaErrada.availability).not.toBe('https://schema.org/OutOfStock')
   })
 })
+
+/**
+ * A campanha de desconto em vigência entra pelo contexto da oferta, nas duas superfícies, e o número
+ * esperado vem da conta à mão (meio centavo para cima, por unidade), não da função que o calcula.
+ */
+describe('paridade feed ↔ landing page com a campanha de desconto', () => {
+  const CAMPANHA = { percent: 15, starts_at: '2026-11-13T03:00:00+00:00', ends_at: '2026-12-01T03:00:00+00:00' }
+  const comCampanha = (variante: OfferInputVariant) =>
+    resolveOffer(produto, variante, { origin: ORIGEM, campaign: CAMPANHA })
+
+  const casosDeCampanha: { nome: string; variante: OfferInputVariant; cobrado: string; cheio: string }[] = [
+    // 15% sobre 199,90 = 169,915 ⇒ 169,92.
+    { nome: 'peça sem "de/por"', variante: variacao({ price: 199.9 }), cobrado: '169.92', cheio: '199.90 BRL' },
+    // 15% sobre o "de" (200) = 170, menor que os 180 de hoje.
+    { nome: 'campanha abaixo do "de/por"', variante: variacao({ price: 180, compare_price: 200 }), cobrado: '170.00', cheio: '200.00 BRL' },
+    // 15% sobre 200 = 170, acima dos 150 de hoje: fica o "de/por" — nunca os dois somados (127,50).
+    { nome: '"de/por" abaixo da campanha', variante: variacao({ price: 150, compare_price: 200 }), cobrado: '150.00', cheio: '200.00 BRL' },
+  ]
+
+  for (const { nome, variante, cobrado, cheio } of casosDeCampanha) {
+    it(`o feed e a página declaram o mesmo preço cobrado — ${nome}`, () => {
+      const oferta = comCampanha(variante)
+      const xml = renderFeedXml([oferta], CANAL)
+      const feed = doFeed(xml)
+      const pagina = daPagina(productJsonLd(oferta))
+      expect(feed.precoCobrado).toBe(cobrado)
+      expect(pagina.precoCobrado).toBe(cobrado)
+      const doc = new DOMParser().parseFromString(xml, 'application/xml')
+      expect(doc.getElementsByTagNameNS(NS, 'price')[0]?.textContent).toBe(cheio)
+    })
+  }
+
+  it('o feed leva a vigência da campanha e a página o último dia que ela vale', () => {
+    const oferta = comCampanha(variacao({ price: 199.9 }))
+    const doc = new DOMParser().parseFromString(renderFeedXml([oferta], CANAL), 'application/xml')
+    expect(doc.getElementsByTagNameNS(NS, 'sale_price_effective_date')[0]?.textContent).toBe(
+      '2026-11-13T03:00:00Z/2026-12-01T03:00:00Z',
+    )
+    // `ends_at` é exclusivo: a meia-noite de 01/12 em Brasília ⇒ vale até 30/11.
+    expect((productJsonLd(oferta).offers as Record<string, unknown>).priceValidUntil).toBe('2026-11-30')
+  })
+
+  it('o "de/por" que vence a campanha não leva vigência em nenhuma das duas superfícies', () => {
+    const oferta = comCampanha(variacao({ price: 150, compare_price: 200 }))
+    const doc = new DOMParser().parseFromString(renderFeedXml([oferta], CANAL), 'application/xml')
+    expect(doc.getElementsByTagNameNS(NS, 'sale_price_effective_date')).toHaveLength(0)
+    expect((productJsonLd(oferta).offers as Record<string, unknown>).priceValidUntil).toBeUndefined()
+  })
+
+  it('sem campanha, nada de vigência nas duas superfícies', () => {
+    const oferta = resolveOffer(produto, variacao({ price: 199.9 }), { origin: ORIGEM, campaign: null })
+    const doc = new DOMParser().parseFromString(renderFeedXml([oferta], CANAL), 'application/xml')
+    expect(doc.getElementsByTagNameNS(NS, 'sale_price')).toHaveLength(0)
+    expect(doc.getElementsByTagNameNS(NS, 'sale_price_effective_date')).toHaveLength(0)
+    expect(daPagina(productJsonLd(oferta)).precoCobrado).toBe('199.90')
+    expect((productJsonLd(oferta).offers as Record<string, unknown>).priceValidUntil).toBeUndefined()
+  })
+})

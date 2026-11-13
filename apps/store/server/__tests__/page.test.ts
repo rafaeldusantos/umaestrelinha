@@ -11,6 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { servePage, type PageDeps } from '@estrelinha/core/page'
 import {
   COLUNAS_CAMPANHA,
+  COLUNAS_CAMPANHA_DA_PECA,
   COLUNAS_CATEGORIA,
   COLUNAS_MARCACAO,
   COLUNAS_PRODUTO,
@@ -154,7 +155,9 @@ describe('pageDeps — cada leitura pede o que deve', () => {
     const dados = await pageDeps(client, ctx).readProduct('colar')
     expect(chamadas).toHaveLength(1)
     expect(chamadas[0].tabela).toBe('products')
-    expect(chamadas[0].select).toBe(`${COLUNAS_PRODUTO},product_variants(${COLUNAS_VARIACAO})`)
+    expect(chamadas[0].select).toBe(
+      `${COLUNAS_PRODUTO},product_variants(${COLUNAS_VARIACAO}),product_campaigns(${COLUNAS_CAMPANHA_DA_PECA})`,
+    )
     expect(chamadas[0].filtros).toEqual([['eq', 'slug', 'colar']])
     expect(chamadas[0].terminal).toBe('maybeSingle')
     // As variações saem do produto e vão para o lado.
@@ -170,6 +173,39 @@ describe('pageDeps — cada leitura pede o que deve', () => {
     }
     for (const c of ['price', 'image_url', 'is_active', 'option_values', 'nuvemshop_id', 'stock']) {
       expect(COLUNAS_VARIACAO.split(',')).toContain(c)
+    }
+  })
+
+  it('readProduct: a marcação da campanha em vigência (embutida pela RLS) vira a campanha da peça', async () => {
+    const { client } = dubleDoClient({
+      products: {
+        data: {
+          id: 'p1',
+          slug: 'colar',
+          product_variants: [{ id: 'v1' }],
+          product_campaigns: [
+            { percent: 15, campaigns: { starts_at: '2026-11-13T03:00:00+00:00', ends_at: '2026-12-01T03:00:00+00:00' } },
+          ],
+        },
+        error: null,
+      },
+    })
+    const dados = await pageDeps(client, ctx).readProduct('colar')
+    expect(COLUNAS_CAMPANHA_DA_PECA).toBe('percent,campaigns(starts_at,ends_at)')
+    expect(dados).toEqual({
+      product: { id: 'p1', slug: 'colar' },
+      variants: [{ id: 'v1' }],
+      campaign: { percent: 15, starts_at: '2026-11-13T03:00:00+00:00', ends_at: '2026-12-01T03:00:00+00:00' },
+    })
+  })
+
+  it('readProduct: sem marcação, ou com a campanha escondida pela RLS, a peça sai sem campanha', async () => {
+    for (const product_campaigns of [[], null, [{ percent: 15, campaigns: null }], [{ percent: null, campaigns: { starts_at: 'a', ends_at: 'b' } }]]) {
+      const { client } = dubleDoClient({
+        products: { data: { id: 'p1', slug: 'colar', product_variants: [], product_campaigns }, error: null },
+      })
+      const dados = await pageDeps(client, ctx).readProduct('colar')
+      expect(dados).toEqual({ product: { id: 'p1', slug: 'colar' }, variants: [] })
     }
   })
 

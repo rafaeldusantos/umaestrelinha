@@ -65,6 +65,26 @@ export const COLUNAS_MARCACAO = 'option_name,option_value,value_id,filter_values
  */
 export const COLUNAS_CAMPANHA = 'name,ends_at,campaign_percents(percent)'
 
+/**
+ * A marcação da peça na campanha de desconto, embutida no produto: o percentual e a vigência. A RLS
+ * de `product_campaigns` e de `campaigns` só entrega a campanha LIGADA dentro da vigência (relógio do
+ * banco) — a agendada e a encerrada chegam como lista vazia ou com a campanha `null`.
+ */
+export const COLUNAS_CAMPANHA_DA_PECA = 'percent,campaigns(starts_at,ends_at)'
+
+/** O embed das marcações → a campanha da peça, ou `null`. Linha torta é descartada, nunca página quebrada. */
+const campanhaDaPeca = (embed: unknown): NonNullable<ProductPageData['campaign']> | null => {
+  if (!Array.isArray(embed)) return null
+  for (const linha of embed as { percent?: unknown; campaigns?: { starts_at?: unknown; ends_at?: unknown } | null }[]) {
+    const percent = linha?.percent
+    const c = linha?.campaigns
+    if (typeof percent !== 'number' || !Number.isFinite(percent) || percent <= 0) continue
+    if (!c || typeof c.starts_at !== 'string' || typeof c.ends_at !== 'string') continue
+    return { percent, starts_at: c.starts_at, ends_at: c.ends_at }
+  }
+  return null
+}
+
 /** O que a página lê de uma categoria. Só a árvore ATIVA, que é a pública. */
 export const COLUNAS_CATEGORIA = 'id,slug,parent_id,name,description,banner_url,image_url'
 
@@ -109,15 +129,19 @@ export const pageDeps = (
   readProduct: async (slug): Promise<ProductPageData | null> => {
     const { data, error } = await supabase
       .from('products')
-      .select(`${COLUNAS_PRODUTO},product_variants(${COLUNAS_VARIACAO})`)
+      .select(
+        `${COLUNAS_PRODUTO},product_variants(${COLUNAS_VARIACAO}),product_campaigns(${COLUNAS_CAMPANHA_DA_PECA})`,
+      )
       .eq('slug', slug)
       .maybeSingle()
     if (error) throw error
     if (!data) return null
-    const { product_variants, ...product } = data as Record<string, unknown>
+    const { product_variants, product_campaigns, ...product } = data as Record<string, unknown>
+    const campaign = campanhaDaPeca(product_campaigns)
     return {
       product: product as unknown as ProductPageData['product'],
       variants: (product_variants ?? []) as ProductPageData['variants'],
+      ...(campaign ? { campaign } : {}),
     }
   },
 

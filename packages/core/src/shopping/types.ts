@@ -70,6 +70,23 @@ export interface OfferPricingVariant {
   stock: number
 }
 
+/**
+ * A campanha de desconto em vigência da peça: o percentual marcado nela e a vigência da campanha
+ * (`ends_at` EXCLUSIVO). Quem decide que ela está valendo é quem lê — a RLS na página servida, o
+ * leitor único das functions no feed —, nunca esta regra.
+ */
+export interface OfferCampaign {
+  percent: number
+  starts_at: string
+  ends_at: string
+}
+
+/** A vigência do `<g:sale_price>`, quando ele vem de uma campanha. `end` é EXCLUSIVO. */
+export interface OfferSaleWindow {
+  start: string
+  end: string
+}
+
 /** O mínimo para decidir disponibilidade (`GSH-07`). A política é do PRODUTO, o saldo é da LINHA. */
 export interface OfferPricingProduct {
   stock_policy: 'track' | 'backorder' | 'none'
@@ -121,6 +138,11 @@ export interface ShoppingOffer {
   price: number
   /** `null` quando não há "de/por" incondicional. Pix e promoção por quantidade **nunca** entram. */
   salePrice: number | null
+  /**
+   * A vigência do `salePrice` quando ele é o preço de uma campanha. Ausente quando o "por" é o
+   * "de/por" incondicional, ou quando não há "por" nenhum.
+   */
+  saleEffective?: OfferSaleWindow
   brand: string | null
   mpn: string | null
   ageGroup: string | null
