@@ -101,6 +101,7 @@ const CampaignOffers = () => {
         tone="surface"
         linkHref={campaignOffersHref()}
         linkText={CAMPAIGN_OFFERS_SEE_ALL}
+        linkOnMobile
         list={{ id: `ofertas-${campanha.id}`, name: campanha.name || CAMPAIGN_OFFERS_PIECES_TITLE }}
       />
     </div>

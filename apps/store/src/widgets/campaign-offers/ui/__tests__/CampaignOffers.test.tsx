@@ -192,6 +192,20 @@ describe('a fileira de peças em oferta', () => {
     expect(screen.getByRole('link', { name: 'Ver todas' })).toHaveAttribute('href', '/ofertas')
   })
 
+  it('"Ver todas" também no celular: nada que o esconda abaixo do `md`, e alvo de 44 px', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    pecas.estado = { data: [{ id: 'p1', name: 'Pingente Estrela' }], isLoading: false, isError: false }
+    montar()
+
+    const link = screen.getByRole('link', { name: 'Ver todas' })
+    const tokens = link.className.split(/\s+/)
+    expect(link).toHaveAttribute('href', '/ofertas')
+    expect(tokens).not.toContain('hidden')
+    expect(tokens).not.toContain('invisible')
+    expect(tokens.filter(t => /^(sm|md|lg):(inline|block|flex|inline-flex)$/.test(t))).toEqual([])
+    expect(tokens).toEqual(expect.arrayContaining(['before:h-11', 'before:inset-x-0', 'relative']))
+  })
+
   it('a fileira falhou: os cartões ficam, a fileira some', () => {
     campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
     pecas.estado = { data: undefined, isLoading: false, isError: true }
