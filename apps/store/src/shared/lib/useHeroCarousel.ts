@@ -6,7 +6,11 @@ import {
 } from '@estrelinha/core/home'
 
 /**
- * O índice, o giro e a pausa do Banner principal (feature 41).
+ * O índice, o giro e a pausa do Banner principal (feature 41) e da faixa de avisos.
+ *
+ * Mora em `shared/lib` porque tem dois leitores no mesmo app — dois widgets não importam um do
+ * outro (`AD-033`). A faixa o chama sem `trackRef` (índice puro, troca animada por CSS): sem trilho,
+ * `goTo` e o giro só mudam o índice.
  *
  * **O trilho é um container de rolagem com `scroll-snap`, e não um `translateX` animado.** A escolha
  * paga três ACs de uma vez e sem JS: o arrasto do dedo é o do navegador (`BNR-37`), a rolagem
@@ -75,7 +79,14 @@ export interface HeroCarouselControls {
   }
 }
 
-export const useHeroCarousel = (total: number): HeroCarouselControls => {
+/**
+ * `intervalMs` é o ritmo do giro (6 s por padrão, o do Banner principal). Zero ou menos é "não gira
+ * sozinho" — os controles continuam vivos: é o que a prévia da faixa no painel usa.
+ */
+export const useHeroCarousel = (
+  total: number,
+  intervalMs: number = HERO_CAROUSEL_INTERVAL_MS,
+): HeroCarouselControls => {
   const trackRef = useRef<HTMLDivElement | null>(null)
   const [index, setIndex] = useState(0)
   // Duas pausas independentes, e não uma: quem sai do hover não necessariamente soltou o dedo, e
@@ -85,7 +96,7 @@ export const useHeroCarousel = (total: number): HeroCarouselControls => {
   const [tocando, setTocando] = useState(false)
   const reduced = usePrefersReducedMotion()
 
-  const gira = total > 1 && !sobre && !tocando && !reduced
+  const gira = total > 1 && intervalMs > 0 && !sobre && !tocando && !reduced
 
   const goTo = useCallback(
     (alvo: number) => {
@@ -144,10 +155,10 @@ export const useHeroCarousel = (total: number): HeroCarouselControls => {
         }
         return destino
       })
-    }, HERO_CAROUSEL_INTERVAL_MS)
+    }, intervalMs)
 
     return () => clearInterval(t)
-  }, [gira, total])
+  }, [gira, total, intervalMs])
 
   // A lista encolheu (slide removido, destino que saiu do ar) e o índice ficou apontando para fora.
   useEffect(() => {
