@@ -31,6 +31,8 @@ import BuyTogetherTab from '@/features/product-form/ui/BuyTogetherTab'
 import { incompleteNote, addonsToSave, type AddonDraft } from '@/features/product-form/model/addons'
 import { persistAddons, addonsRefusal, type AddonsClient } from '@/features/product-form/model/persistAddons'
 import SupplierCard from '@/features/product-form/ui/SupplierCard'
+import CampaignPriceCards from '@/features/product-form/ui/CampaignPriceCards'
+import { persistCampaignMarks, withCampaignMark } from '@/features/product-form/model/campaignMarks'
 import SupplierSummaryCard from '@/features/product-form/ui/SupplierSummaryCard'
 import {
   persistSuppliers,
@@ -546,6 +548,17 @@ const AdminProductFormPage = () => {
       }
     }
 
+    // O desconto de campanha: só o que mudou desde a carga, pela porta de `entities/campaign`.
+    const marcasDeCampanha = form.campaign_marks ?? []
+    if (savedId) {
+      const campaignError = await persistCampaignMarks(savedId, marcasDeCampanha, savedSnapshot.campaignMarks ?? [])
+      if (campaignError) {
+        toast({ title: 'O produto foi salvo, mas o desconto de campanha não', description: campaignError, variant: 'destructive' })
+        setSaving(false)
+        return
+      }
+    }
+
     // P1.7 AC 8: o rascunho existe para sobreviver a um F5, não a um save. Mantê-lo depois do
     // save faria a próxima abertura oferecer de volta um estado que já é o do banco.
     draft.discard()
@@ -562,6 +575,7 @@ const AdminProductFormPage = () => {
       options: form.options,
       suppliers: supplierRowsToSave(fornecedores),
       addons: addonsToSave(addons),
+      campaignMarks: marcasDeCampanha,
     })
 
     // Salvar mantém a página aberta. A releitura não é enfeite: as variações novas nasceram com id
@@ -991,6 +1005,18 @@ const AdminProductFormPage = () => {
                 form={form}
                 setField={setField}
                 onGoToGrid={() => focusField('precos', 'variants')}
+                campaignCards={
+                  <CampaignPriceCards
+                    price={form.price}
+                    compare_price={form.compare_price}
+                    options={form.options}
+                    variants={form.variants}
+                    marks={form.campaign_marks ?? []}
+                    onChange={(campaignId, percent) =>
+                      setField('campaign_marks', withCampaignMark(form.campaign_marks ?? [], campaignId, percent))
+                    }
+                  />
+                }
                 afterPrice={
                   <SupplierCard
                     rows={form.supplier_rows}

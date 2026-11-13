@@ -31,6 +31,8 @@ interface Props {
   onGoToGrid: () => void
   /** Feature 80 (FOR-05): o card do fornecedor, logo abaixo do preço — custo e fornecedor andam juntos. */
   afterPrice?: React.ReactNode
+  /** O desconto da peça em cada campanha agendada ou em vigência, logo abaixo do cartão de preço. */
+  campaignCards?: React.ReactNode
 }
 
 /**
@@ -40,7 +42,7 @@ interface Props {
  * exclusivos, e o card de preço padrão passa a dizer em voz alta quando **não é ele** quem manda no
  * valor cobrado.
  */
-const PricingTab = ({ form, setField, onGoToGrid, afterPrice }: Props) => {
+const PricingTab = ({ form, setField, onGoToGrid, afterPrice, campaignCards }: Props) => {
   const margin = computeMargin(form.price, form.cost_price)
   // A faixa que a vitrine anuncia. Conta só linha ativa com preço — a mesma regra do rodapé da grade.
   const range = priceRange(form.variants)
@@ -129,6 +131,8 @@ const PricingTab = ({ form, setField, onGoToGrid, afterPrice }: Props) => {
           </div>
         )}
       </FormCard>
+
+      {campaignCards}
 
       {afterPrice}
 
