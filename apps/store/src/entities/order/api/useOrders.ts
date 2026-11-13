@@ -141,6 +141,11 @@ export interface CreateOrderInput {
   discount: number
   shipping_cost: number
   total: number
+  /**
+   * O desconto PIX que a loja exibiu, ao lado do `total` que já o desconta: com ele o pedido nasce
+   * com linhas que somam o total. O `create-payment` o regrava com o recálculo.
+   */
+  pix_discount?: number
   coupon_code?: string
   coupon_id?: string
   /**

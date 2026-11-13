@@ -499,3 +499,43 @@ describe('o "De" da peça de campanha que tem "de/por" no pedido gravado', () =>
     )
   })
 })
+
+describe('o resumo do pedido com promoção progressiva e PIX', () => {
+  const comPromocao = () =>
+    pedido({
+      order_items: [
+        item({ id: 'mc', quantity: 1, unit_price: 336.6, full_unit_price: 349.9, compare_unit_price: 374 } as Partial<OrderSummaryItem>),
+        item({ id: 'me', quantity: 2, unit_price: 306, full_unit_price: 340 } as Partial<OrderSummaryItem>),
+        item({ id: 'me2', quantity: 1, unit_price: 314.91, full_unit_price: 349.9 } as Partial<OrderSummaryItem>),
+      ],
+      subtotal: 1263.51,
+      discount: 0,
+      campaign_discount: 13.3,
+      promotion_discount: 102.99,
+      pix_discount: 88.45,
+      shipping_cost: 19.9,
+      total: 1194.96,
+    })
+
+  it('as linhas são as do checkout: Subtotal, campanha, progressivo, PIX, Frete e Total', () => {
+    render(<OrderItemsSummary order={comPromocao()} />)
+    const rotulos = Array.from(document.querySelectorAll('dl dt')).map((dt) => dt.textContent)
+    expect(rotulos).toEqual([
+      'Subtotal',
+      'Desconto de campanha',
+      'Desconto progressivo',
+      'Desconto PIX',
+      'Frete',
+      'Total',
+    ])
+    expect(emReais(valorDa('Desconto PIX'))).toBe(-88.45)
+  })
+
+  it('as linhas somam o Total', () => {
+    render(<OrderItemsSummary order={comPromocao()} />)
+    const linhas = ['Subtotal', 'Desconto de campanha', 'Desconto progressivo', 'Desconto PIX', 'Frete']
+    const soma = linhas.reduce((s, r) => s + Math.round(emReais(valorDa(r)) * 100), 0)
+    expect(soma).toBe(Math.round(emReais(valorDa('Total')) * 100))
+    expect(emReais(valorDa('Total'))).toBe(1194.96)
+  })
+})

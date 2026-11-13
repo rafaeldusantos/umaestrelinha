@@ -46,7 +46,7 @@ export interface OrderPayloadInput {
   paymentMethod: 'pix' | 'card' | null
   /** O documento do pagador, já resolvido pelo CTA (`AD-013`: quem coleta depende do método). */
   payerDocument: string
-  totals: { subtotal: number; couponDiscount: number; shipping: number; total: number }
+  totals: { subtotal: number; couponDiscount: number; pixDiscount: number; shipping: number; total: number }
   coupon: { id?: string; code?: string } | null
   /** As promoções que a tela aplicou — `PRM-12`. */
   applied: { promotion_id: string }[]
@@ -203,6 +203,9 @@ export function buildOrderPayload(input: OrderPayloadInput): CreateOrderInput {
     discount: totals.couponDiscount,
     shipping_cost: totals.shipping,
     total: totals.total,
+    // O PIX que a tela descontou do `total` acima: sem a linha dele o pedido recém-criado mostra
+    // linhas que não somam o total até o `create-payment` regravar (o recálculo dele vence).
+    pix_discount: totals.pixDiscount,
     coupon_code: coupon?.code,
     coupon_id: coupon?.id,
     // PRM-12: registra o desconto de faixa que ESTA tela exibiu, para o `create-payment` ter contra

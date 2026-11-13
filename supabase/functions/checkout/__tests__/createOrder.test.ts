@@ -196,6 +196,16 @@ describe('create-order — a convidada (CSC-03, CSC-04, PED-05)', () => {
     })
   })
 
+  it('grava o desconto PIX ao lado do total que já o desconta: as linhas do pedido somam o total', async () => {
+    const supabase = cenario()
+    await route(
+      criarDeps(supabase),
+      pedir({ ...PEDIDO, subtotal: 1263.51, promotion_discount: 102.99, pix_discount: 88.45, shipping_cost: 19.9, total: 1194.96 }),
+    )
+
+    expect(linhaDoPedido(supabase)).toMatchObject({ pix_discount: 88.45, total: 1194.96 })
+  })
+
   it('coluna que a loja não enviou não é inventada com nulo', async () => {
     // O par do caso acima. `undefined` no corpo tem de ficar FORA do insert, para o default da
     // coluna valer — mandar `null` explícito sobrescreveria `promotion_discount default 0`.

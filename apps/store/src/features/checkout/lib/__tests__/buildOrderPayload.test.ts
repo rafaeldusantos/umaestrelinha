@@ -73,7 +73,7 @@ const montar = (over: Partial<OrderPayloadInput> = {}): OrderPayloadInput =>
     },
     paymentMethod: 'pix',
     payerDocument: '529.982.247-25',
-    totals: { subtotal: 100, couponDiscount: 0, shipping: 10, total: 110 },
+    totals: { subtotal: 100, couponDiscount: 0, pixDiscount: 0, shipping: 10, total: 110 },
     coupon: null,
     applied: [],
     promotionDiscount: 0,
@@ -325,6 +325,31 @@ describe('buildOrderPayload — o corpo do pedido', () => {
     expect(corpo.order_bump_discount).toBe(20)
   })
 
+  it('o desconto PIX que a tela mostrou vai junto do total que já o desconta', () => {
+    // O total do corpo é o da tela, já sem o PIX. Sem a linha do PIX gravada ao lado, o pedido nasce
+    // com linhas que não somam o total até o `create-payment` regravar.
+    const corpo = buildOrderPayload(
+      entrada({
+        promotionDiscount: 102.99,
+        totals: { subtotal: 1263.51, couponDiscount: 0, pixDiscount: 88.45, shipping: 19.9, total: 1194.96 },
+      }),
+    )
+
+    expect(corpo.pix_discount).toBe(88.45)
+    expect(corpo.total).toBe(1194.96)
+  })
+
+  it('no cartão o desconto PIX vai zerado', () => {
+    const corpo = buildOrderPayload(
+      entrada({
+        paymentMethod: 'card',
+        totals: { subtotal: 100, couponDiscount: 0, pixDiscount: 0, shipping: 10, total: 110 },
+      }),
+    )
+
+    expect(corpo.pix_discount).toBe(0)
+  })
+
   it('o CEP vai com 8 dígitos, sem máscara (ADR-05)', () => {
     // Sem isto `orders.address_zip` fica com hífen e o backoffice estoura em `MelhorEnvioTab`.
     expect(buildOrderPayload(entrada()).address_zip).toBe('01310100')
@@ -417,7 +442,7 @@ describe('buildOrderPayload — pedido de retirada (RET-07)', () => {
           estimateMin: '',
           estimateMax: '',
         },
-        totals: { subtotal: 100, couponDiscount: 0, shipping: 0, total: 100 },
+        totals: { subtotal: 100, couponDiscount: 0, pixDiscount: 0, shipping: 0, total: 100 },
       }),
     )
 

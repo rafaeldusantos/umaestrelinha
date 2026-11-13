@@ -40,7 +40,7 @@ const entrada = {
   shipping: { serviceId: '1', serviceName: 'PAC', carrier: 'Correios', estimateMin: '', estimateMax: '' },
   paymentMethod: 'pix',
   payerDocument: '52998224725',
-  totals: { subtotal: 10, couponDiscount: 0, shipping: 0, total: 10 },
+  totals: { subtotal: 10, couponDiscount: 0, pixDiscount: 0, shipping: 0, total: 10 },
   coupon: null,
   applied: [],
   promotionDiscount: 0,
@@ -55,12 +55,12 @@ const chavesDaLoja = (): string[] =>
     .sort()
 
 describe('as chaves do corpo do pedido batem com as colunas de `orders` do create-order', () => {
-  it('âncora: a function foi lida e a lista tem as 28 colunas, com os três descontos por item', () => {
+  it('âncora: a function foi lida e a lista tem as 29 colunas, com os três descontos por item e o PIX', () => {
     expect(fonte).toContain('export async function createOrder')
     const colunas = listaDe(fonte, 'COLUNAS_DO_PEDIDO')
-    expect(colunas).toHaveLength(28)
+    expect(colunas).toHaveLength(29)
     expect(colunas).toEqual(
-      expect.arrayContaining(['promotion_discount', 'buy_together_discount', 'order_bump_discount']),
+      expect.arrayContaining(['promotion_discount', 'buy_together_discount', 'order_bump_discount', 'pix_discount']),
     )
   })
 

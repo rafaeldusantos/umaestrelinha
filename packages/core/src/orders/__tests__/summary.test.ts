@@ -321,3 +321,54 @@ describe('orderSummary — o "De" da peça de campanha que tem "de/por"', () => 
     expect(s.rows[0]).toMatchObject({ charged: 90, full: 100 })
   })
 })
+
+describe('orderSummary — promoção progressiva com PIX: o "Desconto PIX" tem a linha dele', () => {
+  // O pedido como o banco o guarda: peça de campanha com "de/por", duas unidades e uma terceira peça
+  // com o desconto progressivo, pago com PIX.
+  const comPromocao: OrderSummaryInput = {
+    order_items: [
+      { product_id: 'mc', quantity: 1, unit_price: 336.6, full_unit_price: 349.9, compare_unit_price: 374 },
+      { product_id: 'me', quantity: 2, unit_price: 306, full_unit_price: 340 },
+      { product_id: 'me2', quantity: 1, unit_price: 314.91, full_unit_price: 349.9 },
+    ],
+    subtotal: 1263.51,
+    discount: 0,
+    campaign_discount: 13.3,
+    promotion_discount: 102.99,
+    pix_discount: 88.45,
+    shipping_cost: 19.9,
+    total: 1194.96,
+  }
+
+  it('Subtotal, campanha, progressivo, PIX e frete — e as linhas somam o Total', () => {
+    const s = orderSummary(comPromocao)
+    expect(s.subtotal).toBe(1379.8)
+    expect(s.discounts).toEqual([
+      { key: 'campaign', label: 'Desconto de campanha', amount: 13.3 },
+      { key: 'promotion', label: 'Desconto progressivo', amount: 102.99 },
+      { key: 'pix', label: 'Desconto PIX', amount: 88.45 },
+    ])
+    expect(s.shipping).toBe(19.9)
+    expect(s.total).toBe(1194.96)
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+
+  it('o par sem promoção, com cupom: o PIX continua na lista e a conta fecha', () => {
+    const s = orderSummary({
+      order_items: [
+        { product_id: 'ma', quantity: 1, unit_price: 346.5, full_unit_price: 385 },
+        { product_id: 'me', quantity: 1, unit_price: 340, full_unit_price: 340 },
+      ],
+      subtotal: 686.5,
+      discount: 34,
+      coupon_code: 'QA10',
+      campaign_discount: 38.5,
+      promotion_discount: 0,
+      pix_discount: 45.68,
+      shipping_cost: 19.9,
+      total: 626.72,
+    })
+    expect(s.discounts.map((d) => d.key)).toEqual(['campaign', 'coupon', 'pix'])
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+})

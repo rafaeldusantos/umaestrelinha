@@ -236,6 +236,9 @@ const COLUNAS_DO_PEDIDO = [
   'discount',
   'shipping_cost',
   'total',
+  // O desconto PIX que a tela tirou do `total`: sem ele o pedido nasce com linhas que não somam o
+  // total. O `create-payment` o regrava com o recálculo, como os descontos por item abaixo.
+  'pix_discount',
   'coupon_code',
   'coupon_id',
   'promotion_id',
