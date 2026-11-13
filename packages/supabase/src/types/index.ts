@@ -396,6 +396,12 @@ export interface DbOrder {
    */
   buy_together_discount?: number
   order_bump_discount?: number
+  /**
+   * O desconto de campanha do pedido (preço de tabela − preço da campanha, por linha), calculado pelo
+   * SERVIDOR — o `create-order` com o relógio dele, o `create-payment` pela campanha gravada na
+   * linha. Zero nos pedidos de antes. Opcional porque nem toda leitura o pede no `select`.
+   */
+  campaign_discount?: number
 }
 
 export interface DbOrderStatusHistory {
@@ -560,6 +566,10 @@ export interface DbOrderItem {
   accompanies_list_ids?: (string | null)[] | null
   /** A campanha de desconto que valeu nesta linha (`on delete restrict`: campanha usada não se apaga). */
   campaign_id?: string | null
+  /** O percentual da campanha nesta peça, no instante do pedido. Nulo na linha sem campanha. */
+  campaign_percent?: number | null
+  /** O "de" da peça no instante do pedido (`original_price`/`compare_price`), quando havia. */
+  compare_unit_price?: number | null
 }
 
 // === Frontend types (used by storefront components) ===

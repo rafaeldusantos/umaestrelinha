@@ -42,7 +42,9 @@ import {
   marksFromColumns,
   orderItemMarks,
 } from '../../../packages/core/src/buy-together/marks.ts'
+import { campaignUnitPrice, toCents } from '../../../packages/core/src/campaigns/price.ts'
 import { corsHeaders, json, preflight } from '../_shared/http.ts'
+import { liveCampaignMarks } from '../_shared/campaigns.ts'
 import { clientIp, createRateLimiter, type RateLimiter } from '../_shared/rateLimit.ts'
 import {
   PROPOSAL_READ_MAX,
@@ -283,13 +285,34 @@ const COLUNAS_DOS_ITENS = [
  */
 const COLUNAS_DA_MARCA = ['accompanies_product_ids', 'accompanies_list_ids'] as const
 
+/**
+ * A campanha que a TELA mostrou na linha — o percentual exibido. Lida só para comparar com a que o
+ * servidor resolve (`campanhaDoPedido`); NUNCA copiada: `campaign_id`, `campaign_percent` e
+ * `compare_unit_price` de `order_items` são os que o servidor resolveu com o relógio dele.
+ */
+const COLUNAS_DA_CAMPANHA_EXIBIDA = ['campaign_percent'] as const
+
+/** A campanha que o servidor gravou numa linha. */
+export interface CampanhaDaLinha {
+  campaign_id: string
+  campaign_percent: number
+  compare_unit_price: number | null
+}
+
 /** A linha de `order_items` como o banco a recebe. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function linhaDoItem(item: any, orderId: string, idsDoPedido: readonly string[]): Record<string, unknown> {
+export function linhaDoItem(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  item: any,
+  orderId: string,
+  idsDoPedido: readonly string[],
+  campanha: CampanhaDaLinha | null = null,
+): Record<string, unknown> {
   const linha: Record<string, unknown> = { order_id: orderId }
   for (const coluna of COLUNAS_DOS_ITENS) {
     if (item?.[coluna] !== undefined) linha[coluna] = item[coluna]
   }
+  if (campanha) Object.assign(linha, campanha)
   const [principais, listas] = COLUNAS_DA_MARCA
   const marcas = orderItemMarks(
     marksFromColumns(item?.[principais], item?.[listas]),
@@ -362,6 +385,113 @@ export async function recusaDeRetirada(
     zip: body?.address_zip,
     cost,
   })
+}
+
+/** O preço de tabela e o "de" de uma linha, pelo caminho de preço que ela congelou. */
+interface PrecoDeTabela {
+  price: number
+  compare: number | null
+}
+
+/**
+ * A campanha de cada linha do pedido, resolvida pelo SERVIDOR: a campanha em vigência pelo relógio
+ * da function (`liveCampaignMarks`), a marcação da peça e o preço de tabela lido do banco. O
+ * desconto de campanha de cada linha é o de `campaignUnitPrice` (`core/campaigns/price.ts`), o mesmo
+ * dono da loja.
+ *
+ * `recusa` quando, em alguma linha, o desconto do servidor é MENOR que o que a tela mostrou (o
+ * percentual exibido, `COLUNAS_DA_CAMPANHA_EXIBIDA`): a campanha acabou entre a sacola e o pedido, e
+ * gravar seria cobrar mais que o mostrado. Maior (a campanha começou) passa, e vale a do servidor.
+ *
+ * `desconto` é o `orders.campaign_discount`: a soma, nas linhas em que o preço da campanha é o
+ * cobrado (a oferta do checkout mais barata fica com o desconto dela — a mesma atribuição de
+ * `resolveOrderPricing`), de (tabela − campanha) × quantidade.
+ */
+export async function campanhaDoPedido(
+  deps: Deps,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  itens: any[],
+): Promise<{ erro: string | null; recusa: boolean; linhas: (CampanhaDaLinha | null)[]; desconto: number }> {
+  const [exibida] = COLUNAS_DA_CAMPANHA_EXIBIDA
+  const percentualExibido = (item: unknown): number | null => {
+    const v = Number((item as Record<string, unknown>)?.[exibida])
+    return (item as Record<string, unknown>)?.[exibida] != null && Number.isFinite(v) && v > 0 ? v : null
+  }
+  const ids = itens
+    .map((item) => item?.product_id)
+    .filter((id: unknown): id is string => typeof id === 'string' && id !== '')
+
+  const marcas = await liveCampaignMarks(deps.supabase, deps.now, ids)
+  if (marcas.error) return { erro: marcas.error, recusa: false, linhas: [], desconto: 0 }
+
+  const precisaDePreco = itens.some(
+    (item) => marcas.percentOf.has(item?.product_id) || percentualExibido(item) !== null,
+  )
+  const nenhuma = { erro: null, recusa: false, linhas: itens.map(() => null), desconto: 0 }
+  if (!precisaDePreco) return nenhuma
+
+  const doBanco = async (tabela: string, colunas: string, chaves: string[]) => {
+    if (chaves.length === 0) return { data: [], error: null }
+    return await deps.supabase.from(tabela).select(colunas).in('id', chaves)
+  }
+  const produtos = await doBanco('products', 'id, base_price, original_price', [...new Set(ids)])
+  const variacoes = await doBanco(
+    'product_variants',
+    'id, price, compare_price',
+    [...new Set(itens.map((item) => item?.variant_id).filter((id: unknown): id is string => typeof id === 'string' && id !== ''))],
+  )
+  if (produtos.error || variacoes.error) {
+    return { erro: 'precos', recusa: false, linhas: [], desconto: 0 }
+  }
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const produtoPorId = new Map((produtos.data ?? []).map((p: any) => [String(p.id), p]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const variacaoPorId = new Map((variacoes.data ?? []).map((v: any) => [String(v.id), v]))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tabelaDe = (item: any): PrecoDeTabela | null => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const variacao: any = item?.price_source === 'variant' ? variacaoPorId.get(String(item?.variant_id)) : null
+    if (variacao && num(variacao.price) !== null) {
+      return { price: Number(variacao.price), compare: num(variacao.compare_price) }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const produto: any = produtoPorId.get(String(item?.product_id))
+    if (!produto || num(produto.base_price) === null) return null
+    return { price: Number(produto.base_price), compare: num(produto.original_price) }
+  }
+
+  let recusa = false
+  let desconto = 0
+  const linhas = itens.map((item): CampanhaDaLinha | null => {
+    const tabela = tabelaDe(item)
+    const percentual = marcas.percentOf.get(item?.product_id) ?? null
+    const exibido = percentualExibido(item)
+    if (!tabela) {
+      if (exibido !== null) recusa = true
+      return null
+    }
+    const descontoPor = (pct: number | null) => {
+      if (pct === null) return 0
+      const c = campaignUnitPrice(tabela.price, tabela.compare, pct)
+      return c.discounted ? toCents(tabela.price) - toCents(c.charged) : 0
+    }
+    if (descontoPor(percentual) < descontoPor(exibido)) recusa = true
+    if (percentual === null || descontoPor(percentual) === 0 || !marcas.campaign) return null
+
+    const daCampanha = campaignUnitPrice(tabela.price, tabela.compare, percentual).charged
+    const cobrado = Number(item?.unit_price)
+    if (!Number.isFinite(cobrado) || toCents(daCampanha) <= toCents(cobrado)) {
+      desconto += descontoPor(percentual) * Math.max(0, Number(item?.quantity) || 0)
+    }
+    return {
+      campaign_id: marcas.campaign.id,
+      campaign_percent: percentual,
+      compare_unit_price: tabela.compare,
+    }
+  })
+  return { erro: null, recusa, linhas, desconto: desconto / 100 }
 }
 
 /**
@@ -459,6 +589,30 @@ export async function createOrder(
     }
   }
 
+  // A campanha de desconto: resolvida AQUI, com o relógio da function, antes de qualquer escrita. A
+  // tela mostrou um percentual por linha; se o servidor dá menos (a campanha acabou entre a sacola e
+  // o pedido), a cliente vê o total novo e confirma de novo — nada é gravado.
+  const campanha = await campanhaDoPedido(deps, itens)
+  if (campanha.erro) {
+    log({ action: 'create-order', status: 'campaign_read_failed' })
+    return json({ error: 'Não conseguimos criar seu pedido.' }, 500)
+  }
+  if (campanha.recusa) {
+    log({ action: 'create-order', status: 'promotion_no_longer_valid' })
+    // O mesmo código e a mesma forma do 422 do `create-payment` ("Um desconto deste pedido mudou").
+    // `total` vai nulo: o total novo é o que a loja recalcula ao reler o catálogo, pela mesma função.
+    return json(
+      {
+        error: 'Um desconto deste pedido mudou. Nada foi cobrado.',
+        code: 'promotion_no_longer_valid',
+        displayed_total: body?.total === null || body?.total === undefined ? null : Number(body.total),
+        total: null,
+        piece: null,
+      },
+      422,
+    )
+  }
+
   const { identity, customerId: customerIdDaSessao } = await resolveIdentity(deps, req, email)
 
   // IDN-08: a checagem da tela é conveniência; esta é a regra. Nenhuma linha é gravada.
@@ -486,6 +640,8 @@ export async function createOrder(
   }
   Object.assign(pedido, idsDaMedicao(body))
   pedido.customer_email = email
+  // Calculado pelo servidor, nunca copiado do corpo: é o teto da guarda do `create-payment`.
+  pedido.campaign_discount = campanha.desconto
 
   // `order_number` é LIDO de volta, nunca escrito: o `default` da coluna o cunhou agora. A espera
   // do cartão (board `58 K`) o mostra no passo 2 — é o que responde "perdi minha compra?".
@@ -509,7 +665,7 @@ export async function createOrder(
   const { error: erroItens } = await deps.supabase
     .from('order_items')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .insert(itens.map((item: any) => linhaDoItem(item, orderId, idsDoPedido)))
+    .insert(itens.map((item: any, i: number) => linhaDoItem(item, orderId, idsDoPedido, campanha.linhas[i] ?? null)))
 
   if (erroItens) {
     log({ action: 'create-order', status: 'items_failed', order_id: orderId })

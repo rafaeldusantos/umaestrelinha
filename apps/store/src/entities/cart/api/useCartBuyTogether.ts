@@ -7,6 +7,7 @@ import {
   type BuyTogetherDiscountConfig,
   type BuyTogetherDiscountRow,
 } from '@estrelinha/core/buy-together'
+import { useCartCatalog } from './useCartCatalog'
 
 /**
  * A configuração do Compre Junto das joias que podem dar desconto a esta sacola: os adicionais de cada
@@ -73,7 +74,20 @@ export const useCartBuyTogether = (productIds: readonly string[]): CartBuyTogeth
     enabled: ids.length > 0,
     staleTime: 0,
   })
+  // A releitura do catálogo das peças (o preço e a campanha de agora) mora na mesma leitura da sacola:
+  // os dois leitores — a gaveta e o checkout — já chamam este hook, e o `refresh` relê as duas.
+  const catalogo = useCartCatalog(productIds)
   const data = query.data ?? NONE
   const refetch = query.refetch
-  return useMemo(() => ({ ...data, refresh: () => void refetch() }), [data, refetch])
+  const refetchCatalogo = catalogo.refetch
+  return useMemo(
+    () => ({
+      ...data,
+      refresh: () => {
+        void refetch()
+        void refetchCatalogo()
+      },
+    }),
+    [data, refetch, refetchCatalogo],
+  )
 }

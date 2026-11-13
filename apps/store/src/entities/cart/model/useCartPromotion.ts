@@ -11,6 +11,7 @@
 import { useMemo } from 'react'
 import {
   countEligibleUnits,
+  couponEligibleSubtotal,
   resolveOrderLines,
   resolveOrderPricing,
   tierUnitPrice,
@@ -25,6 +26,7 @@ import { useActivePromotions } from '@estrelinha/core/hooks/usePromotions'
 import { useCouponStore } from '@/entities/coupon'
 import { useCartBuyTogether, type CartBuyTogether } from '../api/useCartBuyTogether'
 import { cartBuyTogetherIds, cartBuyTogetherInput, cartPricingItem } from '../lib/buyTogetherPricing'
+import { cartCampaignName } from '../lib/campaignPricing'
 import { useCartStore } from './cartStore'
 
 /** O convite da próxima faixa: quantas unidades faltam e a que preço a unidade sai (PRM-23). */
@@ -45,6 +47,10 @@ export type CartPromotion = OrderPricingOutcome & {
    * vencedor): é ele que a linha da peça mostra no "de/por", e não o do desconto casado sozinho.
    */
   orderLines: ChargedLine[]
+  /** O subtotal das peças que entram no cupom — sem as de campanha (`couponEligibleSubtotal`). */
+  couponEligibleSubtotal: number
+  /** O nome da campanha com peça na sacola, para a recusa do cupom. `null` sem campanha. */
+  campaignName: string | null
 }
 
 const NO_BUY_TOGETHER: CartBuyTogether = { config: null, mainNames: new Map() }
@@ -58,6 +64,8 @@ const NO_PROMOTION: CartPromotion = {
   nextTier: null,
   buyTogether: NO_BUY_TOGETHER,
   orderLines: [],
+  couponEligibleSubtotal: 0,
+  campaignName: null,
 }
 
 /**
@@ -198,6 +206,8 @@ export function useCartPromotion(): CartPromotion {
       nextTier: resolveNextTier(pricingItems, promotions, outcome),
       buyTogether,
       orderLines,
+      couponEligibleSubtotal: couponEligibleSubtotal({ items: pricingItems, buyTogether: buyTogetherInput, promotions: [] }),
+      campaignName: cartCampaignName(items),
     }
   }, [items, coupon, promotions, buyTogether])
 }

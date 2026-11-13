@@ -23,7 +23,9 @@ import { PICKUP_SERVICE_ID } from '@estrelinha/core/shipping'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { useCouponStore } from '@/entities/coupon'
-import { buyTogetherLineFacts } from '@/entities/cart'
+import { buyTogetherLineFacts, cartLineCampaignPrice } from '@/entities/cart'
+import { CampaignBadgeInline } from '@/entities/campaign'
+import { campaignCouponRefusal } from '@estrelinha/core/coupons'
 import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCheckoutTotals } from '../model/useCheckoutTotals'
@@ -49,6 +51,8 @@ const OrderSummary = ({ variant }: Props) => {
     discarded,
     totals,
     cardTotal,
+    couponEligibleSubtotal,
+    campaignName,
   } = useCheckoutTotals()
   const shipping = useCheckoutStore((s) => s.shipping)
   const contactEmail = useCheckoutStore((s) => s.contact.email)
@@ -112,6 +116,8 @@ const OrderSummary = ({ variant }: Props) => {
           buyTogether.mainNames,
         )
         const comDesconto = casado.total != null && casado.fullTotal != null
+        // A campanha da linha: o "de/por" e o selo em linha, com o preço de `core`.
+        const campanha = comDesconto ? null : cartLineCampaignPrice(item)
         return (
         <div
           key={`${item.product.id}-${item.size}-${item.finish}`}
@@ -152,6 +158,11 @@ const OrderSummary = ({ variant }: Props) => {
             {casado.mixed && (
               <span className="text-[13px] leading-4 text-estrelinha-ink-soft">{casado.mixed}</span>
             )}
+            {campanha && (
+              <span className="flex">
+                <CampaignBadgeInline campaign={campanha.campaign} percent={campanha.campaign.percent} />
+              </span>
+            )}
           </span>
           {/* `item.unitPrice`, não `product.price` — o mesmo que `CartDrawerRow` mostra: com grade os
               dois divergem, e o base faria as linhas de item não somarem o subtotal exibido. */}
@@ -167,6 +178,20 @@ const OrderSummary = ({ variant }: Props) => {
                 </s>
                 <span className="font-heading text-base font-semibold leading-5 text-estrelinha-ink">
                   {formatPrice(casado.total)}
+                </span>
+              </span>
+            </span>
+          ) : campanha ? (
+            <span className="relative shrink-0">
+              <span className="sr-only">
+                {`de ${formatPrice(campanha.full * item.quantity)} por ${formatPrice(campanha.charged * item.quantity)}`}
+              </span>
+              <span aria-hidden="true" data-testid="summary-item-campaign" className="flex flex-col items-end">
+                <s className="text-[13px] leading-4 text-estrelinha-ink-soft">
+                  {formatPrice(campanha.full * item.quantity)}
+                </s>
+                <span className="font-heading text-base font-semibold leading-5 text-estrelinha-ink">
+                  {formatPrice(campanha.charged * item.quantity)}
                 </span>
               </span>
             </span>
@@ -190,13 +215,18 @@ const OrderSummary = ({ variant }: Props) => {
     <div className="flex items-center gap-[10px] border-y border-estrelinha-line px-6 py-[14px]">
       <Tag className="h-4 w-4 shrink-0 text-estrelinha-primary" aria-hidden />
       <span className="min-w-0 grow truncate text-sm font-semibold leading-[18px] text-estrelinha-ink">
-        {coupon.code} aplicado
+        {/* A sacola só com peças de campanha: o cupom de desconto não vale para elas, e a faixa diz
+            por quê com a frase da regra (`core/coupons`). */}
+        {!coupon.freeShipping && campaignName && couponEligibleSubtotal <= 0
+          ? campaignCouponRefusal(campaignName)
+          : `${coupon.code} aplicado`}
       </span>
       <span className="shrink-0 text-sm font-semibold leading-[18px] text-estrelinha-primary">
         {/* Cupom de frete grátis não tem valor de desconto: escrever "−R$ 0,00" mentiria. O mesmo
             vale para o cupom que PERDEU da promoção (PRM-17) — o desconto dele é zero, e a frase
             logo abaixo diz por quê. */}
-        {discarded === 'coupon'
+        {discarded === 'coupon' ||
+        (!coupon.freeShipping && campaignName && couponEligibleSubtotal <= 0)
           ? 'Não aplicado'
           : coupon.freeShipping
             ? 'Frete grátis'
@@ -219,6 +249,8 @@ const OrderSummary = ({ variant }: Props) => {
         subtotal={totals.subtotal}
         shippingCost={totals.shipping}
         customerEmail={contactEmail}
+        eligibleSubtotal={couponEligibleSubtotal}
+        campaignName={campaignName}
       />
     </div>
   )

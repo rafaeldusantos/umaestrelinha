@@ -6,10 +6,15 @@
 
 import {
   applyOrderBump,
+  couponEligibleSubtotal,
   resolveOrderLines,
   resolveOrderPricing,
   type OrderPricingInput,
+  type PricingCampaign,
 } from "../../../packages/core/src/payment/pricing.ts"
+// O pedido mínimo do cupom é conferido sobre as linhas que entram na base dele (sem as peças de
+// campanha) — a mesma regra que a loja chama.
+import { couponRefusal } from "../../../packages/core/src/coupons/rules.ts"
 // A linha mista (unidades com e sem o desconto casado) chega como duas linhas; o recálculo as
 // junta de volta antes, e lê a configuração do Compre Junto do banco pela MESMA leitura da sacola.
 import { joinOrderRows } from "../../../packages/core/src/payment/orderLines.ts"
@@ -544,29 +549,52 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     ...new Set(rows.map((i) => String(i.product_id)).filter((id: string) => UUID_RE.test(id))),
   ]
   const basePriceByProductId = new Map<string, number>()
+  // O "de" de cada peça e de cada variação: o cheio da campanha é o maior entre ele e o preço.
+  const comparePriceByProductId = new Map<string, number | null>()
+  const numOrNull = (v: unknown) => (v === null || v === undefined ? null : Number(v))
   if (productIds.length) {
     const { data: products } = await supabase
       .from("products")
-      .select("id, base_price")
+      .select("id, base_price, original_price")
       .in("id", productIds)
-    for (const p of products || []) basePriceByProductId.set(String(p.id), Number(p.base_price))
+    for (const p of products || []) {
+      basePriceByProductId.set(String(p.id), Number(p.base_price))
+      comparePriceByProductId.set(String(p.id), numOrNull(p.original_price))
+    }
   }
 
   const variantIds = [
     ...new Set(rows.map((i) => i.variant_id).filter((id: unknown): id is string => !!id)),
   ]
   const variantById = new Map<string, { product_id: string; price: number | null }>()
+  const comparePriceByVariantId = new Map<string, number | null>()
   if (variantIds.length) {
     const { data: variants } = await supabase
       .from("product_variants")
-      .select("id, product_id, price")
+      .select("id, product_id, price, compare_price")
       .in("id", variantIds)
     for (const v of variants || []) {
       variantById.set(String(v.id), {
         product_id: String(v.product_id),
         price: v.price === null || v.price === undefined ? null : Number(v.price),
       })
+      comparePriceByVariantId.set(String(v.id), numOrNull(v.compare_price))
     }
+  }
+
+  // A campanha GRAVADA na linha pelo `create-order`, aplicada sem reavaliar a vigência: o pedido
+  // criado durante a campanha e pago depois do fim vale pelo que foi gravado. O "de" é o do banco,
+  // pelo mesmo caminho de preço que a linha congelou.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const campanhaDaLinha = (i: any, productId: string, variantId: string | null): PricingCampaign | null => {
+    const percent = Number(i.campaign_percent)
+    if (i.campaign_percent === null || i.campaign_percent === undefined || !(percent > 0)) return null
+    const viaVariacao =
+      i.price_source === "variant" && variantId !== null && variantById.get(variantId)?.price != null
+    const compare = viaVariacao
+      ? comparePriceByVariantId.get(variantId as string) ?? null
+      : comparePriceByProductId.get(productId) ?? null
+    return { percent, compare_price: compare }
   }
 
   const pricingContext = { basePriceByProductId, variantById }
@@ -575,7 +603,13 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   // pura que o admin e a loja usam. O caminho de preço é o **gravado no item**, e preço não
   // resolvível vira ERRO, não o `unit_price` que veio do cliente. Uma linha de `pricingItems` por
   // grupo, na ordem em que as linhas chegaram.
-  const pricingItems: { product_id: string; variant_id: string | null; unit_price: number; quantity: number }[] = []
+  const pricingItems: {
+    product_id: string
+    variant_id: string | null
+    unit_price: number
+    quantity: number
+    campaign?: PricingCampaign | null
+  }[] = []
 
   for (const grupo of grupos) {
     const i = rows[grupo.rows[0]]
@@ -636,11 +670,13 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
       continue
     }
 
+    const campanha = campanhaDaLinha(i, productId, variantId)
     pricingItems.push({
       product_id: productId,
       variant_id: variantId,
       unit_price: resolution.price,
       quantity: grupo.quantity,
+      ...(campanha ? { campaign: campanha } : {}),
     })
   }
 
@@ -747,15 +783,24 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   if (order.coupon_id) {
     const { data: couponRow } = await supabase
       .from("coupons")
-      .select("type, value, active, valid_from, valid_until, max_uses, used_count")
+      .select("type, value, active, valid_from, valid_until, max_uses, used_count, min_order, first_order_only")
       .eq("id", order.coupon_id)
       .maybeSingle()
+    // O pedido mínimo é conferido sobre as linhas que entram na base do cupom — sem as peças de
+    // campanha (`couponEligibleSubtotal`) —, e o cupom recusado segue como `null`. A primeira compra
+    // não é reconferida aqui (o pedido já existe; ele próprio seria a "compra anterior").
+    const temCampanha = pricingItems.some((p) => p.campaign != null)
     const valid =
       couponRow &&
-      couponRow.active &&
-      (!couponRow.valid_from || new Date(couponRow.valid_from) <= now) &&
-      (!couponRow.valid_until || new Date(couponRow.valid_until) >= now) &&
-      (couponRow.max_uses == null || couponRow.used_count < couponRow.max_uses)
+      couponRefusal(
+        { ...couponRow, first_order_only: false, used_count: Number(couponRow.used_count ?? 0) },
+        {
+          subtotal: couponEligibleSubtotal({ items: pricingItems, bump, promotions: [] }),
+          eligibleSubtotal: couponEligibleSubtotal({ items: pricingItems, bump, promotions: [] }),
+          campaignName: temCampanha ? "campanha" : null,
+          now,
+        },
+      ) === null
     if (valid) {
       coupon = { type: couponRow.type, value: Number(couponRow.value) }
     } else {
@@ -809,14 +854,18 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   //
   // Um valor alto forjado não é exploração: ele só torna o 422 mais provável — auto-infligido.
   const centavos = (v: unknown) => Math.round(Number(v || 0) * 100)
+  // O desconto de campanha entra nos dois lados: o exibido é o que o `create-order` calculou com a
+  // campanha que ele resolveu, e o recalculado o da campanha gravada na linha.
   const exibido =
     centavos(order.promotion_discount) +
     centavos(order.buy_together_discount) +
-    centavos(order.order_bump_discount)
+    centavos(order.order_bump_discount) +
+    centavos(order.campaign_discount)
   const recalculado =
     centavos(pricing.promotionDiscount) +
     centavos(orderLines.buyTogetherDiscount) +
-    centavos(orderLines.orderBumpDiscount)
+    centavos(orderLines.orderBumpDiscount) +
+    centavos(orderLines.campaignDiscount)
   if (recalculado < exibido) {
     const casadoCaiu = centavos(orderLines.buyTogetherDiscount) < centavos(order.buy_together_discount)
     log({
@@ -874,6 +923,8 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
       // Os outros dois descontos por item, recalculados.
       buy_together_discount: orderLines.buyTogetherDiscount,
       order_bump_discount: orderLines.orderBumpDiscount,
+      // Só com peça de campanha no pedido: sem ela a gravação é a de sempre.
+      ...(orderLines.campaignDiscount !== undefined ? { campaign_discount: orderLines.campaignDiscount } : {}),
     })
     .eq("id", order_id)
   if (persistError) {
@@ -919,6 +970,7 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     promotion_discount: pricing.promotionDiscount,
     buy_together_discount: orderLines.buyTogetherDiscount,
     order_bump_discount: orderLines.orderBumpDiscount,
+    ...(orderLines.campaignDiscount !== undefined ? { campaign_discount: orderLines.campaignDiscount } : {}),
     [method]: valoresDoMeio(totals),
     [outroMeio]: valoresDoMeio(totaisDoOutroMeio),
     lines: orderLines.lines.map((l) => {
@@ -967,6 +1019,8 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
 const ITENS_DO_RECALCULO =
   "id, product_id, product_name, product_image, size, finish, quantity, unit_price, full_unit_price, " +
   "variant_id, price_source, variant_label, variant_options, requires_material, material_kinds, " +
+  // A campanha que o `create-order` gravou na linha (aplicada sem reavaliar a vigência).
+  "campaign_id, campaign_percent, compare_unit_price, " +
   "engraving_text, accompanies_product_ids, accompanies_list_ids"
 
 /**
@@ -992,6 +1046,10 @@ const SNAPSHOT_DA_LINHA = [
   "engraving_text",
   "accompanies_product_ids",
   "accompanies_list_ids",
+  // A campanha que o `create-order` gravou na linha vai junto com a linha nova da mesma peça.
+  "campaign_id",
+  "campaign_percent",
+  "compare_unit_price",
 ] as const
 
 interface LinhaCobrada {
@@ -1413,7 +1471,7 @@ async function lockedFirstCharge(
   const { data: lock, error: lockError } = await supabase
     .from(LOCKED_CHARGE_TABLE)
     .select(
-      "order_id, first_method, promotion_id, promotion_discount, buy_together_discount, order_bump_discount, pix, card, lines",
+      "order_id, first_method, promotion_id, promotion_discount, buy_together_discount, order_bump_discount, campaign_discount, pix, card, lines",
     )
     .eq("order_id", order_id)
     .maybeSingle()
@@ -1452,6 +1510,9 @@ async function lockedFirstCharge(
       promotion_discount: Number(lock.promotion_discount ?? 0),
       buy_together_discount: Number(lock.buy_together_discount ?? 0),
       order_bump_discount: Number(lock.order_bump_discount ?? 0),
+      ...(lock.campaign_discount !== null && lock.campaign_discount !== undefined
+        ? { campaign_discount: Number(lock.campaign_discount) }
+        : {}),
     })
     .eq("id", order_id)
   if (persistError) return json({ error: "Falha ao atualizar o pedido" }, 500)

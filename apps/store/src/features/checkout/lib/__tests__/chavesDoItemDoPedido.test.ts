@@ -37,6 +37,38 @@ const colunasDaFunction = (texto: string): string[] | null => {
   return itens && marca ? [...itens, ...marca].sort() : null
 }
 
+/**
+ * A linha de campanha leva, além das colunas de sempre, o percentual EXIBIDO — que a function lê para
+ * comparar e não grava (`COLUNAS_DA_CAMPANHA_EXIBIDA`).
+ */
+const colunasDaLinhaDeCampanha = (texto: string): string[] | null => {
+  const sempre = colunasDaFunction(texto)
+  const campanha = listaDe(texto, 'COLUNAS_DA_CAMPANHA_EXIBIDA')
+  return sempre && campanha ? [...sempre, ...campanha].sort() : null
+}
+
+/** As chaves da linha de uma peça de campanha, como a loja a monta. */
+const chavesDaLinhaDeCampanha = (): string[] =>
+  Object.keys(
+    buildOrderItems({
+      items: [
+        {
+          product: produto('peca-black'),
+          size: '',
+          finish: '',
+          variantId: null,
+          variantLabel: '',
+          optionValues: {},
+          unitPrice: 167.92,
+          quantity: 1,
+        },
+      ] as never,
+      pricingItems: [{ product_id: 'peca-black', unit_price: 209.9, quantity: 1, campaign: { percent: 20 } }],
+      lines: [{ index: 0, quantity: 1, fullUnitPrice: 209.9, unitPrice: 167.92 }],
+      bumpProduct: null,
+    })[0],
+  ).sort()
+
 const produto = (id: string) =>
   ({ id, name: id, images: [{ url: 'https://cdn.test/x.jpg', is_primary: true }], requires_material: false }) as never
 
@@ -80,6 +112,20 @@ describe('as chaves do item do pedido batem com as colunas do create-order', () 
     expect(fonte).toContain('export async function createOrder')
     expect(listaDe(fonte, 'COLUNAS_DOS_ITENS')).toHaveLength(15)
     expect(listaDe(fonte, 'COLUNAS_DA_MARCA')).toEqual(['accompanies_product_ids', 'accompanies_list_ids'])
+    expect(listaDe(fonte, 'COLUNAS_DA_CAMPANHA_EXIBIDA')).toEqual(['campaign_percent'])
+  })
+
+  it('a campanha vinda do corpo nunca é copiada: ela não está entre as colunas gravadas como vieram', () => {
+    const copiadas = listaDe(fonte, 'COLUNAS_DOS_ITENS') ?? []
+    for (const coluna of ['campaign_percent', 'campaign_id', 'compare_unit_price']) {
+      expect(copiadas).not.toContain(coluna)
+    }
+  })
+
+  it('sensor — a campanha posta na lista copiada é acusada', () => {
+    const mutante = fonte.replace("  'engraving_text',\n] as const", "  'engraving_text',\n  'campaign_percent',\n] as const")
+    expect(mutante).not.toBe(fonte)
+    expect(listaDe(mutante, 'COLUNAS_DOS_ITENS')).toContain('campaign_percent')
   })
 
   it('âncora: as três linhas da loja (comum, adicional e bump) têm chaves', () => {
@@ -91,6 +137,16 @@ describe('as chaves do item do pedido batem com as colunas do create-order', () 
   it('cada linha que a loja monta tem EXATAMENTE as colunas que a function grava', () => {
     const colunas = colunasDaFunction(fonte)
     for (const chaves of chavesDaLoja()) expect(chaves).toEqual(colunas)
+  })
+
+  it('a linha de campanha tem as colunas de sempre mais o percentual exibido, e nada além', () => {
+    expect(chavesDaLinhaDeCampanha()).toEqual(colunasDaLinhaDeCampanha(fonte))
+  })
+
+  it('sensor — a lista da campanha exibida apagada reprova, em vez de virar lista vazia', () => {
+    const mutante = fonte.replace('const COLUNAS_DA_CAMPANHA_EXIBIDA', 'const OUTRA_LISTA')
+    expect(mutante).not.toBe(fonte)
+    expect(colunasDaLinhaDeCampanha(mutante)).toBeNull()
   })
 
   it('sensor — uma coluna a menos na function reprova (a chave da loja seria descartada)', () => {

@@ -34,14 +34,26 @@ export interface CouponContext {
    * ainda não consultou) — e aí a regra de primeira compra não recusa. Só `true` recusa.
    */
   hasPriorOrder?: boolean | null
+  /**
+   * O subtotal das linhas que entram na base do cupom — sem as peças de campanha
+   * (`couponEligibleSubtotal`, `core/payment/pricing.ts`). Ausente = todas entram (a regra de antes).
+   * Quando presente, é sobre ele que o pedido mínimo é conferido.
+   */
+  eligibleSubtotal?: number | null
+  /** O nome da campanha em vigência com peça na sacola; vai na recusa do cupom. */
+  campaignName?: string | null
 }
+
+/** A recusa do cupom de desconto numa sacola só com peças de campanha. */
+export const campaignCouponRefusal = (name: string) => `Este cupom não vale para peças da ${name}.`
 
 /** O texto do pedido mínimo, com a vírgula decimal da loja. */
 const minOrderRefusal = (min: number) => `Pedido mínimo de R$ ${min.toFixed(2).replace('.', ',')}.`
 
 /**
  * A recusa do cupom, ou `null` quando ele vale. Os textos e a ORDEM são os da loja desde antes da
- * feature 89: desativado → ainda não válido → expirado → esgotado → pedido mínimo → primeira compra.
+ * feature 89: desativado → ainda não válido → expirado → esgotado → só peças de campanha → pedido mínimo →
+ * primeira compra.
  *
  * `string | null` e não união por booleano: com `strictNullChecks` desligado aquela não estreita.
  */
@@ -50,8 +62,12 @@ export function couponRefusal(coupon: CouponRow, ctx: CouponContext): string | n
   if (coupon.valid_from && new Date(coupon.valid_from) > ctx.now) return 'Cupom ainda não está válido.'
   if (coupon.valid_until && new Date(coupon.valid_until) < ctx.now) return 'Cupom expirado.'
   if (coupon.max_uses != null && coupon.used_count >= coupon.max_uses) return 'Cupom esgotado.'
+  const base = ctx.eligibleSubtotal != null ? ctx.eligibleSubtotal : ctx.subtotal
+  if (ctx.campaignName && coupon.type !== 'free_shipping' && ctx.eligibleSubtotal != null && base <= 0) {
+    return campaignCouponRefusal(ctx.campaignName)
+  }
   const min = coupon.min_order || 0
-  if (ctx.subtotal < min) return minOrderRefusal(min)
+  if (base < min) return minOrderRefusal(min)
   if (coupon.first_order_only && ctx.hasPriorOrder === true) {
     return 'Cupom válido apenas no primeiro pedido.'
   }

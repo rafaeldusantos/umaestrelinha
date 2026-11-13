@@ -448,3 +448,44 @@ describe('buildOrderPayload — pedido de retirada (RET-07)', () => {
     expect(corpo.address_city).toBe('Porto Alegre')
   })
 })
+
+describe('buildOrderItems — o percentual de campanha exibido em cada linha', () => {
+  const linhaDaSacola = (id: string) =>
+    ({
+      product: produto({ id, requires_material: false, material_kinds: [] }),
+      size: '',
+      finish: '',
+      variantId: null,
+      variantLabel: '',
+      optionValues: {},
+      unitPrice: 100,
+      quantity: 1,
+    }) as never
+
+  it('a linha de campanha leva o percentual que a tela mostrou; a comum não leva a chave', () => {
+    const itens = buildOrderItems({
+      items: [linhaDaSacola('p-black'), linhaDaSacola('p-comum')],
+      pricingItems: [
+        { product_id: 'p-black', unit_price: 209.9, quantity: 1, campaign: { percent: 20 } },
+        { product_id: 'p-comum', unit_price: 100, quantity: 1 },
+      ],
+      lines: [
+        { index: 0, quantity: 1, fullUnitPrice: 209.9, unitPrice: 167.92 },
+        { index: 1, quantity: 1, fullUnitPrice: 100, unitPrice: 100 },
+      ],
+      bumpProduct: null,
+    })
+    expect(itens[0].campaign_percent).toBe(20)
+    expect(itens[1]).not.toHaveProperty('campaign_percent')
+  })
+
+  it('marcada sem baixar o preço: sem a chave (não é peça de campanha)', () => {
+    const itens = buildOrderItems({
+      items: [linhaDaSacola('p-black')],
+      pricingItems: [{ product_id: 'p-black', unit_price: 199.9, quantity: 1, campaign: { percent: 15, compare_price: 250 } }],
+      lines: [{ index: 0, quantity: 1, fullUnitPrice: 199.9, unitPrice: 199.9 }],
+      bumpProduct: null,
+    })
+    expect(itens[0]).not.toHaveProperty('campaign_percent')
+  })
+})

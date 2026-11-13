@@ -162,6 +162,8 @@ export interface CreateOrderInput {
    */
   buy_together_discount?: number
   order_bump_discount?: number
+  /** O desconto de campanha — calculado pelo servidor; o corpo do pedido nunca o grava. */
+  campaign_discount?: number
   /**
    * Feature 61 · CMP-01 — o que o servidor precisa para o `purchase` pelo Measurement Protocol.
    *
@@ -211,6 +213,11 @@ export interface CreateOrderInput {
      */
     accompanies_product_ids?: string[] | null
     accompanies_list_ids?: (string | null)[] | null
+    /**
+     * O percentual de campanha que a tela MOSTROU nesta linha (`null` sem campanha). Só comparação:
+     * o `create-order` resolve a campanha com o relógio dele e grava a dele, nunca esta.
+     */
+    campaign_percent?: number | null
   }[]
   /**
    * `MAT-07`: o pedido nasce na fila ou fora dela, derivado dos itens por `initialMaterialStatus`.
@@ -256,6 +263,23 @@ export class PickupUnavailableError extends Error {
   readonly reason = PICKUP_REFUSAL
 }
 
+/** O código do 422 de quando um desconto que a tela mostrou não vale mais (a campanha acabou). */
+export const ORDER_DISCOUNT_CHANGED = 'promotion_no_longer_valid'
+
+/**
+ * O `create-order` recusou ANTES de gravar: a campanha de desconto que a tela mostrou acabou entre a
+ * sacola e o pedido, e gravar seria cobrar mais que o mostrado. Carrega o total que a tela mostrou; o
+ * novo é o que a loja recalcula ao reler o catálogo (o servidor não o calcula aqui).
+ */
+export class OrderDiscountChangedError extends Error {
+  readonly reason = ORDER_DISCOUNT_CHANGED
+  readonly displayedTotal: number | null
+  constructor(message: string, displayedTotal: number | null) {
+    super(message)
+    this.displayedTotal = displayedTotal
+  }
+}
+
 /**
  * Cria o pedido — **pela edge function `checkout`, nunca pelo PostgREST** (feature `49`, `PED-01`).
  *
@@ -285,10 +309,16 @@ export const useCreateOrder = () => {
         order_number?: string | null
         reason?: string
         error?: string
+        code?: string
+        displayed_total?: number | null
       } | null
 
       if (corpo?.reason === NEEDS_OTP) throw new NeedsOtpError(corpo.error ?? '')
       if (corpo?.error === PICKUP_REFUSAL) throw new PickupUnavailableError(corpo.error)
+      if (corpo?.code === ORDER_DISCOUNT_CHANGED) {
+        const exibido = Number(corpo.displayed_total)
+        throw new OrderDiscountChangedError(corpo.error ?? '', Number.isFinite(exibido) ? exibido : null)
+      }
       if (error || !corpo?.order_id) {
         throw new Error(corpo?.error || error?.message || 'Erro ao criar pedido')
       }

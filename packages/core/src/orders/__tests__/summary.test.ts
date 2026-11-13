@@ -248,3 +248,32 @@ describe('orderSummary — pedido de antes das colunas de preço cheio fica como
     expect(orderSummary({ ...antigo, coupon_code: ' FLOR ' }).discounts[0].label).toBe('Cupom FLOR')
   })
 })
+
+describe('orderSummary — o desconto de campanha tem a linha dele', () => {
+  it('peça de campanha (209,90 → 167,92) e comum (100) com cupom de 10%: a conta fecha', () => {
+    const linhas: CartLine[] = [
+      { product_id: 'peca-black', unit_price: 209.9, quantity: 1, campaign: { percent: 20 } } as CartLine,
+      { product_id: 'comum', unit_price: 100, quantity: 1 } as CartLine,
+    ]
+    const input: OrderPricingInput = {
+      items: linhas,
+      shipping: 20,
+      pixDiscountPercent: 5,
+      method: 'pix',
+      coupon: { type: 'percent', value: 10 },
+      promotions: [],
+    }
+    const { order, outcome } = pedidoGravado(input, linhas, 'DEZ')
+    const lines = resolveOrderLines(input, outcome)
+    const s = orderSummary({ ...order, campaign_discount: lines.campaignDiscount })
+
+    expect(s.subtotal).toBe(309.9)
+    expect(s.discounts).toEqual([
+      { key: 'campaign', label: 'Desconto de campanha', amount: 41.98 },
+      { key: 'coupon', label: 'Cupom DEZ', amount: 10 },
+      { key: 'pix', label: 'Desconto PIX', amount: 12.9 },
+    ])
+    expect(s.rows[0]).toMatchObject({ charged: 167.92, full: 209.9 })
+    expect(fecha(s)).toBe(cents(s.total))
+  })
+})

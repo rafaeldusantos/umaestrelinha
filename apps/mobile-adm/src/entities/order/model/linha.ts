@@ -28,7 +28,9 @@ export const COLUNAS_DO_DETALHE =
   // `orderSummary` (`core/orders`) os lê.
   'buy_together_discount, order_bump_discount, ' +
   // O desconto combinado do pedido montado pelo painel (`order_list`, no fim). Zero no pedido da loja.
-  'manual_discount'
+  'manual_discount, ' +
+  // O desconto de campanha, calculado pelo servidor (`order_list`, no fim). Zero sem campanha.
+  'campaign_discount'
 
 /** As quatro relações do detalhe — colunas conferidas no `information_schema` local (M3 do Design). */
 export const COLUNAS_DOS_ITENS =
@@ -110,6 +112,8 @@ export interface PedidoDoDetalhe extends LinhaDaLista {
   order_bump_discount: number
   /** O desconto combinado do pedido montado pelo painel (`orders.manual_discount`); zero no da loja. */
   manual_discount: number
+  /** O desconto de campanha (`orders.campaign_discount`); zero no pedido sem campanha. */
+  campaign_discount: number
 }
 
 /**

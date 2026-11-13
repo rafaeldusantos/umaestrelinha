@@ -31,6 +31,13 @@ export interface ValidateCouponInput {
   subtotal: number
   shippingCost: number
   customerEmail?: string
+  /**
+   * O subtotal das linhas que entram na base do cupom — sem as peças de campanha. Ausente = todas
+   * entram. O pedido mínimo e o desconto mostrado partem dele.
+   */
+  eligibleSubtotal?: number | null
+  /** O nome da campanha em vigência com peça na sacola: vai na recusa do cupom. */
+  campaignName?: string | null
 }
 
 export interface ValidateCouponResult {

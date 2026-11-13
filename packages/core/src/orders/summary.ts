@@ -5,8 +5,8 @@
 // não, sem nada quebrar.
 //
 // O resumo parte do preço CHEIO: Subtotal é a soma dos preços cheios das peças, e cada
-// desconto que houve tem a sua linha — o do Compre Junto, o progressivo, o da oferta do checkout, o
-// cupom e o PIX. Mostrar uma linha de desconto abaixo de um subtotal já líquido contaria o mesmo
+// desconto que houve tem a sua linha — o de campanha, o do Compre Junto, o progressivo, o da oferta
+// do checkout, o cupom e o PIX. Mostrar uma linha de desconto abaixo de um subtotal já líquido contaria o mesmo
 // dinheiro duas vezes para quem lê. A conta fecha por construção: o servidor grava o desconto da
 // oferta como o resto (cheio − cobrado − progressivo − casado, `resolveOrderLines`), e o total do
 // pedido é o subtotal cobrado − cupom − PIX + frete.
@@ -50,9 +50,11 @@ export interface OrderSummaryInput {
   buy_together_discount?: number | null
   promotion_discount?: number | null
   order_bump_discount?: number | null
+  /** O desconto de campanha (tabela − preço da campanha), calculado pelo servidor. */
+  campaign_discount?: number | null
 }
 
-export type OrderDiscountKey = 'buy_together' | 'promotion' | 'order_bump' | 'coupon' | 'pix'
+export type OrderDiscountKey = 'campaign' | 'buy_together' | 'promotion' | 'order_bump' | 'coupon' | 'pix'
 
 export interface OrderDiscountLine {
   key: OrderDiscountKey
@@ -92,6 +94,7 @@ export interface OrderSummary {
 }
 
 export const ORDER_DISCOUNT_LABELS: Readonly<Record<Exclude<OrderDiscountKey, 'coupon'>, string>> = {
+  campaign: 'Desconto de campanha',
   buy_together: 'Desconto do Compre Junto',
   promotion: 'Desconto progressivo',
   order_bump: 'Desconto da oferta',
@@ -177,6 +180,7 @@ export function orderSummary(order: OrderSummaryInput): OrderSummary {
     if (c > 0) discounts.push({ key, label, amount: money(c) })
   }
   if (detailed) {
+    push('campaign', ORDER_DISCOUNT_LABELS.campaign, order.campaign_discount)
     push('buy_together', ORDER_DISCOUNT_LABELS.buy_together, order.buy_together_discount)
     push('promotion', ORDER_DISCOUNT_LABELS.promotion, order.promotion_discount)
     push('order_bump', ORDER_DISCOUNT_LABELS.order_bump, order.order_bump_discount)

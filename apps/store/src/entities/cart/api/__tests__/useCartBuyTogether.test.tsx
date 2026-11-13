@@ -31,8 +31,12 @@ beforeEach(() => {
   fromMock.mockImplementation((tabela: string) => ({
     select: (colunas: string) => {
       const pedido: Pedido = { tabela, select: colunas, in: [], order: [] }
-      pedidos.push(pedido)
-      const resultado = respostas.shift() ?? { data: [], error: null }
+      // A mesma leitura da sacola relê também o catálogo das peças (`useCartCatalog`, a campanha de
+      // agora): aquela consulta tem teste próprio, e aqui só a do Compre Junto é registrada e
+      // respondida pela fila.
+      const doCompreJunto = tabela === 'product_buy_together'
+      if (doCompreJunto) pedidos.push(pedido)
+      const resultado = doCompreJunto ? (respostas.shift() ?? { data: [], error: null }) : { data: [], error: null }
       const q: any = {
         in: (c: string, v: readonly string[]) => (pedido.in.push([c, v]), q),
         order: (c: string) => (pedido.order.push(c), q),

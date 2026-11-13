@@ -97,6 +97,12 @@ interface CartState {
     engravingText?: string | null,
   ) => void
   clearCart: () => void
+  /**
+   * A releitura do catálogo (`useCartCatalog`) chegou: cada linha passa a ter o preço efetivo de agora
+   * (com a campanha em vigência, ou sem ela) e a campanha de agora no produto. Linha cuja peça não
+   * voltou na leitura fica como estava. Não muda a forma do item — sem migração de `version`.
+   */
+  syncCatalog: (products: readonly Product[]) => void
   uniqueItemsCount: () => number
   subtotal: () => number
   shippingCost: () => number
@@ -242,6 +248,25 @@ export const useCartStore = create<CartState>()(
           }
         }),
       clearCart: () => set({ items: [] }),
+      syncCatalog: (products) =>
+        set((state) => {
+          const porId = new Map(products.map((p) => [p.id, p]))
+          let mudou = false
+          const items = state.items.map((i) => {
+            const fresco = porId.get(i.product.id)
+            if (!fresco) return i
+            const variacao = i.variantId ? fresco.variants?.find((v) => v.id === i.variantId) : undefined
+            if (i.variantId && !variacao) return i
+            const unitPrice = variacao?.price ?? fresco.price
+            const campaign = fresco.campaign ?? null
+            if (unitPrice === i.unitPrice && JSON.stringify(campaign) === JSON.stringify(i.product.campaign ?? null)) {
+              return i
+            }
+            mudou = true
+            return { ...i, unitPrice, product: { ...i.product, campaign } }
+          })
+          return mudou ? { items } : state
+        }),
       uniqueItemsCount: () => get().items.length,
       // Soma `unitPrice`, não `product.price`: com grade, os dois DIVERGEM, e usar o segundo é
       // mostrar na tela um total diferente do que o servidor vai cobrar.

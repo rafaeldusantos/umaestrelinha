@@ -82,7 +82,10 @@ export const validateCoupon = async (
   // A regra mora em `core/coupons/rules.ts` (feature 89): a mesma que o painel e a function
   // `order-proposals` chamam. A primeira passada não sabe se o e-mail já comprou; só pergunta ao
   // banco quando o cupom passou em tudo o mais e é de primeira compra — a ordem de antes.
-  let refusal = couponRefusal(c, { subtotal: input.subtotal, now })
+  // As peças de campanha ficam fora do cupom: o mínimo e a recusa "só peças de campanha" saem do
+  // subtotal elegível e do nome da campanha que a sacola passa.
+  const campanha = { eligibleSubtotal: input.eligibleSubtotal ?? null, campaignName: input.campaignName ?? null }
+  let refusal = couponRefusal(c, { subtotal: input.subtotal, now, ...campanha })
   if (refusal) return { ok: false, error: refusal }
 
   if (c.first_order_only && input.customerEmail) {
@@ -90,7 +93,7 @@ export const validateCoupon = async (
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('customer_email', input.customerEmail)
-    refusal = couponRefusal(c, { subtotal: input.subtotal, now, hasPriorOrder: (count || 0) > 0 })
+    refusal = couponRefusal(c, { subtotal: input.subtotal, now, hasPriorOrder: (count || 0) > 0, ...campanha })
     if (refusal) return { ok: false, error: refusal }
   }
 
@@ -98,7 +101,7 @@ export const validateCoupon = async (
   // O desconto tem UM dono (BMP-04): o mesmo `resolveCouponDiscount` que o servidor cobra.
   const discount = freeShipping
     ? input.shippingCost
-    : resolveCouponDiscount(input.subtotal, couponRuleOf(c))
+    : resolveCouponDiscount(input.eligibleSubtotal ?? input.subtotal, couponRuleOf(c))
 
   return {
     ok: true,

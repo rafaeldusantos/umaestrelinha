@@ -28,6 +28,7 @@ import { useMemo } from 'react'
 import type { Product } from '@estrelinha/supabase/types'
 import {
   applyProgressiveDiscount,
+  couponEligibleSubtotal,
   resolveOrderLines,
   resolveOrderPricing,
   type ChargedLine,
@@ -45,6 +46,7 @@ import {
 import {
   cartBuyTogetherIds,
   cartBuyTogetherInput,
+  cartCampaignName,
   cartPricingItem,
   useCartBuyTogether,
   useCartStore,
@@ -126,6 +128,10 @@ export interface CheckoutTotals {
    * com PIX anunciaria uma parcela que o cartão não pratica.
    */
   cardTotal: number
+  /** O subtotal das peças que entram no cupom — sem as de campanha (`couponEligibleSubtotal`). */
+  couponEligibleSubtotal: number
+  /** O nome da campanha com peça na sacola, para a recusa do cupom. `null` sem campanha. */
+  campaignName: string | null
 }
 
 const round2 = (value: number) => Math.round(value * 100) / 100
@@ -177,14 +183,23 @@ export function useCheckoutTotals(): CheckoutTotals {
       // base, o gravado ficava MAIOR que o recalculado, e a guarda de teto de PRM-12
       // (`handlers.ts:574`) devolvia 422 `promotion_no_longer_valid` num pagamento legítimo, de novo
       // a cada recarga. Os três lugares têm de ler o mesmo preço por item; este é o preço.
-      unit_price: item.unitPrice,
+      //
+      // A peça de campanha é a exceção, e quem a decide é `cartPricingItem`: ela entra com o preço de
+      // TABELA mais a campanha, e quem desconta é `resolveOrderPricing` — o `unitPrice` dela já é o
+      // preço com desconto, e passá-lo aqui junto da campanha descontaria duas vezes.
       quantity: item.quantity,
     }))
     if (bumpProduct) {
+      // A oferta numa peça de campanha: o preço de tabela mais a campanha, e `resolveOrderPricing`
+      // cobra o menor entre os dois descontos (`bumpProduct.price` já é o preço com a campanha).
+      const campanha = bumpProduct.campaign
       pricingItems.push({
         product_id: bumpProduct.id,
-        unit_price: bumpProduct.price,
+        unit_price: campanha ? campanha.list_prices.price : bumpProduct.price,
         quantity: 1,
+        ...(campanha
+          ? { campaign: { percent: campanha.percent, compare_price: campanha.list_prices.compare_price } }
+          : {}),
       })
     }
 
@@ -280,6 +295,13 @@ export function useCheckoutTotals(): CheckoutTotals {
       method,
       totals: outcome.totals,
       cardTotal,
+      couponEligibleSubtotal: couponEligibleSubtotal({
+        items: pricingItems,
+        bump,
+        buyTogether: buyTogetherInput,
+        promotions: [],
+      }),
+      campaignName: cartCampaignName(items),
     }
   }, [
     items,

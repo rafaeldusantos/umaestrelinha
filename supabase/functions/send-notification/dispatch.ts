@@ -166,7 +166,7 @@ const ORDER_COLUMNS = `
   status, payment_status, paid_at, mp_order_id, unpaid_cancelled_at,
   tracking_code, shipping_carrier, shipping_service_id, material_status, material_tracking_code,
   subtotal, shipping_cost, discount, pix_discount, total,
-  buy_together_discount, promotion_discount, order_bump_discount,
+  buy_together_discount, promotion_discount, order_bump_discount, campaign_discount,
   address_street, address_number, address_complement, address_neighborhood,
   address_city, address_state, address_zip,
   order_items ( product_id, product_name, variant_id, size, finish, engraving_text, quantity, unit_price, full_unit_price, accompanies_product_ids )

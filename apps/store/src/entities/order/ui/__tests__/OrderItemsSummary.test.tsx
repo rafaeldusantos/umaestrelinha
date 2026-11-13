@@ -408,3 +408,29 @@ describe('OrderItemsSummary — o desconto da compra casada no pedido', () => {
     expect(container.textContent).not.toMatch(/!|economi/i)
   })
 })
+
+describe('o resumo do pedido com desconto de campanha', () => {
+  it('a linha "Desconto de campanha" aparece com o valor do servidor, e a conta fecha', () => {
+    render(
+      <OrderItemsSummary
+        order={pedido({
+          order_items: [
+            item({ id: 'i-1', unit_price: 167.92, full_unit_price: 209.9 } as Partial<OrderSummaryItem>),
+            item({ id: 'i-2', product_name: 'Corrente', unit_price: 100, full_unit_price: 100 } as Partial<OrderSummaryItem>),
+          ],
+          subtotal: 267.92,
+          discount: 10,
+          coupon_code: 'DEZ',
+          pix_discount: 12.9,
+          shipping_cost: 20,
+          total: 265.02,
+          campaign_discount: 41.98,
+        })}
+      />,
+    )
+    expect(emReais(valorDa('Subtotal'))).toBe(309.9)
+    expect(emReais(valorDa('Desconto de campanha'))).toBe(-41.98)
+    expect(emReais(valorDa('Cupom DEZ'))).toBe(-10)
+    expect(emReais(valorDa('Total'))).toBe(265.02)
+  })
+})
