@@ -195,6 +195,38 @@ describe('create-payment — a campanha gravada na linha', () => {
     expect(cobrado(minimo)).toBe('267.92')
   })
 
+  it('cupom de 10% com a peça de "de/por" que a campanha baixa (336,60) e uma comum de 340,00: desconta só 34,00', async () => {
+    // De R$ 374,00 por R$ 349,90 com 10%: a campanha baixa o preço (336,60 < 349,90), então a peça
+    // fica fora do cupom. 336,60 + 340,00 − 34,00 = 642,60; nunca o cupom de 67,66.
+    const e = montar({
+      linhas: [
+        linha({ id: 'oi-1', quantity: 1, unit_price: 336.6, full_unit_price: 349.9, campaign_id: 'camp-maes', campaign_percent: 10, compare_unit_price: 374 }),
+        linha({ id: 'oi-2', product_id: COMUM, product_name: 'Pulseira', quantity: 1, unit_price: 340, full_unit_price: 340 }),
+      ],
+      order: { coupon_id: COUPON_ID, total: 642.6, campaign_discount: 13.3 },
+      produtos: [
+        { id: PECA, base_price: 349.9, original_price: null },
+        { id: COMUM, base_price: 340, original_price: null },
+      ],
+      variacoes: [{ id: 'var-mc', product_id: PECA, price: 349.9, compare_price: 374 }],
+      cupom: {
+        type: 'percent',
+        value: 10,
+        active: true,
+        valid_from: null,
+        valid_until: null,
+        max_uses: null,
+        used_count: 0,
+        min_order: null,
+        first_order_only: false,
+      },
+    })
+    const res = await createPayment(e.deps, request(), pix)
+    expect(res.status).toBe(200)
+    expect(cobrado(e)).toBe('642.60')
+    expect(gravacaoDoPedido(e)).toMatchObject({ subtotal: 676.6, discount: 34, total: 642.6 })
+  })
+
   it('a primeira cobrança trava o desconto de campanha', async () => {
     const e = montar()
     await createPayment(e.deps, request(), pix)

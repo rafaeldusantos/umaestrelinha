@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { couponRefusal } from '../../coupons/rules'
 import {
+  couponEligibleSubtotal,
   resolveOrderLines,
   resolveOrderPricing,
   type OrderPricingInput,
@@ -140,6 +142,70 @@ describe('o cupom não vale em peça de campanha', () => {
     // (267,92 − 10,00) × 5% = 12,896 ⇒ 12,90.
     expect(r.totals.pixDiscount).toBe(12.9)
     expect(r.totals.total).toBe(245.02)
+  })
+})
+
+describe('a peça com "de/por" que a campanha baixa também fica fora do cupom', () => {
+  // De R$ 374,00 por R$ 349,90 com 10%: 10% sobre 374,00 = 336,60 < 349,90 ⇒ a campanha baixa o
+  // preço, e a peça é de campanha. A comparação é contra o "por" de tabela, nunca contra o próprio
+  // preço já descontado.
+  const comDePor = (): PricingItem => ({
+    product_id: PECA,
+    unit_price: 349.9,
+    quantity: 1,
+    campaign: { percent: 10, compare_price: 374 },
+  })
+  const semDePor = (): PricingItem => ({
+    product_id: PECA,
+    unit_price: 385,
+    quantity: 1,
+    campaign: { percent: 10 },
+  })
+  const cupom10 = { type: 'percent' as const, value: 10 }
+
+  it('com uma comum de R$ 340,00 e cupom de 10%: desconta R$ 34,00, só da comum', () => {
+    const r = resolveOrderPricing(pricing({ items: [comum(1, 340), comDePor()], coupon: cupom10 }))
+    expect(r.totals.subtotal).toBe(676.6)
+    expect(r.totals.couponDiscount).toBe(34)
+    expect(r.totals.total).toBe(642.6)
+  })
+
+  it('o par sem "de/por" (R$ 385,00 a 10%) dá o mesmo cupom de R$ 34,00', () => {
+    const r = resolveOrderPricing(pricing({ items: [comum(1, 340), semDePor()], coupon: cupom10 }))
+    expect(r.totals.subtotal).toBe(686.5)
+    expect(r.totals.couponDiscount).toBe(34)
+  })
+
+  it('com o Compre Junto na entrada, a base do cupom também deixa a peça de fora', () => {
+    const r = resolveOrderPricing(
+      pricing({ items: [comum(1, 340), comDePor()], coupon: cupom10, buyTogether: { addons: [], lists: [] } }),
+    )
+    expect(r.totals.couponDiscount).toBe(34)
+    expect(
+      couponEligibleSubtotal({ items: [comum(1, 340), comDePor()], buyTogether: { addons: [], lists: [] } }),
+    ).toBe(340)
+  })
+
+  it('sacola só com ela: a base do cupom é zero e o cupom é recusado com o nome da campanha', () => {
+    const base = couponEligibleSubtotal({ items: [comDePor()] })
+    expect(base).toBe(0)
+    expect(couponEligibleSubtotal({ items: [semDePor()] })).toBe(0)
+    expect(
+      couponRefusal(
+        {
+          type: 'percent',
+          value: 10,
+          active: true,
+          valid_from: null,
+          valid_until: null,
+          max_uses: null,
+          used_count: 0,
+          min_order: null,
+          first_order_only: false,
+        },
+        { subtotal: 336.6, eligibleSubtotal: base, campaignName: 'Dia das Mães', now: new Date('2026-11-13T12:00:00Z') },
+      ),
+    ).toBe('Este cupom não vale para peças da Dia das Mães.')
   })
 })
 

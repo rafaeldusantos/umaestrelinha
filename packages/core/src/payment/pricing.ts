@@ -660,8 +660,13 @@ export interface OrderPricingOutcome {
   campaignDiscount?: number
 }
 
-/** A soma das linhas que entram na base do cupom: as que não são de campanha. */
-const couponBaseOf = (charged: PricingItem[]) => sumItems(charged.filter((item) => !hasCampaign(item)))
+/**
+ * A soma das linhas que entram na base do cupom: as que não são de campanha. Quem decide se a linha é
+ * de campanha é a linha a preço de TABELA (`full[k]`, alinhada com `charged[k]`): a cobrada já traz o
+ * preço da campanha, e com "de/por" ela deixaria de parecer baixada pela campanha.
+ */
+const couponBaseOf = (full: PricingItem[], charged: PricingItem[]) =>
+  sumItems(charged.filter((_item, k) => !(full[k] && hasCampaign(full[k]))))
 
 /**
  * O subtotal sobre o qual o cupom incide e o pedido mínimo é conferido: as linhas cobradas sem as
@@ -670,9 +675,12 @@ const couponBaseOf = (charged: PricingItem[]) => sumItems(charged.filter((item) 
 export function couponEligibleSubtotal(
   input: Pick<CalculateOrderTotalsInput, 'items' | 'bump' | 'buyTogether' | 'promotions'>,
 ): number {
-  return couponBaseOf(
-    resolveChargedItems({ ...input, shipping: 0, couponDiscount: 0, pixDiscountPercent: 0, method: 'card' }),
-  )
+  const priced = { ...input, shipping: 0, couponDiscount: 0, pixDiscountPercent: 0, method: 'card' as const }
+  if (input.buyTogether) {
+    const parts = buyTogetherParts(priced)
+    return couponBaseOf(parts.full, parts.charged)
+  }
+  return couponBaseOf(input.items, resolveChargedItems(priced))
 }
 
 /**
@@ -703,7 +711,7 @@ function priceOnePath(
     promotions,
     // O cupom incide sobre o subtotal REALMENTE cobrado, sem as peças de campanha. Com `promotions`
     // vazio e sem campanha isso é o subtotal com bump — idêntico ao que os dois chamadores já faziam.
-    couponDiscount: resolveCouponDiscount(couponBaseOf(chargedItems), coupon),
+    couponDiscount: resolveCouponDiscount(couponBaseOf(input.items, chargedItems), coupon),
     shipping: coupon && coupon.type === 'free_shipping' ? 0 : input.shipping,
   })
 
@@ -739,7 +747,7 @@ function priceOnePathWithBuyTogether(
   const totals = calculateOrderTotals({
     ...input,
     promotions,
-    couponDiscount: resolveCouponDiscount(couponBaseOf(parts.charged), coupon),
+    couponDiscount: resolveCouponDiscount(couponBaseOf(parts.full, parts.charged), coupon),
     shipping: coupon && coupon.type === 'free_shipping' ? 0 : input.shipping,
   })
 
