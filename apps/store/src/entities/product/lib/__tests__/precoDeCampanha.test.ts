@@ -136,3 +136,49 @@ describe('mapDbToProduct — o preço da campanha em vigência', () => {
     expect(p.variants[0].compare_price).toBe(180)
   })
 })
+
+describe('mapDbToProduct — a peça sem grade com "de/por" na variação única', () => {
+  // A forma do catálogo importado: o "de" mora na variação, e `original_price` é nulo.
+  const PECA_DE_POR = {
+    id: 'p-mc',
+    base_price: 349.9,
+    original_price: null,
+    options: [],
+    product_variants: [
+      { id: 'v-mc', price: 349.9, compare_price: 374, is_active: true, position: 0, option_values: {} },
+    ],
+  }
+
+  it('10%: o menor entre o "por" e o "de" com o desconto — R$ 336,60, "De" R$ 374,00, nunca R$ 314,91', () => {
+    const p = mapDbToProduct({ ...PECA_DE_POR, product_campaigns: marca(10) })
+    expect(p.price).toBe(336.6)
+    expect(p.compare_price).toBe(374)
+    expect(p.price).not.toBe(314.91)
+    expect(p.variants[0].price).toBe(336.6)
+    // O preço de tabela da peça leva o "de" da variação: é dele que a sacola parte.
+    expect(p.campaign?.list_prices).toEqual({
+      price: 349.9,
+      compare_price: 374,
+      variants: { 'v-mc': { price: 349.9, compare_price: 374 } },
+    })
+  })
+
+  it('o par sem "de": R$ 385,00 a 20% continua R$ 308,00', () => {
+    const p = mapDbToProduct({
+      id: 'p-ma',
+      base_price: 385,
+      original_price: null,
+      options: [],
+      product_variants: [{ id: 'v-ma', price: 385, compare_price: null, is_active: true, position: 0, option_values: {} }],
+      product_campaigns: marca(20),
+    })
+    expect(p.price).toBe(308)
+    expect(p.compare_price).toBe(385)
+  })
+
+  it('sem campanha, o "de" da peça continua o que o banco tem', () => {
+    const p = mapDbToProduct({ ...PECA_DE_POR, product_campaigns: [] })
+    expect(p.price).toBe(349.9)
+    expect(p.compare_price).toBeNull()
+  })
+})

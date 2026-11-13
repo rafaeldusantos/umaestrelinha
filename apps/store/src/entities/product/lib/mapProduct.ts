@@ -16,7 +16,7 @@ import { normalizeImages, primaryImage } from '@estrelinha/core/media'
 import { normalizeCategoryLinks, normalizeOptions, normalizeVariants, toStockPolicy } from '@estrelinha/core/product'
 import { toMaterialKinds } from '@estrelinha/core/material'
 import type { OptionMark } from '@estrelinha/core/filters'
-import { campaignUnitPrice } from '@estrelinha/core/campaigns'
+import { campaignUnitPrice, pieceComparePrice } from '@estrelinha/core/campaigns'
 import type { Product, ProductCampaign, ProductVariant } from '@estrelinha/supabase/types'
 
 /**
@@ -243,12 +243,14 @@ const withCampaign = (product: Product, campaign: CampaignMark | null): Product 
   for (const v of product.variants) {
     if (v.price !== null) listVariants[v.id] = { price: v.price, compare_price: v.compare_price }
   }
+  // O "de" da peça sem grade mora na variação única (`pieceComparePrice`, o mesmo das functions):
+  // sem ele a campanha descontaria sobre o "por" e somaria os dois descontos.
   const list_prices: ProductCampaign['list_prices'] = {
     price: product.price,
-    compare_price: product.compare_price,
+    compare_price: pieceComparePrice(product.price, product.compare_price, product.variants),
     variants: listVariants,
   }
-  const daPeca = campaignUnitPrice(product.price, product.compare_price, campaign.percent)
+  const daPeca = campaignUnitPrice(product.price, list_prices.compare_price, campaign.percent)
   let baixou = daPeca.discounted
   const variants = product.variants.map((v): ProductVariant => {
     if (v.price === null) return v

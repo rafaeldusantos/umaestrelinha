@@ -178,4 +178,27 @@ describe('create-order — a campanha que o servidor resolveu', () => {
     expect(itens[0]).toMatchObject({ campaign_percent: 30, compare_unit_price: 250 })
     expect((gravado(supabase, 'orders') as Record<string, unknown>).campaign_discount).toBe(24.9)
   })
+  it('a peça sem grade com o "de" na variação única: o cheio é o "de" dela (R$ 374,00), nunca o "por"', async () => {
+    const supabase = createFakeSupabase({
+      rpcByFn: { account_exists: { data: false } },
+      rows: { orders: null, customers: { id: 'cus-1' } },
+      inserted: { orders: { id: 'ord-1' } },
+      createdUser: { id: 'usr-1' },
+      lists: {
+        campaigns: [BLACK],
+        product_campaigns: [{ product_id: PECA, percent: 10 }],
+        // A forma do catálogo importado: `original_price` nulo, o "de/por" na variação única.
+        products: [{ id: PECA, base_price: 349.9, original_price: null }],
+        product_variants: [{ id: 'var-mc', product_id: PECA, price: 349.9, compare_price: 374 }],
+      },
+    })
+    // min(349,90; 374,00 × 0,9 = 336,60) = 336,60.
+    const body = { ...PEDIDO, items: [item({ unit_price: 336.6, full_unit_price: 349.9, campaign_percent: 10 })] }
+    const res = await route(deps(supabase, DENTRO), pedir(body))
+    expect(res.status).toBe(200)
+    const itens = gravado(supabase, 'order_items') as Record<string, unknown>[]
+    expect(itens[0]).toMatchObject({ campaign_percent: 10, compare_unit_price: 374 })
+    // 349,90 − 336,60 = 13,30 — nunca os 34,99 do desconto sobre o "por".
+    expect((gravado(supabase, 'orders') as Record<string, unknown>).campaign_discount).toBe(13.3)
+  })
 })

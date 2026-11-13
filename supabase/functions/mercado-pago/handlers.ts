@@ -15,6 +15,7 @@ import {
 // O pedido mínimo do cupom é conferido sobre as linhas que entram na base dele (sem as peças de
 // campanha) — a mesma regra que a loja chama.
 import { couponRefusal } from "../../../packages/core/src/coupons/rules.ts"
+import { pieceComparePrice, type VariantListPrice } from "../../../packages/core/src/campaigns/price.ts"
 // A linha mista (unidades com e sem o desconto casado) chega como duas linhas; o recálculo as
 // junta de volta antes, e lê a configuração do Compre Junto do banco pela MESMA leitura da sacola.
 import { joinOrderRows } from "../../../packages/core/src/payment/orderLines.ts"
@@ -563,6 +564,28 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     }
   }
 
+  // O "de" da peça sem grade mora na variação única (`pieceComparePrice`): as variações de cada
+  // peça de campanha comprada sem variação escolhida.
+  const variantsOfPiece = new Map<string, VariantListPrice[]>()
+  const piecesWithCampaign = [
+    ...new Set(
+      rows
+        .filter((i) => i.campaign_percent !== null && i.campaign_percent !== undefined && i.price_source !== "variant")
+        .map((i) => String(i.product_id))
+        .filter((id: string) => UUID_RE.test(id)),
+    ),
+  ]
+  if (piecesWithCampaign.length) {
+    const { data: variantsOfPieces } = await supabase
+      .from("product_variants")
+      .select("product_id, price, compare_price")
+      .in("product_id", piecesWithCampaign)
+    for (const v of variantsOfPieces || []) {
+      const key = String(v.product_id)
+      variantsOfPiece.set(key, [...(variantsOfPiece.get(key) ?? []), { price: numOrNull(v.price), compare_price: numOrNull(v.compare_price) }])
+    }
+  }
+
   const variantIds = [
     ...new Set(rows.map((i) => i.variant_id).filter((id: unknown): id is string => !!id)),
   ]
@@ -591,9 +614,12 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     if (i.campaign_percent === null || i.campaign_percent === undefined || !(percent > 0)) return null
     const viaVariacao =
       i.price_source === "variant" && variantId !== null && variantById.get(variantId)?.price != null
+    const base = basePriceByProductId.get(productId)
     const compare = viaVariacao
       ? comparePriceByVariantId.get(variantId as string) ?? null
-      : comparePriceByProductId.get(productId) ?? null
+      : base === undefined
+      ? comparePriceByProductId.get(productId) ?? null
+      : pieceComparePrice(base, comparePriceByProductId.get(productId) ?? null, variantsOfPiece.get(productId) ?? [])
     return { percent, compare_price: compare }
   }
 

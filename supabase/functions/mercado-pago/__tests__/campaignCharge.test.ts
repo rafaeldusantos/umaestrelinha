@@ -62,6 +62,8 @@ interface Cenario {
   linhas?: unknown[]
   cupom?: Record<string, unknown> | null
   travado?: Record<string, unknown> | null
+  produtos?: unknown[]
+  variacoes?: unknown[]
 }
 
 const montar = (c: Cenario = {}) => {
@@ -92,10 +94,11 @@ const montar = (c: Cenario = {}) => {
     },
     lists: {
       order_items: c.linhas ?? LINHAS,
-      products: [
+      products: c.produtos ?? [
         { id: PECA, base_price: 209.9, original_price: null },
         { id: COMUM, base_price: 100, original_price: null },
       ],
+      product_variants: c.variacoes ?? [],
       product_buy_together: [],
     },
   })
@@ -142,6 +145,22 @@ describe('create-payment — a campanha gravada na linha', () => {
     expect(cobrado(e)).toBe('335.84')
     const atualizada = e.supabase.updates.find((u) => u.table === 'order_items')
     expect(atualizada?.values).toEqual({ quantity: 2 })
+  })
+
+  it('a peça sem grade com o "de" na variação única: cobra 336,60 (o "de" R$ 374,00 com 10%), nunca 314,91', async () => {
+    // A forma do catálogo importado: `original_price` nulo, o "de/por" na variação única.
+    const e = montar({
+      linhas: [
+        linha({ id: 'oi-1', quantity: 1, unit_price: 336.6, full_unit_price: 349.9, campaign_id: 'camp-black', campaign_percent: 10, compare_unit_price: 374 }),
+      ],
+      order: { total: 336.6, campaign_discount: 13.3 },
+      produtos: [{ id: PECA, base_price: 349.9, original_price: null }],
+      variacoes: [{ id: 'var-mc', product_id: PECA, price: 349.9, compare_price: 374 }],
+    })
+    const res = await createPayment(e.deps, request(), pix)
+    expect(res.status).toBe(200)
+    expect(cobrado(e)).toBe('336.60')
+    expect(gravacaoDoPedido(e)).toMatchObject({ subtotal: 336.6, campaign_discount: 13.3 })
   })
 
   it('teto com o desconto de campanha: recalculado menor que o gravado ⇒ 422 antes de cobrar', async () => {

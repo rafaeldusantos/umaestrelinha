@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campaignUnitPrice, percentOffCents } from '../index.ts'
+import { campaignUnitPrice, percentOffCents, pieceComparePrice } from '../index.ts'
 
 describe('campaignUnitPrice — centavos inteiros, meio centavo para cima, por unidade', () => {
   it('20% sobre R$ 209,90 = R$ 167,92', () => {
@@ -48,5 +48,46 @@ describe('campaignUnitPrice — centavos inteiros, meio centavo para cima, por u
   it('por unidade antes da quantidade: 3 × R$ 169,92 = R$ 509,76 (nunca 3 × 199,90 × 0,85 = 509,745)', () => {
     const unidade = campaignUnitPrice(199.9, null, 15).charged
     expect(Math.round(unidade * 100) * 3).toBe(50976)
+  })
+})
+
+describe('pieceComparePrice — o "de" da peça sem grade mora na variação única', () => {
+  it('peça de uma variação: o "de" dela vale (R$ 374,00), e 10% dá R$ 336,60 — nunca R$ 314,91', () => {
+    const de = pieceComparePrice(349.9, null, [{ price: 349.9, compare_price: 374 }])
+    expect(de).toBe(374)
+    expect(campaignUnitPrice(349.9, de, 10)).toEqual({ charged: 336.6, full: 374, discounted: true })
+  })
+
+  it('sem "de" em lugar nenhum: o da peça (nulo), e 20% sobre R$ 385,00 dá R$ 308,00', () => {
+    const de = pieceComparePrice(385, null, [{ price: 385, compare_price: null }])
+    expect(de).toBeNull()
+    expect(campaignUnitPrice(385, de, 20).charged).toBe(308)
+  })
+
+  it('vale o maior entre o "de" da peça e o da variação', () => {
+    expect(pieceComparePrice(100, 130, [{ price: 100, compare_price: 120 }])).toBe(130)
+    expect(pieceComparePrice(100, 110, [{ price: 100, compare_price: 120 }])).toBe(120)
+  })
+
+  it('o valor numérico em texto (como o banco pode devolver) também é lido', () => {
+    expect(pieceComparePrice(349.9, null, [{ price: '349.90', compare_price: '374.00' }])).toBe(374)
+  })
+
+  it('variação com OUTRO preço não empresta o "de" à peça', () => {
+    expect(pieceComparePrice(349.9, null, [{ price: 300, compare_price: 374 }])).toBeNull()
+  })
+
+  it('peça com grade (mais de uma variação) fica com o "de" dela', () => {
+    expect(
+      pieceComparePrice(349.9, null, [
+        { price: 349.9, compare_price: 374 },
+        { price: 349.9, compare_price: 380 },
+      ]),
+    ).toBeNull()
+  })
+
+  it('sem variação, ou com a lista ausente, fica o "de" da peça', () => {
+    expect(pieceComparePrice(100, 120, [])).toBe(120)
+    expect(pieceComparePrice(100, null, null)).toBeNull()
   })
 })

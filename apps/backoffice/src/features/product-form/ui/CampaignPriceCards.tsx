@@ -14,6 +14,7 @@ import {
   campaignStatus,
   campaignUnitPrice,
   lastMinuteOf,
+  pieceComparePrice,
 } from '@estrelinha/core/campaigns'
 import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 import { cn } from '@estrelinha/ui/lib/utils'
@@ -59,7 +60,9 @@ interface CardProps extends PriceSource {
 
 const CampaignPriceCard = ({ campaign, percent, now, onChange, price, compare_price, options, variants }: CardProps) => {
   const escolhas: (number | null)[] = [null, ...campaign.percents]
-  const base = campaignUnitPrice(price, compare_price, percent)
+  // O "de" da peça sem grade mora na variação única: o mesmo `pieceComparePrice` da loja e das
+  // functions, senão o topo descontaria sobre o "por" e discordaria da tabela logo abaixo.
+  const base = campaignUnitPrice(price, pieceComparePrice(price, compare_price, variants), percent)
   // As variações que a loja vende: ativas e com preço. Cada uma sobre o próprio preço.
   const vendaveis = variants.filter(v => v.is_active && v.price !== null && v.price !== undefined)
 

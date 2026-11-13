@@ -357,6 +357,26 @@ describe('a prévia do preço com a campanha', () => {
     expect(linhasDaTabela('Black Friday')).toEqual([['Prata', 'R$ 259,90', 'R$ 233,91']])
   })
 
+  it('peça sem grade com "de" R$ 374,00 na variação: o topo e a tabela dão R$ 336,60, nunca R$ 314,91', async () => {
+    // A forma do catálogo importado: o "de" mora na variação única, e `original_price` é nulo.
+    h.produto = {
+      ...h.produto,
+      base_price: 349.9,
+      original_price: null,
+      options: [],
+      product_variants: [{ ...variacao('v1', 'Prata', 349.9, { compare_price: 374 }), option_values: {} }],
+    }
+    montar()
+    await abrirPrecos()
+    await escolher('Black Friday', '10%')
+
+    const previa = screen.getByTestId('previa-da-campanha')
+    expect(within(previa).getByText('R$ 374,00').tagName).toBe('S')
+    expect(within(previa).getByText('R$ 336,60')).toBeInTheDocument()
+    expect(within(previa).queryByText('R$ 314,91')).toBeNull()
+    expect(linhasDaTabela('Black Friday')).toEqual([['Variação 1', 'R$ 374,00', 'R$ 336,60']])
+  })
+
   it('cada opção de percentual tem alvo de 44 px e pelo menos 64 px de largura, com o número em negrito', async () => {
     montar()
     await abrirPrecos()

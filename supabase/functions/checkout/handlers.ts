@@ -42,7 +42,7 @@ import {
   marksFromColumns,
   orderItemMarks,
 } from '../../../packages/core/src/buy-together/marks.ts'
-import { campaignUnitPrice, toCents } from '../../../packages/core/src/campaigns/price.ts'
+import { campaignUnitPrice, pieceComparePrice, toCents } from '../../../packages/core/src/campaigns/price.ts'
 import { corsHeaders, json, preflight } from '../_shared/http.ts'
 import { liveCampaignMarks } from '../_shared/campaigns.ts'
 import { clientIp, createRateLimiter, type RateLimiter } from '../_shared/rateLimit.ts'
@@ -440,7 +440,12 @@ export async function campanhaDoPedido(
     'id, price, compare_price',
     [...new Set(itens.map((item) => item?.variant_id).filter((id: unknown): id is string => typeof id === 'string' && id !== ''))],
   )
-  if (produtos.error || variacoes.error) {
+  // As variações de cada peça: o "de" da peça sem grade mora na variação única (`pieceComparePrice`).
+  const daPeca = await deps.supabase
+    .from('product_variants')
+    .select('product_id, price, compare_price')
+    .in('product_id', [...new Set(ids)])
+  if (produtos.error || variacoes.error || daPeca.error) {
     return { erro: 'precos', recusa: false, linhas: [], desconto: 0 }
   }
   const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
@@ -448,6 +453,13 @@ export async function campanhaDoPedido(
   const produtoPorId = new Map((produtos.data ?? []).map((p: any) => [String(p.id), p]))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const variacaoPorId = new Map((variacoes.data ?? []).map((v: any) => [String(v.id), v]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const variacoesDaPeca = new Map<string, any[]>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const v of (daPeca.data ?? []) as any[]) {
+    const chave = String(v?.product_id)
+    variacoesDaPeca.set(chave, [...(variacoesDaPeca.get(chave) ?? []), v])
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tabelaDe = (item: any): PrecoDeTabela | null => {
@@ -459,7 +471,11 @@ export async function campanhaDoPedido(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const produto: any = produtoPorId.get(String(item?.product_id))
     if (!produto || num(produto.base_price) === null) return null
-    return { price: Number(produto.base_price), compare: num(produto.original_price) }
+    const preco = Number(produto.base_price)
+    return {
+      price: preco,
+      compare: pieceComparePrice(preco, num(produto.original_price), variacoesDaPeca.get(String(item?.product_id)) ?? []),
+    }
   }
 
   let recusa = false

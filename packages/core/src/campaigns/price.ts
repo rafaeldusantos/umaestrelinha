@@ -54,3 +54,40 @@ export function campaignUnitPrice(
   const cobrado = comCampanha < hoje ? comCampanha : hoje
   return { charged: fromCents(cobrado), full: fromCents(cheio), discounted: cobrado < hoje }
 }
+
+/** A linha de variação como o "de" da peça a lê (do banco ou já mapeada). */
+export interface VariantListPrice {
+  price?: number | string | null
+  compare_price?: number | string | null
+}
+
+const reaisOuNulo = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * O "de" da PEÇA — a linha comprada sem variação escolhida (a peça sem grade).
+ *
+ * O "de/por" do catálogo mora na VARIAÇÃO: o import grava o `compare_at_price` nela, e nenhum
+ * `products.original_price` do banco é maior que o preço. A peça sem grade tem uma variação só,
+ * com o mesmo preço da peça — e o "de" dela é o "de" da peça, o mesmo que o feed anuncia. Sem isso,
+ * a campanha descontaria sobre o "por" e somaria os dois descontos.
+ *
+ * Vale o maior entre o "de" da peça e o da variação única, só quando ela tem o MESMO preço da peça
+ * (em centavos). Com grade (mais de uma variação), ou variação de outro preço, fica o da peça.
+ * Quem lê: o mapeador da loja, o cartão da campanha no painel e as functions que cobram.
+ */
+export function pieceComparePrice(
+  price: number,
+  comparePrice: number | null | undefined,
+  variants: readonly VariantListPrice[] | null | undefined,
+): number | null {
+  const daPeca = reaisOuNulo(comparePrice)
+  if (!variants || variants.length !== 1) return daPeca
+  const preco = reaisOuNulo(variants[0].price)
+  const deVariacao = reaisOuNulo(variants[0].compare_price)
+  if (preco === null || deVariacao === null || toCents(preco) !== toCents(price)) return daPeca
+  return daPeca === null || toCents(deVariacao) > toCents(daPeca) ? deVariacao : daPeca
+}
