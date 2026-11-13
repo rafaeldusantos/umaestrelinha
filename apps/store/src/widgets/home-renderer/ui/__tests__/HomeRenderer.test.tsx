@@ -14,10 +14,18 @@ import { HOME_SECTION_RENDERERS } from '../sectionRenderers'
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const { categorias, produtos, escolhidos } = vi.hoisted(() => ({
+const { categorias, produtos, escolhidos, campanhaViva } = vi.hoisted(() => ({
   categorias: { data: [] as any[] },
   produtos: { data: [] as any[] },
   escolhidos: { porId: {} as Record<string, any> },
+  campanhaViva: { data: null as any },
+}))
+
+vi.mock('@/entities/campaign', () => ({
+  useLiveCampaign: () => ({ data: campanhaViva.data, isLoading: false, isError: false }),
+}))
+vi.mock('@/widgets/campaign-offers/model/useCampaignOfferProducts', () => ({
+  useCampaignOfferProducts: () => ({ data: [], isLoading: false, isError: false }),
 }))
 
 vi.mock('@/entities/category', () => ({ useCategories: () => categorias }))
@@ -96,6 +104,39 @@ describe('HomeRenderer — o registro tipo → componente', () => {
         .filter(([, renderer]) => renderer === null)
         .map(([tipo]) => tipo),
     ).toEqual([])
+  })
+
+  it('Joias em oferta tem desenho, e a Home o desenha só com campanha em vigência', () => {
+    expect(HOME_SECTION_RENDERERS.campaign_offers).not.toBeNull()
+    const ofertas: HomeSection = {
+      id: 'ofertas',
+      type: 'campaign_offers',
+      position: 2,
+      active: true,
+      config: {},
+    }
+
+    campanhaViva.data = {
+      id: 'camp-maes',
+      name: 'Dia das Mães',
+      badge_text: 'DIA DAS MÃES',
+      band_color: '#23303A',
+      accent_color: '#F7F3EC',
+      ends_at: '2026-05-11T03:00:00Z',
+      percents: [10, 20],
+    }
+    const { unmount } = renderHome([secao('hero', { position: 1 }), ofertas])
+    expect(screen.getByRole('heading', { level: 2, name: 'Dia das Mães' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver as peças com 20% de desconto' })).toHaveAttribute(
+      'href',
+      '/ofertas?percentual=20',
+    )
+    unmount()
+
+    campanhaViva.data = null
+    renderHome([secao('hero', { position: 1 }), ofertas])
+    expect(screen.queryByTestId('joias-em-oferta')).toBeNull()
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
   })
 
   it('Produtos em destaque GANHOU desenho na feature 50 (DST-04)', () => {

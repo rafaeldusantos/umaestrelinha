@@ -10,6 +10,7 @@ import { FeaturedProducts } from '@/widgets/featured-products'
 import { HomeCollections } from '@/widgets/home-collections'
 import { CollectionFeature } from '@/widgets/collection-feature'
 import { CategoryList } from '@/widgets/category-list'
+import { CampaignOffers } from '@/widgets/campaign-offers'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
 
 /**
@@ -79,4 +80,7 @@ export const HOME_SECTION_RENDERERS: Record<
   // com trilho vazio seria uma vaga de altura reservada mostrando nada.
   hero_carousel: ({ section, items }) =>
     items.length ? <HeroCarousel section={section} items={items} /> : null,
+  // Joias em oferta: sem campo nem item — o que ele mostra vem da campanha em vigência, e
+  // sem campanha ele mesmo não desenha nada.
+  campaign_offers: () => <CampaignOffers />,
 }

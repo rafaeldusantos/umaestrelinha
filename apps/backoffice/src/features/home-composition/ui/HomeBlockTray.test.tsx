@@ -68,7 +68,7 @@ describe('HomeBlockTray — os tipos de P3 ganharam tela (emenda E3, features 50
     montar()
     const blocos = screen.getAllByTestId(/^bloco-/)
     // Âncora: a varredura alcançou o catálogo inteiro, senão a ausência abaixo seria vazia.
-    expect(blocos).toHaveLength(11)
+    expect(blocos).toHaveLength(12)
     for (const b of blocos) expect(b).not.toHaveTextContent('em breve')
     expect(screen.queryByTitle('Este bloco ainda não existe na loja.')).toBeNull()
   })
@@ -174,9 +174,9 @@ describe('HomeBlockTray — o teto de 30 (edge case da spec)', () => {
 })
 
 describe('HomeBlockTray — a bandeja mostra o catálogo inteiro', () => {
-  it('oferece os onze tipos, e nenhum deles é contagem regressiva ou prova social', () => {
+  it('oferece os doze tipos, e nenhum deles é contagem regressiva ou prova social', () => {
     montar()
-    expect(screen.getAllByTestId(/^bloco-/)).toHaveLength(11)
+    expect(screen.getAllByTestId(/^bloco-/)).toHaveLength(12)
     const ids = screen.getAllByTestId(/^bloco-/).map(b => b.getAttribute('data-testid'))
     expect(ids.some(id => /countdown|social|proof|depoiment/i.test(id ?? ''))).toBe(false)
   })
@@ -190,6 +190,33 @@ describe('HomeBlockTray — a bandeja mostra o catálogo inteiro', () => {
     expect(bloco).toHaveTextContent('Banner principal')
     expect(bloco).not.toHaveTextContent('em breve')
     expect(bloco).not.toBeDisabled()
+  })
+
+  it('oferece Joias em oferta, e acrescentá-lo funciona', () => {
+    const onAdd = montar()
+    const ofertas = bloco('campaign_offers')
+
+    expect(ofertas).toHaveTextContent('Joias em oferta')
+    expect(ofertas).not.toHaveTextContent('em breve')
+    expect(ofertas).not.toBeDisabled()
+    fireEvent.click(ofertas)
+    expect(onAdd).toHaveBeenCalledWith('campaign_offers')
+  })
+
+  it('Joias em oferta é ÚNICO: já na Home, a bandeja diz isso e não acrescenta outro', () => {
+    const naHome: HomeSection = {
+      id: 'ofertas',
+      type: 'campaign_offers',
+      position: 8,
+      active: false,
+      config: {},
+    }
+    const onAdd = montar([...DEFAULT_HOME_COMPOSITION, naHome])
+
+    expect(bloco('campaign_offers')).toBeDisabled()
+    expect(screen.getByTestId('motivo-campaign_offers')).toHaveTextContent('já está na Home')
+    fireEvent.click(bloco('campaign_offers'))
+    expect(onAdd).not.toHaveBeenCalled()
   })
 
   it('diz que a seção nova nasce desligada (HOME-10)', () => {

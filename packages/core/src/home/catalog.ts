@@ -20,6 +20,7 @@ export const HOME_SECTION_TYPES: readonly HomeSectionType[] = [
   'product_carousel',
   'category_grid',
   'hero_carousel',
+  'campaign_offers',
 ]
 
 /**
@@ -40,6 +41,9 @@ export const UNIQUE_SECTION_TYPES: readonly HomeSectionType[] = [
   'brand_statement',
   'trending_tags',
   'newsletter',
+  // Os percentuais e as peças vêm da campanha em vigência, que é uma só: um segundo bloco seria a
+  // mesma vitrine repetida na mesma página.
+  'campaign_offers',
 ]
 
 /**
@@ -108,6 +112,7 @@ const LABELS: Record<HomeSectionType, string> = {
   // hero) nem com "Grade de banners" — três blocos com nome parecido é como a curadoria erra de
   // seção sem perceber.
   hero_carousel: 'Banner principal',
+  campaign_offers: 'Joias em oferta',
 }
 
 /**

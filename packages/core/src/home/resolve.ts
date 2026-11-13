@@ -120,6 +120,8 @@ const EMPTY_SOURCE_REASON: Record<HomeSectionType, string> = {
   // motivo fala da escolha que falta (LCT-24).
   category_grid: 'Não vai aparecer: nenhuma categoria escolhida.',
   hero_carousel: 'Não vai aparecer: nenhum banner enviado.',
+  // Não tem fonte de itens: o que ele mostra vem da campanha em vigência, lida pela loja.
+  campaign_offers: '',
 }
 
 const DESLIGADA = 'Desligada: não aparece na loja.'

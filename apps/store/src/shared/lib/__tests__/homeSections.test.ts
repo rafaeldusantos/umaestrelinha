@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -62,6 +62,34 @@ const MIGRATION_41 = join(ROOT, 'supabase/migrations/20260906120000_41-banner-pr
 const SQL_41 = readFileSync(MIGRATION_41, 'utf8')
 
 const LIMPO_41 = semComentarios(SQL_41)
+
+/**
+ * A migration do bloco "Joias em oferta". Ela recria, pela ordem de `db push`, as DUAS
+ * listas de tipos: o `check (type in …)` (com `campaign_offers`) e o índice único parcial (o tipo é
+ * único na Home). As duas passam a ser medidas aqui; continuar lendo a 41 e a 24 faria este guarda
+ * comparar o catálogo com listas que o banco já não tem.
+ */
+const MIGRATION_OFERTAS = join(ROOT, 'supabase/migrations/20261130140000_102-joias-em-oferta-na-home.sql')
+
+const SQL_OFERTAS = readFileSync(MIGRATION_OFERTAS, 'utf8')
+
+const LIMPO_OFERTAS = semComentarios(SQL_OFERTAS)
+
+/** Todas as migrations, na ordem em que o `db push` as aplica (prefixo numérico). */
+const PASTA_DE_MIGRATIONS = join(ROOT, 'supabase/migrations')
+const TODAS_AS_MIGRATIONS = readdirSync(PASTA_DE_MIGRATIONS)
+  .filter(nome => nome.endsWith('.sql'))
+  .sort()
+
+/** A última migration (por ordem de aplicação) cujo código — sem comentário — contém `trecho`. */
+const ultimaQueDefine = (trecho: string): string | null => {
+  let ultima: string | null = null
+  for (const nome of TODAS_AS_MIGRATIONS) {
+    const limpo = semComentarios(readFileSync(join(PASTA_DE_MIGRATIONS, nome), 'utf8'))
+    if (limpo.includes(trecho)) ultima = nome
+  }
+  return ultima
+}
 
 // ---------------------------------------------------------------------------
 // Parsers
@@ -147,9 +175,9 @@ const policiesDaHome = (fonte: string): Policy[] => {
   }))
 }
 
-/** Do arquivo da **41**, que é quem recria a constraint por último. Ver `MIGRATION_41`. */
-const TIPOS_DO_CHECK = tiposDoCheck(LIMPO_41)
-const TIPOS_UNICOS_DO_INDICE = tiposUnicosDoIndice(LIMPO)
+/** Do arquivo do bloco **Joias em oferta**, que recria as duas listas por último. Ver `MIGRATION_OFERTAS`. */
+const TIPOS_DO_CHECK = tiposDoCheck(LIMPO_OFERTAS)
+const TIPOS_UNICOS_DO_INDICE = tiposUnicosDoIndice(LIMPO_OFERTAS)
 const SEMENTE = sementeDoSql(LIMPO)
 const FKS = acoesDeFk(LIMPO)
 const POLICIES = policiesDaHome(LIMPO)
@@ -165,14 +193,41 @@ describe('âncora da leitura da migration da Home', () => {
     expect(SQL).toContain('create table if not exists public.home_section_items')
   })
 
-  it('extraiu os 11 tipos do `check` vigente, e não uma lista vazia', () => {
-    // O `check` vigente é o da migration da **41**, que o recriou com `hero_carousel`. Ver
-    // `MIGRATION_41`: `db push` aplica em ordem, e a última definição é a que o banco tem.
-    expect(TIPOS_DO_CHECK).toHaveLength(11)
+  it('extraiu os 12 tipos do `check` vigente, e não uma lista vazia', () => {
+    // O `check` vigente é o da migration do bloco **Joias em oferta**, que o recriou com `campaign_offers`. Ver
+    // `MIGRATION_OFERTAS`: `db push` aplica em ordem, e a última definição é a que o banco tem.
+    expect(TIPOS_DO_CHECK).toHaveLength(12)
   })
 
-  it('extraiu os 6 tipos do índice único parcial', () => {
-    expect(TIPOS_UNICOS_DO_INDICE).toHaveLength(6)
+  it('extraiu os 7 tipos do índice único parcial vigente', () => {
+    expect(TIPOS_UNICOS_DO_INDICE).toHaveLength(7)
+  })
+
+  it('o `check` e o índice VIGENTES são os da migration do bloco Joias em oferta — a última que os define', () => {
+    // Sem esta asserção, uma migration posterior que recriasse a constraint deixaria este guarda
+    // medindo uma lista que o banco já não tem, com a suíte verde.
+    expect(TODAS_AS_MIGRATIONS.length).toBeGreaterThan(70)
+    expect(ultimaQueDefine('add constraint home_sections_type_check')).toBe(
+      '20261130140000_102-joias-em-oferta-na-home.sql',
+    )
+    expect(ultimaQueDefine('create unique index if not exists home_sections_unique_types_idx')).toBe(
+      '20261130140000_102-joias-em-oferta-na-home.sql',
+    )
+    // E a recriação derruba antes de criar: `if not exists` sobre o índice da 24 não mudaria nada.
+    expect(LIMPO_OFERTAS).toContain('drop constraint if exists home_sections_type_check')
+    expect(LIMPO_OFERTAS).toContain('drop index if exists public.home_sections_unique_types_idx')
+    expect(LIMPO_OFERTAS.indexOf('drop index if exists public.home_sections_unique_types_idx')).toBeLessThan(
+      LIMPO_OFERTAS.indexOf('create unique index if not exists home_sections_unique_types_idx'),
+    )
+  })
+
+  it('a migration do bloco Joias em oferta não toca dado nem abre escrita a `anon`', () => {
+    // O bloco nasce desligado quando a dona o acrescenta (HOME-10); semear mudaria a Home de quem já
+    // a tem.
+    expect(LIMPO_OFERTAS).not.toMatch(/\binsert\s+into\b/i)
+    expect(LIMPO_OFERTAS).not.toMatch(/\bupdate\s+public\./i)
+    expect(LIMPO_OFERTAS).not.toMatch(/\bdelete\s+from\b/i)
+    expect(LIMPO_OFERTAS).not.toMatch(/\bgrant\b/i)
   })
 
   it('extraiu as 7 linhas da semente', () => {
@@ -238,7 +293,7 @@ describe('catálogo de tipos: TypeScript × migration (HOME-06)', () => {
     expect(TIPOS_DO_CHECK).toContain(tipo)
   })
 
-  it.each(['hero', 'trust_bar', 'banner_grid', 'collection_rows', 'brand_statement', 'trending_tags', 'newsletter', 'collection_feature', 'product_carousel', 'category_grid', 'hero_carousel'])(
+  it.each(['hero', 'trust_bar', 'banner_grid', 'collection_rows', 'brand_statement', 'trending_tags', 'newsletter', 'collection_feature', 'product_carousel', 'category_grid', 'hero_carousel', 'campaign_offers'])(
     'o tipo `%s` do `check` existe em HOME_SECTION_TYPES',
     tipo => {
       expect(HOME_SECTION_TYPES).toContain(tipo as HomeSectionType)
