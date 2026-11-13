@@ -484,3 +484,47 @@ describe('Editar e duplicar (LNK-05, DUP-01)', () => {
     expect(screen.queryByRole('button', { name: 'Salvar alterações' })).toBeNull()
   })
 })
+
+describe('Montar pedido — a peça na campanha de desconto em vigência', () => {
+  // Vigente em qualquer relógio de teste: o painel confere pelo relógio dele.
+  const BLACK_FRIDAY = { id: 'c-bf', name: 'Black Friday', starts_at: '2000-01-01T00:00:00Z', ends_at: '2100-01-01T00:00:00Z', active: true }
+
+  const comCampanha = (campanha: typeof BLACK_FRIDAY) => (r: unknown) => {
+    const reg = r as Registro
+    if (reg.table === 'products') {
+      const id = reg.filters.find((f) => f.method === 'eq')?.args[1]
+      if (id === ANEL_ID) return { data: { ...anel(), product_campaigns: [{ percent: 20, campaigns: campanha }] } }
+    }
+    return respostasPadrao(r)
+  }
+
+  it('a peça marcada entra com o preço da campanha, com o selo, e o total do link é o dela', async () => {
+    estado.responder = comCampanha(BLACK_FRIDAY)
+    montar('/admin/pedidos/montar')
+    await preencherClienteNova()
+    fireEvent.change(screen.getByLabelText('Buscar peça'), { target: { value: 'anel' } })
+    fireEvent.click(await screen.findByText('Anel Simples', { selector: 'button *, button' }))
+    // R$ 90,00 com 20%: R$ 72,00.
+    fireEvent.click(await screen.findByRole('button', { name: /^Acrescentar · R\$\s?72,00$/ }))
+
+    await waitFor(() => expect(screen.getByTestId('resumo-total')).toHaveTextContent(/R\$\s?72,00/))
+    expect(screen.getByTestId('preco-da-linha')).toHaveTextContent(/R\$\s?72,00/)
+    expect(screen.getByTestId('selo-da-campanha')).toHaveTextContent('Black Friday · −20%')
+
+    fireEvent.click(botaoCriar())
+    await waitFor(() => expect(saves()).toHaveLength(1))
+    expect(saves()[0].corpo.expected_total).toBe(72)
+    // A campanha é campo de tela: a function relê a dela pelo relógio dela.
+    expect(Object.keys((saves()[0].corpo.lines as Record<string, unknown>[])[0]).sort()).toEqual(
+      ['engraving_text', 'product_id', 'quantity', 'variant_id'],
+    )
+  })
+
+  it('fora da vigência, a peça entra com o preço de sempre e sem selo', async () => {
+    estado.responder = comCampanha({ ...BLACK_FRIDAY, ends_at: '2001-01-01T00:00:00Z' })
+    montar('/admin/pedidos/montar')
+    await preencherClienteNova()
+    await acrescentarAnel()
+    expect(screen.queryByTestId('selo-da-campanha')).toBeNull()
+  })
+})

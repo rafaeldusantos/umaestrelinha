@@ -12,12 +12,17 @@
 import {
   applyProgressiveDiscount,
   calculateOrderTotals,
+  couponEligibleSubtotal,
+  lineCampaignPercent,
+  resolveOrderLines,
   resolveOrderPricing,
   type CouponRule,
+  type OrderPricingInput,
   type OrderPricingOutcome,
   type OrderTotals,
   type ProgressivePromotion,
 } from '../payment/pricing.ts'
+import { campaignCouponRefusal } from '../coupons/rules.ts'
 import { freeShippingState, type FreeShippingConfig } from '../shipping/freeShipping.ts'
 import {
   MANUAL_PERCENT_MAX,
@@ -73,6 +78,11 @@ export interface ProposalDraftInput<L extends ProposalLine = ProposalLine> {
   coupon: CouponRule | null
   promotions: readonly ProgressivePromotion[]
   manualDiscount: ManualDiscountDraft | null
+  /**
+   * O nome da campanha em vigência com peça na montagem — vai na recusa do cupom de desconto numa
+   * montagem só com peças de campanha. Ausente/`null` sem campanha.
+   */
+  campaignName?: string | null
 }
 
 export interface ProposalDraftPrice<L extends ProposalLine = ProposalLine> {
@@ -82,6 +92,13 @@ export interface ProposalDraftPrice<L extends ProposalLine = ProposalLine> {
   subtotal: number
   /** Quanto a promoção tirou do preço cheio (só para mostrar; já está nos `unit_price`). */
   promotionDiscount: number
+  /** Quanto a campanha tirou do preço de tabela (só para mostrar; já está nos `unit_price`). */
+  campaignDiscount: number
+  /**
+   * A soma de tabela das linhas que entram na base do cupom — sem as peças de campanha
+   * (`couponEligibleSubtotal`). É sobre ela que o pedido mínimo do cupom é conferido.
+   */
+  couponEligibleSubtotal: number
   couponDiscount: number
   /** O cupom entrou no cálculo (venceu, ou acumulou com a promoção)? */
   couponApplied: boolean
@@ -96,13 +113,18 @@ export interface ProposalDraftPrice<L extends ProposalLine = ProposalLine> {
   refusal: string | null
 }
 
-function priceItems(input: ProposalDraftInput, shipping: number): OrderPricingOutcome {
-  return resolveOrderPricing({
-    items: input.lines.map((l) => ({
-      product_id: l.product_id,
-      unit_price: l.list_price,
-      quantity: l.quantity,
-    })),
+/** As linhas na forma de `resolveOrderPricing`: o preço de tabela e, na peça marcada, a campanha. */
+const pricingItems = (lines: readonly ProposalLine[]) =>
+  lines.map((l) => ({
+    product_id: l.product_id,
+    unit_price: l.list_price,
+    quantity: l.quantity,
+    ...(l.campaign ? { campaign: l.campaign } : {}),
+  }))
+
+/** A entrada de `resolveOrderPricing` para a montagem, com o frete dado. */
+const pricedInput = (input: ProposalDraftInput, shipping = 0): OrderPricingInput => ({
+    items: pricingItems(input.lines),
     // O frete ainda não existe — a cliente escolhe no link. Zero é a mesma entrada que a loja usa
     // antes da cotação. Consequência declarada: um cupom de frete grátis que não acumula perde para
     // uma promoção que aplica, como na loja com o frete em zero.
@@ -114,8 +136,10 @@ function priceItems(input: ProposalDraftInput, shipping: number): OrderPricingOu
     manualDiscount: input.manualDiscount
       ? { kind: input.manualDiscount.kind, value: input.manualDiscount.value }
       : null,
-  })
-}
+})
+
+const priceItems = (input: ProposalDraftInput, shipping: number): OrderPricingOutcome =>
+  resolveOrderPricing(pricedInput(input, shipping))
 
 /**
  * MON-08, MON-09, PRC-01, PRC-04, A-12: o preço da montagem. Painel e servidor chamam igual.
@@ -147,11 +171,17 @@ export function priceProposalDraft<L extends ProposalLine>(
     }
   }
 
+  const items = pricingItems(input.lines)
+  const comCampanha = items.some((item) => lineCampaignPercent(item) !== null)
+  const couponBase = input.lines.length > 0 ? couponEligibleSubtotal({ items, promotions: [] }) : 0
+
   if (!outcome) {
     return {
       lockedLines: [],
       subtotal: 0,
       promotionDiscount: 0,
+      campaignDiscount: 0,
+      couponEligibleSubtotal: couponBase,
       couponDiscount: 0,
       couponApplied: false,
       couponFreeShipping: false,
@@ -164,6 +194,10 @@ export function priceProposalDraft<L extends ProposalLine>(
   }
 
   const promotionWon = outcome.winner === 'promotion' || outcome.winner === 'both'
+  // Com peça de campanha, o preço de cada linha é o que `resolveOrderPricing` cobrou no caminho que
+  // venceu (`resolveOrderLines`: sem o desconto casado, uma linha por linha da entrada). Sem ela, o
+  // caminho de antes, intocado.
+  const cobradas = comCampanha ? resolveOrderLines(pricedInput(input), outcome).lines : null
   const charged = promotionWon
     ? applyProgressiveDiscount(
         input.lines.map((l) => ({ product_id: l.product_id, unit_price: l.list_price, quantity: l.quantity })),
@@ -173,7 +207,11 @@ export function priceProposalDraft<L extends ProposalLine>(
 
   const lockedLines = input.lines.map((line, i) => ({
     line,
-    unit_price: charged ? charged[i].unit_price : round2(line.list_price),
+    unit_price: cobradas
+      ? round2(cobradas[i].unitPrice)
+      : charged
+        ? charged[i].unit_price
+        : round2(line.list_price),
   }))
 
   const couponApplied = !!input.coupon && (outcome.winner === 'coupon' || outcome.winner === 'both')
@@ -184,11 +222,19 @@ export function priceProposalDraft<L extends ProposalLine>(
 
   // Se a primeira conta lançou, a segunda deu itens em zero: a mesma régua recusa.
   const totalRefusal = itemsTotal < PROPOSAL_MIN_ITEMS_TOTAL ? PROPOSAL_ZERO_REFUSAL : null
+  // O cupom de desconto não vale em peça de campanha: numa montagem só com elas, ele é recusado com o
+  // nome da campanha (a mesma frase de `couponRefusal`). O de frete grátis continua valendo.
+  const couponCampaignRefusal =
+    input.coupon && input.coupon.type !== 'free_shipping' && comCampanha && couponBase <= 0
+      ? campaignCouponRefusal(input.campaignName || 'campanha')
+      : null
 
   return {
     lockedLines,
     subtotal,
     promotionDiscount: outcome.promotionDiscount,
+    campaignDiscount: outcome.campaignDiscount ?? 0,
+    couponEligibleSubtotal: couponBase,
     couponDiscount,
     couponApplied,
     couponFreeShipping: couponApplied && input.coupon?.type === 'free_shipping',
@@ -196,7 +242,7 @@ export function priceProposalDraft<L extends ProposalLine>(
     itemsTotal: Math.max(0, itemsTotal),
     winner: outcome.winner,
     discarded: outcome.discarded,
-    refusal: linesRefusal ?? manualRefusal ?? totalRefusal,
+    refusal: linesRefusal ?? manualRefusal ?? couponCampaignRefusal ?? totalRefusal,
   }
 }
 

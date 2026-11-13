@@ -41,7 +41,7 @@ import {
   detalheDaLinha,
   prazoDaOpcao,
 } from '../model/revisao'
-import { pecasNaSacola, tituloDaSacola } from '../model/sacola'
+import { pecasNaSacola, precoDaLinha, tituloDaSacola } from '../model/sacola'
 import { useRetiradaDaRevisao } from '../model/useCotacaoDaRevisao'
 import type { ResumoDaMontagemNaTela } from '../model/useResumoDaMontagem'
 
@@ -126,7 +126,7 @@ const PassoRevisar = ({ estado, endereco, resumo, cupom, cotacao, erroDaCriacao,
                 <p className="text-sm font-medium [overflow-wrap:anywhere]">{l.nome}</p>
                 <p className="text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{detalheDaLinha(l)}</p>
               </div>
-              <p className="shrink-0 text-sm tabular-nums">{formatPrice(l.preco * l.quantidade)}</p>
+              <p className="shrink-0 text-sm tabular-nums">{formatPrice(precoDaLinha(l) * l.quantidade)}</p>
             </li>
           ))}
         </ul>

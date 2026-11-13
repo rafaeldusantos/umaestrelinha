@@ -1,3 +1,4 @@
+import { campaignPercentBadge } from '@estrelinha/core/campaigns'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { normalizeEngraving } from '@estrelinha/core/material'
 import { buscarProdutos, type ProdutoDoPool, type ResultadoDaBusca } from '@estrelinha/core/product-search'
@@ -28,10 +29,31 @@ export interface LinhaDaSacola {
   foto: string | null
   /** O preço cheio de uma unidade. */
   preco: number
+  /**
+   * A campanha em vigência na escolha, quando ela baixa o preço: o preço da unidade com ela, o nome e o
+   * percentual. Só exibição — o resumo e o preço travado vêm da function, que relê a campanha.
+   */
+  campanha?: CampanhaDaSacola | null
   pedeMaterial: boolean
   /** As medidas da peça (o peso da variação, quando ela tem), para a prévia do frete; `null` = as padrão. */
   medidas: QuoteDimensions | null
 }
+
+/** A campanha de uma linha da sacola. */
+export interface CampanhaDaSacola {
+  preco: number
+  nome: string
+  percentual: number
+}
+
+/** A campanha em vigência na escolha (a variação, ou a peça sem grade), quando ela baixa o preço; `null` fora dela. */
+export const campanhaDaEscolha = (peca: PecaParaProposta, variacao: VariacaoDaPeca | null): CampanhaDaSacola | null => {
+  const linha = variacao ? variacao.campanha : peca.variacoes.length === 0 ? peca.campanhaBase : null
+  return linha && peca.campanha ? { preco: linha.preco, nome: peca.campanha.nome, percentual: linha.percent } : null
+}
+
+/** O preço de uma unidade da linha que a sacola mostra: o da campanha, quando há; senão o cheio. */
+export const precoDaLinha = (l: Pick<LinhaDaSacola, 'preco' | 'campanha'>): number => (l.campanha ? l.campanha.preco : l.preco)
 
 /** A variação de uma peça pelo id, ou `null` (peça sem grade, ou id que saiu do catálogo). */
 export const variacaoDe = (peca: PecaParaProposta, variacaoId: string | null): VariacaoDaPeca | null =>
@@ -93,6 +115,7 @@ export const linhaDaEscolha = (
   rotulo: variacao ? variacao.rotulo : null,
   foto: variacao ? variacao.imagem : peca.imagem,
   preco: precoDaEscolha(peca, variacao) ?? 0,
+  campanha: campanhaDaEscolha(peca, variacao),
   pedeMaterial: peca.pedeMaterial,
   medidas: { ...peca.medidas, weight_kg: variacao?.peso ?? peca.medidas.weight_kg },
 })
@@ -113,6 +136,7 @@ export const linhaRelida = (l: LinhaDaSacola, catalogo: readonly PecaParaPropost
     rotulo: variacao ? variacao.rotulo : l.rotulo,
     foto: variacao ? variacao.imagem : peca.imagem,
     preco: preco ?? l.preco,
+    campanha: preco === null ? (l.campanha ?? null) : campanhaDaEscolha(peca, variacao),
     medidas: { ...peca.medidas, weight_kg: variacao?.peso ?? peca.medidas.weight_kg },
   }
 }
@@ -134,7 +158,11 @@ export const buscarPecas = (catalogo: readonly PecaParaProposta[], termo: string
  */
 export const resumoDaPeca = (peca: PecaParaProposta): string => {
   const variacoes = peca.variacoes
-  const precos = variacoes.length === 0 ? [peca.precoBase] : variacoes.map((v) => v.preco).filter((p): p is number => p !== null)
+  // O preço que a montagem cobra: o da campanha, na linha em que ela vale.
+  const precos =
+    variacoes.length === 0
+      ? [peca.campanhaBase ? peca.campanhaBase.preco : peca.precoBase]
+      : variacoes.map((v) => (v.campanha ? v.campanha.preco : v.preco)).filter((p): p is number => p !== null)
   const partes: string[] = []
   if (precos.length > 0) partes.push(`${variacoes.length > 1 ? 'a partir de ' : ''}${formatPrice(Math.min(...precos))}`)
   if (peca.politica === 'track') {
@@ -190,5 +218,7 @@ export const CARREGANDO_O_CATALOGO = 'Carregando as joias'
 const porcentagem = (n: number): string => `${String(n).replace('.', ',')}%`
 /** A promoção na folha da variação: "Promoção de outubro · 15% nesta peça". */
 export const promocaoNestaPeca = (p: { name: string; percent: number }): string => `${p.name} · ${porcentagem(p.percent)} nesta peça`
+/** A etiqueta da campanha na peça: "Black Friday · −20%". */
+export const etiquetaDaCampanha = (c: Pick<CampanhaDaSacola, 'nome' | 'percentual'>): string => `${c.nome} · ${campaignPercentBadge(c.percentual)}`
 /** A etiqueta da promoção na linha da sacola: "Promoção de outubro · 15%". */
 export const etiquetaDaPromocao = (p: { name: string; percent: number }): string => `${p.name} · ${porcentagem(p.percent)}`

@@ -462,3 +462,38 @@ describe('passo 2 · a folha da variação segue o protótipo', () => {
     expect(within(folha()).queryByText(/Só há/)).not.toBeInTheDocument()
   })
 })
+
+describe('passo 2 · a peça na campanha de desconto em vigência', () => {
+  // Em vigência no instante do BANCO (`AGORA`, 07/11 12:00), e não no relógio do aparelho: a janela
+  // acaba em 08/11, antes do dia em que esta suíte roda.
+  const BLACK_FRIDAY = { id: 'c-bf', name: 'Black Friday', starts_at: '2026-11-06T03:00:00Z', ends_at: '2026-11-08T03:00:00Z', active: true }
+  const comCampanha = (campanha: typeof BLACK_FRIDAY) =>
+    PECAS.map((p) => ((p as { id?: string }).id === ID_COLAR ? { ...p, product_campaigns: [{ percent: 20, campaigns: campanha }] } : p))
+
+  it('a peça marcada mostra o preço da campanha na busca, na folha (com o cheio riscado) e na sacola', async () => {
+    fake.responderTabela('products', comoOPostgrest(comCampanha(BLACK_FRIDAY)))
+    await abrirOPassoDasPecas()
+    // R$ 120,00 com 20%: R$ 96,00.
+    expect(texto(joia('Colar Estrela'))).toContain('R$ 96,00 · 5 em estoque')
+
+    await abrirPeca('Colar Estrela')
+    expect(texto(within(folha()).getByTestId('campanha-da-folha'))).toBe('Black Friday · −20%')
+    expect(texto(within(folha()).getByTestId('preco-cheio-da-folha'))).toBe('R$ 120,00')
+    expect(texto(confirmar())).toBe('Acrescentar · R$ 96,00')
+    await clicar(confirmar())
+    await andar(50)
+
+    const [linha] = linhas()
+    expect(texto(linha)).toContain('1 × R$ 96,00')
+    expect(texto(within(linha).getByTestId('etiqueta-da-campanha'))).toBe('Black Friday · −20%')
+  })
+
+  it('fora da vigência no instante do banco, o preço de sempre e nenhuma etiqueta', async () => {
+    fake.responderTabela('products', comoOPostgrest(comCampanha({ ...BLACK_FRIDAY, ends_at: '2026-11-07T11:00:00Z' })))
+    await abrirOPassoDasPecas()
+    expect(texto(joia('Colar Estrela'))).toContain('R$ 120,00 · 5 em estoque')
+    await abrirPeca('Colar Estrela')
+    expect(within(folha()).queryByTestId('campanha-da-folha')).toBeNull()
+    expect(texto(confirmar())).toBe('Acrescentar · R$ 120,00')
+  })
+})

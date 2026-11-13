@@ -202,7 +202,9 @@ const AdminProposalBuilderPage = () => {
             cupom={
               <CouponField
                 coupon={draft.coupon}
-                subtotal={pricing.price.subtotal + pricing.price.promotionDiscount}
+                subtotal={pricing.price.subtotal + pricing.price.promotionDiscount + pricing.price.campaignDiscount}
+                eligibleSubtotal={pricing.price.couponEligibleSubtotal}
+                campaignName={pricing.campaignName}
                 email={draft.customer.email}
                 descartado={!!draft.coupon && !pricing.price.couponApplied}
                 onApply={(c) => {

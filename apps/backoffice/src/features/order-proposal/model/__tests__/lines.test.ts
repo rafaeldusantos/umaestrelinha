@@ -14,9 +14,11 @@ const peca: PecaParaProposta = {
   id: P1, nome: 'Colar', ativa: true, precoBase: 150, imagem: CAPA, politica: 'track', estoqueTotal: 0,
   pedeMaterial: true, limiteDeGravacao: 10, medidas: { weight_kg: null, width_cm: null, height_cm: null, length_cm: null },
   variacoes: [
-    { id: 'a', rotulo: 'A', preco: 200, estoque: 1, disponivel: true, grava: false, imagem: CAPA, valores: {}, peso: null },
-    { id: 'b', rotulo: 'B', preco: 210, estoque: 4, disponivel: true, grava: true, imagem: FOTO_B, valores: {}, peso: 0.1 },
+    { id: 'a', rotulo: 'A', preco: 200, estoque: 1, disponivel: true, grava: false, imagem: CAPA, valores: {}, peso: null, campanha: null },
+    { id: 'b', rotulo: 'B', preco: 210, estoque: 4, disponivel: true, grava: true, imagem: FOTO_B, valores: {}, peso: 0.1, campanha: null },
   ],
+  campanha: null,
+  campanhaBase: null,
 }
 
 describe('acertoDaLinha', () => {

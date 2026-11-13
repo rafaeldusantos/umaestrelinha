@@ -1228,7 +1228,7 @@ describe('preview', () => {
     expect(res.status).toBe(200)
     expect(f.rpcs.map((r) => r.fn)).toEqual(['has_role'])
     expect(tabelasEscritas(f)).toEqual([])
-    expect(new Set(f.abertas)).toEqual(new Set(['products', 'product_variants', 'coupons', 'orders', 'promotions', 'store_settings']))
+    expect(new Set(f.abertas)).toEqual(new Set(['products', 'product_variants', 'campaigns', 'coupons', 'orders', 'promotions', 'store_settings']))
   })
 
   it('devolve o MESMO resumo que o save gravaria, com o cupom e o desconto combinado', async () => {
@@ -1672,5 +1672,135 @@ describe('a foto gravada na linha: variação → images[0] → image_url', () =
     )
     expect(res.status).toBe(200)
     expect(fotos(f)).toEqual(['https://img/p1-galeria.webp', 'https://img/v2a.webp', 'https://img/p1.webp'])
+  })
+})
+
+describe('a campanha de desconto na montagem', () => {
+  const CAMPANHA = 'ffffffff-0000-4000-8000-000000000001'
+  /** Em vigência às 12:00 de 31/10 (o `AGORA` do dublê). */
+  const VIVA = { id: CAMPANHA, name: 'Black Friday', starts_at: '2026-10-30T03:00:00Z', ends_at: '2026-11-02T03:00:00Z', active: true }
+  const ENCERRADA = { ...VIVA, ends_at: '2026-10-31T11:00:00Z' }
+  // O pingente (R$ 100,00) marcado com 20%: R$ 80,00 na campanha.
+  const MARCAS = [{ product_id: P1, campaign_id: CAMPANHA, percent: 20 }]
+  const comCampanha = (campanha: unknown, extra: FakeSupabaseOptions = {}) =>
+    ambiente({
+      ...extra,
+      lists: { campaigns: [campanha], product_campaigns: MARCAS, ...(extra.lists ?? {}) },
+      rpcByFn: { has_role: { data: true }, save_order_proposal: SAVE_OK, ...(extra.rpcByFn ?? {}) },
+    })
+
+  it('em vigência, a peça marcada trava com o preço da campanha; a outra, com o de tabela', async () => {
+    const f = comCampanha(VIVA)
+    // 80 + 150 × 2 = 380.
+    const res = await route(f.deps, pedir('save', corpoNovo({ expected_total: 380 })))
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    expect(corpo.summary).toMatchObject({ subtotal: 380, items_total: 380 })
+    const [p] = argsDoSave(f.rpcs)
+    expect(p.items.map((i: any) => [i.list_price, i.unit_price])).toEqual([
+      [100, 80],
+      [150, 150],
+    ])
+    expect(p.subtotal).toBe(380)
+    expect(p.items_total).toBe(380)
+  })
+
+  it('o "de" da peça entra na conta: 20% sobre R$ 120,00 é R$ 96,00', async () => {
+    const comDe = PRODUTOS.map((p) => (p.id === P1 ? { ...p, original_price: 120 } : p))
+    const f = comCampanha(VIVA, {
+      lists: { products: (_e: unknown, _s: string, read: any) => filtrarPorIn(comDe, read) },
+    })
+    const res = await route(f.deps, pedir('save', corpoNovo({ expected_total: 396 })))
+    expect(res.status).toBe(200)
+    expect(argsDoSave(f.rpcs)[0].items[0].unit_price).toBe(96)
+  })
+
+  it('fora da vigência, o preço de sempre', async () => {
+    const f = comCampanha(ENCERRADA)
+    const res = await route(f.deps, pedir('save', corpoNovo({ expected_total: 400 })))
+    expect(res.status).toBe(200)
+    expect(argsDoSave(f.rpcs)[0].items.map((i: any) => i.unit_price)).toEqual([100, 150])
+  })
+
+  const CUPOM_10 = {
+    id: CUPOM,
+    code: 'BEMVINDA',
+    type: 'percent',
+    value: 10,
+    active: true,
+    valid_from: null,
+    valid_until: null,
+    max_uses: null,
+    used_count: 0,
+    min_order: null,
+    first_order_only: false,
+  }
+
+  it('o cupom de 10% desconta só da peça comum', async () => {
+    const f = comCampanha(VIVA, { rows: { coupons: CUPOM_10 } })
+    // 80 (fora do cupom) + 300 − 30 = 350.
+    const res = await route(f.deps, pedir('save', corpoNovo({ coupon_code: 'BEMVINDA', expected_total: 350 })))
+    expect(res.status).toBe(200)
+    expect(argsDoSave(f.rpcs)[0]).toMatchObject({ coupon_discount: 30, items_total: 350 })
+  })
+
+  it('só peças de campanha: o cupom é recusado com o nome da campanha, e nada é gravado', async () => {
+    const f = comCampanha(VIVA, { rows: { coupons: CUPOM_10 } })
+    const res = await route(
+      f.deps,
+      pedir('save', corpoNovo({ lines: [{ product_id: P1, variant_id: null, quantity: 1 }], coupon_code: 'BEMVINDA', expected_total: 80 })),
+    )
+    expect(res.status).toBe(422)
+    expect((await res.json()).error).toBe('Este cupom não vale para peças da Black Friday.')
+    expect(argsDoSave(f.rpcs)).toEqual([])
+  })
+
+  it('o pedido mínimo do cupom é conferido sem a peça de campanha', async () => {
+    // 100 + 300 = 400 de tabela; sem o pingente, 300 — abaixo do mínimo de 350.
+    const f = comCampanha(VIVA, { rows: { coupons: { ...CUPOM_10, min_order: 350 } } })
+    const res = await route(f.deps, pedir('save', corpoNovo({ coupon_code: 'BEMVINDA', expected_total: 350 })))
+    expect(res.status).toBe(422)
+    expect((await res.json()).error).toBe('Pedido mínimo de R$ 350,00.')
+  })
+
+  it('a leitura da campanha que falha recusa a montagem, nunca vira "sem campanha"', async () => {
+    const f = ambiente({ listErrorByTable: { campaigns: { message: 'fora do ar' } } })
+    const res = await route(f.deps, pedir('save', corpoNovo()))
+    expect(res.status).toBe(502)
+    expect(argsDoSave(f.rpcs)).toEqual([])
+  })
+
+  it('a prévia não atribui à promoção a peça que está na campanha', async () => {
+    const promocao = {
+      id: 'promo-out',
+      name: 'Promoção de outubro',
+      discount_kind: 'unit_price',
+      scope: 'all',
+      stacks_with_coupon: false,
+      active: true,
+      valid_from: null,
+      valid_until: null,
+      created_at: '2026-01-01T00:00:00Z',
+      // R$ 80,00 por unidade a partir de 2 — o mesmo preço da campanha no pingente.
+      promotion_tiers: [{ min_qty: 2, value: 80 }],
+    }
+    const f = comCampanha(VIVA, { lists: { promotions: [promocao] } })
+    const res = await route(
+      f.deps,
+      pedir('preview', {
+        lines: [
+          { product_id: P1, variant_id: null, quantity: 1 },
+          // Duas unidades do anel alcançam a faixa sem a peça de campanha: a promoção vale na montagem.
+          { product_id: P2, variant_id: V2A, quantity: 2, engraving_text: 'Lua' },
+        ],
+        customer_email: 'maria@exemplo.invalid',
+      }),
+    )
+    expect(res.status).toBe(200)
+    const corpo = await res.json()
+    // O anel: R$ 150,00 → R$ 80,00 pela faixa, 47%.
+    expect(corpo.lines[1]).toEqual({ promotion: { name: 'Promoção de outubro', percent: 47 } })
+    // O pingente sai a R$ 80,00 pela campanha — o mesmo preço da faixa —, e não é da promoção.
+    expect(corpo.lines[0]).toEqual({ promotion: null })
   })
 })

@@ -62,6 +62,8 @@ import {
 } from '../../../packages/core/src/proposals/index.ts'
 import { couponRefusal, couponRuleOf } from '../../../packages/core/src/coupons/rules.ts'
 import {
+  couponEligibleSubtotal,
+  lineCampaignPercent,
   resolveProgressiveTier,
   tierUnitPrice,
   type CouponRule,
@@ -82,6 +84,7 @@ import { fotoDaLinha } from '../../../packages/core/src/proposals/photo.ts'
 import type { TokenCipher } from '../_shared/tokenCipher.ts'
 import { json, preflight } from '../_shared/http.ts'
 import { requireAdmin } from '../_shared/auth.ts'
+import { liveCampaignMarks } from '../_shared/campaigns.ts'
 
 export interface Deps {
   // Client service-role. `any` porque o import real vem de esm.sh (Deno) e o dublê implementa só a
@@ -373,19 +376,27 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     ? await deps.supabase
         .from('products')
         .select(
-          'id, name, base_price, image_url, capa:images->0->>url, is_active, requires_material, material_kinds, engraving_max_chars, options',
+          'id, name, base_price, original_price, image_url, capa:images->0->>url, is_active, requires_material, material_kinds, engraving_max_chars, options',
         )
         .in('id', ids)
     : { data: [], error: null }
   const { data: variacoes, error: erroVariacoes } = ids.length
     ? await deps.supabase
         .from('product_variants')
-        .select('id, product_id, price, option_values, image_url, is_active')
+        .select('id, product_id, price, compare_price, option_values, image_url, is_active')
         .in('product_id', ids)
     : { data: [], error: null }
 
   if (erroProdutos || erroVariacoes) {
     log({ action: 'order-proposals:price', status: 'catalog_read_failed' })
+    return recusa('Não consegui ler o catálogo agora. Tente de novo.', 'catalog_read_failed', 502)
+  }
+
+  // A campanha em vigência pelo RELÓGIO DA FUNCTION, e só pelo leitor único (`_shared/campaigns.ts`).
+  // Erro de leitura nunca vira "sem campanha": a montagem seria travada a preço cheio.
+  const marcas = await liveCampaignMarks(deps.supabase, deps.now, ids)
+  if (marcas.error) {
+    log({ action: 'order-proposals:price', status: 'campaign_read_failed' })
     return recusa('Não consegui ler o catálogo agora. Tente de novo.', 'catalog_read_failed', 502)
   }
 
@@ -450,11 +461,23 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     const opcoes = Array.isArray(produto.options) ? produto.options : []
     const rotulo = valores ? variantLabel(opcoes, valores) : ''
 
+    // A peça marcada na campanha em vigência: o preço de tabela continua o `list_price`, e quem
+    // desconta é `resolveOrderPricing` (dentro de `priceProposalDraft`), sobre o "de" da mesma linha
+    // que deu o preço — o da variação, ou o da peça.
+    const percentual = marcas.percentOf.get(pedida.product_id) ?? null
+    const doBanco = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+    const deVariacao = variacao && doBanco(variacao.price) !== null
+    const campanha =
+      percentual === null
+        ? null
+        : { percent: percentual, compare_price: deVariacao ? doBanco(variacao.compare_price) : doBanco(produto.original_price) }
+
     linhas.push({
       product_id: pedida.product_id,
       variant_id: pedida.variant_id,
       list_price: preco.price,
       quantity: pedida.quantity,
+      campaign: campanha,
       product_name: nome,
       // A foto da linha tem um dono em `core` (variação → primeira da galeria → coluna antiga), o mesmo
       // que a montagem do painel e a do app leem: a cliente vê no link a foto que a Adri viu.
@@ -467,6 +490,22 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     })
   }
 
+  // A peça de campanha fica fora da base do cupom: o pedido mínimo é conferido sobre as outras, e a
+  // montagem só com peças de campanha recusa o cupom com o nome da campanha (`couponRefusal`).
+  const temCampanha = linhas.some(
+    (l) => lineCampaignPercent({ unit_price: l.list_price, quantity: 1, campaign: l.campaign }) !== null,
+  )
+  const nomeDaCampanha = temCampanha ? (marcas.campaign?.name ?? null) : null
+  const daCampanha = temCampanha
+    ? {
+        eligibleSubtotal: couponEligibleSubtotal({
+          items: linhas.map((l) => ({ product_id: l.product_id, unit_price: l.list_price, quantity: Number.isFinite(l.quantity) ? l.quantity : 0, campaign: l.campaign })),
+          promotions: [],
+        }),
+        campaignName: nomeDaCampanha,
+      }
+    : {}
+
   // O cupom (MON-07): a mesma regra da loja, sobre o subtotal cheio — o que a loja passa a
   // `validateCoupon` —, com a pergunta de primeira compra feita ao banco.
   let coupon: { id: string; code: string } | null = null
@@ -478,14 +517,14 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     if (error) return recusa('Erro ao validar cupom.', 'coupon_read_failed', 502)
     if (!row) return recusa('Cupom inválido.', 'coupon_refused')
     const subtotalCheio = round2(linhas.reduce((s, l) => s + l.list_price * (Number.isFinite(l.quantity) ? l.quantity : 0), 0))
-    let motivo = couponRefusal(row, { subtotal: subtotalCheio, now })
+    let motivo = couponRefusal(row, { subtotal: subtotalCheio, now, ...daCampanha })
     if (!motivo && row.first_order_only && !entrada.email) motivo = COUPON_NEEDS_EMAIL
     if (!motivo && row.first_order_only && entrada.email) {
       const { count } = await deps.supabase
         .from('orders')
         .select('id', { count: 'exact', head: true })
         .eq('customer_email', entrada.email)
-      motivo = couponRefusal(row, { subtotal: subtotalCheio, now, hasPriorOrder: (count || 0) > 0 })
+      motivo = couponRefusal(row, { subtotal: subtotalCheio, now, hasPriorOrder: (count || 0) > 0, ...daCampanha })
     }
     if (motivo) return recusa(motivo, 'coupon_refused')
     coupon = { id: String(row.id), code: String(row.code) }
@@ -499,6 +538,7 @@ async function precificar(deps: Deps, entrada: Entrada): Promise<Resultado<Preci
     coupon: couponRule,
     promotions,
     manualDiscount: entrada.manual,
+    campaignName: nomeDaCampanha,
   })
   if (price.refusal) return recusa(price.refusal, 'draft_refused')
 
@@ -1248,6 +1288,10 @@ function promocaoDasLinhas(p: Precificado): Array<{ promotion: { name: string; p
     : []
   return p.price.lockedLines.map(({ line, unit_price }) => {
     if (!(unit_price < line.list_price)) return { promotion: null }
+    // A peça de campanha não entra na promoção: o preço dela é o da campanha, mesmo que coincida.
+    if (lineCampaignPercent({ unit_price: line.list_price, quantity: line.quantity, campaign: line.campaign }) !== null) {
+      return { promotion: null }
+    }
     const quem = candidatas
       .filter(({ promo }) => promo.scope === 'all' || promo.eligibleProductIds.includes(line.product_id))
       .filter(({ promo, faixa }) => tierUnitPrice(line.list_price, promo.discount_kind, faixa.value) === unit_price)
