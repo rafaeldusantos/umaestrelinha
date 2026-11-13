@@ -20,7 +20,7 @@ Não pelo ciclo de vida do produto:
 | **Vendas** | Pedidos · Pedidos montados · Carrinhos abandonados · Clientes |
 | **Descontos** | Cupons · Promoções |
 | **Catálogo** | Produtos · Categorias · Filtros da loja · Perguntas frequentes |
-| **Loja** | Home · Menu da loja · Página de perguntas · Google |
+| **Loja** | Home · Menu da loja · Faixa de avisos · Página de perguntas · Google |
 | *(sem cabeçalho)* | Configurações |
 | *(menu da conta, no pé)* | Minha conta · Abrir a loja · Abrir a loja sem contar · Sair |
 
@@ -549,10 +549,11 @@ piscadas.
 
 ### A ponte da prévia (feature `25`, e o segundo canal da `39`)
 
-> **São DUAS pontes sobre o mesmo `?preview=1`**: a da Home (`home-composition/model/usePreviewBridge`)
-> e a do Menu (`store-menu/model/useMenuPreviewBridge`, feature `39`). Tudo o que está escrito abaixo
-> vale para as duas — o que difere é o **payload** e o carimbo (`PREVIEW_SOURCE` ×
-> `MENU_PREVIEW_SOURCE`). Um parâmetro novo para o menu seria um segundo dono de "esta janela é uma
+> **São TRÊS pontes sobre o mesmo `?preview=1`**: a da Home (`home-composition/model/usePreviewBridge`),
+> a do Menu (`store-menu/model/useMenuPreviewBridge`, feature `39`) e a da Faixa de avisos
+> (`announcement-bar/model/useAnnouncementsPreviewBridge`, WI 101). Tudo o que está escrito abaixo
+> vale para as três — o que difere é o **payload** e o carimbo (`PREVIEW_SOURCE` ×
+> `MENU_PREVIEW_SOURCE` × `ANNOUNCEMENT_PREVIEW_SOURCE`). Um parâmetro novo para o menu seria um segundo dono de "esta janela é uma
 > prévia". Detalhe do canal do menu na seção `/admin/menu`, acima.
 
 **O painel NÃO desenha seção da Home** — nem esquema, nem mini-mapa, nem "só um fallback para quando
@@ -936,6 +937,36 @@ chaves **Computador | Celular** e um submenu de até 24 filhos. Nada desta tela 
   com `store_settings`. `useAdminCategories` tipa a escrita como `CategoryUpdate`, que exclui as três
   colunas. `menuSemTeto` nomeia `MenuTree.tsx` como superfície; `previaUnica` ancora em
   `MenuTree`/`MenuTargetPicker`/`useStoreMenu`.
+
+## `/admin/faixa-de-avisos` — a faixa acima do cabeçalho da loja (WI 101)
+
+A dona liga e desliga a faixa, monta até **5** avisos de texto ou de imagem e confere na loja de
+verdade. A tela grava a chave inteira `store_settings['announcements']` (`{ enabled, items }`) pelo
+`useUpdateSettings` de `core`; nasce desligada (o padrão de `core`), sem migration.
+
+- **Peças**: `pages/admin/AdminAnnouncementsPage.tsx` e `features/announcement-bar/` —
+  `model/rascunho.ts` (o rascunho, `paraGravar`, em que campo a recusa aparece),
+  `model/useAnnouncementsPreviewBridge.ts`, `ui/AnnouncementList.tsx` (a sanfona: um aviso aberto
+  por vez, arrastar **e** subir/descer, tirar sem confirmação), `ui/AnnouncementFields.tsx` (o tipo e os
+  campos) e `ui/AnnouncementLivePreview.tsx` (o palco), `lib/uploadAnnouncementImage.ts` (a arte em
+  `home-images/announcements`, apagando o órfão enviado e não gravado).
+- **Toda recusa é de `core`** (`announcementRefusal`/`announcementsRefusal`, já com "Nº aviso: "), e o
+  destino passa pela régua do Banner principal (`ctaHrefRefusal`). A tela só escolhe o **campo** em que
+  a frase aparece (`campoDaRecusa`); recolhido, o aviso recusado mostra a frase abaixo do cabeçalho. Com
+  recusa, a barra diz "Corrija o que está marcado para salvar." e o Salvar fica desabilitado.
+- **O rascunho guarda os campos dos dois tipos**: trocar Texto ⇄ Imagem não apaga o que foi escrito.
+  O que se grava (e o que vai à prévia) é só o do tipo escolhido — o teste da página prova pelas chaves.
+- **A prévia é a loja num iframe** (`previaUnica.test.ts` conta três palcos e recusa o palco que leia
+  campo de aviso). A ponte manda o rascunho com atraso curto e "mostre o aviso N" sem atraso, e reenvia
+  o "mostre" depois de cada rascunho: um aviso recém-acrescentado só existe do lado da loja depois do
+  rascunho que o contém. "Aviso N de M" com anterior/próximo só com a faixa ligada e mais de um aviso.
+- **Rota de foco** (`FOCUS_ROUTES`), grupo **Loja** logo depois de "Menu da loja", e o corpo no molde de
+  altura de `/admin/menu` (abas "Avisos" | "Prévia" abaixo de `lg`).
+- **As frases do atraso** ("Pode levar até uma hora…") vêm da função `api/page`, que guarda o HTML
+  servido em cache: o painel não tem como encurtar isso, e diz.
+- ⚠️ **`useStoreSettings` não devolve erro**: `fetchAllSettings` cai nos padrões quando a leitura
+  falha, então o `InfoBanner` de erro com "Tentar de novo" da tela é inalcançável hoje — a leitura que
+  falha aparece como faixa desligada e sem avisos.
 
 ## `/admin/filtros` — os filtros da loja (feature `66`, `AD-050`)
 

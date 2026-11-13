@@ -114,6 +114,14 @@ describe('toda rota `/admin/*` está sob `RequireAdmin`', () => {
     expect(dentro).toContain('/admin/conta')
   })
 
+  it('a Faixa de avisos está dentro — ela grava o que toda página da loja mostra', () => {
+    const dentro = rotas(codigo)
+      .filter(r => bloco !== null && r.at > bloco.inicio && r.at < bloco.fim)
+      .map(r => r.path)
+
+    expect(dentro).toContain('/admin/faixa-de-avisos')
+  })
+
   it('`/admin/login` está FORA, e é a única — quem não entrou precisa alcançá-la', () => {
     // O sentido inverso. Sem ele, um guarda que exigisse TUDO dentro passaria trancando a própria
     // porta de entrada, e ninguém conseguiria fazer login.

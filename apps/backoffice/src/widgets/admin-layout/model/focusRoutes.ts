@@ -34,6 +34,8 @@ export const FOCUS_ROUTES: readonly string[] = [
   // peças com a barra de ação no pé): quem abre veio curar o catálogo, não navegar — a mesma frase
   // de Configurações. As subrotas (`/admin/filtros/:groupId/…`) herdam pelo casamento por segmento.
   '/admin/filtros',
+  // A faixa de avisos: edição ao lado da loja num iframe, a mesma frase da Home e do Menu.
+  '/admin/faixa-de-avisos',
 ]
 
 /**

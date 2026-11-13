@@ -1,4 +1,4 @@
-import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings, ClipboardList, Link2 } from 'lucide-react'
+import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings, ClipboardList, Link2, Megaphone } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -102,6 +102,9 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/home', icon: House, label: 'Home' },
       { to: '/admin/menu', icon: Menu, label: 'Menu da loja' },
+      // A faixa fina acima do cabeçalho da loja: o que a cliente vê em toda página, logo depois do
+      // menu, que é a outra peça do topo.
+      { to: '/admin/faixa-de-avisos', icon: Megaphone, label: 'Faixa de avisos' },
       // Feature 46. Entra em `Loja` e não em `Catálogo` porque é curadoria do que a cliente VÊ — a
       // mesma régua que trouxe o Menu da loja para cá. O conteúdo que ela cura mora na Biblioteca.
       { to: '/admin/perguntas-frequentes', icon: MessageCircleQuestion, label: 'Página de perguntas' },
