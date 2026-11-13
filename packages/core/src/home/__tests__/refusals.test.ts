@@ -225,6 +225,20 @@ describe('ctaHrefRefusal — o destino do CTA (HOME-20)', () => {
     expect(ROUTE_SLUGS).toContain('produtos')
     expect(ctaHrefRefusal('/produtos/troca/prazo')).toBeNull()
   })
+
+  it('recusa o caminho que o navegador lê como outro domínio — barra dupla ou barra e contrabarra', () => {
+    const motivo =
+      'Este endereço leva para fora da loja. Use um caminho da loja, começando com uma só “/” — por exemplo, “/ofertas”.'
+    expect(ctaHrefRefusal('//exemplo.com')).toBe(motivo)
+    expect(ctaHrefRefusal('//exemplo.com/ofertas')).toBe(motivo)
+    expect(ctaHrefRefusal('/\\exemplo.com')).toBe(motivo)
+    expect(ctaHrefRefusal('  //exemplo.com  ')).toBe(motivo)
+  })
+
+  it('continua aceitando o caminho de um e de dois segmentos', () => {
+    expect(ctaHrefRefusal('/ofertas')).toBeNull()
+    expect(ctaHrefRefusal('/a/b')).toBeNull()
+  })
 })
 
 describe('configRefusal — o limite e o `alt` (HOME-42, HOME-18)', () => {

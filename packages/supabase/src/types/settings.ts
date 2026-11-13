@@ -21,6 +21,19 @@ export type { NotificationSettings } from '../../../core/src/notifications/setti
 import type { NotificationSettings } from '../../../core/src/notifications/settings.ts'
 export { DEFAULT_NOTIFICATIONS } from '../../../core/src/notifications/defaults.ts'
 
+/**
+ * A faixa de avisos acima do cabeçalho — **declarada em `@estrelinha/core/announcements` e só
+ * reexportada daqui**, mesma inversão de `NotificationSettings`: quem usa a forma é a regra (a loja, o
+ * painel e a função `api/page`), e este pacote apenas descreve a coluna `store_settings['announcements']`.
+ * Sem migration: a ausência da linha É `DEFAULT_ANNOUNCEMENTS` (desligada, sem avisos).
+ */
+export type {
+  Announcement,
+  AnnouncementSettings,
+} from '../../../core/src/announcements/types.ts'
+import type { AnnouncementSettings } from '../../../core/src/announcements/types.ts'
+export { DEFAULT_ANNOUNCEMENTS } from '../../../core/src/announcements/types.ts'
+
 export interface GeneralSettings {
   store_name: string
   whatsapp: string
@@ -391,6 +404,7 @@ export type SettingsKey =
   | 'notifications'
   | 'analytics'
   | 'buy_together'
+  | 'announcements'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -405,6 +419,7 @@ export interface SettingsMap {
   notifications: NotificationSettings
   analytics: AnalyticsSettings
   buy_together: BuyTogetherSettings
+  announcements: AnnouncementSettings
 }
 
 /**

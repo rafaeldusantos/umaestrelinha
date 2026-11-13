@@ -81,13 +81,14 @@ export const menuLinkPathRefusal = (href: unknown): string | null => {
  * O endereço de um item de link NOVO: só caminho da loja (`MNM-12`), bem formado.
  *
  * É `menuLinkPathRefusal` mais uma régua: externo (`https://…`, `http://…`) e protocol-relative
- * (`//host`) são recusados. Quem cuida do link externo **já gravado** antes desta feature é
+ * (duas barras, ou barra e contrabarra — o navegador lê as duas como outro domínio) são recusados.
+ * Quem cuida do link externo **já gravado** antes desta feature é
  * `menuDocumentRefusal`, que o deixa passar (`MNM-31`) — esta função é só da criação.
  */
 export const internalMenuHrefRefusal = (href: unknown): string | null => {
   const bruto = typeof href === 'string' ? href.trim() : ''
   if (bruto === '') return 'Digite o endereço da página da loja.'
-  if (menuHrefIsExternal(bruto) || bruto.startsWith('//')) {
+  if (menuHrefIsExternal(bruto) || bruto.startsWith('//') || bruto.startsWith('/\\')) {
     return (
       'O menu leva só a páginas da loja. Digite o caminho da página, começando com “/” — ' +
       'por exemplo, “/sobre”.'

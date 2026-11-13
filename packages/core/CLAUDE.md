@@ -57,6 +57,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./live` | **a Loja ao vivo** (feature `83`, `AD-066`): `access.ts` (`ACCESS_BAND_LABELS`, `conversion`/`formatConversion`, `accessDelta` com arredondamento simétrico, `comparisonLabel`, `deltaLine`, `accessCards`, `accessChart`, `noHourNote`, `freshnessLine` e as frases fixas) e `card.ts` (o cartão "Visitas hoje" e os três `aria-label`). A casa das Fases 2–4 do PRD | app do ateliê; o guarda da migration (`visitasPorHoraSchema`, suíte da loja) importa `ACCESS_BAND_LABELS` |
 | `./product-search` | **a busca de produto** (`AD-036`): `dobrarTexto`/`palavrasDoTermo` (`text.ts`, a dobra de busca) e `buscarProdutos`/`RESULTADOS_VISIVEIS` (`search.ts`, a régua pura: toda palavra em qualquer ordem, dobra nos dois sentidos, três postos, desempate por nome e `id`). Todo especificador com `.ts`. O guarda `buscaDeProdutoComDonoUnico.test.ts` (painel) varre este módulo e aponta `text.ts` como o dono da dobra | painel (reexporta por referência), app do ateliê |
 | `./buy-together` | **o Compre Junto** (`AD-014` fora: a lista NÃO é coleção): `BUY_TOGETHER_ADDONS_MAX` (3), `BUY_TOGETHER_LIST_ITEMS_MAX` (12), `BUY_TOGETHER_LIST_NAME_MAX` (40) e as recusas `string \| null` — `addonCountRefusal`, `listItemCountRefusal`, `listNameRefusal`, `listUsableRefusal`, `listDeleteRefusal` (nomeia até 3 joias), `addonIsMainRefusal`, `addonRepeatedRefusal` — e os tipos; e, para a página do produto, `resolveAddons` (disponibilidade e o que é pulado), `variantSellable` (cópia de `isVariantAvailable` com o preço, provada igual por teste), `bundleTotal`, `bundlePix` (= `pixPrice` do total), `addonEngravingRefusal` e `addonMissingChoice`. Só importa as folhas `material/material.ts` e `payment/pix.ts`, por caminho com `.ts`, alcançável pelo Deno (`purity.test.ts` caminha o grafo). O guarda da migration (`compreJuntoSchema`, suíte da loja) **importa** os três tetos | painel (listas; adicionais no produto), loja, function `checkout` |
+| `./announcements` | **a faixa de avisos** (WI 101): os tipos (`Announcement` por `kind: 'text' \| 'image'`, `AnnouncementSettings`), `DEFAULT_ANNOUNCEMENTS` (desligada, sem avisos — sem migration), os tetos (5 avisos; 40/60/20 por campo e 90 no conjunto), `ANNOUNCEMENT_BAR_HEIGHT` (em `rem`) e `ANNOUNCEMENT_ART_SLOTS` (1440×48 e 780×96), `normalizeAnnouncements` (a leitura do jsonb; nunca lança), `announcementRefusal`/`announcementsRefusal` (o destino pela régua de `ctaHrefRefusal`, o ordinal pelo `ordinal` de `home/carousel.ts`), `announcementBarExists` (ligada **e** ao menos um aviso válido) e o canal `preview.ts` (carimbo próprio; `draft`, `show`, `ready`) | loja (o widget e o recebedor da prévia), função `api/page` (o atributo no `<html>`), painel (recusa e ponte da prévia) |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
 | `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71`. **Fora do barril**: `datacenter.ts` (`requestFromDatacenter`, `isDatacenterIp`) e a lista gerada `datacenterRanges.ts` (`node tools/redes-de-datacenter.mjs`, RIPEstat: ColoCrossing, Hetzner, Huawei Cloud) — a function `visit` recusa visita e pulso vindos de data center (`robô`, `motivo: 'rede'`), pelo robô de 2026-11-08/09 que gravou ~350 visitas falsas | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
 | `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
@@ -530,6 +531,28 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
   diz qual; sem a entrada, a aberta vale como sem link. `proposalRenewText` é a frase da confirmação de
   renovar, e `PROPOSAL_ORIGIN_LABEL` ("Pedido montado") a origem do pedido, as duas lidas pelo painel e
   pelo app.
+
+## `announcements` — a faixa de avisos tem UM dono (WI 101)
+
+- **Três leitores perguntam "a faixa existe?"**: a função `api/page` (antes de o React montar, para o
+  cabeçalho não pular), a loja (desenha) e o painel (recusa antes de gravar). A resposta é
+  `announcementBarExists`, e ela pergunta à MESMA régua que o painel usa (`announcementRefusal`):
+  aviso que o painel recusaria não conta, e a dona nunca vê um aviso salvo que a cliente não vê.
+- **Folhas com `.ts` explícito**, `import type` incluso: a função `api/page` empacota o módulo por
+  esbuild, fora do Vite. `__tests__/purity.test.ts` lê os especificadores (âncora: os cinco arquivos).
+  O grafo alcança `home/refusals.ts` (o `ctaHrefRefusal`) e `home/carousel.ts` (o `ordinal`), cujos
+  imports sem extensão o esbuild resolve — Deno não é leitor deste módulo.
+- **O destino é o do Banner principal**: `ctaHrefRefusal`, que desde o WI 101 recusa também o caminho
+  que começa com duas barras ou com barra e contrabarra (o navegador o lê como outro domínio). A mesma
+  correção vale para `internalMenuHrefRefusal` (menu).
+- **A normalização não julga validade**: ela descarta o que não é aviso (tipo desconhecido, campo do
+  outro tipo, do sexto em diante) e deixa a recusa para `announcementRefusal` — a faixa pula o aviso
+  inválido em vez de apagar o que a dona gravou.
+- **O catálogo é `['text', 'image']`**, e `catalog.test.ts` assere a ausência de tipo com relógio,
+  estoque ou prova social (molde de `homeSections.test.ts`).
+- **O canal de prévia** convive com o da Home e o do menu no mesmo `?preview=1`, separado pelo carimbo
+  `ANNOUNCEMENT_PREVIEW_SOURCE`. `parseAnnouncementPreviewMessage(data, itemCount)` recusa o `show`
+  com índice fora da lista, e normaliza o rascunho pela mesma leitura do banco.
 
 ## Convenções de tipo
 

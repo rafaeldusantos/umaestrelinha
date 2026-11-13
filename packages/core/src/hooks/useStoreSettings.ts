@@ -13,6 +13,7 @@ import {
   DEFAULT_NOTIFICATIONS,
   DEFAULT_ANALYTICS,
   DEFAULT_BUY_TOGETHER,
+  DEFAULT_ANNOUNCEMENTS,
   type AnalyticsSettings,
   type GeneralSettings,
   type ShippingSettings,
@@ -52,6 +53,9 @@ const DEFAULTS: SettingsMap = {
   analytics: DEFAULT_ANALYTICS,
   // WI Compre Junto — a forma do bloco. Sem esta linha `fetchAllSettings` descartaria a chave.
   buy_together: DEFAULT_BUY_TOGETHER,
+  // A faixa de avisos — sem migration, a ausência da linha é a faixa desligada. Sem esta linha
+  // `fetchAllSettings` descartaria a chave, e a loja nunca veria a faixa ligada no painel.
+  announcements: DEFAULT_ANNOUNCEMENTS,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {
