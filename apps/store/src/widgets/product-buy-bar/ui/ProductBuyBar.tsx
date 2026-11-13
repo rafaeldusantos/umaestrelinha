@@ -142,6 +142,7 @@ const ProductBuyBar = ({ product, purchase, buyTogether, action, revealAfter }: 
           )}
           {!conjunto && savings && (
             <span className="shrink-0 text-[13px] leading-4 text-estrelinha-ink-soft line-through">
+              <span className="sr-only">De </span>
               {formatPrice(savings.compareAt)}
             </span>
           )}

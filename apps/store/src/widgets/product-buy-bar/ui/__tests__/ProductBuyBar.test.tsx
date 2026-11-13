@@ -201,6 +201,17 @@ describe('ProductBuyBar — a faixa de preço', () => {
     expect(screen.getAllByText('R$ 190,00').length).toBe(2)
     expect(screen.queryByText('R$ 95,00')).not.toBeInTheDocument()
   })
+
+  it('o preço riscado da barra é lido "De R$ X", com o "De " só para o leitor de tela', () => {
+    // Riscado é só visual: sem o "De " escondido, quem ouve a barra recebe dois preços seguidos e
+    // nada diz qual é o antigo. É a mesma leitura do cartão e da coluna de informação.
+    render(<Page value={product({ price: 346.5, compare_price: 385 })} />)
+    const riscado = screen.getByTestId('product-buy-bar').querySelector('.line-through')
+
+    expect(riscado).not.toBeNull()
+    expect((riscado?.textContent ?? '').replace(/\u00a0/g, ' ')).toBe('De R$ 385,00')
+    expect(riscado?.querySelector('.sr-only')?.textContent).toBe('De ')
+  })
 })
 
 /**

@@ -139,6 +139,7 @@ const ProductInfo = ({ product, categoryName, purchase, buyTogether, action }: P
           {savings && (
             <>
               <span className="text-[16px] leading-5 text-estrelinha-ink-soft line-through">
+                <span className="sr-only">De </span>
                 {formatPrice(savings.compareAt)}
               </span>
               <span className="rounded-sm bg-estrelinha-primary/[0.09] px-2 py-0.5 text-[12px] font-bold leading-4 text-estrelinha-primary">
