@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useScrollDirection } from '../useScrollDirection'
+import { ANNOUNCEMENT_BAR_ID } from '../storeChrome'
 
 // As três armadilhas do padrão "esconde no scroll", que é o motivo de o hook existir em vez de meia
 // dúzia de linhas dentro do `Header`:
@@ -167,6 +168,60 @@ describe('useScrollDirection — zona do topo', () => {
     )
 
     scrollTo(65)
+
+    expect(probe()).toBe('down|away')
+  })
+})
+
+describe('useScrollDirection — a faixa de avisos acima do cabeçalho', () => {
+  /** A faixa como a loja a monta: no fluxo, acima do `<header>`, com o id que o hook procura. */
+  const montarFaixa = (altura: number) => {
+    const faixa = document.createElement('section')
+    faixa.id = ANNOUNCEMENT_BAR_ID
+    Object.defineProperty(faixa, 'offsetHeight', { configurable: true, value: altura })
+    document.body.prepend(faixa)
+    return faixa
+  }
+
+  afterEach(() => {
+    document.getElementById(ANNOUNCEMENT_BAR_ID)?.remove()
+  })
+
+  it('com a faixa de 52px na tela, rolar 100px ainda é topo — o cabeçalho não se recolhe', () => {
+    montarFaixa(52)
+    render(
+      <MemoryRouter>
+        <Probe />
+      </MemoryRouter>,
+    )
+
+    scrollTo(100)
+
+    // 100 passa dos 64 do cabeçalho, mas não dos 52 da faixa somados a eles (116).
+    expect(probe()).toBe('down|top')
+  })
+
+  it('depois que a faixa e o cabeçalho saem da tela, deixou o topo', () => {
+    montarFaixa(52)
+    render(
+      <MemoryRouter>
+        <Probe />
+      </MemoryRouter>,
+    )
+
+    scrollTo(117)
+
+    expect(probe()).toBe('down|away')
+  })
+
+  it('sem a faixa, a zona do topo volta a ser só a do cabeçalho', () => {
+    render(
+      <MemoryRouter>
+        <Probe />
+      </MemoryRouter>,
+    )
+
+    scrollTo(100)
 
     expect(probe()).toBe('down|away')
   })

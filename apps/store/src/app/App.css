@@ -291,3 +291,14 @@ h6 {
   color: var(--estrelinha-primary);
   text-shadow: none;
 }
+
+/* A entrada de cada aviso da faixa de avisos (`widgets/announcement-bar`): um deslocamento de 6px,
+   NUNCA um esmaecer — nada da loja nasce em opacidade zero. Usada com `motion-reduce:animate-none`. */
+@keyframes estrelinha-faixa-entra {
+  from {
+    transform: translateY(6px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

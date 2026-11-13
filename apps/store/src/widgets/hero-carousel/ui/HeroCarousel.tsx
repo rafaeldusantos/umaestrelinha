@@ -10,7 +10,7 @@ import {
 import { RENDITION_WIDE_MAX, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { TAP_44 } from '@/shared/lib/touchTarget'
-import { useHeroCarousel } from '../model/useHeroCarousel'
+import { useHeroCarousel } from '@/shared/lib/useHeroCarousel'
 
 /**
  * O **Banner principal** da Home (feature 41).

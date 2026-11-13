@@ -9,6 +9,7 @@ import { useSearchUiStore } from '@/features/search/model/searchUiStore'
 import { bottomBarReserve, ownsBottomBar } from '@/shared/lib/storeChrome'
 import { useCompactViewport } from '@/shared/lib/useCompactViewport'
 import RouteFallback from '@/shared/ui/RouteFallback'
+import { AnnouncementBar } from '@/widgets/announcement-bar'
 import Header from '@/widgets/header/ui/Header'
 import Footer from '@/widgets/footer/ui/Footer'
 import MobileNav from '@/widgets/mobile-nav/ui/MobileNav'
@@ -85,6 +86,11 @@ const StoreLayout = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
+      {/* A faixa de avisos, antes do cabeçalho: rola com a página, e só o cabeçalho gruda. Mora
+          neste layout — e não no `App` — para ficar fora do checkout, do PIX, do pedido montado, do
+          link de cartão e do 404, que vivem fora dele. A altura dela é reservada já na primeira
+          renderização quando o servidor diz que ela existe (`data-faixa`). */}
+      <AnnouncementBar />
       <Header />
       <main className="flex-1">
         {/* O `Suspense` da PÁGINA fica aqui, e não em volta das `Routes`: o header e o rodapé já

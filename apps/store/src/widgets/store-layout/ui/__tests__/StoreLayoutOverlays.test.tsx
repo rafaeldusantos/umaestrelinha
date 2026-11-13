@@ -19,6 +19,8 @@ import { PREVIEW_SOURCE } from '@estrelinha/core/home'
  * o chunk montado não custa rede nenhuma.
  */
 
+// A faixa de avisos lê a configuração pelo React Query; aqui ela não é o assunto.
+vi.mock('@/widgets/announcement-bar', () => ({ AnnouncementBar: () => null }))
 vi.mock('@/widgets/header/ui/Header', () => ({ default: () => <div>header</div> }))
 vi.mock('@/widgets/footer/ui/Footer', () => ({ default: () => <div>footer</div> }))
 vi.mock('@/widgets/mobile-nav/ui/MobileNav', () => ({ default: () => <nav /> }))

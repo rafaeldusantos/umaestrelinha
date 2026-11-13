@@ -579,6 +579,45 @@ ele a campanha é invisível para leitor de tela e para o Google.
   não comece com `/` (`HOME-23`, `AD-018`). O `target="_blank"` da spec ficou declaradamente fora — a
   mudança, se um dia for querida, é na régua, não no widget.
 
+## A faixa de avisos — acima do cabeçalho (WI 101)
+
+`widgets/announcement-bar` desenha a faixa ouro (`accent`, texto `ink` **sólido**) que a dona monta em
+`/admin/faixa-de-avisos`: até cinco avisos de texto ou de imagem, um por vez. A regra (tetos, recusa, "a faixa
+existe?", as alturas, as vagas da arte e o canal da prévia) é de `@estrelinha/core/announcements`; a
+configuração chega em `useStoreSettings().announcements` e é lida por `normalizeAnnouncements`.
+
+- **Monta só no `StoreLayout`, antes do `<Header />`.** Checkout, PIX, pedido montado, link de cartão
+  e 404 vivem fora do layout e ficam sem faixa. Ela rola com a página; só o cabeçalho gruda.
+- **Quem decide se ela existe, nesta ordem** (`model/useAnnouncementBar.ts`): em prévia, o rascunho
+  do painel (e o publicado até ele chegar); na carga do documento, o atributo `data-faixa` que a função
+  `api/page` escreve no `<html>` — `"1"` reserva a vaga já na primeira renderização (ouro e sem texto
+  até a configuração chegar, e assim fica, sem aviso válido, até a próxima troca de rota), `"0"` não
+  desenha nada; **sem o atributo** (dev, prévia, leitura do servidor que falhou) e **depois da primeira
+  troca de rota**, decide a configuração. A troca de rota é a chave da entrada do histórico diferente
+  da da carga (lida quando o módulo carrega), com uma trava — voltar à primeira entrada não devolve a
+  decisão ao atributo. Aviso que o painel recusaria é pulado, nunca apagado.
+- **A altura é de `core`, por variável CSS** (`--faixa-celular`, duas linhas de texto; `--faixa-computador`,
+  `3rem`), e é reservada no elemento da faixa — nunca por CSS que dependa só do `<html>`: o checkout
+  também recebe o atributo e não pode ganhar faixa.
+- **O giro é o do Banner principal**: `useHeroCarousel` mudou para `shared/lib/` (dois widgets do
+  mesmo app, `AD-033`) e ganhou o intervalo por parâmetro (6 s por padrão; zero é "não gira sozinho",
+  o que a prévia usa). A faixa o chama sem trilho — índice puro, troca animada por CSS (deslocamento
+  de 6 px em 300 ms, `@keyframes estrelinha-faixa-entra` no `App.css`, nunca opacidade). Pausa com
+  ponteiro, foco e dedo; com movimento reduzido não gira, e no computador as setas continuam.
+- **Setas só a partir de 768 px**, `h-11 w-11` sendo o próprio alvo (sem `TAP_44`), anel de foco
+  `ink`. No celular o aviso inteiro é o link. Região "Avisos da loja", **sem `aria-live`**.
+- **O cabeçalho só se recolhe depois que a faixa sai da tela**: `useScrollDirection` soma à zona do
+  topo a altura **medida** do elemento `#avisos-da-loja` (`ANNOUNCEMENT_BAR_ID`, em
+  `shared/lib/storeChrome`), que cresce com a fonte do sistema e é zero onde a faixa não existe.
+- **Aviso de imagem** é `<picture>` com uma arte por dispositivo (1440 × 48 e 780 × 96), rendição da
+  vaga e `object-contain` — a arte inteira, com o ouro sobrando dos lados.
+- **A prévia** (`model/useAnnouncementPreview.ts`) aceita só o carimbo da faixa e só mensagem do pai;
+  "mostre o aviso N" troca o aviso, e a faixa não gira sozinha.
+- **Guardas**: `faixaSemOpacidadeZero.test.ts` (a régua do Banner principal, agora em
+  `src/test/nasceInvisivel.ts`) e `tomDaFaixa.test.ts` (a régua do Compre Junto, agora em
+  `src/test/tomProibido.ts`); `StoreLayoutFaixa.test.tsx` lê o `App.tsx` e exige as rotas da loja dentro
+  do layout e as de pagamento fora.
+
 ## A Home é dado (feature `24`)
 
 `home_sections` + `home_section_items` guardam quais blocos existem, em que ordem, com que texto, com
