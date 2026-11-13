@@ -9,6 +9,7 @@ import {
   faqQuestionPageMeta,
   homePageMeta,
   notFoundPageMeta,
+  offersPageMeta,
   productPageMeta,
   searchPageMeta,
   staticPageMeta,
@@ -385,5 +386,40 @@ describe('/pedido-montado — metadado (feature 89)', () => {
 
   it('não repete o título de `/pedido/:id`', () => {
     expect(staticPageMeta('/pedido-montado').title).not.toBe(staticPageMeta('/pedido/:id').title)
+  })
+})
+
+describe('a vitrine da campanha — /ofertas', () => {
+  // `ends_at` exclusivo: 01/12 00:00 de Brasília ⇒ o último minuto que vale é 30/11 23:59.
+  const blackFriday = { name: 'Black Friday', percents: [20, 10, 15], ends_at: '2026-12-01T03:00:00.000Z' }
+
+  it('com campanha em vigência: o nome dela no título, a linha da vitrine na descrição, indexável', () => {
+    expect(offersPageMeta(blackFriday)).toEqual({
+      title: 'Black Friday | Uma Estrelinha',
+      description: 'Peças com 10%, 15% e 20% de desconto até 30 de novembro.',
+      indexable: true,
+    })
+  })
+
+  it('outra campanha muda título e descrição sem mudança de código', () => {
+    const maes = { name: 'Dia das Mães', percents: [15], ends_at: '2027-05-11T03:00:00.000Z' }
+    expect(offersPageMeta(maes)).toEqual({
+      title: 'Dia das Mães | Uma Estrelinha',
+      description: 'Peças com 15% de desconto até 10 de maio.',
+      indexable: true,
+    })
+  })
+
+  it('sem campanha: "Ofertas", diz que não há ofertas agora, e sai do índice', () => {
+    const meta = offersPageMeta(null)
+    expect(meta.title).toBe('Ofertas | Uma Estrelinha')
+    expect(meta.description).toContain('Não há ofertas agora')
+    expect(meta.indexable).toBe(false)
+  })
+
+  it('o tom: nada de contagem regressiva, escassez ou exclamação', () => {
+    for (const meta of [offersPageMeta(blackFriday), offersPageMeta(null)]) {
+      expect(`${meta.title} ${meta.description}`).not.toMatch(/!|últimas|restam|corra|acaba em|horas/i)
+    }
   })
 })

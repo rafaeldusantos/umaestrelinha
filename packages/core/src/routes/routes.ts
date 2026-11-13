@@ -76,6 +76,11 @@ export const ROUTE_SLUGS: readonly string[] = [
   // vai no FRAGMENTO (`/pagar-com-cartao#<token>`), como o do pedido montado; a rota é de um segmento
   // e é reservada pela mesma razão.
   'pagar-com-cartao',
+  // Campanhas de desconto — a vitrine da campanha em vigência. Um endereço FIXO para toda campanha
+  // (`OFFERS_PATH`), e reservado pela razão de sempre: uma categoria "ofertas" encobriria a vitrine.
+  // `black-friday` NÃO entra aqui: é a categoria herdada da loja anterior, desligada, e o endereço
+  // dela vira 301 para a vitrine (`LEGACY_REDIRECTS`) sem reservar o slug da categoria.
+  'ofertas',
 ]
 
 /**
@@ -198,6 +203,20 @@ export const PROPOSAL_PATH = '/pedido-montado'
 export const CARD_LINK_PATH = '/pagar-com-cartao'
 
 /**
+ * A vitrine da campanha de desconto em vigência — o MESMO endereço para toda campanha.
+ *
+ * É a terceira classe de rota, ao lado de `SITEMAP_STATIC_PATHS` e de `NON_INDEXABLE_PATHS`, e por
+ * isso não está em nenhuma das duas: a indexação dela DEPENDE do banco. Com campanha em vigência a
+ * página é indexável, com o nome da campanha no título, e entra no sitemap; sem campanha ela diz que
+ * não há ofertas, leva `noindex` e sai do sitemap. Quem decide o `<head>` servido é `servePage`
+ * (`{ kind: 'offers' }`), e o do cliente é `offersPageMeta` (`core/seo`).
+ *
+ * A vitrine é DERIVADA das marcações da campanha em vigência — nunca uma linha em `categories`. É a
+ * exceção declarada à regra de que conjunto de produtos é categoria (`AD-014`).
+ */
+export const OFFERS_PATH = '/ofertas'
+
+/**
  * `/como-enviar-seu-material-de-dna#cinzas` — o guia, opcionalmente já no material da cliente.
  *
  * A âncora vem de `materialAnchor` (`@estrelinha/core/material`), que não é importado aqui de
@@ -308,6 +327,11 @@ export const LEGACY_REDIRECTS: readonly { from: string; to: string }[] = [
   // Adri manda por WhatsApp desde a feature 22 — quebrá-la manda a cliente para um 404 no momento em
   // que ela foi procurar como não estragar o material.
   { from: '/como-enviar-o-material', to: '/como-enviar-seu-material-de-dna' },
+  // Campanhas de desconto. A loja anterior tinha a categoria "Black Friday" (desligada aqui, e assim
+  // continua); quem guardou o endereço dela chega à vitrine da campanha. Caminho fixo, como o do
+  // guia — mas o primeiro segmento NÃO é reservado: a categoria segue com o slug dela, e o espelho na
+  // SPA é a página de categoria (`/:slug`), não uma rota própria.
+  { from: '/black-friday', to: OFFERS_PATH },
 ]
 
 /**
@@ -358,5 +382,7 @@ export const APP_ROUTE_PATTERNS: readonly string[] = [
   // O endereço próprio de cada pergunta (2026-10-17). Indexável, mas com o `<head>` de hoje — fora
   // do escopo da 69 (spec, P2 fixas · AC3): quem o resolve é a SPA, a partir da página geral.
   `${FAQ_PATH}/:pergunta`,
-  ...LEGACY_REDIRECTS.map(r => r.from),
+  // Só as legadas que são rota do `App.tsx`: as de primeiro segmento reservado. A que não é
+  // (`/black-friday`) é resolvida pela página de categoria na SPA e pelo 301 no servidor de páginas.
+  ...LEGACY_REDIRECTS.map(r => r.from).filter(from => ROUTE_SLUGS.includes(from.split('/')[1])),
 ]

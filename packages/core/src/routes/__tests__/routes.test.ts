@@ -35,8 +35,10 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     // comportamento correto**: com categoria na raiz do domínio (`AD-018`), rota nova que não passe
     // por aqui encobre em silêncio uma categoria homônima. O 19º é `pedido-montado`, da feature 89
     // (o link do pedido montado pelo painel, `A-15`). O 20º é `pagar-com-cartao`, o link de
-    // pagamento por cartão que a Adri gera para um pedido.
-    expect(ROUTE_SLUGS).toHaveLength(20)
+    // pagamento por cartão que a Adri gera para um pedido. O 21º é `ofertas`, a vitrine da
+    // campanha de desconto em vigência (`OFFERS_PATH`).
+    expect(ROUTE_SLUGS).toHaveLength(21)
+    expect(ROUTE_SLUGS).toContain('ofertas')
     expect(ROUTE_SLUGS).toContain('pedido-montado')
     expect(ROUTE_SLUGS).toContain('pagar-com-cartao')
   })
@@ -106,12 +108,12 @@ describe('INFRA_SLUGS — o que é do host/build e não aparece no App.tsx', () 
 })
 
 describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
-  it('tem 23 entradas: 20 rotas + 3 de infraestrutura', () => {
-    expect(RESERVED_SLUGS).toHaveLength(23)
+  it('tem 24 entradas: 21 rotas + 3 de infraestrutura', () => {
+    expect(RESERVED_SLUGS).toHaveLength(24)
   })
 
   it('não repete nenhuma entrada', () => {
-    expect(new Set(RESERVED_SLUGS).size).toBe(23)
+    expect(new Set(RESERVED_SLUGS).size).toBe(24)
   })
 
   it.each([
@@ -239,9 +241,15 @@ describe('categoryPath — a categoria na raiz do domínio (URL-03)', () => {
 })
 
 describe('LEGACY_REDIRECTS — as formas legadas, em dado (URL-02, AC 3c)', () => {
-  it('tem exatamente 4 entradas', () => {
-    // Três padrões `prefixo/:slug` da feature 23 + o caminho fixo do guia de material, da 31.
-    expect(LEGACY_REDIRECTS).toHaveLength(4)
+  it('tem exatamente 5 entradas', () => {
+    // Três padrões `prefixo/:slug` da feature 23 + o caminho fixo do guia de material, da 31 + o
+    // endereço da categoria "Black Friday" da loja anterior, que leva à vitrine da campanha.
+    expect(LEGACY_REDIRECTS).toHaveLength(5)
+  })
+
+  it('/black-friday leva à vitrine da campanha', () => {
+    expect(LEGACY_REDIRECTS).toContainEqual({ from: '/black-friday', to: '/ofertas' })
+    expect(legacyRedirectTo('/black-friday')).toBe('/ofertas')
   })
 
   it('o singular do produto aponta para o plural — nunca foi canônico', () => {
@@ -303,12 +311,19 @@ describe('LEGACY_REDIRECTS — as formas legadas, em dado (URL-02, AC 3c)', () =
     })
   })
 
-  it('todo `from` começa por um segmento que está em ROUTE_SLUGS', () => {
+  it('todo `from` começa por um segmento que está em ROUTE_SLUGS — menos `/black-friday`', () => {
     // Sem isso a rota legada não teria como ser declarada no App.tsx nem protegida da colisão de
     // namespace que `AD-018` registra.
-    for (const entry of LEGACY_REDIRECTS) {
+    //
+    // A exceção é declarada e única: `black-friday` é o slug da categoria herdada da loja anterior,
+    // desligada, e reservá-lo faria o painel recusar o próprio slug dela. O 301 é do edge e do
+    // servidor de páginas, e a SPA o espelha na página de categoria.
+    const EXCECOES = ['/black-friday']
+    for (const entry of LEGACY_REDIRECTS.filter(e => !EXCECOES.includes(e.from))) {
       expect(ROUTE_SLUGS).toContain(entry.from.split('/')[1])
     }
+    expect(ROUTE_SLUGS).not.toContain('black-friday')
+    expect(LEGACY_REDIRECTS.map(e => e.from)).toEqual(expect.arrayContaining(EXCECOES))
   })
 })
 

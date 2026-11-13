@@ -55,6 +55,7 @@ const HowToSendMaterialPage = lazy(() => import("@/pages/HowToSendMaterialPage")
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
 const ProposalCheckoutPage = lazy(() => import("@/pages/ProposalCheckoutPage"));
 const CardLinkPaymentPage = lazy(() => import("@/pages/CardLinkPaymentPage"));
+const OffersPage = lazy(() => import("@/pages/OffersPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 /**
@@ -209,6 +210,13 @@ const App = () => (
                 */}
                 <Route path="/conta/dados" element={<AccountPage />} />
                 <Route path="/favoritos" element={<WishlistPage />} />
+                {/*
+                  A vitrine da campanha de desconto em vigência — um endereço fixo para toda campanha,
+                  reservado em `ROUTE_SLUGS`. Nem página fixa nem não indexável: a indexação depende da
+                  campanha (`OFFERS_PATH`). `/black-friday` (a categoria herdada, desligada) leva para
+                  cá pelo 301 do edge; o espelho na SPA é a página de categoria, sem rota própria.
+                */}
+                <Route path="/ofertas" element={<OffersPage />} />
                 <Route path="/entrar" element={<AuthPage />} />
                 <Route path="/:slug" element={<CategoryPage />} />
                 <Route path="/:parentSlug/:slug" element={<CategoryPage />} />

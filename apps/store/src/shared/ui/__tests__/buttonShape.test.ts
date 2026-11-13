@@ -36,6 +36,8 @@ const ACTION_TAGS = ['button', 'Button', 'a', 'Link', 'NavLink']
 const ROTULO: Record<string, string> = {
   'pages/CategoryPage.tsx':
     'Chips de filtro (os valores curados e os interruptores). São rótulos que alternam estado, não CTAs — o board os desenha em pílula.',
+  'pages/OffersPage.tsx':
+    'Os chips de percentual da vitrine da campanha ("Todas · N", "15% · n"): rótulos que alternam o recorte (`aria-pressed`), na mesma linguagem dos chips de filtro da categoria. As ações da vitrine ("Ver as coleções", "Limpar filtros", "Carregar mais joias") saem em `rounded-sm`.',
   'pages/SearchPage.tsx':
     'Os mesmos chips de filtro removíveis da categoria (feature 66), acima dos resultados da busca. São rótulos que desfazem um filtro, não CTAs; o "Limpar filtros" da busca sai em `rounded-sm`.',
   'features/category-filters/ui/CategoryFiltersPanel.tsx':

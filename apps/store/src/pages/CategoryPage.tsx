@@ -193,6 +193,12 @@ const CategoryPage = ({ legacy = false }: Props) => {
 
   if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
 
+  // O espelho do 301 do edge para o endereço legado de caminho fixo que NÃO tem rota própria por não
+  // ser reservado: `/black-friday` (a categoria da loja anterior, desligada) leva à vitrine da
+  // campanha. Os outros endereços legados têm rota no `App.tsx` e chegam aqui como `legacy`.
+  const destinoLegado = legacyRedirectTo(pathname)
+  if (destinoLegado) return <Navigate to={destinoLegado} replace />
+
   // Pai errado na URL: a barra se corrige sozinha e o conteúdo continua com um endereço só.
   if (route.kind === 'redirect') return <Navigate to={route.to} replace />
 

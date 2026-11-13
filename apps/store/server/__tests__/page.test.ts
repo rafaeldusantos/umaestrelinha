@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { servePage, type PageDeps } from '@estrelinha/core/page'
 import {
+  COLUNAS_CAMPANHA,
   COLUNAS_CATEGORIA,
   COLUNAS_MARCACAO,
   COLUNAS_PRODUTO,
@@ -267,6 +268,37 @@ describe('pageDeps — cada leitura pede o que deve', () => {
     expect(await pageDeps(client, ctx).readSettings()).toEqual({ defaultProductCategory: null, storeDescription: null })
   })
 
+  it('readLiveCampaign: `campaigns` com os percentuais, pela RLS — a primeira linha é a campanha em vigência', async () => {
+    const { client, chamadas } = dubleDoClient({
+      campaigns: {
+        data: [
+          {
+            name: 'Black Friday',
+            ends_at: '2026-12-01T03:00:00+00:00',
+            campaign_percents: [{ percent: 20 }, { percent: 10 }, { percent: 15 }],
+          },
+        ],
+        error: null,
+      },
+    })
+    expect(await pageDeps(client, ctx).readLiveCampaign()).toEqual({
+      name: 'Black Friday',
+      ends_at: '2026-12-01T03:00:00+00:00',
+      percents: [10, 15, 20],
+    })
+    expect(chamadas[0].tabela).toBe('campaigns')
+    expect(chamadas[0].select).toBe(COLUNAS_CAMPANHA)
+    // A vigência é da policy pública (relógio do banco): nenhum filtro de data escrito aqui.
+    expect(chamadas[0].filtros).toEqual([])
+  })
+
+  it('readLiveCampaign: nenhuma linha ⇒ `null`; erro ⇒ lança (servePage decide)', async () => {
+    const vazio = dubleDoClient({ campaigns: { data: [], error: null } })
+    expect(await pageDeps(vazio.client, ctx).readLiveCampaign()).toBeNull()
+    const erro = dubleDoClient({ campaigns: { data: null, error: new Error('campanhas') } })
+    await expect(pageDeps(erro.client, ctx).readLiveCampaign()).rejects.toThrow('campanhas')
+  })
+
   it('shell, origem e log passam como vieram', () => {
     const { client } = dubleDoClient({})
     const deps = pageDeps(client, ctx)
@@ -350,6 +382,43 @@ describe('createPageHandler — o handler `fetch`', () => {
     expect(r.headers.get('location')).toBe('/produtos/novo?variant=77')
   })
 
+  it('/ofertas: o <head> da campanha em vigência, lido de `campaigns`, com 300 s', async () => {
+    const { client, chamadas } = dubleDoClient({
+      campaigns: {
+        data: [{ name: 'Black Friday', ends_at: '2026-12-01T03:00:00+00:00', campaign_percents: [{ percent: 15 }] }],
+        error: null,
+      },
+    })
+    const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
+    const r = await fetch(new Request('https://loja.test/api/page?__path=/ofertas'))
+    const corpo = await r.text()
+    expect(r.status).toBe(200)
+    expect(r.headers.get('cache-control')).toBe('public, s-maxage=300')
+    expect(corpo).toContain('<title>Black Friday | Uma Estrelinha</title>')
+    expect(corpo).toContain('href="https://loja.test/ofertas"')
+    expect(corpo).not.toContain('noindex')
+    expect(chamadas.map(c => c.tabela)).toEqual(['campaigns'])
+  })
+
+  it('/ofertas sem campanha em vigência: noindex no HTML servido', async () => {
+    const { client } = dubleDoClient({ campaigns: { data: [], error: null } })
+    const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
+    const r = await fetch(new Request('https://loja.test/api/page?__path=/ofertas'))
+    const corpo = await r.text()
+    expect(r.status).toBe(200)
+    expect(corpo).toContain('<meta name="robots" content="noindex"')
+    expect(corpo).not.toContain('rel="canonical"')
+  })
+
+  it('/black-friday: 301 para /ofertas, sem ler nada', async () => {
+    const { client, chamadas } = dubleDoClient({})
+    const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
+    const r = await fetch(new Request('https://loja.test/api/page?__path=/black-friday'))
+    expect(r.status).toBe(301)
+    expect(r.headers.get('location')).toBe('/ofertas')
+    expect(chamadas).toEqual([])
+  })
+
   it('página fixa: a canônica na origem do env, sem barra dupla', async () => {
     const { client } = dubleDoClient({})
     const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
@@ -411,6 +480,7 @@ describe('readProduct — as colunas pedidas bastam para a página', () => {
     readOptionMarks: async () => [], readProductRedirect: async () => null, readCategories: async () => [],
     readCategoryRedirect: async () => null, readInactiveFallback: async () => null,
     readSettings: async () => ({ defaultProductCategory: 'Apparel & Accessories > Jewelry', storeDescription: null }),
+    readLiveCampaign: async () => null,
   })
 
   const servir = async (readProduct: PageDeps['readProduct'], caminho: string) =>

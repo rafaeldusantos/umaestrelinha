@@ -23,7 +23,13 @@
 // Imports por ARQUIVO e com extensão explícita: a função empacota este módulo fora do Vite.
 
 import { renditionUrl } from '../media/rendition.ts'
-import { categoryPageMeta, notFoundPageMeta, staticPageMeta } from '../seo/pages.ts'
+import {
+  categoryPageMeta,
+  notFoundPageMeta,
+  offersPageMeta,
+  staticPageMeta,
+  type OffersCampaignInput,
+} from '../seo/pages.ts'
 import {
   indexableOptions,
   optionPlainTitle,
@@ -45,7 +51,7 @@ import {
   type OfferInputProduct,
   type OfferInputVariant,
 } from '../shopping/index.ts'
-import { productPath } from '../routes/routes.ts'
+import { OFFERS_PATH, legacyRedirectTo, productPath } from '../routes/routes.ts'
 import { resolveCategoryRoute, type CategoryRouteNode } from './categoryRoute.ts'
 import { classifyPath } from './classify.ts'
 import { applyHead, imagePreloadLink, jsonLdScript, shellDescription, type ServedHead } from './head.ts'
@@ -95,6 +101,11 @@ export interface PageDeps {
   /** A RPC `category_fallback(slug)`: `null`, `ROOT_FALLBACK` ou o id do ancestral ativo. */
   readInactiveFallback: (slug: string) => Promise<string | null>
   readSettings: () => Promise<PageSettings>
+  /**
+   * A campanha de desconto EM VIGÊNCIA, ou `null` — pela leitura pública, que a RLS filtra por
+   * `now()` do banco (a página não decide a vigência). Lançar = falha de leitura.
+   */
+  readLiveCampaign: () => Promise<OffersCampaignInput | null>
   log: (entry: Record<string, unknown>) => void
 }
 
@@ -107,8 +118,9 @@ export interface ServedResponse {
 /**
  * O `Cache-Control` de cada ramo — a tabela "Decisão por caminho" do `design.md` da 69.
  *
- * - **300 s** em produto e categoria: o teto de atraso entre editar no painel e a página mostrar
- *   (decisão do usuário, 2026-10-19).
+ * - **300 s** em produto, categoria e na vitrine da campanha: o teto de atraso entre editar no painel
+ *   e a página mostrar (decisão do usuário, 2026-10-19). Na vitrine é também o teto da virada — a
+ *   página troca entre "campanha" e "não há ofertas" em até 5 minutos depois do início ou do fim.
  * - **60 s** em 404 (SSV-12): um produto recém-cadastrado não pode ficar 5 min invisível.
  * - **3600 s** em página fixa e rota de app: o conteúdo é do build, e o cache da Vercel é por deploy.
  * - **`no-store`** em erro: nada de falha cacheada.
@@ -174,8 +186,15 @@ export const servePage = async (deps: PageDeps, url: URL): Promise<ServedRespons
     switch (tipo.kind) {
       case 'product':
         return await servirProduto(deps, url, tipo.slug)
-      case 'category':
+      case 'category': {
+        // O espelho do 301 do edge para o endereço legado de caminho fixo que NÃO é rota reservada
+        // (`/black-friday` ⇒ `/ofertas`): sem ele, quem chegasse aqui cairia na categoria desligada.
+        const legado = tipo.parentSlug === null ? legacyRedirectTo(path) : null
+        if (legado) return redirect(legado)
         return await servirCategoria(deps, path, tipo.slug, tipo.parentSlug)
+      }
+      case 'offers':
+        return await servirOfertas(deps, path)
       case 'static':
         return servirFixa(deps, tipo.path)
       case 'app':
@@ -205,6 +224,40 @@ const servirFixa = (deps: PageDeps, path: string): ServedResponse => {
     }),
     200,
     PAGE_CACHE.fixed,
+  )
+}
+
+// ---------------------------------------------------------------------------------------------
+// A vitrine da campanha de desconto (`OFFERS_PATH`)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Dinâmica como o produto: o `<head>` vem da campanha em vigência — o nome dela no título, a linha
+ * da vitrine na descrição e a canônica de `/ofertas` —, com o cache de 300 s. Sem campanha, a página
+ * existe (200) e diz que não há ofertas, com `noindex` no HTML servido e sem canônica. A leitura
+ * falhando é a régua de sempre: o shell intacto, `no-store` — erro de infraestrutura não tira a
+ * vitrine do índice.
+ */
+const servirOfertas = async (deps: PageDeps, path: string): Promise<ServedResponse> => {
+  let campanha: OffersCampaignInput | null
+  try {
+    campanha = await deps.readLiveCampaign()
+  } catch (e) {
+    return falha(deps, path, 'campanha', e)
+  }
+  const meta = offersPageMeta(campanha)
+  const { origem, absoluta } = origemDe(deps.origin)
+  return html(
+    applyHead(deps.shell, {
+      title: meta.title,
+      description: meta.description,
+      canonical: meta.indexable && absoluta ? `${origem}${OFFERS_PATH}` : null,
+      image: null,
+      ogType: 'website',
+      noindex: !meta.indexable,
+    }),
+    200,
+    PAGE_CACHE.page,
   )
 }
 

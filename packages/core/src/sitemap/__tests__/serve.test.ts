@@ -49,6 +49,7 @@ const deps = (over: Partial<SitemapDeps> = {}): SitemapDeps => ({
   readVariants: async () => [],
   countOptionMarks: async () => 0,
   readOptionMarks: async () => [],
+  readOffersLive: async () => false,
   log: () => {},
   ...over,
 })
@@ -117,6 +118,8 @@ describe('serveSitemap — o caminho bom', () => {
       perguntas: 0,
       variacoes: 0,
       marcacoes: 0,
+      // Se a vitrine da campanha entrou: o que separa "sem campanha" de "esqueceu a campanha".
+      ofertas: false,
     })
   })
 })
@@ -503,5 +506,33 @@ describe('feature 69 — as fotos dos produtos', () => {
     expect(fotosPorUrl(xml)['https://umaestrelinha.com.br/produtos/peca-nua']).toBeUndefined()
     expect(xml).not.toContain('<image:loc></image:loc>')
     expect(xml.match(/<image:image>/g)).toHaveLength(3)
+  })
+})
+
+describe('serveSitemap — a vitrine da campanha (/ofertas)', () => {
+  const locs = (xml: string) => [...parse(xml).querySelectorAll('loc')].map(l => l.textContent)
+
+  it('com campanha em vigência, `/ofertas` entra no sitemap', async () => {
+    const res = await serveSitemap(deps({ readOffersLive: async () => true }))
+    expect(res.status).toBe(200)
+    expect(locs(res.body)).toContain('https://umaestrelinha.com.br/ofertas')
+  })
+
+  it('sem campanha em vigência, `/ofertas` não entra', async () => {
+    const res = await serveSitemap(deps({ readOffersLive: async () => false }))
+    expect(res.status).toBe(200)
+    expect(locs(res.body)).not.toContain('https://umaestrelinha.com.br/ofertas')
+  })
+
+  it('a leitura da campanha falhando ⇒ 503 sem `<urlset>` — sitemap parcial não parece parcial', async () => {
+    const res = await serveSitemap(
+      deps({
+        readOffersLive: async () => {
+          throw new Error('fora do ar')
+        },
+      }),
+    )
+    expect(res.status).toBe(503)
+    naoTemUrlset(res)
   })
 })

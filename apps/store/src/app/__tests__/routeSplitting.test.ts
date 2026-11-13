@@ -118,9 +118,10 @@ describe('routeSplitting — cada página é um chunk (PRF-16)', () => {
     ).toEqual([])
   })
 
-  it('as 20 páginas do disco estão TODAS em `lazy`', () => {
+  it('as 21 páginas do disco estão TODAS em `lazy` (21 com a vitrine da campanha, `OffersPage`)', () => {
     const preguicosas = app.preguicosas.map(p => p.modulo.replace('@/pages/', ''))
-    expect(paginasNoDisco).toHaveLength(20)
+    expect(paginasNoDisco).toHaveLength(21)
+    expect(paginasNoDisco).toContain('OffersPage')
     expect([...preguicosas].sort()).toEqual([...paginasNoDisco].sort())
   })
 

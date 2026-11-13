@@ -64,6 +64,7 @@ const deps: PageDeps = {
   readCategoryRedirect: lanca,
   readInactiveFallback: lanca,
   readSettings: lanca,
+  readLiveCampaign: lanca,
   log: () => {},
 }
 
@@ -161,10 +162,11 @@ describe('paginasFixasServidas — âncoras', () => {
 
   it('a varredura do inverso leu o App.tsx e conhece caminhos de todos os tipos', () => {
     expect(APP).toContain('<Routes>')
-    expect(rotasDoApp(APP)).toHaveLength(27)
+    // 28 rotas com `/ofertas`, a vitrine da campanha — a terceira classe (`offers`), que não é fixa.
+    expect(rotasDoApp(APP)).toHaveLength(28)
     const tipos = new Set(candidatos().map(c => classifyPath(c).kind))
     // Sem esta âncora, um colhedor que devolvesse só páginas fixas faria o inverso passar sobre nada.
-    expect([...tipos].sort()).toEqual(['app', 'category', 'notfound', 'product', 'static'])
+    expect([...tipos].sort()).toEqual(['app', 'category', 'notfound', 'offers', 'product', 'static'])
     expect(candidatos().filter(c => classifyPath(c).kind === 'static')).toHaveLength(12)
   })
 })

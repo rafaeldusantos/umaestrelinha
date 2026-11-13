@@ -18,6 +18,7 @@ import {
   CARD_LINK_PATH,
   RETURNS_POLICY_PATH,
 } from '../routes/routes.ts'
+import { campaignShowcaseLine } from '../campaigns/text.ts'
 import { STORE_BRAND, brandedTitle } from './brand.ts'
 import { descriptionFromHtml, summarize } from './text.ts'
 
@@ -242,4 +243,39 @@ export const searchPageMeta = (termo?: string | null): PageMeta => {
   const base = staticPageMeta('/busca')
   const limpo = texto(termo)
   return limpo === '' ? base : { ...base, title: brandedTitle(`Busca: ${limpo}`) }
+}
+
+/** O que a vitrine `/ofertas` lê da campanha em vigência. `ends_at` é EXCLUSIVO, como no banco. */
+export interface OffersCampaignInput {
+  name: string
+  percents: readonly number[]
+  ends_at: string
+}
+
+/**
+ * A vitrine da campanha (`OFFERS_PATH`) — o `<head>` que o cliente escreve e o que o servidor serve.
+ *
+ * Com campanha em vigência: o NOME dela no título ("Black Friday | Uma Estrelinha") e a linha da
+ * vitrine na descrição ("Peças com 10%, 15% e 20% de desconto até 30 de novembro."), por
+ * `campaignShowcaseLine` — a mesma frase que a página mostra. Indexável.
+ *
+ * Sem campanha: a página existe e diz que não há ofertas agora, mas sai do índice (`noindex`) — uma
+ * vitrine vazia indexada seria uma página sem conteúdo com o nome da loja.
+ *
+ * Tom: até quando vale, por data. Nada de contagem regressiva nem escassez.
+ */
+export const offersPageMeta = (campaign: OffersCampaignInput | null | undefined): PageMeta => {
+  const nome = texto(campaign?.name)
+  if (!campaign || nome === '') {
+    return {
+      title: brandedTitle('Ofertas'),
+      description: `Não há ofertas agora na ${STORE_BRAND}. Conheça as coleções de joias afetivas.`,
+      indexable: false,
+    }
+  }
+  return {
+    title: brandedTitle(nome),
+    description: campaignShowcaseLine(campaign.percents, campaign.ends_at),
+    indexable: true,
+  }
 }

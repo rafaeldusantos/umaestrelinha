@@ -76,6 +76,7 @@ const deps = ({ storeDescription, ...over }: Over = {}, d: ProductPageData | nul
   readCategoryRedirect: async () => null,
   readInactiveFallback: async () => null,
   readSettings: async () => ({ defaultProductCategory: null, storeDescription: storeDescription ?? null }),
+  readLiveCampaign: async () => null,
   log: () => {},
   ...over,
 })

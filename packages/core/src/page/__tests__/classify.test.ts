@@ -3,6 +3,8 @@ import {
   APP_ROUTE_PATTERNS,
   LEGACY_REDIRECTS,
   NON_INDEXABLE_PATHS,
+  OFFERS_PATH,
+  ROUTE_SLUGS,
   SITEMAP_STATIC_PATHS,
 } from '../../routes/routes.ts'
 import { classifyPath } from '../classify.ts'
@@ -17,14 +19,19 @@ const COLECAO = ['co', 'lecao'].join('')
  */
 
 describe('APP_ROUTE_PATTERNS — composto dos donos, não escrito à mão', () => {
-  it('é exatamente as não indexáveis + a pergunta + as legadas, sem repetição', () => {
+  it('é exatamente as não indexáveis + a pergunta + as legadas que são rota, sem repetição', () => {
+    // A legada só é rota do `App.tsx` quando o primeiro segmento dela é reservado. `/black-friday`
+    // não é (a categoria homônima, desligada, continua com o slug dela): o 301 é do edge, e a SPA o
+    // espelha na página de categoria.
     expect([...APP_ROUTE_PATTERNS].sort()).toEqual(
       [
         ...NON_INDEXABLE_PATHS.map(r => r.path),
         '/perguntas-frequentes/:pergunta',
-        ...LEGACY_REDIRECTS.map(r => r.from),
+        ...LEGACY_REDIRECTS.map(r => r.from).filter(f => f !== '/black-friday'),
       ].sort(),
     )
+    expect(ROUTE_SLUGS).not.toContain('black-friday')
+    expect(APP_ROUTE_PATTERNS).not.toContain('/black-friday')
     expect(new Set(APP_ROUTE_PATTERNS).size).toBe(APP_ROUTE_PATTERNS.length)
   })
 
@@ -188,5 +195,27 @@ describe('/pedido-montado (feature 89)', () => {
 
   it('um segundo segmento não é a rota (o token não vai no caminho)', () => {
     expect(classifyPath('/pedido-montado/abc').kind).not.toBe('app')
+  })
+})
+
+describe('/ofertas — a vitrine da campanha em vigência', () => {
+  it('é classificada `offers` — nem rota de app, nem página fixa, nem categoria', () => {
+    expect(OFFERS_PATH).toBe('/ofertas')
+    expect(classifyPath('/ofertas')).toEqual({ kind: 'offers' })
+    expect(APP_ROUTE_PATTERNS).not.toContain('/ofertas')
+    expect(SITEMAP_STATIC_PATHS).not.toContain('/ofertas')
+  })
+
+  it('a parte estática casa sem caixa, como o React Router', () => {
+    expect(classifyPath('/Ofertas')).toEqual({ kind: 'offers' })
+  })
+
+  it('um segundo segmento não é a vitrine — `ofertas` é reservado ⇒ notfound', () => {
+    expect(classifyPath('/ofertas/black-friday')).toEqual({ kind: 'notfound' })
+  })
+
+  it('/black-friday segue a régua da categoria: o 301 para /ofertas é do edge e do servidor de páginas', () => {
+    expect(LEGACY_REDIRECTS).toContainEqual({ from: '/black-friday', to: '/ofertas' })
+    expect(classifyPath('/black-friday')).toEqual({ kind: 'category', slug: 'black-friday', parentSlug: null })
   })
 })

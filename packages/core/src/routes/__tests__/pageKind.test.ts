@@ -15,6 +15,9 @@ describe('pageKind', () => {
     ['/colecao/joias-afetivas', 'lista'],
     ['/categoria/joias-afetivas', 'lista'],
     ['/busca', 'lista'],
+    // A vitrine da campanha é uma lista de peças, e o endereço legado leva a ela.
+    ['/ofertas', 'lista'],
+    ['/black-friday', 'lista'],
     ['/carrinho', 'sacola'],
     ['/checkout', 'checkout'],
     ['/pedido-montado', 'checkout'],

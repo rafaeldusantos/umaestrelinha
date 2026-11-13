@@ -243,6 +243,12 @@ describe('CategoryPage — espelho das rotas legadas (URL-02, AC 3c)', () => {
     expect(screen.getByText('url:/nao-existe')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Essa página não existe.' })).toBeInTheDocument()
   })
+
+  it('`/black-friday` (a categoria herdada, desligada) navega para a vitrine da campanha', () => {
+    renderAt('/black-friday')
+
+    expect(screen.getByText('url:/ofertas')).toBeInTheDocument()
+  })
 })
 
 // 23 · T18 — `SEO-02` (spec AC 8): o slug antigo de uma categoria resolve pela tabela de redirect.

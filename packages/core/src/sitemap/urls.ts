@@ -17,7 +17,7 @@
 
 import { faqQuestionPath } from '../faq/link.ts'
 import { categoryHref } from '../menu/index.ts'
-import { SITEMAP_STATIC_PATHS, productPath } from '../routes/index.ts'
+import { OFFERS_PATH, SITEMAP_STATIC_PATHS, productPath } from '../routes/index.ts'
 import { indexableOptions } from '../seo/variant.ts'
 import { productPageImages } from '../page/images.ts'
 import { SITEMAP_MAX_IMAGES_PER_URL } from './render.ts'
@@ -51,6 +51,12 @@ export interface SitemapUrlsInput {
   optionMarks?: readonly SitemapOptionMark[]
   /** Sobrescrita só para teste; produção usa `SITEMAP_STATIC_PATHS`. */
   staticPaths?: readonly string[]
+  /**
+   * Há campanha de desconto em vigência? Só então a vitrine (`OFFERS_PATH`) entra — sem campanha ela
+   * diz que não há ofertas e leva `noindex`, e anunciá-la seria mandar o rastreador a uma página
+   * que pede para não ser indexada. Ausente ⇒ fora, o documento de antes.
+   */
+  offers?: boolean
 }
 
 /**
@@ -137,6 +143,7 @@ export const sitemapUrls = ({
   variants = [],
   optionMarks = [],
   staticPaths = SITEMAP_STATIC_PATHS,
+  offers = false,
 }: SitemapUrlsInput): SitemapUrl[] => {
   const base = normalizeOrigin(origin)
 
@@ -147,6 +154,9 @@ export const sitemapUrls = ({
     // exatamente o sinal que o `lastmod` existe para NÃO dar.
     lastmod: null,
   }))
+  // A vitrine da campanha logo depois das fixas, também sem `<lastmod>`: o conteúdo dela é derivado
+  // das marcações, sem uma data própria de onde tirar a data.
+  if (offers) estaticas.push({ loc: absolute(base, OFFERS_PATH), lastmod: null })
 
   const categorias: SitemapUrl[] = [...categories].sort(byCategoryOrder).map(category => ({
     // A lista inteira vai junto porque `categoryHref` sobe até o pai imediato para decidir entre

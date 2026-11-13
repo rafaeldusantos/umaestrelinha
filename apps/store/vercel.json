@@ -14,7 +14,8 @@
       "source": "/como-enviar-o-material",
       "destination": "/como-enviar-seu-material-de-dna",
       "statusCode": 301
-    }
+    },
+    { "source": "/black-friday", "destination": "/ofertas", "statusCode": 301 }
   ],
   "rewrites": [
     {

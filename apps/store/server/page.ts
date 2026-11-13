@@ -32,6 +32,9 @@ import { sitemapDeps } from './sitemap'
 /** A linha de marcação que `servePage` espera — tirada do contrato, sem import de `core/seo`. */
 type OptionMarkRow = Awaited<ReturnType<PageDeps['readOptionMarks']>>[number]
 
+/** A campanha que `servePage` espera para a vitrine — tirada do contrato. */
+type LiveCampaignRow = Awaited<ReturnType<PageDeps['readLiveCampaign']>>
+
 /** Substituído pelo esbuild no build. Em teste não existe — por isso só é lido via `typeof`. */
 declare const __SHELL__: string
 
@@ -54,6 +57,13 @@ export const COLUNAS_VARIACAO =
 // O grupo do valor vem no embed porque `publicOptionMarks` (em `servePage`) exige o grupo ativo.
 // Com a RLS, um grupo desligado já chega `null` — e `null` também é recusado lá.
 export const COLUNAS_MARCACAO = 'option_name,option_value,value_id,filter_values(filter_groups(is_active))'
+
+/**
+ * A campanha de desconto em vigência, para o `<head>` de `/ofertas`: o nome, o fim (exclusivo) e os
+ * percentuais. A RLS de `campaigns` (chave publicável) só entrega a campanha LIGADA dentro da
+ * vigência, pelo relógio do banco — nenhum filtro de data é escrito aqui.
+ */
+export const COLUNAS_CAMPANHA = 'name,ends_at,campaign_percents(percent)'
 
 /** O que a página lê de uma categoria. Só a árvore ATIVA, que é a pública. */
 export const COLUNAS_CATEGORIA = 'id,slug,parent_id,name,description,banner_url,image_url'
@@ -178,6 +188,23 @@ export const pageDeps = (
       defaultProductCategory: typeof categoria === 'string' && categoria.trim() !== '' ? categoria : null,
       storeDescription: typeof descricao === 'string' && descricao.trim() !== '' ? descricao : null,
     }
+  },
+
+  // Só há uma campanha ligada por vez (exclusão no banco): a primeira linha é a campanha em vigência.
+  readLiveCampaign: async (): Promise<LiveCampaignRow> => {
+    const { data, error } = await supabase.from('campaigns').select(COLUNAS_CAMPANHA)
+    if (error) throw error
+    const linha = ((data ?? []) as {
+      name?: unknown
+      ends_at?: unknown
+      campaign_percents?: { percent?: unknown }[] | null
+    }[])[0]
+    if (!linha || typeof linha.name !== 'string' || typeof linha.ends_at !== 'string') return null
+    const percents = (linha.campaign_percents ?? [])
+      .map(p => p?.percent)
+      .filter((p): p is number => typeof p === 'number' && Number.isFinite(p))
+      .sort((a, b) => a - b)
+    return { name: linha.name, ends_at: linha.ends_at, percents }
   },
 })
 

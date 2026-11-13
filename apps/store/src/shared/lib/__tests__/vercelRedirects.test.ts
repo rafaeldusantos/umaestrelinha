@@ -70,8 +70,9 @@ describe('vercel.json — âncora da leitura', () => {
 
     // E o tamanho da própria régua está escrito aqui: esvaziar `LEGACY_REDIRECTS` tornaria a
     // comparação acima verdadeira contra um `redirects: []`, que é exatamente o defeito a evitar.
-    // Três padrões de categoria/produto (feature 23) + o caminho fixo do guia (feature 31).
-    expect(LEGACY_REDIRECTS.length).toBe(4)
+    // Três padrões de categoria/produto (feature 23) + o caminho fixo do guia (feature 31) + o
+    // endereço da categoria "Black Friday" da loja anterior, que leva à vitrine da campanha.
+    expect(LEGACY_REDIRECTS.length).toBe(5)
   })
 })
 
@@ -106,6 +107,13 @@ describe('vercel.json — os 301 das URLs legadas (URL-02)', () => {
     const entry = bySource('/como-enviar-o-material')
     expect(entry).toBeDefined()
     expect(entry.destination).toBe('/como-enviar-seu-material-de-dna')
+    expect(entry.statusCode).toBe(301)
+  })
+
+  it('`/black-friday` → `/ofertas` com 301 — a vitrine da campanha, sem religar a categoria antiga', () => {
+    const entry = bySource('/black-friday')
+    expect(entry).toBeDefined()
+    expect(entry.destination).toBe('/ofertas')
     expect(entry.statusCode).toBe(301)
   })
 

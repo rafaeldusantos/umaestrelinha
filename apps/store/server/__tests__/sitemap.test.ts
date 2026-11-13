@@ -79,6 +79,7 @@ const LINHAS: Linhas = {
   product_variants: [],
   product_option_filter_values: [],
   faq_page_items: [],
+  campaigns: [],
 }
 
 const env = { VITE_SUPABASE_URL: 'http://127.0.0.1:54441', VITE_SUPABASE_PUBLISHABLE_KEY: 'pk', STORE_PUBLIC_URL: 'https://loja.test/' }
@@ -266,8 +267,30 @@ describe('server/sitemap.ts — as colunas das fotos (lidas do disco)', () => {
 // SMV-03 — QUALQUER leitura que falha vira 503, não só a de produtos (achado da verificação, M01:
 // o erro de `faq_page_items` não era exercitado, e engoli-lo dava um sitemap 200 sem as perguntas)
 // ---------------------------------------------------------------------------------------------
+describe('sitemapDeps — a vitrine da campanha', () => {
+  it('readOffersLive: CONTA `campaigns` (exata, sem corpo) — a RLS só deixa passar a campanha em vigência', async () => {
+    const { client, chamadas } = dubleDoClient({ ...LINHAS, campaigns: [{ id: 'cmp' }] })
+    expect(await sitemapDeps(client, { origin: 'https://loja.test', log: () => {} }).readOffersLive()).toBe(true)
+    expect(chamadas).toEqual([{ tabela: 'campaigns', select: 'id', opcoes: { count: 'exact', head: true }, ordem: [] }])
+  })
+
+  it('readOffersLive: nenhuma campanha ⇒ `false`', async () => {
+    const { client } = dubleDoClient(LINHAS)
+    expect(await sitemapDeps(client, { origin: 'https://loja.test', log: () => {} }).readOffersLive()).toBe(false)
+  })
+
+  it('com campanha em vigência, `/ofertas` sai no XML servido; sem, não', async () => {
+    const com = dubleDoClient({ ...LINHAS, campaigns: [{ id: 'cmp' }] })
+    const xmlCom = await (await createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => com.client })(pedir('/sitemap.xml'))).text()
+    expect(locs(xmlCom)).toContain('https://loja.test/ofertas')
+    const sem = dubleDoClient(LINHAS)
+    const xmlSem = await (await createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => sem.client })(pedir('/sitemap.xml'))).text()
+    expect(locs(xmlSem)).not.toContain('https://loja.test/ofertas')
+  })
+})
+
 describe('createPageHandler — `/sitemap.xml`: erro em CADA tabela ⇒ 503', () => {
-  it.each(['products', 'categories', 'product_variants', 'product_option_filter_values', 'faq_page_items'])(
+  it.each(['products', 'categories', 'product_variants', 'product_option_filter_values', 'faq_page_items', 'campaigns'])(
     'falha em `%s` ⇒ 503 `no-store`, sem `<urlset>`',
     async tabela => {
       const { client } = dubleDoClient(LINHAS, tabela)

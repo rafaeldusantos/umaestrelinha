@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { APP_ROUTE_PATTERNS, SITEMAP_STATIC_PATHS } from '@estrelinha/core/routes'
+import { APP_ROUTE_PATTERNS, OFFERS_PATH, SITEMAP_STATIC_PATHS } from '@estrelinha/core/routes'
 import { classifyPath } from '@estrelinha/core/page'
 
 /**
@@ -38,6 +38,11 @@ const declaredPaths = (source: string): string[] => [
 /** As formas que a função resolve pelo CATÁLOGO, e não por lista. */
 const DO_CATALOGO = ['/produtos/:slug', '/:slug', '/:parentSlug/:slug']
 const CURINGA = '*'
+/**
+ * A terceira classe: a vitrine da campanha de desconto, dinâmica como o produto — o `<head>` e a
+ * indexação dela dependem da campanha em vigência. Escrita por extenso: a régua não é o objeto medido.
+ */
+const VITRINE = '/ofertas'
 
 /** Em quantos conjuntos a rota está — tem de ser exatamente um. */
 const conjuntos = (path: string): string[] =>
@@ -45,6 +50,7 @@ const conjuntos = (path: string): string[] =>
     APP_ROUTE_PATTERNS.includes(path) ? 'app' : null,
     SITEMAP_STATIC_PATHS.includes(path) ? 'fixa' : null,
     DO_CATALOGO.includes(path) ? 'catalogo' : null,
+    path === VITRINE ? 'vitrine' : null,
     path === CURINGA ? 'curinga' : null,
   ].filter(Boolean) as string[]
 
@@ -66,16 +72,18 @@ describe('rotasDeApp — âncora da varredura', () => {
     expect(APP).toContain('<Routes>')
   })
 
-  it('encontrou as 27 rotas que o roteador declara — e 16 delas são de app (com /pedido-montado e /pagar-com-cartao)', () => {
+  it('encontrou as 28 rotas que o roteador declara — e 16 delas são de app (com /pedido-montado e /pagar-com-cartao)', () => {
     // Se uma rota sumir ou entrar, este número muda e alguém precisa olhar, em vez de a classificação
-    // passar a cobrir um roteador diferente sem aviso.
-    expect(declaredPaths(APP)).toHaveLength(27)
+    // passar a cobrir um roteador diferente sem aviso. 28 com `/ofertas`, a vitrine da campanha.
+    expect(declaredPaths(APP)).toHaveLength(28)
+    expect(declaredPaths(APP)).toContain(VITRINE)
+    expect(OFFERS_PATH).toBe(VITRINE)
     expect(declaredPaths(APP).filter(p => APP_ROUTE_PATTERNS.includes(p))).toHaveLength(16)
   })
 })
 
 describe('rotasDeApp — bidirecional com o App.tsx', () => {
-  it('toda rota declarada está em EXATAMENTE um conjunto (app, fixa, catálogo, curinga)', () => {
+  it('toda rota declarada está em EXATAMENTE um conjunto (app, fixa, catálogo, vitrine, curinga)', () => {
     expect(semClassificacao(APP)).toEqual([])
   })
 
@@ -95,9 +103,11 @@ describe('rotasDeApp — bidirecional com o App.tsx', () => {
           ? 'app'
           : SITEMAP_STATIC_PATHS.includes(padrao)
             ? 'static'
-            : padrao === '/produtos/:slug'
-              ? 'product'
-              : 'category'
+            : padrao === VITRINE
+              ? 'offers'
+              : padrao === '/produtos/:slug'
+                ? 'product'
+                : 'category'
       if (kind !== esperado) errados.push(`${padrao} (${url}) ⇒ ${kind}, esperado ${esperado}`)
     }
     expect(errados).toEqual([])
