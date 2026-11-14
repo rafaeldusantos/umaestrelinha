@@ -36,17 +36,48 @@ O plano tem **um** charter `cfr` e, com protótipo, **um** `design-check`. Os do
 
 ## Quantos charters
 
-Um charter exploratório por **área de risco da mudança** — não por tela que a persona atravessa. O teto sai
-do tamanho da costura:
+Um charter exploratório por **área de risco da mudança** — não por tela que a persona atravessa. A mesma
+tabela dimensiona o plano inteiro, pelo tamanho da costura:
 
-| Work Item                                                        | Exploratórios | Mais                         |
-| ---------------------------------------------------------------- | ------------- | ---------------------------- |
-| pequeno — ajuste, até ~5 critérios, uma tela                      | até 2         | `cfr` curto · `design-check` |
-| médio — até ~12 critérios, poucas telas                           | até 4         | `cfr` · `design-check`       |
-| grande — fluxo novo, várias telas ou repositórios                 | até 6         | `cfr` · `design-check`       |
+| Work Item                                         | Personas | Jornadas | Exploratórios | Mais                         | TC, no máximo |
+| ------------------------------------------------- | -------- | -------- | ------------- | ---------------------------- | ------------- |
+| pequeno — ajuste, até ~5 critérios, uma tela      | 1–2      | 1–2      | até 2         | `cfr` curto · `design-check` | 10            |
+| médio — até ~12 critérios, poucas telas           | 2–3      | 2–4      | até 4         | `cfr` · `design-check`       | 20            |
+| grande — fluxo novo, várias telas ou repositórios | 3–5      | 3–7      | até 6         | `cfr` · `design-check`       | 35            |
+
+**É teto, não meta.** O número sai das áreas de risco e dos comportamentos que a mudança tem — abaixo do teto
+é o normal. Cada charter custa uma sessão inteira no browser, e cada TC é lido pelo explorer que o confere:
+plano que enche a tabela por enchê-la encarece a rodada sem achar mais.
 
 Superfície que a mudança não toca **não** ganha charter, nem quando a jornada passa por ela: o QA real-user
 confere a mudança, não audita o app. Precisou de mais charters que o teto, diga por quê no plano.
+
+**O charter cabe no orçamento.** No máximo **um TC a cada 5 ações** do box — 5 TC em 25 ações, 10 em 50, 14
+em 70; na rodada de confirmação, metade. Charter que passa disso não termina numa sessão: o explorer esgota o
+orçamento, e a continuação é outra sessão inteira, que relê o contexto de base de novo e repete o login e a
+navegação até o ponto. Divida o charter no plano, por área de risco, antes da rodada.
+
+## Lotes
+
+Com o `agent-browser` ou o `playwright-cli`, cada charter tem o seu browser, e a Fase 2 roda os charters em **lotes paralelos**.
+O planner propõe o lote de cada charter na tabela do test-plan; a thread principal confere antes de despachar.
+
+1. **No máximo 3 charters por lote** — é o app local do Dev que recebe as sessões ao mesmo tempo
+2. **Nunca dois da mesma conta** no lote (`anonima` conta como uma conta): duas sessões da mesma conta
+   derrubam o login uma da outra e misturam o dado
+3. **Nunca dois que mexem na mesma massa** — o que um cria, edita ou exclui o outro não pode ler nem alterar
+   na mesma janela. Na dúvida, lotes separados
+4. **O `cfr` roda sozinho, por último** — ele mede performance percebida, e sessões ao lado distorcem a medida
+5. O `design-check` entra num lote como qualquer charter
+6. Lote com charter `P0` vai primeiro
+7. Charter que declara outro driver (`driver: cli` ou `mcp` — resposta lenta, script antes da página) roda
+   sozinho, fora de lote
+
+Com o Playwright MCP o browser é um só: não há lote, a rodada é em sequência.
+
+**Um charter por explorer.** Juntar dois charters num explorer para economizar sai mais caro, não mais barato:
+o segundo charter relê tudo o que o primeiro acumulou (simulado: +5% a +65%), e o log, o orçamento e o
+veredito se misturam. O paralelo vem dos lotes, nunca de um explorer com mais de um charter.
 
 ## Modos do charter exploratório
 

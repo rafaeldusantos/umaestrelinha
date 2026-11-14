@@ -6,6 +6,11 @@ por isso é estável.
 
 Saída: `test-cases/<TC-ID>.md`, um por caso, pelo [template](../../templates/plan/test-case.md).
 
+**Quantos:** todo critério da fonte com ao menos um caso, dentro do teto do tamanho do Work Item
+([tabela](../execution/charters.md#quantos-charters)). Variação do mesmo comportamento — dado no limite,
+voltar, recarregar, duplo clique — vai em **Variações** do caso, não em caso novo. Caso novo é comportamento
+novo.
+
 ---
 
 ## 1. Tipo e prefixo

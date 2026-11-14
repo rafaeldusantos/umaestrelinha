@@ -8,7 +8,7 @@
   },
   "acceptance_criteria_covered": 0,
   "strategy": [
-    "Exploração por charter no browser real (Playwright MCP ou playwright-cli), uma persona por sessão",
+    "Exploração por charter no browser real (agent-browser, playwright-cli ou Playwright MCP), uma persona por sessão",
     "E2E (Playwright) pedido à automação p/ fluxos P0/P1 determinísticos",
     "Manual p/ usabilidade, acessibilidade e conferência contra o protótipo"
   ],
@@ -83,18 +83,38 @@ Detalhe em [personas.md](personas.md).
 
 ## Charters
 
-Ordem de execução — a Fase 2 despacha nesta sequência.
+Ordem de execução — a Fase 2 despacha nesta ordem e, com o `agent-browser` ou o `playwright-cli`, por **Lote**: no máximo 3
+charters, nunca dois da mesma conta ou da mesma massa, e o CFR sozinho, por último. Charter com outro
+**Driver** roda sozinho. Cada charter com no máximo um TC a cada 5 ações do time-box.
 
-| Ordem | ID    | Missão                               | Persona   | Tour   | Time-box | Prioridade | TC             | Arquivo                           |
-| ----- | ----- | ------------------------------------ | --------- | ------ | -------- | ---------- | -------------- | --------------------------------- |
-| 1     | CH-01 | <uma frase>                          | PER-01    | <tour> | 60 min   | P0         | TC-FUNC-001, … | [CH-01](charters/CH-01-<slug>.md) |
-| …     | CH-NN | CFR — <jornadas>                     | <persona> | —      | 45 min   | P1         | TC-CFR-…       |                                   |
-| …     | CH-NN | design-check — <telas> · <protótipo> | <persona> | —      | 30 min   | P1         | TC-UI-…        |                                   |
+| Ordem | Lote | ID    | Missão                               | Persona   | Conta   | Massa                    | Driver | Tour   | Time-box | Prioridade | TC             | Arquivo                           |
+| ----- | ---- | ----- | ------------------------------------ | --------- | ------- | ------------------------ | ------ | ------ | -------- | ---------- | -------------- | --------------------------------- |
+| 1     | L1   | CH-01 | <uma frase>                          | PER-01    | <conta> | <cria · altera · só lê> | —      | <tour> | 60 min   | P0         | TC-FUNC-001, … | [CH-01](charters/CH-01-<slug>.md) |
+| …     | L2   | CH-NN | design-check — <telas> · <protótipo> | <persona> | <conta> | só lê                    | —      | —      | 30 min   | P1         | TC-UI-…        |                                   |
+| …     | LN   | CH-NN | CFR — <jornadas>                     | <persona> | <conta> | só lê                    | —      | —      | 45 min   | P1         | TC-CFR-…       |                                   |
+
+<!-- Massa: o que o charter cria, altera ou só lê (o pedido de teste, o produto X) — é a régua de "mesma massa".
+Driver: `—` usa o da sonda; `cli` ou `mcp` só quando o charter precisa do que o agent-browser não faz
+(resposta lenta, script antes da página), com o motivo no charter. -->
+
+## Ambiente da execução
+
+O que vale para toda sessão da Fase 2 — vai no campo `ambiente` do briefing, porque o explorer e o retester
+rodam sem as instruções do projeto. Fontes: `PROJECT.md` › Ambiente local e as instruções do projeto.
+
+- **App:** <URL(s) locais e o que cada uma é>
+- **Bloquear:** <padrões que nunca podem receber requisição — ex.: `*.supabase.co`, `**/g/collect*` — ou "nada">
+- **E-mail de dev:** <URL da caixa local, ou "não há">
+- **Viewport alvo:** <largura × altura, quando o projeto define um; senão "o da persona">
+- **Nunca:** <ações proibidas no ambiente — pagar de verdade, digitar cartão, mandar mensagem a cliente real —, ou "nada">
+- **Uploads:** <onde ficam os arquivos que as sessões enviam, ou "não há">
+- **Massa:** <o manifesto: o que é só leitura e o que cada charter pode consumir, ou "a do seed">
 
 ## Estratégia
 
 - **Como se exercitam as jornadas:** um charter por área de risco, uma persona por sessão, no browser real
-  pelo Playwright (MCP ou CLI); os `TC-*` são conferidos dentro do charter que os cita
+  (`agent-browser`, ou `playwright-cli` / Playwright MCP como fallback); os `TC-*` são conferidos dentro do
+  charter que os cita
 - **CFR:** <categorias afetadas pelo Work Item e por quê; as não afetadas, com o motivo>
 - **Conferência visual:** <telas × protótipo, ou "sem protótipo — fora">
 - **Onde termina o simulado:** <integrações reais × mock no ambiente de QA; o que o QA manual não alcança>
@@ -114,7 +134,7 @@ Ordem de execução — a Fase 2 despacha nesta sequência.
 - [ ] App acessível num ambiente com paridade de produção (auth real, cookies habilitados)
 - [ ] Credencial para cada persona que precisa de conta — referência de onde está, nunca o valor
 - [ ] Massa de dados que atende as pré-condições das jornadas: <qual>
-- [ ] Driver de browser disponível — Playwright MCP headless, ou `playwright-cli` como fallback
+- [ ] Driver de browser disponível — `agent-browser` 0.39+, ou `playwright-cli` / Playwright MCP headless como fallback
 - [ ] Com charter `design-check`: fonte de design acessível — o MCP dela, o link ou o arquivo
 
 ## Critérios de saída

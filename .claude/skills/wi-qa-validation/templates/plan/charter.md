@@ -16,10 +16,12 @@ Remova as seções que não são do tipo, e este comentário.
 | Modo         | com tour · por técnica · por cenário · livre — `—` no cfr e no design-check   |
 | Time-box     | 30 · 60 · 90 min — 45 no cfr · orçamento: 25 · 50 · 70 ações — 35 no cfr      |
 | Mudança      | <o que o Work Item muda nesta superfície, com os critérios: C-03, P1-AC02>    |
-| Viewport     | 1280 · 768 · 375 — o da persona                                               |
+| Viewport     | 1280 · 768 · 375 — o da persona, ou o alvo do projeto (Ambiente da execução)  |
+| Massa        | <o que esta sessão cria, altera ou só lê>                                     |
+| Driver       | `—` (o da sonda) · `cli` · `mcp` — só com o motivo: <resposta lenta, script antes da página> |
 | Entrada      | <rota de partida, relativa à URL do app> · estado de partida (<logada como…, carrinho vazio…>) |
 | Jornadas     | J-NN, … · `—`                                                                 |
-| TC           | TC-…, TC-…                                                                    |
+| TC           | TC-…, TC-… — no máximo um a cada 5 ações do orçamento                        |
 
 ## Missão
 

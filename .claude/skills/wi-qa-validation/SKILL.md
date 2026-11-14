@@ -3,7 +3,7 @@ name: wi-qa-validation
 description: >
   WORKFLOW SKILL — Conduz o QA real-user que o Dev faz como último passo de um Work Item da wi-workflow
   (.specs/work-items/), depois da Validation PASS, no ambiente local e com tudo em disco em qa/. Planeja personas, jornadas, charters, casos TC-* e a regressão;
-  executa cada charter numa sessão exploratória no browser real (Playwright), com CFR e conferência contra o design; retesta os bugs abertos; e faz a triagem por
+  executa cada charter numa sessão exploratória no browser real (agent-browser, com Playwright como fallback), em lotes paralelos por conta, com CFR e conferência contra o design; retesta os bugs abertos; e faz a triagem por
   impacto ao usuário em BUG-*. Perguntas ao humano vão pela página de perguntas da wi-workflow. Não
   versiona sozinho.
   USE FOR: planejar o QA de um Work Item, QA exploratório e por persona no local, conferir a tela contra o
@@ -16,13 +16,15 @@ license: UNLICENSED
 metadata:
   author: Softdesign
   argument-hint: "Chave do Work Item; opcionalmente o modo (planejar · executar · retestar), a URL do ambiente local, credenciais por persona e o foco"
-  version: "4.0.0"
+  version: "4.1.0"
   upstream_author: Pedro Nauck
   upstream_repository: https://github.com/pedronauck/skills
   note: >
     Sucessora de pd-qa-validation (3.2.0), agora 100% local: o registro do QA é o que está em
     `[QA_DIR]`. Os envelopes qa-plan/v1, qa-result/v1 e qa-issue/v1 ficam como contrato de QA local
-    (references/setup/artefatos.md).
+    (references/setup/artefatos.md). A 4.1.0 traz da pd-qa-validation 3.3.0 o agent-browser como driver
+    preferido, os lotes paralelos e o plano dimensionado, e roda os subagents sem as instruções do projeto
+    (omitClaudeMd): as regras do ambiente chegam pelo campo `ambiente` do briefing.
 ---
 
 # wi-qa-validation — QA real-user do Work Item
@@ -43,7 +45,9 @@ parte **do plano e das descobertas daqui**, pelo [contrato de QA](references/sha
 
 2. **A thread principal orquestra.** Planejar, explorar no browser, retestar e triar são dos subagents. Você
    lê o disco, despacha, confere o relatório contra o gate, fala com o humano e registra. Abrir o browser ou
-   um log de sessão "só para conferir" é o que estoura o contexto
+   um log de sessão "só para conferir" é o que estoura o contexto. Comece a rodada numa **conversa nova**
+   (`/clear` depois da Validation): tudo o que a implementação produziu está em disco, e cada volta desta
+   thread relê a conversa inteira — numa rodada medida depois da implementação, ela chegou a 800 mil tokens
 
 3. **A fonte está no disco, não no briefing.** Cada fase escreve em `[QA_DIR]`, e a seguinte lê de lá. O
    briefing passa **caminhos**, não conteúdo colado. É o que mantém a rodada retomável e os subagents
@@ -102,7 +106,7 @@ parte **do plano e das descobertas daqui**, pelo [contrato de QA](references/sha
    FASE 1  PLANO        wi-qa-planner     → test-plan (qa-plan/v1) · personas · jornadas · charters · TC-*
            ⛔ GATE 1    perguntas 🔴 ⇒ página ⇒ redispara 1× · humano aprova no chat ⇒ Gate 1: aprovado
                         + linha em item.md › Gates · modo `planejar` encerra aqui
-   FASE 2  EXECUÇÃO     wi-qa-explorer    → sessions/CH-NN-*.md + screenshots (um charter por subagent)
+   FASE 2  EXECUÇÃO     wi-qa-explorer    → sessions/CH-NN-*.md + screenshots (um charter por subagent, em lotes)
                         wi-qa-retester    → retest.md, o veredito de cada bug (só com bugs abertos)
            GATE 2       sempre aberto — charter `blocked` vira pendência, não trava a triagem
    FASE 3  TRIAGEM      wi-qa-triager     → issues/BUG-*.md novos · qa-result.md · transições propostas
@@ -113,9 +117,22 @@ parte **do plano e das descobertas daqui**, pelo [contrato de QA](references/sha
    RODADA 2+  CONFIRMAÇÃO — retester + só os charters com TC fail/blocked, sem exploração nem pergunta nova
 ```
 
-**Um browser, uma sessão por vez.** Os `wi-qa-explorer` rodam **em sequência**, um charter cada: o Playwright
-MCP compartilha o browser entre quem o usa — e a mesma regra vale no fallback pelo `playwright-cli`, para a
-rodada não depender do driver. O ganho do subagent é o contexto, não o paralelismo.
+**Um charter por explorer, em lotes por conta.** Cada `wi-qa-explorer` executa um charter, com o contexto
+zerado. Com `driver: agent-browser` ou `cli`, cada charter tem o seu browser (`--session CH-NN` ·
+`-s=CH-NN`, headless e sem perfil em disco), e charters de **contas diferentes** rodam no mesmo lote, em
+paralelo — no máximo 3, nunca dois da mesma conta ou da mesma massa, e o `cfr` sozinho
+([lotes](references/execution/charters.md#lotes)). Com `driver: mcp` o browser é um só para todos: a rodada é
+em sequência.
+
+**Não junte charters num explorer só.** O contexto do browser de um charter seria relido em cada chamada do
+seguinte: simulado sobre rodadas reais, dois charters por explorer custam cerca de 5% a mais, e todos num
+só, cerca de 60% a mais — e a sessão longa explora pior.
+
+**Os subagents rodam sem as instruções do projeto.** O `wi-qa-explorer`, o `wi-qa-retester` e o
+`wi-qa-triager` têm `omitClaudeMd` (num projeto com `CLAUDE.md` grande, ele era três quartos do contexto de
+cada chamada do explorer) e o explorer e o retester, `disallowedTools`. O que eles precisam do projeto vai no
+briefing: o explorer e o retester recebem o campo `ambiente` — a seção **Ambiente da execução** do test-plan,
+que o `wi-qa-planner` escreve (ele lê as instruções do projeto) e o Gate 1 aprova.
 
 ## Project Structure
 
@@ -157,19 +174,27 @@ diga: _"copie `agents/wi-qa-*.md` deste pacote para `~/.claude/agents/`"_.
 **2. Um driver de browser** — exigido nas Fases 2 (exploração e reteste); **não bloqueia** a Fase 1. A
 primeira que valer decide o `driver` da rodada ([browser.md](references/execution/browser.md)):
 
-1. **Playwright MCP** na sessão (tools `browser_*`) ⇒ `driver: mcp` — **preferido**: cada ação já devolve
-   o estado da tela, e a sessão fecha em menos voltas ao modelo
-2. **`playwright-cli`** — `playwright-cli --version` sai `0` ⇒ `driver: cli`, o **fallback**
-3. Nenhum dos dois ⇒ antes da Fase 2, bloqueie e diga como configurar o MCP — headless e isolado, sem
-   janela abrindo e fechando na tela do Dev a cada charter, e sem perfil salvo em disco
-   ([browser.md](references/execution/browser.md#configuração-recomendada)):
+1. **`agent-browser`** 0.39 ou mais nova — `agent-browser --version` ⇒ `driver: agent-browser` —
+   **preferido**: o snapshot traz só o que é interativo, os comandos encadeiam numa chamada e cada charter
+   tem o seu browser, o que permite os lotes paralelos. Versão mais velha: sugira `agent-browser upgrade` e
+   siga para o próximo item
+2. **`playwright-cli`** — `playwright-cli --version` sai `0` ⇒ `driver: cli`: também um browser por
+   charter, mas devolve o snapshot como arquivo, uma leitura a mais
+3. **Playwright MCP** na sessão (tools `browser_*`) ⇒ `driver: mcp`: um browser só, a rodada em sequência,
+   e o snapshot também vem como arquivo
+4. Nenhum dos três ⇒ antes da Fase 2, bloqueie e diga como instalar o `agent-browser` — headless e sem
+   perfil em disco por padrão, e vale na hora:
 
    ```bash
-   claude mcp add playwright -s user -- npx @playwright/mcp@latest --headless --isolated
+   npm install -g agent-browser && agent-browser install
    ```
 
-   Quem não quer configurar MCP usa o fallback: `npm install -g @playwright/cli@latest`. Um MCP recém
-   configurado só aparece numa sessão nova do Claude Code; o `playwright-cli` vale na hora
+   Alternativas: `npm install -g @playwright/cli@latest`, ou o MCP
+   (`claude mcp add playwright -s user -- npx @playwright/mcp@latest --headless --isolated`, que só aparece
+   numa sessão nova do Claude Code) — ver [browser.md](references/execution/browser.md#configuração-recomendada)
+
+   O charter que precisa do que o `agent-browser` não faz (atrasar uma resposta, script antes da página)
+   declara `driver: cli` ou `mcp` no plano e roda sozinho; sem esse driver, o caso vai a Fora da cobertura
 
 **3. O app rodando no local** — antes da Fase 2. Ambiente deployed está fora desta skill
 ([execution.md](references/execution/execution.md#0-antes-de-despachar)).
@@ -186,8 +211,10 @@ resultado da sonda; faltando, diga como resolver (instalar Node ≥ 18, instalar
 1. **Work Item.** A chave na mensagem; ou a pasta única em `.specs/work-items/`; ou a única com
    `fase: validation | done` no `item.md`. Nenhuma ou mais de uma ⇒ pergunte. Sem Work Item, nada anda
    ([workspace.md](references/setup/workspace.md#resolver-o-work-item-e-item_dir))
-2. **Resolver `[ITEM_DIR]` e `[QA_DIR]`**, e ler o que já está em `[QA_DIR]` — a tabela de
-   [workspace.md](references/setup/workspace.md#o-que-está-em-disco) decide de onde a rodada começa
+2. **Resolver `[ITEM_DIR]` e `[QA_DIR]`**, e listar o que já está em `[QA_DIR]` — a tabela de
+   [workspace.md](references/setup/workspace.md#o-que-está-em-disco) decide de onde a rodada começa. A
+   **listagem** basta: o nome de `sessions/CH-NN-*.md` diz que o charter rodou, e o conteúdo dos logs de
+   sessão é do triager — não os abra
 3. **Modo.** O humano pediu `planejar`, `executar` ou `retestar` ⇒ vale o pedido. Não pediu ⇒ vale a tabela
 4. **Insumos da mensagem** — URL do ambiente, credenciais por persona, escopo, foco: anote. O que não veio,
    a Fase 0 tenta obter; **não pergunte agora** (Regra 5)
@@ -204,9 +231,11 @@ resultado da sonda; faltando, diga como resolver (instalar Node ≥ 18, instalar
    humano pela página, redispare uma vez. Gate 1 ([gates.md](references/setup/gates.md#gate-1)): apresente
    o resumo no chat; aprovado, registre (`**Gate 1:** aprovado em <data>` + linha no `item.md`). Modo
    `planejar` encerra aqui.
-3. **Fase 2 — Execução** ([execution.md](references/execution/execution.md)): resolva o app e as
-   credenciais; despache **um** `wi-qa-explorer` por charter, em sequência, na ordem de prioridade do plano.
-   Com bugs abertos (`open` · `still-open`), um `wi-qa-retester` depois dos charters. Gate 2 sempre abre.
+3. **Fase 2 — Execução** ([execution.md](references/execution/execution.md)): resolva o app, as
+   credenciais e o ambiente da execução; despache **um** `wi-qa-explorer` por charter, na ordem de
+   prioridade do plano — em lotes paralelos por conta com `driver: agent-browser` ou `cli`, em sequência com
+   `driver: mcp`. Com bugs abertos (`open` · `still-open`), um `wi-qa-retester`, que pode ir no último lote
+   (a sessão dele é `retest`). Gate 2 sempre abre.
 4. **Fase 3 — Triagem** ([triage.md](references/triage/triage.md)): `wi-qa-triager` lê as sessões, o reteste,
    o plano e `qa/issues/`, escreve os `BUG-*` novos e o `qa-result.md`, e propõe as transições. Gate 3
    ([gates.md](references/setup/gates.md#gate-3)): apresente veredito, bugs e transições no chat; com o
@@ -221,8 +250,8 @@ Ao fim de **cada** fase, anuncie no formato de [gates.md](references/setup/gates
 | Subagent         | Quando                               | Recebe                                                                                                                                                                                              | Devolve                                                                                               |
 | ---------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `wi-qa-planner`  | Fase 1, um só                        | `wi`, `qa_dir`, `fontes` (caminhos), `escopo`, `modo`, `respostas` (opcional), `referências`, `templates`                                                                                           | plano e casos escritos + contagens, cobertura de critérios, perguntas 🔴 (com sugestões) 🟡 🟢        |
-| `wi-qa-explorer` | Fase 2, um por charter, em sequência | `qa_dir`, `charter` (caminho), `app`, `driver` (`mcp` · `cli`), `credenciais` (persona → onde estão), `rodada`, `orçamento`, `design` (opcional), `referências`, `template`                         | `sessions/CH-NN-*.md` escrito + veredito por TC, achados, cobertura                                   |
-| `wi-qa-retester` | Fase 2, um só, com bugs abertos      | `qa_dir`, `bugs` (caminhos dos `BUG-*` abertos), `app`, `driver`, `credenciais`, `referências`, `template`                                                                                          | `retest.md` escrito + veredito `resolved` · `still-open` · `cannot-reproduce` · `blocked` por bug     |
+| `wi-qa-explorer` | Fase 2, um por charter, em lotes     | `qa_dir`, `charter` (caminho), `app`, `driver` (`agent-browser` · `cli` · `mcp`), `ambiente`, `massa` (opcional), `credenciais` (persona → onde estão), `rodada`, `orçamento`, `design` (opcional), `referências` (as do tipo do charter), `template` | `sessions/CH-NN-*.md` escrito + veredito por TC, achados, cobertura                                   |
+| `wi-qa-retester` | Fase 2, um só, com bugs abertos      | `qa_dir`, `bugs` (caminhos dos `BUG-*` abertos), `app`, `driver`, `ambiente`, `credenciais`, `referências`, `template`                                                                              | `retest.md` escrito + veredito `resolved` · `still-open` · `cannot-reproduce` · `blocked` por bug     |
 | `wi-qa-triager`  | Fase 3, um só                        | `wi`, `qa_dir`, `validação` (caminho do `qa-report.md`), `e2e` (caminho do `qa-e2e-report.md` ou `ausente`), `rodada`, `costura`, `referências`, `templates`                                        | `BUG-*` novos e `qa-result.md` escritos + veredito, transições propostas, lotes, perguntas (≤3), sugestões de backlog, evidências |
 
 O briefing completo de cada um está na reference da fase. Os subagents leem referências e templates **da
@@ -251,7 +280,7 @@ produto** quando está no escopo da mudança (Regra 10).
 | Preflight | a listagem de `[QA_DIR]`                                         | —                                               |
 | Fase 0    | `tipo`/`entrada`/`fase` do `item.md`, as **contagens** (fontes, insumos, bugs por status), o `Status` da Validation | o conteúdo do PRD, da costura e dos bugs — eles estão no disco |
 | Fase 1    | o relatório do `wi-qa-planner`                                   | o plano e os casos crus                         |
-| Fase 2    | o relatório de cada sessão, um por vez                           | os logs de sessão e as screenshots              |
+| Fase 2    | o relatório de cada sessão, lote a lote                          | os logs de sessão e as screenshots              |
 | Fase 3    | o relatório do `wi-qa-triager`, as respostas da página           | os `BUG-*` crus                                 |
 
 **Alvo:** <30k tokens por fase. **Você imprime, não lê:** o que um subagent escreveu em `[QA_DIR]` não volta

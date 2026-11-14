@@ -87,7 +87,9 @@ Sessão nova com `[QA_DIR]` populado:
 
 1. Refaça as sondas e a leitura da Fase 0 — é barata e o disco pode ter mudado
 2. **Anuncie** o que achou — plano e o estado do Gate 1, charters com e sem sessão, bugs abertos, o que falta
-3. Retome pela tabela acima. **Não** redespache charter que já tem log de sessão
+3. Retome pela tabela acima. **Não** redespache charter que já tem log de sessão — e **não abra** esses logs:
+   o nome do arquivo em `sessions/` basta para saber que o charter rodou. O conteúdo é do `wi-qa-triager`,
+   que o lê do disco; ler log na thread principal é o que estoura o contexto da rodada (Regra 2)
 4. O humano mudou um insumo de fase anterior (escopo novo, PRD revisado) ⇒ não é retomada: é Fase 1 de
    novo, em modo `revisar`, e os charters afetados perdem o log de sessão
 

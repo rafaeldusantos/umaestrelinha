@@ -5,16 +5,16 @@ cheia de screenshot e de leitura de tela, e nada disso precisa passar pela threa
 abertos no Work Item, um subagent de reteste fecha a fase.
 
 Quem executa são o `wi-qa-explorer` e o `wi-qa-retester`. Você resolve o app e as credenciais, ordena os
-charters, despacha um por vez, e abre o Gate 2.
+charters, despacha em lotes (um por vez com `driver: mcp`), e abre o Gate 2.
 
 ---
 
 ## 0. Antes de despachar
 
 1. **Gate técnico** — [gates.md](../setup/gates.md#gate-técnico)
-2. **Driver de browser** — Playwright MCP na sessão (`driver: mcp`, preferido) ou `playwright-cli`
-   instalado (`driver: cli`, fallback), pela sonda do [SKILL.md](../../SKILL.md#pré-requisitos--sondas-no-início-da-sessão).
-   Nenhum dos dois ⇒ bloqueie: sem browser não há execução
+2. **Driver de browser** — `agent-browser` 0.39+ (`driver: agent-browser`, preferido), `playwright-cli`
+   (`driver: cli`) ou Playwright MCP na sessão (`driver: mcp`), nessa ordem, pela sonda do [SKILL.md](../../SKILL.md#pré-requisitos--sondas-no-início-da-sessão).
+   Nenhum dos três ⇒ bloqueie: sem browser não há execução
 3. **O app, no local.** Esta skill fecha o desenvolvimento: o app é o do branch do Dev, rodando na máquina
    dele. Ambiente deployed está fora desta skill. A primeira que valer:
    1. URL local que o Dev deu (`localhost`, túnel do próprio Dev)
@@ -42,12 +42,31 @@ charters, despacha um por vez, e abre o Gate 2.
    briefing leva os nomes das variáveis, não o segredo. Persona sem credencial ⇒
    os charters dela vão `blocked`, os demais seguem
 
+5. **O ambiente da execução.** A seção `## Ambiente da execução` do test-plan (o planner a escreve a partir do
+   **Ambiente local** do `PROJECT.md` e das instruções do projeto, e o Gate 1 a aprova) diz o que vale para
+   toda sessão: hosts que não podem receber requisição, caixa de e-mail de dev, viewport alvo, o que nunca
+   fazer, onde ficam os arquivos de upload e o manifesto da massa. Confira contra o ambiente de pé — porta que
+   mudou, serviço novo — e corrija na própria seção. **É por ela que essas regras chegam aos subagentes**: o
+   explorer e o retester rodam sem as instruções do projeto (`CLAUDE.md`), então o que não estiver no
+   `ambiente` do briefing não existe para eles. Sem a seção (plano antigo), monte-a você, com as mesmas
+   fontes, antes do primeiro despacho
+
 Pergunte o que faltar dos itens 3 e 4 **numa mensagem**.
 
-## 1. Ordem dos charters
+## 1. Ordem e lotes
 
 Liste `test-plans/charters/` — só os nomes. Ordem: prioridade do charter (P0 primeiro), e dentro dela a
 ordem do plano. Charter que já tem `sessions/CH-NN-*.md` não roda de novo (retomada).
+
+Confira também se cada charter cabe no orçamento ([um TC a cada 5 ações](charters.md#quantos-charters)).
+Charter que não cabe é defeito do plano: não o divida aqui nem o despache com orçamento maior — leve ao Dev
+antes de despachar (ele manda dividir, pelo `wi-qa-planner` em `revisar`, ou aceita a sessão incompleta).
+
+**Lotes**, com `driver: agent-browser` ou `cli`: a tabela de charters do test-plan traz o **Lote** que o planner propôs.
+Confira-o contra as [regras de lote](charters.md#lotes) — a conta de cada persona está em `personas.md`, a
+massa de cada charter na coluna **Massa** — e corrija o que as quebrar, sem redespachar o planner por isso.
+Charter com outro `driver:` declarado roda sozinho. Com `driver: mcp` não há lote: um charter por vez, na
+ordem. Nunca junte dois charters num explorer ([charters.md](charters.md#lotes)).
 
 **Rodada de confirmação** ([workspace.md](../setup/workspace.md#rodada-de-confirmação)): só os charters com
 TC `fail` ou `blocked` no `qa-result-<data>.md` anterior, e os de critério novo por `escopo deste WI`. Os
@@ -60,39 +79,43 @@ design de memória.
 
 ## 2. Despachar o `wi-qa-explorer`
 
-**Um por charter, em sequência** — o Playwright MCP compartilha o browser. Despachar dois ao mesmo tempo faz
-um navegar na sessão do outro. Com `driver: cli` a regra é a mesma: a rodada não muda de forma conforme o
-driver.
+**Um por charter.** Com `driver: agent-browser` ou `cli`, despache os charters do lote **na mesma mensagem** — uma chamada de
+agent por charter — e espere os relatórios de todos antes do próximo lote. Com `driver: mcp`, um por vez: o
+MCP compartilha o browser, e dois ao mesmo tempo fazem um navegar na sessão do outro.
 
 | Campo         | O que passar                                                                                                                                                                  |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `qa_dir`      | `[QA_DIR]`                                                                                                                                                                    |
 | `charter`     | o caminho do `CH-NN-*.md`                                                                                                                                                     |
 | `app`         | a URL                                                                                                                                                                         |
-| `driver`      | `mcp` ou `cli`, o da sonda; com `cli`, a sessão é `-s=CH-NN`                                                                                                                  |
+| `driver`      | `agent-browser`, `cli` ou `mcp`: o da sonda, ou o que o charter declara (`driver:`); a sessão é `--session CH-NN` ou `-s=CH-NN`                                                     |
+| `ambiente`    | as linhas da seção **Ambiente da execução** do test-plan, no texto (não o caminho): hosts a bloquear, caixa de e-mail, viewport alvo, o que nunca fazer, arquivos de upload |
+| `massa`       | o que este charter pode criar ou alterar e o que é só leitura, do manifesto da massa; sem manifesto, omita                                                                    |
 | `credenciais` | conta → os nomes das variáveis (`QA_<CONTA>_USUARIO`, `QA_<CONTA>_SENHA`); `anonima` sem login                                                                                |
 | `rodada`      | `exploração` na primeira rodada sobre o plano; `confirmação` nas seguintes                                                                                                    |
 | `orçamento`   | as ações de browser do time-box do charter ([charters.md](charters.md#time-box-e-orçamento)); metade na confirmação                                                          |
 | `design`      | só no `design-check`: as fontes de design da Fase 0 — `tool` e link ou caminho de cada uma |
-| `referências` | caminhos de `references/execution/{charters,tours,edge-cases,browser}.md` e `references/triage/severity.md`; mais `cfr.md` no charter de CFR e `design-check.md` no de design |
+| `referências` | só o que o tipo do charter usa — `exploratório`: `references/execution/{charters,tours,edge-cases,browser}.md`; `cfr`: `charters.md`, `cfr.md` e `browser.md`; `design-check`: `charters.md`, `design-check.md` e `browser.md`. Em todos, `references/triage/severity.md` |
 | `template`    | caminho de `templates/execution/session-log.md`                                                                                                                               |
 
 O explorer escreve `sessions/CH-NN-<slug>.md` e as screenshots em `screenshots/CH-NN-*.png`, e devolve um
 relatório curto. **Não abra o log**: o relatório basta para o Gate 2, e o triager lê o log do disco.
 
-Sessão `blocked` por credencial ou massa ⇒ siga para o próximo charter; leve ao Gate 2.
+Sessão `blocked` por credencial ou massa ⇒ siga com os demais; leve ao Gate 2.
 
 ## 3. Reteste
 
-Só se a Fase 0 achou bugs abertos (`status` `open` ou `still-open`). Um `wi-qa-retester`, depois do
-último charter:
+Só se a Fase 0 achou bugs abertos (`status` `open` ou `still-open`). Um `wi-qa-retester`. Com
+`driver: agent-browser` ou `cli`, ele entra num lote como mais um charter (sessão `retest`), pelas mesmas
+[regras de lote](charters.md#lotes) — nunca no do `cfr`; com `driver: mcp`, depois do último charter:
 
 | Campo         | O que passar                                                                    |
 | ------------- | ------------------------------------------------------------------------------- |
 | `qa_dir`      | `[QA_DIR]`                                                                      |
 | `bugs`        | os caminhos dos `issues/BUG-*.md` abertos, da Fase 0                            |
 | `app`         | a URL                                                                           |
-| `driver`      | como no explorer; com `cli`, a sessão é `-s=retest`                             |
+| `driver`      | como no explorer; a sessão é `retest`                                           |
+| `ambiente`    | como no explorer                                                                |
 | `credenciais` | como no explorer                                                                |
 | `referências` | caminhos de `references/execution/browser.md` e `references/triage/severity.md` |
 | `template`    | caminho de `templates/execution/retest.md`                                      |

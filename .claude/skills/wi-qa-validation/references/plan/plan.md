@@ -48,9 +48,18 @@ integração que o QA manual não alcança): leve ao humano no Gate 1 assim mesm
 
 Confira duas coisas antes do Gate 1:
 
-- **O número de charters** cabe no teto do tamanho da costura
-  ([charters.md](../execution/charters.md#quantos-charters)). Passou sem o planner dizer por quê ⇒
-  redespache em `revisar` pedindo o corte
+- **O tamanho é o da costura, não o rótulo.** Conte você os critérios de aceite e as telas da fonte (o PRD, ou
+  a seção Comportamentos do `plan.md`) e ache a linha da [tabela](../execution/charters.md#quantos-charters):
+  um ajuste de 3 critérios numa tela é **pequeno** mesmo que o relatório diga `grande`. Rótulo maior que a
+  costura, sem o planner dizer por quê, é teto errado — o corte vem do tamanho que você contou
+- **O número de charters e de TC** cabe no teto do tamanho da costura
+  ([charters.md](../execution/charters.md#quantos-charters)), e cada charter cabe no orçamento (um TC a cada
+  5 ações). Passou sem o planner dizer por quê ⇒ redespache em `revisar` pedindo o corte ou a divisão
+- **Lotes e ambiente.** A coluna **Lote** respeita as [regras de lote](../execution/charters.md#lotes), pela
+  **Conta** e pela **Massa** de cada charter; a seção **Ambiente da execução** está preenchida **e bate com o
+  `PROJECT.md` › Ambiente local e com as instruções do projeto** — abra-os e confira: host a bloquear, caixa de
+  e-mail, viewport alvo ou proibição que eles declaram e a seção não traz é lacuna, e "sem restrição declarada"
+  só vale quando eles não declaram nada. É ela que leva aos subagentes as regras do ambiente que eles não leem
 - **As perguntas de produto saem aqui.** As 🔴 vão pela página antes da aprovação; as 🟡 e 🟢, no chat,
   junto com o pedido de aprovação — e recomende ao humano decidir agora as que mudam comportamento: a
   resposta no Gate 1 custa um TC; a mesma pergunta na execução custa uma rodada

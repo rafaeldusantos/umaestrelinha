@@ -40,8 +40,9 @@ avulso, não jornada forçada.
 
 ## 3. Regras
 
-1. **De 3 a 7 jornadas.** Menos é cobertura rasa; mais é sessão cansada e execução superficial. Work Item
-   pequeno (bug, ajuste de tela) pode ter menos — diga por quê no plano
+1. **Quantas, pelo tamanho do Work Item** ([tabela](../execution/charters.md#quantos-charters)): uma ou duas
+   num ajuste pequeno, até 7 num fluxo novo. Mais que o teto é sessão cansada e execução superficial —
+   passou, diga por quê no plano
 2. **Ao menos uma de abandono ou erro**: a persona desiste no meio, a ação falha e ela tenta de novo, a
    sessão expira e ela volta depois. É onde moram os bugs de maior impacto — carrinho que zera, sessão
    perdida, pedido fantasma, mensagem de "processando" que não é verdade

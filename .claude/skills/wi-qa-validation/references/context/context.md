@@ -61,8 +61,13 @@ fontes:
   validação: <[ITEM_DIR]/qa-report.md | ausente>
   e2e: <[ITEM_DIR]/qa/e2e/qa-e2e-report.md | ausente>
   projeto: <.specs/project/PROJECT.md | ausente>
+  instruções: <o CLAUDE.md / AGENTS.md da raiz e do módulo que a mudança toca, os que existem | ausente>
 bugs_abertos: <os caminhos de issues/BUG-*.md com status open ou still-open | nenhum>
 ```
+
+O `projeto` e as `instruções` são de onde o `wi-qa-planner` tira a seção **Ambiente da execução** do plano
+(hosts a bloquear, caixa de e-mail de dev, viewport alvo, o que nunca fazer). Ele é o único agent da QA que as
+lê: o explorer, o retester e o triager rodam sem elas.
 
 Anuncie no formato de [gates.md](../setup/gates.md#anúncio-entre-fases) — inclusive "0 bugs abertos" e
 "sem fonte de design": diz ao QA que a leitura aconteceu.

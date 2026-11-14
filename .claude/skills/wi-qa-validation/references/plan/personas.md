@@ -25,7 +25,7 @@ Toda persona do plano parte de **um** arquétipo, e ganha nome, objetivo e conte
 Os arquétipos descrevem **o modo de usar**, não o perfil de acesso. Perfil e permissão (admin, operador,
 convidado) são um campo à parte — um "usuário avançado" pode ser admin ou operador.
 
-> No Playwright (MCP ou CLI), a tecnologia assistiva se simula por **teclado** e pela **árvore de acessibilidade**
+> No browser da sessão (`agent-browser`, `playwright-cli` ou Playwright MCP), a tecnologia assistiva se simula por **teclado** e pela **árvore de acessibilidade**
 > (snapshot). Leitor de tela real (VoiceOver, NVDA, TalkBack) fica fora — diga isso no plano quando a
 > persona depender dele.
 
@@ -47,8 +47,9 @@ Para cada superfície que o Work Item toca: _quem mais se machuca se isto falhar
 
 ## 3. Regras
 
-1. **No mínimo três personas**, cobrindo as superfícies do Work Item. Menos que isso deixa segmento sem
-   verificação — se for o caso, diga por quê na seção de riscos do plano
+1. **Quantas, pelo tamanho do Work Item** ([tabela](../execution/charters.md#quantos-charters)): uma ou duas
+   num ajuste pequeno, três ou mais numa feature, cobrindo as superfícies que a mudança toca. Fora da faixa,
+   diga por quê na seção de riscos do plano
 2. **Ao menos uma fora do caminho feliz:** novo usuário, mobile, tecnologia assistiva, permissão restrita
    ou em recuperação
 3. **Cada persona tem um motivo para estar ali:** um objetivo que o Work Item entrega a ela. Persona sem

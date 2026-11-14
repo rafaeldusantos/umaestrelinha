@@ -42,8 +42,9 @@ gate **bloqueia** — não pergunte no chat, salvo pedido explícito do humano. 
 
 ```
 Plano de QA — <WI> · <título>
-  Personas: X · Jornadas: X · Charters: X · TC: X (P0 X · P1 X · P2 X · P3 X)
+  Tamanho: pequeno | médio | grande (critérios X · telas X, contados por você) · Personas: X · Jornadas: X · Charters: X em X lotes · TC: X (P0 X · P1 X · P2 X · P3 X)
   Critérios: X de Y cobertos  ·  sem cobertura: <IDs, ou "nenhum">
+  Ambiente da execução: <bloqueios, e-mail de dev, viewport — uma linha, ou "sem restrição declarada">
   Automação: e2e X (missing X) · integration X · manual X
   Perguntas 🟡: <uma por linha, ou "nenhuma">
   Arquivos: <QA_DIR>/test-plans/ · <QA_DIR>/test-cases/
@@ -56,7 +57,9 @@ Aprovado ⇒ registre ([artefatos.md](artefatos.md#onde-cada-arquivo-mora-e-quem
 em modo `revisar` com os ajustes em `respostas`, e reapresente. Aprovar o plano **não** é autorizar a
 execução no modo `planejar`: ali a rodada encerra.
 
-Critério sem nenhum TC é **sempre** dito, mesmo quando o humano aprova assim.
+Critério sem nenhum TC é **sempre** dito, mesmo quando o humano aprova assim. Plano acima do teto do
+tamanho, ou charter acima do orçamento, também: com o porquê do planner, ou redespache em `revisar` antes de
+pedir a aprovação ([plan.md](../plan/plan.md)).
 
 ## Gate 2
 

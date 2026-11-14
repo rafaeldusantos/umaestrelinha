@@ -6,7 +6,7 @@ usaria: planeja personas, jornadas, charters e casos de teste; executa cada char
 retesta os bugs abertos; tria os achados por impacto ao usuário; e registra plano, resultado e bugs em
 `qa/`, dentro do Work Item. Uma skill, quatro agents, quatro fases. Tudo local, tudo em disco.
 
-> **Versão:** 4.0.0 · **Licença:** UNLICENSED · **Autor:** Softdesign
+> **Versão:** 4.1.0 · **Licença:** UNLICENSED · **Autor:** Softdesign
 > `qa-report` e `qa-execution` de Pedro Nauck.
 > A fonte de verdade de comportamento é o [`SKILL.md`](SKILL.md).
 
@@ -24,7 +24,7 @@ envelopes `qa-plan/v1`, `qa-result/v1` e `qa-issue/v1` ficam como contrato de QA
 | **Orquestração** | a thread principal lê o disco, abre os gates, fala com o humano e registra; cada fase pesada roda num subagent                                |
 | **Estado**       | o que está em `[ITEM_DIR]/qa/` — o cabeçalho de Gate 1 e Gate 3, o `status` dos bugs — e as linhas QA da tabela Gates do `item.md`             |
 | **Perguntas**    | as 🔴 do plano e as perguntas ao produto pela página de perguntas da `wi-workflow` (Node ≥ 18); sem página, o gate das perguntas bloqueia      |
-| **Browser**      | Playwright MCP headless (`--headless --isolated`), com `playwright-cli` como fallback; uma sessão por vez                                      |
+| **Browser**      | `agent-browser` 0.39+ (headless, snapshot só do que é interativo, um browser por charter), com `playwright-cli` e o Playwright MCP como fallback; charters em lotes paralelos por conta |
 | **Registro**     | nada vale sem o humano ver: o `qa-plan` depois do Gate 1; o `qa-result`, os bugs novos e as transições de `status` depois do Gate 3           |
 | **Língua comum** | IDs, personas e contas, bugs, severidade, status e a árvore `qa/` do [contrato de QA](references/shared/contrato-qa.md)                       |
 | **Git**          | **o agente não versiona por iniciativa própria**                                                                                              |
@@ -62,7 +62,7 @@ produto: pergunta ao produto só sobre o que o Work Item muda (no máximo 3 por 
 PREFLIGHT  sondas · Work Item · [QA_DIR] · o que está em disco
 FASE 0     Contexto   thread          item.md · PRD · costura · fontes de design · insumos · bugs abertos · qa-report.md
 FASE 1     Plano      wi-qa-planner   personas · jornadas · charters · TC-* · suíte   → perguntas 🔴 (página) → Gate 1
-FASE 2     Execução   wi-qa-explorer  × charter, em sequência · wi-qa-retester         → Gate 2
+FASE 2     Execução   wi-qa-explorer  × charter, em lotes por conta · wi-qa-retester   → Gate 2
 FASE 3     Triagem    wi-qa-triager   BUG-*.md novos · qa-result.md · transições       → Gate 3 → status dos bugs
            perguntas ao produto (página) → decisoes-produto.md, com o destino (WI novo é o padrão)
 RODADA 2+  Confirmação  retester + charters com TC fail/blocked, metade do orçamento
@@ -88,6 +88,14 @@ RODADA 2+  Confirmação  retester + charters com TC fail/blocked, metade do or�
 | `wi-qa-triager`  | 3    | deduplica, aplica severidade, numera, escreve os bugs novos e o resultado, propõe transições  |
 
 Nenhum agent grava o `status` de bug existente: quem grava é a thread principal, no Gate 3.
+
+O explorer e o retester herdam as tools da sessão — o MCP de design tem o nome que cada time deu —, menos as
+que nunca usam (`disallowedTools`: Artifact, Skill, busca na web, worktrees, mensagens entre sessões e o
+Claude in Chrome). Com o triager, começam sem os `CLAUDE.md` do projeto (`omitClaudeMd`): são caixa-preta, e
+cada uma das dezenas de chamadas de uma sessão relê esse começo — num projeto com `CLAUDE.md` de 400 KB, ele
+era três quartos do contexto do explorer. O que eles precisam do projeto chega pelo campo `ambiente` do
+briefing, que sai da seção **Ambiente da execução** do test-plan. O planner continua lendo as instruções do
+projeto: é por ele que as convenções entram no plano.
 
 Instalação: copie `agents/wi-qa-*.md` deste pacote para `~/.claude/agents/` (ou `.claude/agents/` no
 projeto; no Copilot, `.github/agents/`). Instalar a skill não instala os agents.
