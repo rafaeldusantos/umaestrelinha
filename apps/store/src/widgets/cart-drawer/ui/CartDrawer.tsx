@@ -206,7 +206,7 @@ const CartDrawer = () => {
                   aria-label="Progresso para o frete grátis"
                 >
                   <motion.div
-                    className="h-full rounded-full bg-estrelinha-primary"
+                    className="h-full rounded-full bg-estrelinha-sale-bar"
                     initial={false}
                     animate={{ width: `${progress.percent}%` }}
                     transition={{ duration: 0.4, ease: 'easeOut' }}

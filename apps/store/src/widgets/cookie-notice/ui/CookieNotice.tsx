@@ -56,7 +56,7 @@ const CookieNotice = () => {
           <section
             aria-label="Aviso de cookies"
             style={{ '--aviso-rodape': rodape } as CSSProperties}
-            className="fixed inset-x-0 bottom-[var(--aviso-rodape)] z-50 rounded-t-lg border-t border-estrelinha-line bg-estrelinha-surface px-4 pb-6 pt-4 shadow-[0_-8px_24px_rgba(35,48,58,0.08)] md:bottom-0 md:pb-5"
+            className="fixed inset-x-0 bottom-[var(--aviso-rodape)] z-50 rounded-t-lg border-t border-estrelinha-line bg-estrelinha-surface px-4 pb-6 pt-4 shadow-[0_-8px_24px_rgb(var(--estrelinha-ink-rgb)_/_0.08)] md:bottom-0 md:pb-5"
           >
             <div className="mx-auto flex max-w-[720px] flex-col gap-3">
               <div className="flex items-start gap-2">

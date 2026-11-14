@@ -32,14 +32,14 @@ import { CampaignBand } from '@/entities/campaign'
 /**
  * Selo do card.
  *
- * Só o desconto ganha geleia — é a informação que muda a decisão de compra.
+ * Só o desconto ganha o papel de desconto (`sale`) — é a informação que muda a decisão de compra.
  * Todo o resto é tinta, para a listagem não virar um mostruário de etiquetas
  * coloridas competindo entre si (era o problema da versão anterior).
  */
 const CardBadge = ({ tone, children }: { tone: 'jam' | 'ink'; children: React.ReactNode }) => (
   <span
-    className={`estrelinha-eyebrow absolute left-3.5 top-3.5 z-10 rounded-pill px-2.5 py-1 text-[11px] font-bold text-white ${
-      tone === 'jam' ? 'bg-estrelinha-primary' : 'bg-estrelinha-ink'
+    className={`estrelinha-eyebrow absolute left-3.5 top-3.5 z-10 rounded-pill px-2.5 py-1 text-[11px] font-bold ${
+      tone === 'jam' ? 'bg-estrelinha-sale text-estrelinha-on-sale' : 'bg-estrelinha-ink text-white'
     }`}
   >
     {children}

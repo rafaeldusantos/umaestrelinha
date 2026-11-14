@@ -181,3 +181,69 @@ describe('acento como texto — o defeito que a Fase 5 achou', () => {
     expect(ofensores).toEqual([])
   })
 })
+
+/**
+ * **O texto sobre o papel de desconto é `on-sale`, sólido.**
+ *
+ * O selo "-X%" pinta o fundo `sale`: no Padrão é a ardósia (com o branco por cima, 9,29:1), no
+ * Black Friday é o ouro (#C2A063), e sobre ele o texto só passa sendo o escuro de texto cheio. A
+ * regra do ouro vale aqui pelo USO, nos dois perfis: o texto do selo é sempre `on-sale`, que cada
+ * perfil resolve para o par que mede — e nunca com opacidade, que no ouro come a margem como come
+ * em `ink` sobre `accent`. Um `text-white` deixado no selo passaria no Padrão e sumiria no Black
+ * Friday, sem nada quebrar.
+ *
+ * A régua é por LINHA: o fundo `sale` e o texto `on-sale` são escritos juntos, na mesma string de
+ * classes. `bg-estrelinha-sale-bar` é o preenchimento da barra do frete (sem texto) e não conta —
+ * o recorte à direita é `(?![-\w])`, porque `\b` fecha antes do hífen.
+ */
+const FUNDO_DESCONTO = /bg-estrelinha-sale(?![-\w])/
+const TEXTO_DESCONTO_SOLIDO = /text-estrelinha-on-sale(?![-\w/])/
+const TEXTO_DESCONTO_COM_OPACIDADE = /text-estrelinha-on-sale\//
+
+function ofensoresDoDesconto(arquivo: string, fonte: string): string[] {
+  return fonte.split('\n').flatMap((linha, i) => {
+    const onde = `${arquivo}:${i + 1}`
+    if (TEXTO_DESCONTO_COM_OPACIDADE.test(linha)) return [`${onde} · on-sale com opacidade`]
+    if (FUNDO_DESCONTO.test(linha) && !TEXTO_DESCONTO_SOLIDO.test(linha)) {
+      return [`${onde} · fundo sale sem texto on-sale`]
+    }
+    return []
+  })
+}
+
+const comDesconto = arquivos.filter((f) => FUNDO_DESCONTO.test(readFileSync(f, 'utf8')))
+
+describe('o papel de desconto — o texto sobre ele', () => {
+  it('âncora: a varredura acha os dois selos "-X%" (cartão e página do produto)', () => {
+    // Sem esta âncora, um nome de classe trocado faria a varredura achar zero e aprovar vazia.
+    expect(comDesconto.map(rel)).toEqual(
+      expect.arrayContaining(['entities/product/ui/ProductCard.tsx', 'pages/ProductPage.tsx']),
+    )
+  })
+
+  it('todo fundo `sale` leva o texto `on-sale` sólido, e nenhum `on-sale` tem opacidade', () => {
+    const ofensores = arquivos.flatMap((f) => ofensoresDoDesconto(rel(f), readFileSync(f, 'utf8')))
+    expect(ofensores).toEqual([])
+  })
+
+  describe('sensores — a mesma função da asserção, sobre fontes escritas aqui', () => {
+    it('o selo com `text-white` no lugar de `on-sale` é acusado', () => {
+      expect(ofensoresDoDesconto('x.tsx', "'bg-estrelinha-sale text-white'")).toHaveLength(1)
+    })
+
+    it('o `on-sale` com opacidade é acusado', () => {
+      expect(
+        ofensoresDoDesconto('x.tsx', "'bg-estrelinha-sale text-estrelinha-on-sale/80'"),
+      ).toHaveLength(1)
+    })
+
+    it('o par certo passa, com LF e com CRLF', () => {
+      const fonte = "a\n'bg-estrelinha-sale text-estrelinha-on-sale'\r\nb"
+      expect(ofensoresDoDesconto('x.tsx', fonte)).toEqual([])
+    })
+
+    it('o preenchimento `sale-bar`, que não tem texto, não é acusado', () => {
+      expect(ofensoresDoDesconto('x.tsx', "'h-full rounded-full bg-estrelinha-sale-bar'")).toEqual([])
+    })
+  })
+})

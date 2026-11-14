@@ -46,7 +46,7 @@ const BLACK_FRIDAY = {
   ends_at: '2026-12-01T03:00:00Z',
 }
 
-const peca = (campanhas: unknown[]) =>
+const peca = (campanhas: unknown[], extra: Record<string, unknown> = {}) =>
   mapDbToProduct({
     id: 'p1',
     name: 'Pingente com cinzas',
@@ -59,6 +59,7 @@ const peca = (campanhas: unknown[]) =>
     low_stock_threshold: 5,
     is_new: true,
     product_campaigns: campanhas,
+    ...extra,
   })
 
 const renderPage = () =>
@@ -126,6 +127,20 @@ describe('a mesma página fora da vigência', () => {
     expect(screen.getByTestId('galeria').textContent).toBe('Novo')
     expect(screen.queryByTestId('cheio-e-parcelas')).toBeNull()
     expect(within(coluna()).getByText((_, el) => el?.tagName === 'P' && plano(el) === 'ou 6x de R$ 34,98 sem juros')).toBeInTheDocument()
+  })
+  it('o selo "-X%" da galeria usa o papel de desconto (`sale` / `on-sale`); o "Novo" ao lado, não', () => {
+    // O mesmo papel do selo do cartão: no Padrão ardósia e branco, no Black Friday ouro e escuro.
+    useProductMock.mockReturnValue({ data: peca([], { original_price: 249.9 }), isFetching: false })
+    renderPage()
+    const galeria = screen.getByTestId('galeria')
+    const desconto = within(galeria).getByText(/^-\d+%$/)
+    expect(desconto).toHaveClass('bg-estrelinha-sale', 'text-estrelinha-on-sale')
+    expect(desconto).not.toHaveClass('bg-estrelinha-primary')
+    expect(desconto).not.toHaveClass('text-white')
+    const novo = within(galeria).getByText('Novo')
+    expect(novo).toHaveClass('bg-estrelinha-ink')
+    expect(novo).not.toHaveClass('bg-estrelinha-sale')
+    expect(novo).not.toHaveClass('text-estrelinha-on-sale')
   })
 })
 
