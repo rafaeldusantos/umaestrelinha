@@ -32,7 +32,7 @@ const InstagramInviteSheet = ({ open, onClose }: InstagramInviteSheetProps) => (
   <Sheet open={open} onOpenChange={aberto => !aberto && onClose()}>
     <SheetPortal>
       <SheetOverlay className="bg-estrelinha-ink/55" />
-      <DialogPrimitive.Content className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-6 rounded-t-lg bg-estrelinha-surface px-6 pb-8 pt-3 shadow-[0_-14px_28px_-10px_rgba(52,73,94,0.16)] focus:outline-none md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:w-[480px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-lg md:p-10 md:shadow-estrelinha-lift">
+      <DialogPrimitive.Content className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-6 rounded-t-lg bg-estrelinha-surface px-6 pb-8 pt-3 shadow-[0_-14px_28px_-10px_rgb(var(--estrelinha-shadow-rgb)_/_0.16)] focus:outline-none md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:w-[480px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-lg md:p-10 md:shadow-estrelinha-lift">
         <span
           aria-hidden
           data-testid="puxador"

@@ -182,20 +182,27 @@ describe('card de produto — só o desconto ganha cor de dinheiro', () => {
     expect(screen.getByText('R$ 8,90')).toHaveClass('text-estrelinha-primary')
   })
 
-  it('o selo de desconto é Carmim', () => {
+  // O desconto tem papel próprio (`sale` / `on-sale`): no Padrão ele vale a ardósia e o branco de
+  // sempre, no Black Friday passa a ouro com texto escuro. A régua é o token EXATO — `toHaveClass`
+  // compara classe inteira, então `bg-estrelinha-sale-bar` não satisfaria `bg-estrelinha-sale`.
+  it('o selo de desconto usa o papel de desconto: fundo `sale`, texto `on-sale`', () => {
     renderCard(product({ price: 7.5, compare_price: 8.9 }))
-    expect(screen.getByText('-16%')).toHaveClass('bg-estrelinha-primary')
+    const selo = screen.getByText('-16%')
+    expect(selo).toHaveClass('bg-estrelinha-sale', 'text-estrelinha-on-sale')
+    expect(selo).not.toHaveClass('bg-estrelinha-primary')
+    expect(selo).not.toHaveClass('text-white')
   })
 
   it.each([
     ['Novo', { is_new: true }],
     ['Últimas', { stock_total: 3 }],
     ['Destaque', { is_featured: true }],
-  ])('o selo "%s" é Grafite, não Carmim', (label, overrides) => {
+  ])('o selo "%s" é Grafite, e não ganha o papel de desconto', (label, overrides) => {
     renderCard(product(overrides as Partial<Product>))
     const badge = screen.getByText(label)
-    expect(badge).toHaveClass('bg-estrelinha-ink')
-    expect(badge).not.toHaveClass('bg-estrelinha-primary')
+    expect(badge).toHaveClass('bg-estrelinha-ink', 'text-white')
+    expect(badge).not.toHaveClass('bg-estrelinha-sale')
+    expect(badge).not.toHaveClass('text-estrelinha-on-sale')
   })
 
   it('o preço riscado é Carbono, não Carmim — dois vermelhos empatariam', () => {

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_ANALYTICS,
   DEFAULT_ANNOUNCEMENTS,
+  DEFAULT_APPEARANCE,
   DEFAULT_BUY_TOGETHER,
   DEFAULT_GENERAL,
   DEFAULT_GOOGLE_SHOPPING,
@@ -15,6 +16,7 @@ import {
 } from '@estrelinha/supabase/types/settings'
 import { DEFAULT_BUY_TOGETHER_FORM } from '@estrelinha/core/buy-together'
 import { DEFAULT_ANNOUNCEMENTS as DEFAULT_ANNOUNCEMENTS_DO_CORE } from '@estrelinha/core/announcements'
+import { DEFAULT_APPEARANCE as DEFAULT_APPEARANCE_DO_CORE } from '@estrelinha/core/appearance'
 import { readdirSync } from 'node:fs'
 import { LEGACY_ENABLED_EVENTS, NOTIFICATION_EVENTS } from '@estrelinha/core/notifications'
 
@@ -615,5 +617,32 @@ describe('a faixa de avisos', () => {
       semComentarioSql(readFileSync(`${MIGRATIONS}/${n}`, 'utf8')).includes("'announcements'"),
     )
     expect(quem).toEqual([])
+  })
+})
+
+/**
+ * O perfil de estilo também não tem migration: a ausência da linha `appearance` É o Padrão. Semear a
+ * chave fixaria um perfil que a dona nunca escolheu. O default do TypeScript é o de `core` — a mesma
+ * referência, não uma cópia com os mesmos valores.
+ */
+describe('o perfil de estilo da loja', () => {
+  it('nasce no Padrão, e o default é o de core', () => {
+    expect(DEFAULT_APPEARANCE).toBe(DEFAULT_APPEARANCE_DO_CORE)
+    expect(DEFAULT_APPEARANCE).toEqual({ profile: 'padrao' })
+  })
+
+  it('nenhuma migration grava a chave `appearance`', () => {
+    const nomes = readdirSync(MIGRATIONS).filter(n => n.endsWith('.sql'))
+    expect(nomes.length).toBeGreaterThan(50)
+    const quem = nomes.filter(n =>
+      semComentarioSql(readFileSync(`${MIGRATIONS}/${n}`, 'utf8')).includes("'appearance'"),
+    )
+    expect(quem).toEqual([])
+  })
+
+  it('a régua DE FATO acusa uma semeadura da chave, e não a citada em comentário — sensor', () => {
+    const semeia = "insert into public.store_settings (key, value) values ('appearance', '{}');"
+    expect(semComentarioSql(semeia).includes("'appearance'")).toBe(true)
+    expect(semComentarioSql(`-- ${semeia}`).includes("'appearance'")).toBe(false)
   })
 })

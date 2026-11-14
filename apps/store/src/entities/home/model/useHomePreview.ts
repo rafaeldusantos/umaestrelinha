@@ -9,12 +9,20 @@ import {
   PREVIEW_SOURCE,
   isPreviewWindow,
   parsePreviewMessage,
+  previewHomeSource,
   type HomeSection,
+  type PreviewHomeSource,
 } from '@estrelinha/core/home'
 
 export interface HomePreviewBridge {
   /** Ligado só com `?preview=1` **e** dentro de um iframe (`PRV-01`). */
   preview: boolean
+  /**
+   * De onde vem a Home desta prévia: o rascunho que `/admin/home` manda (o padrão), ou a composição
+   * publicada, lida do banco — o que o palco do perfil de estilo pede no endereço, porque a ponte
+   * dele manda só o perfil. Só tem sentido com `preview` ligado.
+   */
+  homeSource: PreviewHomeSource
   /**
    * A composição recebida do painel.
    *
@@ -42,6 +50,11 @@ export const useHomePreview = (): HomePreviewBridge => {
     () =>
       typeof window !== 'undefined' &&
       isPreviewWindow(window.location.search, window.parent !== window),
+    [],
+  )
+  // Lido do mesmo `window` e do mesmo dono (`core/home/preview.ts`) que o detector acima.
+  const homeSource = useMemo<PreviewHomeSource>(
+    () => (typeof window !== 'undefined' ? previewHomeSource(window.location.search) : 'rascunho'),
     [],
   )
 
@@ -78,5 +91,5 @@ export const useHomePreview = (): HomePreviewBridge => {
     window.parent.postMessage({ source: PREVIEW_SOURCE, type: 'select', sectionId }, '*')
   }, [])
 
-  return { preview, sections, highlightId, selectSection }
+  return { preview, homeSource, sections, highlightId, selectSection }
 }

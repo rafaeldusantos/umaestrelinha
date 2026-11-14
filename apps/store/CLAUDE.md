@@ -755,6 +755,11 @@ Home tem um desenho só, e ele mora aqui.**
   em paralelo daria à página duas fontes, e a do banco chegaria depois — sobrescrevendo o que a dona
   está digitando. Pelo mesmo motivo `sections` começa `[]` e **não** cai em
   `DEFAULT_HOME_COMPOSITION`: o piso existe para **erro de leitura**, e ali não há leitura.
+  - **A exceção é `&home=publicada`** (feature `100`, BUG-005): a prévia do perfil de estilo não tem
+    quem mande composição, e com `previewSrc(url, { home: 'publicada' })` a Home em prévia LÊ
+    `home_sections` como a loja publicada (esqueleto, piso, e o `draft` ignorado). Quem decide é
+    `previewHomeSource` (`core/home/preview.ts`); o parâmetro não liga a prévia sozinho —
+    `isPreviewWindow` segue o único detector. As prévias do menu e da faixa ainda não o passam.
 - **Clique na prévia não navega, seleciona.** Captura (não bolha — o `<Link>` navega no handler dele),
   `preventDefault`, e o id do bloco volta como `select`.
 - **O `AbandonedCartTracker` não é montado em modo prévia**: a dona conferindo a vitrine dispararia

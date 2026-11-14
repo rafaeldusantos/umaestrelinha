@@ -281,13 +281,14 @@ describe('pageDeps — cada leitura pede o que deve', () => {
   /** Um aviso de texto que o painel aceitaria. */
   const AVISO_VALIDO = { id: 'a', kind: 'text', highlight: 'Frete grátis', text: 'acima de R$ 300', linkLabel: '', href: '' }
 
-  it('readSettings: as três chaves numa consulta, traduzidas', async () => {
+  it('readSettings: as quatro chaves numa consulta, traduzidas', async () => {
     const { client, chamadas } = dubleDoClient({
       store_settings: {
         data: [
           { key: 'seo', value: { description: 'Joias afetivas' } },
           { key: 'google_shopping', value: { default_product_category: '188' } },
           { key: 'announcements', value: { enabled: true, items: [AVISO_VALIDO] } },
+          { key: 'appearance', value: { profile: 'black-friday' } },
         ],
         error: null,
       },
@@ -296,14 +297,15 @@ describe('pageDeps — cada leitura pede o que deve', () => {
       defaultProductCategory: '188',
       storeDescription: 'Joias afetivas',
       announcementBar: true,
+      styleProfile: 'black-friday',
     })
     expect(chamadas).toHaveLength(1)
     expect(chamadas[0].tabela).toBe('store_settings')
     expect(chamadas[0].select).toBe('key,value')
-    expect(chamadas[0].filtros).toEqual([['in', 'key', ['google_shopping', 'seo', 'announcements']]])
+    expect(chamadas[0].filtros).toEqual([['in', 'key', ['google_shopping', 'seo', 'announcements', 'appearance']]])
   })
 
-  it('readSettings: descrição em branco ou ausente ⇒ `null`; sem a chave da faixa ⇒ a faixa não existe', async () => {
+  it('readSettings: descrição em branco ou ausente ⇒ `null`; sem a chave da faixa ⇒ a faixa não existe; sem a do perfil ⇒ Padrão', async () => {
     const { client } = dubleDoClient({
       store_settings: { data: [{ key: 'seo', value: { description: '   ' } }], error: null },
     })
@@ -311,7 +313,21 @@ describe('pageDeps — cada leitura pede o que deve', () => {
       defaultProductCategory: null,
       storeDescription: null,
       announcementBar: false,
+      styleProfile: 'padrao',
     })
+  })
+
+  it.each([
+    ['perfil desconhecido', { profile: 'neon' }],
+    ['perfil em outra caixa', { profile: 'Black-Friday' }],
+    ['valor nulo', null],
+    ['valor de outro tipo', 'black-friday'],
+    ['sem o campo profile', {}],
+  ])('readSettings: aparência com %s ⇒ Padrão, pela regra de core', async (_, valor) => {
+    const { client } = dubleDoClient({
+      store_settings: { data: [{ key: 'appearance', value: valor }], error: null },
+    })
+    expect((await pageDeps(client, ctx).readSettings()).styleProfile).toBe('padrao')
   })
 
   it.each([
@@ -435,8 +451,19 @@ describe('createPageHandler — o handler `fetch`', () => {
     const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
     const r = await fetch(new Request('https://loja.test/api/page?__path=/carrinho'))
     expect(r.status).toBe(200)
-    expect(await r.text()).toBe(SHELL.replace('<html>', '<html data-faixa="0">'))
+    expect(await r.text()).toBe(SHELL.replace('<html>', '<html data-faixa="0" data-perfil="padrao">'))
     expect(chamadas.map(c => c.tabela)).toEqual(['store_settings'])
+  })
+
+  it('com o perfil Black Friday salvo, o HTML servido já chega com data-perfil="black-friday"', async () => {
+    const { client } = dubleDoClient({
+      store_settings: { data: [{ key: 'appearance', value: { profile: 'black-friday' } }], error: null },
+    })
+    const fetch = createPageHandler({ shell: SHELL, env, log: () => {}, makeClient: () => client })
+    const r = await fetch(new Request('https://loja.test/api/page?__path=/'))
+    expect(r.status).toBe(200)
+    expect(r.headers.get('cache-control')).toBe('public, s-maxage=3600')
+    expect(await r.text()).toBe(SHELL.replace('<html>', '<html data-faixa="0" data-perfil="black-friday">'))
   })
 
   it('a Home: o shell com data-faixa="1" quando a faixa está ligada, e o cache de 3600 s', async () => {
@@ -455,7 +482,7 @@ describe('createPageHandler — o handler `fetch`', () => {
     const r = await fetch(new Request('https://loja.test/api/page?__path=/'))
     expect(r.status).toBe(200)
     expect(r.headers.get('cache-control')).toBe('public, s-maxage=3600')
-    expect(await r.text()).toBe(SHELL.replace('<html>', '<html data-faixa="1">'))
+    expect(await r.text()).toBe(SHELL.replace('<html>', '<html data-faixa="1" data-perfil="padrao">'))
   })
 
   it('a leitura de `store_settings` que falha: o shell sem o atributo, 200 e `no-store`', async () => {
@@ -595,6 +622,7 @@ describe('readProduct — as colunas pedidas bastam para a página', () => {
       defaultProductCategory: 'Apparel & Accessories > Jewelry',
       storeDescription: null,
       announcementBar: false,
+      styleProfile: 'padrao',
     }),
     readLiveCampaign: async () => null,
   })

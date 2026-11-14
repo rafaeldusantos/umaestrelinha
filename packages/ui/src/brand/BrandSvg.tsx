@@ -14,13 +14,19 @@ import type { BrandArt } from './paths'
  */
 export type BrandTone = 'brand' | 'onInk' | 'accent' | 'mono'
 
+/**
+ * `brand` e `accent` leem a variável da loja, que muda com o perfil de estilo
+ * em vigor; o hex dentro do `var()` é o recuo de quem não declara
+ * `--estrelinha-*` — o painel e o ateliê —, e os mantém no ardósia e no ouro
+ * de sempre. O tom claro é fixo: o cabeçalho não acompanha o perfil.
+ */
 const STROKE: Record<BrandTone, string> = {
   /** `primary-strong` — o positivo, sobre `ground` / `surface` (11,03:1). */
-  brand: '#283A4A',
+  brand: 'var(--estrelinha-primary-strong, #283A4A)',
   /** `on-primary` — o negativo, sobre `ink` / `primary` / `primary-strong`. */
   onInk: '#F7F3EC',
   /** `accent` — a aplicação de acento do board, sobre `ground-deep`. */
-  accent: '#B8945F',
+  accent: 'var(--estrelinha-accent, #B8945F)',
   mono: 'currentColor',
 }
 

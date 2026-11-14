@@ -108,8 +108,10 @@
    * de `../landing-pages/src/styles/global.css` (conferido em 2026-08-08).
    * Contraste medido sobre `ground #FAF8F4`, WCAG 2.1 — ver `contrast.test.ts`.
    *
-   * Esta declaração e a de `tailwind.config.ts` são a MESMA paleta escrita
-   * duas vezes. `palette.test.ts` lê as duas do disco e falha se divergirem:
+   * Este bloco é o perfil de estilo PADRÃO. O dono dos valores de cada perfil
+   * é `ESTRELINHA_PROFILES` (`packages/ui/src/tokens/estrelinha.ts`), e o
+   * Tailwind da loja lê estas variáveis (os canais `-rgb`, abaixo). São a MESMA
+   * paleta escrita duas vezes, e `palette.test.ts` compara bloco a bloco:
    * valor certo num lado e velho no outro não quebra build, tipo nem teste de
    * componente — a loja renderiza duas paletas ao mesmo tempo e quem descobre
    * é a cliente.
@@ -163,6 +165,50 @@
   --estrelinha-done: #3f5a3b;
   --estrelinha-done-soft: #eef0ec;
 
+  /* ── O papel de DESCONTO ──────────────────────────────────────────────
+   * O selo "-X%" do cartão, o chip de desconto da sacola e a barra do frete
+   * grátis. No Padrão é a ardósia da ação, como sempre foi; no Black Friday
+   * passa a ouro (o bloco do perfil, abaixo), para o desconto continuar se
+   * distinguindo dos outros selos. */
+  --estrelinha-sale: #34495e;
+  --estrelinha-on-sale: #ffffff;
+  --estrelinha-sale-bar: #34495e;
+
+  /* ── Os canais `R G B` de cada token — só para o Tailwind ─────────────
+   * A classe `bg-estrelinha-ink/80` compila para
+   * `rgb(var(--estrelinha-ink-rgb) / 0.8)`: o Tailwind 3.4 só preserva a
+   * opacidade com a cor em canais. O hex acima continua sendo a variável que
+   * o código lê direto (o Brick do cartão, a arte do guia, os ícones e as
+   * regras deste arquivo). Os dois são o mesmo valor, e `palette.test.ts`
+   * confere cada par, perfil a perfil. */
+  --estrelinha-ground-rgb: 250 248 244;
+  --estrelinha-ground-deep-rgb: 241 235 225;
+  --estrelinha-surface-rgb: 255 255 255;
+  --estrelinha-line-rgb: 230 223 212;
+  --estrelinha-ink-rgb: 35 48 58;
+  --estrelinha-ink-soft-rgb: 84 97 107;
+  --estrelinha-primary-rgb: 52 73 94;
+  --estrelinha-primary-strong-rgb: 40 58 74;
+  --estrelinha-on-primary-rgb: 247 243 236;
+  --estrelinha-accent-rgb: 184 148 95;
+  --estrelinha-accent-strong-rgb: 160 126 76;
+  --estrelinha-serenity-rgb: 220 230 236;
+  --estrelinha-whatsapp-rgb: 37 211 102;
+  --estrelinha-field-rgb: 140 128 115;
+  --estrelinha-wait-rgb: 107 79 36;
+  --estrelinha-wait-soft-rgb: 244 236 223;
+  --estrelinha-alert-rgb: 126 47 43;
+  --estrelinha-alert-soft-rgb: 246 231 229;
+  --estrelinha-done-rgb: 63 90 59;
+  --estrelinha-done-soft-rgb: 238 240 236;
+  --estrelinha-sale-rgb: 52 73 94;
+  --estrelinha-on-sale-rgb: 255 255 255;
+  --estrelinha-sale-bar-rgb: 52 73 94;
+
+  /* A cor da sombra suave da loja (`shadow-estrelinha-soft`/`-lift` e
+   * `.glow-*`), em canais. No Padrão, a ardósia de `primary`. */
+  --estrelinha-shadow-rgb: 52 73 94;
+
   /* Véus de tinta usados sobre superfície escura (rodapé, faixa, card ink). */
   --estrelinha-on-ink-strong: rgba(255, 255, 255, 0.8);
   --estrelinha-on-ink: rgba(255, 255, 255, 0.62);
@@ -209,6 +255,63 @@
   --ring: 210 29% 29%; /* primary #34495E */
 
   --radius: 0.75rem; /* 12px — raio de CAMPO. Ação é 6px (`rounded-sm`). */
+}
+
+/* ── PERFIL DE ESTILO: BLACK FRIDAY ─────────────────────────────────────
+ * O `<html>` com o atributo do perfil em `black-friday` (escrito pelo
+ * servidor no HTML servido e pela loja depois da carga) troca os MESMOS
+ * tokens por outros valores. O que não está aqui é herdado do `:root` acima
+ * (chão, card, `on-primary`, os selos de situação, o WhatsApp, os véus). A
+ * especificidade do seletor (0,1,1) vence a do `:root` (0,1,0).
+ *
+ * Cópia deliberada: o dono dos valores é `ESTRELINHA_PROFILES`
+ * (`packages/ui/src/tokens/estrelinha.ts`). `palette.test.ts` recorta este
+ * bloco e compara hex, canais, HSL do shadcn e sombra com ele. Os pisos de
+ * contraste valem aqui também (`contrast.test.ts`, `fieldBorder.test.ts`).
+ */
+html[data-perfil="black-friday"] {
+  --estrelinha-ink: #161514;
+  --estrelinha-ink-soft: #57524b;
+  --estrelinha-primary: #1c1a18;
+  --estrelinha-primary-strong: #0d0c0b;
+  --estrelinha-accent: #c2a063;
+  --estrelinha-accent-strong: #9a7a45;
+  --estrelinha-line: #e4ddd0;
+  --estrelinha-ground-deep: #f0eadf;
+  --estrelinha-field: #857a6c;
+  --estrelinha-sale: #c2a063;
+  --estrelinha-on-sale: #161514;
+  --estrelinha-sale-bar: #9a7a45;
+
+  --estrelinha-ink-rgb: 22 21 20;
+  --estrelinha-ink-soft-rgb: 87 82 75;
+  --estrelinha-primary-rgb: 28 26 24;
+  --estrelinha-primary-strong-rgb: 13 12 11;
+  --estrelinha-accent-rgb: 194 160 99;
+  --estrelinha-accent-strong-rgb: 154 122 69;
+  --estrelinha-line-rgb: 228 221 208;
+  --estrelinha-ground-deep-rgb: 240 234 223;
+  --estrelinha-field-rgb: 133 122 108;
+  --estrelinha-sale-rgb: 194 160 99;
+  --estrelinha-on-sale-rgb: 22 21 20;
+  --estrelinha-sale-bar-rgb: 154 122 69;
+
+  --estrelinha-shadow-rgb: 22 21 20;
+
+  /* shadcn: a mesma camada HSL, a partir dos valores deste perfil. */
+  --foreground: 30 5% 8%; /* ink #161514 */
+  --card-foreground: 30 5% 8%;
+  --popover-foreground: 30 5% 8%;
+  --primary: 30 8% 10%; /* primary #1C1A18 */
+  --secondary: 39 36% 91%; /* ground-deep #F0EADF */
+  --secondary-foreground: 30 5% 8%;
+  --muted: 39 36% 91%;
+  --muted-foreground: 35 7% 32%; /* ink-soft #57524B */
+  --accent: 39 36% 91%;
+  --accent-foreground: 30 8% 10%;
+  --border: 39 27% 85%; /* line #E4DDD0 */
+  --input: 34 10% 47%; /* field #857A6C */
+  --ring: 30 8% 10%; /* primary #1C1A18 */
 }
 
 /* Os tokens legados que a loja sobrescrevia SAÍRAM. Eles existiam para que
@@ -282,8 +385,9 @@ h6 {
 .glow-violet,
 .glow-pink,
 .glow-cyan {
-  /* Mesma calibragem de `shadow-estrelinha-soft`: `primary` #34495E. */
-  box-shadow: 0 14px 28px -10px rgba(52, 73, 94, 0.16);
+  /* Mesma calibragem de `shadow-estrelinha-soft`: a cor da sombra do perfil
+   * (no Padrão, `primary` #34495E). */
+  box-shadow: 0 14px 28px -10px rgb(var(--estrelinha-shadow-rgb) / 0.16);
 }
 .neon-text-violet,
 .neon-text-pink,

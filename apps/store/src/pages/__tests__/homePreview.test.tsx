@@ -9,6 +9,8 @@ import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import {
   DEFAULT_HOME_COMPOSITION,
+  PREVIEW_HOME_PARAM,
+  PREVIEW_PARAM,
   PREVIEW_SECTION_ATTR,
   PREVIEW_SOURCE,
   type HomeSection,
@@ -37,6 +39,12 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
 // O hook real da leitura é dublado para se poder medir **se ele foi chamado desligado** — que é a
 // única forma de provar `PRV-02 AC 1` sem uma consulta de verdade.
 vi.mock('@/entities/home/api/useHomeSections', () => ({ useHomeSections: useHomeSectionsMock }))
+
+// O convite é sobreposição com atraso e folha `lazy`; dublado num marcador, a presença dele vira
+// asserção síncrona — e o par fora do iframe prova que o marcador aparece quando deve.
+vi.mock('@/widgets/instagram-invite', () => ({
+  InstagramInvite: () => <div data-testid="convite-instagram" />,
+}))
 
 import HomePage from '../HomePage'
 
@@ -98,6 +106,64 @@ describe('PRV-02 — em modo prévia a consulta é DESLIGADA, não filtrada depo
 
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('O que você ama,')
     expect(screen.queryByRole('heading', { name: 'Quer saber das novidades?' })).toBeNull()
+  })
+})
+
+describe('a prévia do perfil de estilo — a Home publicada, lida do banco', () => {
+  const comHomePublicada = () =>
+    window.history.replaceState({}, '', `/?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=publicada`)
+
+  it('em iframe com a Home publicada, a página LÊ `home_sections` e desenha os blocos lidos', () => {
+    comHomePublicada()
+    renderPage()
+
+    expect(useHomeSectionsMock).toHaveBeenCalledWith({ enabled: true })
+    expect(useHomeSectionsMock).not.toHaveBeenCalledWith({ enabled: false })
+    expect(screen.getByRole('heading', { name: 'Quer saber das novidades?' })).toBeInTheDocument()
+  })
+
+  it('continua dentro do invólucro da prévia: o bloco é marcado e o clique não navega', () => {
+    comHomePublicada()
+    const { container } = renderPage()
+
+    const invólucro = screen.getByTestId('home-previa')
+    expect(container.querySelector(`[${PREVIEW_SECTION_ATTR}="do-banco"]`)).not.toBeNull()
+
+    const evento = new MouseEvent('click', { bubbles: true, cancelable: true })
+    screen.getByRole('heading', { name: 'Quer saber das novidades?' }).dispatchEvent(evento)
+    expect(evento.defaultPrevented).toBe(true)
+    expect(invólucro).toBeInTheDocument()
+  })
+
+  it('enquanto a leitura não chega, o esqueleto — nunca o piso semeado', () => {
+    comHomePublicada()
+    useHomeSectionsMock.mockReturnValue({ data: undefined, isLoading: true })
+    renderPage()
+
+    expect(screen.getByLabelText('Carregando a página inicial')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Quer saber das novidades?' })).toBeNull()
+  })
+
+  it('o rascunho que chegasse pela ponte da Home não substitui o que foi lido', () => {
+    comHomePublicada()
+    renderPage()
+    receber({ source: PREVIEW_SOURCE, type: 'draft', sections: [secao('hero', { id: 'do-rascunho' })] })
+
+    expect(screen.getByRole('heading', { name: 'Quer saber das novidades?' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+  })
+
+  it('o convite para o Instagram continua fora da prévia — e o par: fora do iframe ele monta', () => {
+    comHomePublicada()
+    const { unmount } = renderPage()
+    expect(screen.getByRole('heading', { name: 'Quer saber das novidades?' })).toBeInTheDocument()
+    expect(screen.queryByTestId('convite-instagram')).toBeNull()
+    unmount()
+
+    Object.defineProperty(window, 'parent', { value: window, configurable: true })
+    renderPage()
+    expect(screen.getByTestId('convite-instagram')).toBeInTheDocument()
   })
 })
 

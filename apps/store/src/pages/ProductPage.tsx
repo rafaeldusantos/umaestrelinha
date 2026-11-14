@@ -247,7 +247,7 @@ const ProductPageBody = ({
   const galleryBadges = product.campaign ? null : (
     <>
       {purchase.savings && (
-        <span className="rounded-pill bg-estrelinha-primary px-2.5 py-1 text-[11px] font-bold leading-3 text-white">
+        <span className="rounded-pill bg-estrelinha-sale px-2.5 py-1 text-[11px] font-bold leading-3 text-estrelinha-on-sale">
           -{purchase.savings.percent}%
         </span>
       )}

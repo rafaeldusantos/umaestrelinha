@@ -79,3 +79,34 @@ describe('InfoBanner — extração, não redesenho (CFG-27)', () => {
     expect(screen.getByTestId('aviso')).toHaveAttribute('role', 'status')
   })
 })
+
+describe('InfoBanner — o tom neutro é aditivo', () => {
+  const token = (el: Element, t: string) =>
+    new RegExp(`(?:^|\\s)${t.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?![-\\w./\\[])`).test(el.getAttribute('class') ?? '')
+
+  it('`tone="neutro"`: fundo `elevated`, sem borda, texto `text-secondary` a 12,5 px', () => {
+    render(<InfoBanner data-testid="aviso" tone="neutro">Uma nota</InfoBanner>)
+    const caixa = screen.getByTestId('aviso')
+
+    expect(token(caixa, 'bg-estrelinha-admin-elevated')).toBe(true)
+    expect(token(caixa, 'rounded-[10px]')).toBe(true)
+    expect(caixa.className).not.toMatch(/(?:^|\s)border(?:-|\s|$)/)
+    expect(caixa.outerHTML).not.toContain('estrelinha-admin-amber')
+    const texto = screen.getByText('Uma nota')
+    expect(token(texto, 'text-estrelinha-admin-text-secondary')).toBe(true)
+    expect(token(texto, 'text-[12.5px]')).toBe(true)
+  })
+
+  it('sem `tone`, a caixa é a de sempre — as outras telas não mudam de cara', () => {
+    render(<InfoBanner data-testid="aviso">Um aviso</InfoBanner>)
+    const caixa = screen.getByTestId('aviso')
+
+    expect(caixa.getAttribute('class')).toBe(
+      'flex items-start gap-3 p-3 rounded-xl border border-estrelinha-admin-amber/20 bg-estrelinha-admin-amber/10',
+    )
+    expect(screen.getByText('Um aviso').getAttribute('class')).toBe(
+      'min-w-0 flex-1 space-y-1 text-xs text-estrelinha-admin-amber',
+    )
+    expect(caixa.querySelector('svg')!.getAttribute('class')).toContain('mt-0.5 h-4 w-4 shrink-0 text-estrelinha-admin-amber')
+  })
+})

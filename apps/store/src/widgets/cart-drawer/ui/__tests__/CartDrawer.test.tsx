@@ -464,6 +464,20 @@ describe('CartDrawer - o interruptor do frete gratis (FRG-05)', () => {
     expect(screen.getByText(/Faltam .* para frete grátis!/)).toBeInTheDocument()
   })
 
+  it('o preenchimento da barra usa o papel de desconto (`sale-bar`), e o trilho segue branco', () => {
+    // No Padrão `sale-bar` vale a ardósia de sempre; no Black Friday, o ouro forte (≥ 3:1 no branco).
+    encher()
+    renderDrawer()
+    open()
+
+    const barra = screen.getByRole('progressbar', { name: 'Progresso para o frete grátis' })
+    expect(barra).toHaveClass('bg-white')
+    const preenchimento = barra.firstElementChild as HTMLElement
+    expect(preenchimento).toHaveClass('bg-estrelinha-sale-bar')
+    expect(preenchimento).not.toHaveClass('bg-estrelinha-primary')
+    expect(preenchimento).not.toHaveClass('bg-estrelinha-sale')
+  })
+
   it('DESLIGADO: a faixa some inteira - barra, texto e o par subtotal/faixa', () => {
     shipping.value = { ...shipping.value, free_shipping_enabled: false }
     encher()

@@ -13,8 +13,7 @@
 //   documento, não de cada página.
 // - em prévia, decide o rascunho do painel (e o publicado enquanto ele não chega).
 
-import { useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useMemo, useState } from 'react'
 import {
   announcementBarExists,
   announcementRefusal,
@@ -24,6 +23,7 @@ import {
 } from '@estrelinha/core/announcements'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { ANNOUNCEMENT_BAR_ATTRIBUTE } from '@estrelinha/core/page'
+import { useNavigatedSinceLoad } from '@/shared/lib/useNavigatedSinceLoad'
 import { useAnnouncementPreview } from './useAnnouncementPreview'
 
 type Veredito = '1' | '0' | null
@@ -34,19 +34,6 @@ const lerAtributo = (): Veredito => {
   const valor = document.documentElement.getAttribute(ANNOUNCEMENT_BAR_ATTRIBUTE)
   return valor === '1' || valor === '0' ? valor : null
 }
-
-/**
- * A chave da entrada do histórico em que o documento carregou, lida quando o módulo carrega.
- *
- * É ela que diz "já houve troca de rota" mesmo quando a faixa remonta (o checkout fica fora do
- * `StoreLayout`, e voltar dele monta a faixa de novo). O `BrowserRouter` guarda a chave em
- * `history.state.key`; sem ela, a entrada inicial é `'default'` — a mesma do `MemoryRouter`.
- */
-const CHAVE_DA_CARGA: string =
-  (typeof window !== 'undefined' &&
-    (window.history.state as { key?: unknown } | null)?.key &&
-    String((window.history.state as { key?: unknown }).key)) ||
-  'default'
 
 /** Os avisos que o painel aceitaria, na ordem gravada. O inválido é pulado, nunca apagado. */
 const avisosValidos = (settings: AnnouncementSettings): Announcement[] =>
@@ -73,11 +60,9 @@ export const useAnnouncementBar = (): AnnouncementBarState => {
   const { preview, draft, show } = useAnnouncementPreview(publicado?.items.length ?? 0)
 
   const [atributo] = useState(lerAtributo)
-  const { key } = useLocation()
-  // Uma trava, e não só a comparação: voltar à entrada da carga pelo histórico não devolve a decisão
-  // ao atributo.
-  const navegou = useRef(false)
-  if (key !== CHAVE_DA_CARGA) navegou.current = true
+  // A troca de rota desde a carga, com a trava: voltar à entrada da carga pelo histórico não devolve
+  // a decisão ao atributo.
+  const navegou = useNavigatedSinceLoad()
 
   if (preview) {
     const fonte = draft ?? publicado
@@ -95,7 +80,7 @@ export const useAnnouncementBar = (): AnnouncementBarState => {
   const existeNaConfiguracao = announcementBarExists(publicado)
   const items = existeNaConfiguracao ? avisosValidos(publicado) : []
 
-  if (!navegou.current && atributo === '1') return { visible: true, items, preview, show: null }
-  if (!navegou.current && atributo === '0') return { visible: false, items: [], preview, show: null }
+  if (!navegou && atributo === '1') return { visible: true, items, preview, show: null }
+  if (!navegou && atributo === '0') return { visible: false, items: [], preview, show: null }
   return { visible: existeNaConfiguracao, items, preview, show: null }
 }

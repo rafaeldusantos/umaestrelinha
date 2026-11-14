@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { contrastRatio, parseHex, relativeLuminance } from '../contrast'
 import { paletteFromSource } from '@/test/paletteFromSource'
+import { STYLE_PROFILES } from '@estrelinha/core/appearance'
 
 /**
  * O piso de contraste da paleta Uma Estrelinha, medido — `IDN-02`.
@@ -16,6 +17,13 @@ import { paletteFromSource } from '@/test/paletteFromSource'
  *
  * A matemática vem de `../contrast.ts` (WCAG 2.1) e **não muda nesta feature**
  * — é o instrumento, não a medida.
+ *
+ * **Os PISOS valem em cada perfil de estilo da loja** (Padrão e Black Friday):
+ * um perfil que reprova um piso não entra. Os TETOS de "nunca texto" medem só o
+ * Padrão — eles congelam as decisões do `DESIGN.md` com os números daquela
+ * paleta, e no Black Friday alguns pares medem melhor (`accent-strong` sobre
+ * `ink`, `primary-strong` sobre `accent`). A regra de uso do ouro continua
+ * valendo nos dois, pelo uso, em `accentText.test.ts`.
  */
 
 /**
@@ -35,6 +43,7 @@ import { paletteFromSource } from '@/test/paletteFromSource'
 const P = paletteFromSource()
 
 type Token = string
+type Paleta = Record<Token, string>
 
 /** As três superfícies claras da loja — chão, faixa e card. */
 const CLARAS: Token[] = ['ground', 'ground-deep', 'surface']
@@ -46,8 +55,8 @@ const CLARAS: Token[] = ['ground', 'ground-deep', 'surface']
  * be >= 4.5" — e quem lê o CI não sabe qual token nem sobre qual fundo. Com o
  * veredito em string, a falha nomeia os dois e a razão medida.
  */
-function pisoDeTexto(token: Token, fundo: Token, piso: number): string {
-  const razao = contrastRatio(P[token], P[fundo])
+function pisoDeTexto(token: Token, fundo: Token, piso: number, paleta: Paleta = P): string {
+  const razao = contrastRatio(paleta[token], paleta[fundo])
   return razao >= piso
     ? `${token} sobre ${fundo}: OK`
     : `${token} sobre ${fundo}: ${razao.toFixed(2)}:1 — abaixo do piso de ${piso}:1`
@@ -60,6 +69,107 @@ function tetoDeNaoTexto(token: Token, fundo: Token, piso: number): string {
     : `${token} sobre ${fundo}: ${razao.toFixed(2)}:1 — passou de ${piso}:1, a regra "nunca texto" mudou`
 }
 
+/**
+ * Todo PISO da paleta, numa lista só: a asserção de cada perfil e o sensor
+ * chamam a mesma função. `[texto, fundo, piso]`.
+ */
+const PISOS: [Token, Token, number][] = [
+  // Texto sobre as três superfícies claras.
+  ...(['ink', 'ink-soft', 'primary', 'primary-strong'] as Token[]).flatMap((t) =>
+    CLARAS.map((f) => [t, f, 4.5] as [Token, Token, number]),
+  ),
+  ['ink', 'ground', 7],
+  // Dentro de superfície escura e de superfície primary / accent.
+  ['accent', 'ink', 4.5],
+  ['ink', 'accent', 4.5],
+  ['on-primary', 'primary', 4.5],
+  ['ground', 'ink', 7],
+  ['on-primary', 'ink', 7],
+  // Os selos da situação do pedido.
+  ['wait', 'wait-soft', 4.5],
+  ['alert', 'alert-soft', 4.5],
+  ['done', 'done-soft', 4.5],
+  ['primary-strong', 'serenity', 4.5],
+  ['ink', 'ground-deep', 4.5],
+  ...(['wait', 'alert', 'done'] as Token[]).flatMap((t) =>
+    CLARAS.map((f) => [t, f, 4.5] as [Token, Token, number]),
+  ),
+  // O papel de desconto: o rótulo sobre o selo, e a barra do frete grátis (objeto gráfico,
+  // 3:1) sobre o branco da sacola.
+  ['on-sale', 'sale', 4.5],
+  ['sale-bar', 'surface', 3],
+]
+
+/** Os pisos que a paleta reprova, com a medida. Vazio = o perfil passa. */
+function pisosReprovados(paleta: Paleta): string[] {
+  const reprovados = PISOS.map(([t, f, piso]) => pisoDeTexto(t, f, piso, paleta)).filter(
+    (v) => !v.endsWith(': OK'),
+  )
+  // O texto secundário é o piso: nenhum token de texto lê pior que ele.
+  const piso = contrastRatio(paleta['ink-soft'], paleta.ground)
+  for (const t of ['ink', 'primary', 'primary-strong'] as Token[]) {
+    const r = contrastRatio(paleta[t], paleta.ground)
+    if (r < piso) reprovados.push(`${t} lê pior que ink-soft (${r.toFixed(2)}:1)`)
+  }
+  // A faixa de seção aparece sobre o chão.
+  if (contrastRatio(paleta['ground-deep'], paleta.ground) < 1.1) {
+    reprovados.push('ground-deep some sobre ground')
+  }
+  return reprovados
+}
+
+describe.each(STYLE_PROFILES)('contraste — os pisos do perfil `%s`', (perfil) => {
+  const paleta = paletteFromSource(perfil)
+
+  it.each(PISOS)('`%s` sobre `%s` passa o piso de %s:1', (texto, fundo, piso) => {
+    expect(pisoDeTexto(texto, fundo, piso, paleta)).toBe(`${texto} sobre ${fundo}: OK`)
+  })
+
+  it('passa em todos os pisos, inclusive o do texto secundário e o da faixa', () => {
+    expect(pisosReprovados(paleta)).toEqual([])
+  })
+})
+
+describe('contraste — um perfil que reprova um piso não entra (sensor)', () => {
+  const blackFriday = paletteFromSource('black-friday')
+
+  it('o texto secundário do Black Friday claro demais reprova', () => {
+    expect(pisosReprovados({ ...blackFriday, 'ink-soft': '#B0B8BE' })).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^ink-soft sobre ground: 1\.\d\d:1/)]),
+    )
+  })
+
+  it('o rótulo do desconto sem contraste sobre o ouro reprova', () => {
+    expect(pisosReprovados({ ...blackFriday, 'on-sale': '#FFFFFF' })).toEqual([
+      expect.stringMatching(/^on-sale sobre sale: /),
+    ])
+  })
+
+  it('a barra do frete grátis clara demais reprova', () => {
+    expect(pisosReprovados({ ...blackFriday, 'sale-bar': '#C2A063' })).toEqual([
+      expect.stringMatching(/^sale-bar sobre surface: /),
+    ])
+  })
+
+  it('a faixa de seção empatada com o chão reprova', () => {
+    expect(pisosReprovados({ ...blackFriday, 'ground-deep': blackFriday.ground })).toContain(
+      'ground-deep some sobre ground',
+    )
+  })
+})
+
+describe('contraste — os TETOS de "nunca texto" medem só o Padrão', () => {
+  it('no Black Friday dois pares do teto passam de 4,5 — e a regra continua sendo pelo uso', () => {
+    // Prova de que o teto NÃO pode ser aplicado ao Black Friday sem reprovar um perfil legível:
+    // `accent-strong` sobre `ink` e `primary-strong` sobre `accent` medem melhor nele. O uso do
+    // ouro como texto é guardado por `accentText.test.ts`, nos dois perfis.
+    const bf = paletteFromSource('black-friday')
+    expect(contrastRatio(bf['accent-strong'], bf.ink)).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(bf['primary-strong'], bf.accent)).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
+// O Padrão — os casos nomeados, com a história de cada número.
 describe('contraste — quem pode ser texto sobre superfície clara', () => {
   const TEXTO: Token[] = ['ink', 'ink-soft', 'primary', 'primary-strong']
 

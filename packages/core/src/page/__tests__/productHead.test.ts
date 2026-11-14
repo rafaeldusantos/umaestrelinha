@@ -79,6 +79,7 @@ const deps = ({ storeDescription, ...over }: Over = {}, d: ProductPageData | nul
     defaultProductCategory: null,
     storeDescription: storeDescription ?? null,
     announcementBar: false,
+    styleProfile: 'padrao',
   }),
   readLiveCampaign: async () => null,
   log: () => {},
@@ -239,7 +240,7 @@ describe('os caminhos de falha servem a página com o <head> genérico (MTA-18)'
       new URL(`https://x/produtos/${SLUG}`),
     )
     expect(res.status).toBe(200)
-    // O shell intacto, só com o veredito da faixa de avisos na tag `<html>` (o `lang` fica).
-    expect(res.body).toBe(SHELL_REAL.replace('<html lang="pt-BR">', '<html lang="pt-BR" data-faixa="0">'))
+    // O shell intacto, só com o veredito da faixa e o perfil de estilo na tag `<html>` (o `lang` fica).
+    expect(res.body).toBe(SHELL_REAL.replace('<html lang="pt-BR">', '<html lang="pt-BR" data-faixa="0" data-perfil="padrao">'))
   })
 })

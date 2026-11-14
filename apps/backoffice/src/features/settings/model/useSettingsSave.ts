@@ -14,20 +14,35 @@ import { useUpdateSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import type { SettingsKey } from '@estrelinha/supabase/types/settings'
 
+/** O aviso de sucesso de um card que precisa dizer outra coisa (o do perfil de estilo diz o prazo). */
+export interface SettingsSaveNotice {
+  title: string
+  description?: string
+}
+
 export interface SettingsSave {
-  /** Grava uma chave de `store_settings` e avisa — no sucesso e na falha. */
-  salvar: (key: SettingsKey, value: unknown) => Promise<void>
+  /**
+   * Grava uma chave de `store_settings` e avisa — no sucesso e na falha. `sucesso` troca só o aviso
+   * de sucesso daquele card; sem ele, vale a frase de sempre.
+   */
+  salvar: (key: SettingsKey, value: unknown, sucesso?: SettingsSaveNotice) => Promise<void>
   salvando: boolean
+  /**
+   * A gravação está parada à espera da rede: sem conexão, o React Query não manda a requisição e
+   * a deixa na fila até a conexão voltar — `salvando` fica verdadeiro sem nada acontecer. Quem lê
+   * diz isso à dona; quem não lê continua como sempre.
+   */
+  semConexao: boolean
 }
 
 export const useSettingsSave = (): SettingsSave => {
   const update = useUpdateSettings()
   const { toast } = useToast()
 
-  const salvar = async (key: SettingsKey, value: unknown) => {
+  const salvar = async (key: SettingsKey, value: unknown, sucesso?: SettingsSaveNotice) => {
     try {
       await update.mutateAsync({ key, value } as Parameters<typeof update.mutateAsync>[0])
-      toast({ title: 'Configurações salvas', description: 'As alterações já estão valendo na loja.' })
+      toast(sucesso ?? { title: 'Configurações salvas', description: 'As alterações já estão valendo na loja.' })
     } catch (e) {
       toast({
         title: 'Erro ao salvar',
@@ -37,5 +52,5 @@ export const useSettingsSave = (): SettingsSave => {
     }
   }
 
-  return { salvar, salvando: update.isPending }
+  return { salvar, salvando: update.isPending, semConexao: update.isPaused === true }
 }

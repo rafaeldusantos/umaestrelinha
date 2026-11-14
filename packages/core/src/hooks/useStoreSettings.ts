@@ -14,6 +14,7 @@ import {
   DEFAULT_ANALYTICS,
   DEFAULT_BUY_TOGETHER,
   DEFAULT_ANNOUNCEMENTS,
+  DEFAULT_APPEARANCE,
   type AnalyticsSettings,
   type GeneralSettings,
   type ShippingSettings,
@@ -56,16 +57,29 @@ const DEFAULTS: SettingsMap = {
   // A faixa de avisos — sem migration, a ausência da linha é a faixa desligada. Sem esta linha
   // `fetchAllSettings` descartaria a chave, e a loja nunca veria a faixa ligada no painel.
   announcements: DEFAULT_ANNOUNCEMENTS,
+  // O perfil de estilo — sem migration, a ausência da linha é o Padrão. Sem esta linha
+  // `fetchAllSettings` descartaria a chave, e a loja nunca veria o perfil escolhido no painel.
+  appearance: DEFAULT_APPEARANCE,
 }
 
-async function fetchAllSettings(): Promise<SettingsMap> {
+/**
+ * O que a leitura devolve: as chaves, e — só quando o `select` falhou — a marca `readFailed`.
+ *
+ * Quem só precisa de um valor seguro continua lendo as chaves e recebe os defaults. Quem AFIRMA o
+ * que está salvo (o card do perfil de estilo no painel) precisa separar "o banco diz o default" de
+ * "não consegui ler": os dois chegam com os mesmos valores.
+ */
+export type StoreSettingsData = SettingsMap & { readFailed?: true }
+
+async function fetchAllSettings(): Promise<StoreSettingsData> {
   const { data, error } = await supabase
     .from('store_settings')
     .select('key, value')
 
   if (error) {
-    // tabela ainda não criada → retorna defaults para não quebrar a loja
-    return DEFAULTS
+    // tabela ainda não criada, ou a rede caiu nesta leitura → retorna defaults para não quebrar a
+    // loja, com a marca de que eles não vieram do banco.
+    return { ...DEFAULTS, readFailed: true }
   }
 
   const map: SettingsMap = { ...DEFAULTS }

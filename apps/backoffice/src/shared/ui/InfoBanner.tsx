@@ -41,7 +41,25 @@ interface Props {
   'data-testid'?: string
   /** `status` quando o aviso pode aparecer depois da carga e a leitora precisa ser avisada. */
   role?: 'status' | 'note'
+  /**
+   * `atencao` (o padrão) é o âmbar de sempre. `neutro` é a nota que só informa — fundo `elevated`,
+   * sem borda, texto `text-secondary` —, para o que não pede cuidado nenhum da dona.
+   */
+  tone?: 'atencao' | 'neutro'
 }
+
+const TONS = {
+  atencao: {
+    caixa: 'rounded-xl border border-estrelinha-admin-amber/20 bg-estrelinha-admin-amber/10',
+    cor: 'text-estrelinha-admin-amber',
+    tamanho: 'text-xs',
+  },
+  neutro: {
+    caixa: 'rounded-[10px] bg-estrelinha-admin-elevated',
+    cor: 'text-estrelinha-admin-text-secondary',
+    tamanho: 'text-[12.5px]',
+  },
+} as const
 
 export const InfoBanner = ({
   icon: Icon = Info,
@@ -50,17 +68,15 @@ export const InfoBanner = ({
   className,
   'data-testid': testId,
   role,
+  tone = 'atencao',
 }: Props) => (
   <div
     data-testid={testId}
     role={role}
-    className={cn(
-      'flex items-start gap-3 rounded-xl border border-estrelinha-admin-amber/20 bg-estrelinha-admin-amber/10 p-3',
-      className,
-    )}
+    className={cn('flex items-start gap-3 p-3', TONS[tone].caixa, className)}
   >
-    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-estrelinha-admin-amber" aria-hidden />
-    <div className="min-w-0 flex-1 space-y-1 text-xs text-estrelinha-admin-amber">{children}</div>
+    <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', TONS[tone].cor)} aria-hidden />
+    <div className={cn('min-w-0 flex-1 space-y-1', TONS[tone].tamanho, TONS[tone].cor)}>{children}</div>
     {action && <div className="shrink-0">{action}</div>}
   </div>
 )

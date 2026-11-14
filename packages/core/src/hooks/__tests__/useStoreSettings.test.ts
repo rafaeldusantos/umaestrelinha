@@ -237,6 +237,21 @@ describe('useAnalyticsSettings', () => {
   })
 })
 
+describe('a leitura que falha cai nos defaults, e diz que falhou', () => {
+  it('o `select` respondendo erro ⇒ os defaults, com `readFailed`', async () => {
+    selectMock.mockResolvedValue({ data: null, error: { message: 'relation does not exist' } })
+    const result = await loadSettings()
+    expect(result.current.query.data?.readFailed).toBe(true)
+    expect(result.current.analytics).toEqual(DEFAULT_ANALYTICS)
+  })
+
+  it('o par: a leitura boa não traz a marca', async () => {
+    rows([{ key: 'general', value: { store_name: 'Uma Estrelinha' } }])
+    const result = await loadSettings()
+    expect(result.current.query.data).not.toHaveProperty('readFailed')
+  })
+})
+
 describe('a chave `announcements` (a faixa de avisos)', () => {
   it('sem a linha no banco, devolve a faixa desligada e sem avisos', async () => {
     rows([{ key: 'general', value: { store_name: 'Uma Estrelinha' } }])

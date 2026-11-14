@@ -4,7 +4,10 @@
  * Até a `72` estes objetos moravam dentro de `apps/store/tailwind.config.ts`. O app do ateliê
  * (`apps/mobile-adm`) é o segundo leitor do objeto, e uma segunda cópia seria o "defeito 01": duas
  * paletas divergindo sem nada quebrar. Os dois `tailwind.config.ts` importam DAQUI, e
- * `palette.test.ts` (suíte da loja) exige que o objeto de cada config SEJA este (`toBe`).
+ * `palette.test.ts` (suíte da loja) exige que o objeto de cada config SEJA o daqui (`toBe`): o do
+ * ateliê, a paleta em hex (`ESTRELINHA_COLORS`, `ESTRELINHA_SHADOW`); o da loja, a mesma paleta
+ * POR VARIÁVEL (`ESTRELINHA_COLOR_VARIABLES`, `ESTRELINHA_SHADOW_VARIABLES`), que acompanha o perfil
+ * de estilo declarado em `ESTRELINHA_PROFILES`.
  *
  * **Não são os tokens do painel.** `styles.css` e `tailwind.preset.ts` deste pacote declaram
  * `--estrelinha-admin-*`, que é outra paleta. E as variáveis CSS da loja (`--estrelinha-*`)
@@ -15,6 +18,8 @@
  * Importado por caminho RELATIVO nos `tailwind.config.ts` e no `vite.config.ts` do app do ateliê,
  * porque arquivo de config não passa pelo alias do Vite.
  */
+
+import type { StyleProfile } from "../../../core/src/appearance/types.ts";
 
 /**
  * Duas famílias, e é tudo — `--font-display` e `--font-body` do arquivo do Paper. A marca não usa
@@ -78,7 +83,79 @@ export const ESTRELINHA_COLORS = {
   done: "#3F5A3B",
   /** Fundo do selo "entregue". Nunca texto. */
   "done-soft": "#EEF0EC",
+  // O papel de DESCONTO: o selo "-X%" do cartão, o chip de desconto da sacola e a barra do frete
+  // grátis. No Padrão ele É a ardósia da ação (o desenho de sempre); existe como papel próprio
+  // porque no Black Friday a ação vira quase preto e o desconto passa a ouro, para continuar se
+  // distinguindo dos outros selos.
+  /** Fundo do selo de desconto. */
+  sale: "#34495E",
+  /** Texto sobre `sale` (9,29:1 no Padrão). */
+  "on-sale": "#FFFFFF",
+  /** O preenchimento da barra do frete grátis (≥ 3:1 sobre o branco). */
+  "sale-bar": "#34495E",
 };
+
+/** O nome de um token de cor da marca (`ink`, `ground-deep`, `sale`…). */
+export type EstrelinhaColorToken = keyof typeof ESTRELINHA_COLORS;
+
+/**
+ * Os perfis de estilo da LOJA — o mesmo conjunto de tokens, com outros valores. O dono único dos
+ * valores de cada perfil: `apps/store/src/app/App.css` os escreve como variáveis (um bloco por
+ * perfil, cópia deliberada) e `palette.test.ts` compara cada bloco com este objeto.
+ *
+ * **O Padrão É `ESTRELINHA_COLORS`** (a mesma referência): o perfil de quem nunca escolheu é a
+ * paleta de sempre, e o app do ateliê, que lê `ESTRELINHA_COLORS`, continua nele. O Black Friday
+ * troca só o que o protótipo troca; o resto (chão, card, `on-primary`, os selos de situação, o
+ * WhatsApp) é herdado do Padrão.
+ *
+ * Só a loja veste o perfil. O painel (`--estrelinha-admin-*`), o ateliê e os e-mails não.
+ */
+export const ESTRELINHA_PROFILES: Readonly<
+  Record<StyleProfile, Readonly<Record<EstrelinhaColorToken, string>>>
+> = {
+  padrao: ESTRELINHA_COLORS,
+  "black-friday": {
+    ...ESTRELINHA_COLORS,
+    ink: "#161514",
+    "ink-soft": "#57524B",
+    primary: "#1C1A18",
+    "primary-strong": "#0D0C0B",
+    accent: "#C2A063",
+    "accent-strong": "#9A7A45",
+    line: "#E4DDD0",
+    "ground-deep": "#F0EADF",
+    field: "#857A6C",
+    // O desconto passa a ouro: sobre a ação quase preta, um selo escuro sumiria entre os outros.
+    sale: "#C2A063",
+    "on-sale": "#161514",
+    "sale-bar": "#9A7A45",
+  },
+};
+
+/**
+ * A cor da sombra suave de cada perfil, em canais `R G B` — a forma que a loja escreve em
+ * `--estrelinha-shadow-rgb` e que `rgb(var(...) / α)` lê. No Padrão é a ardósia de
+ * `ESTRELINHA_SHADOW` (52, 73, 94); no Black Friday, o quase preto da tinta.
+ */
+export const ESTRELINHA_PROFILE_SHADOW_RGB: Readonly<Record<StyleProfile, string>> = {
+  padrao: "52 73 94",
+  "black-friday": "22 21 20",
+};
+
+/**
+ * As classes de cor da LOJA, por variável: cada token vira `rgb(var(--estrelinha-<t>-rgb) /
+ * <alpha-value>)`, que é a forma do Tailwind 3.4 que preserva a opacidade (`/80`, `/[0.06]`). Quem
+ * troca o valor é o bloco do perfil no `App.css`; a classe é uma só.
+ *
+ * O app do ateliê NÃO lê isto: ele segue com `ESTRELINHA_COLORS` em hex, no Padrão.
+ */
+export const ESTRELINHA_COLOR_VARIABLES: Readonly<Record<EstrelinhaColorToken, string>> =
+  Object.fromEntries(
+    Object.keys(ESTRELINHA_COLORS).map((token) => [
+      token,
+      `rgb(var(--estrelinha-${token}-rgb) / <alpha-value>)`,
+    ]),
+  ) as Record<EstrelinhaColorToken, string>;
 
 /**
  * Escala do DS da Uma Estrelinha (`--radius-*` do arquivo do Paper).
@@ -116,4 +193,16 @@ export const ESTRELINHA_SHADOW = {
   "estrelinha-soft": "0 14px 28px -10px rgba(52, 73, 94, 0.16)",
   "estrelinha-lift": "0 26px 50px -12px rgba(52, 73, 94, 0.22)",
   "estrelinha-ink": "0 16px 30px -8px rgba(35, 48, 58, 0.16)",
+};
+
+/**
+ * As mesmas três sombras, por variável — as da LOJA, que acompanham o perfil. As duas suaves leem
+ * `--estrelinha-shadow-rgb`; a de peso lê a tinta (`--estrelinha-ink-rgb`), como hoje. Com o
+ * Padrão, cada uma resolve exatamente no valor de `ESTRELINHA_SHADOW` (`palette.test.ts` expande e
+ * compara). O ateliê continua com `ESTRELINHA_SHADOW`.
+ */
+export const ESTRELINHA_SHADOW_VARIABLES = {
+  "estrelinha-soft": "0 14px 28px -10px rgb(var(--estrelinha-shadow-rgb) / 0.16)",
+  "estrelinha-lift": "0 26px 50px -12px rgb(var(--estrelinha-shadow-rgb) / 0.22)",
+  "estrelinha-ink": "0 16px 30px -8px rgb(var(--estrelinha-ink-rgb) / 0.16)",
 };

@@ -6,7 +6,7 @@ import { productHead, publicOptionMarks, type OptionMarkRow } from '../../seo/va
 import { productJsonLd, renderFeedXml, resolveOffer, withPageUrl } from '../../shopping/index.ts'
 import { applyHead, injectIntoHead, jsonLdScript } from '../head.ts'
 import { productPageImages } from '../images.ts'
-import { PAGE_CACHE, servePage, type PageDeps, type ProductPageData } from '../serve.ts'
+import { PAGE_CACHE, servePage, type PageDeps, type PageSettings, type ProductPageData } from '../serve.ts'
 
 /**
  * Feature 69, T05 — o ramo de PRODUTO de `servePage`.
@@ -34,11 +34,12 @@ const SHELL =
   '<!doctype html><html><head><title>Uma Estrelinha</title></head><body><div id="root"></div></body></html>'
 
 /**
- * O shell como a função o serve com a faixa de avisos desligada — o padrão dos dublês abaixo. Toda
- * resposta HTML leva o veredito da faixa na tag `<html>`; o resto do shell é o mesmo.
+ * O shell como a função o serve com a faixa de avisos desligada e o perfil Padrão — o padrão dos
+ * dublês abaixo. Toda resposta HTML leva o veredito da faixa e o perfil na tag `<html>`; o resto do
+ * shell é o mesmo.
  */
 const SHELL_SEM_FAIXA =
-  '<!doctype html><html data-faixa="0"><head><title>Uma Estrelinha</title></head><body><div id="root"></div></body></html>'
+  '<!doctype html><html data-faixa="0" data-perfil="padrao"><head><title>Uma Estrelinha</title></head><body><div id="root"></div></body></html>'
 
 const ORIGEM = 'https://umaestrelinha.com.br'
 
@@ -87,7 +88,7 @@ const deps = (over: Partial<PageDeps> = {}, d: ProductPageData | null = dados())
   readCategories: async () => [],
   readCategoryRedirect: async () => null,
   readInactiveFallback: async () => null,
-  readSettings: async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false }),
+  readSettings: async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false, styleProfile: 'padrao' }),
   readLiveCampaign: async () => null,
   log: () => {},
   ...over,
@@ -243,7 +244,7 @@ describe('servePage, produto — os caminhos de erro', () => {
 
   it('shell sem </head> volta intacto, sem quebrar a página — só a tag <html> ganha o veredito da faixa', async () => {
     const res = await servePage(deps({ shell: '<html></html>' }), url('?slug=x'))
-    expect(res.body).toBe('<html data-faixa="0"></html>')
+    expect(res.body).toBe('<html data-faixa="0" data-perfil="padrao"></html>')
   })
 
   it('shell sem <html> nem </head> volta intacto, byte a byte', async () => {
@@ -797,6 +798,7 @@ describe('servePage, produto — 404 e product_redirects (SSV-07, SSV-12, SSV-31
             defaultProductCategory: null,
             storeDescription: 'Da configuração.',
             announcementBar: false,
+            styleProfile: 'padrao',
           }),
         },
         d,
@@ -808,7 +810,7 @@ describe('servePage, produto — 404 e product_redirects (SSV-07, SSV-12, SSV-31
 
   it('a categoria padrão da configuração chega ao JSON-LD da oferta', async () => {
     const res = await servePage(
-      deps({ readSettings: async () => ({ defaultProductCategory: '200', storeDescription: null, announcementBar: false }) }),
+      deps({ readSettings: async () => ({ defaultProductCategory: '200', storeDescription: null, announcementBar: false, styleProfile: 'padrao' }) }),
       url('?slug=x&variant=1259936246'),
     )
     const d = dados()
@@ -1052,11 +1054,11 @@ describe('servePage — página fixa, rota de app, 3+ segmentos', () => {
       readInactiveFallback: vi.fn(),
       readOptionMarks: vi.fn(),
     }
-    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: true }))
+    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: true, styleProfile: 'padrao' }))
     const res = await servePage(deps({ ...(catalogo as any), readSettings }), new URL('https://x/sobre'))
     for (const f of Object.values(catalogo)) expect(f).not.toHaveBeenCalled()
     expect(readSettings).toHaveBeenCalledTimes(1)
-    expect(res.body).toContain('<html data-faixa="1">')
+    expect(res.body).toContain('<html data-faixa="1" data-perfil="padrao">')
   })
 
   it('SSV-10: rota de app ⇒ 200 com o shell intacto e 3600 s', async () => {
@@ -1083,12 +1085,12 @@ describe('servePage — página fixa, rota de app, 3+ segmentos', () => {
       readInactiveFallback: vi.fn(),
       readOptionMarks: vi.fn(),
     }
-    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false }))
+    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false, styleProfile: 'padrao' }))
     const res = await servePage(deps({ ...(catalogo as any), readSettings }), new URL('https://x/x.png'))
     expect(res.status).toBe(404)
     for (const f of Object.values(catalogo)) expect(f).not.toHaveBeenCalled()
     expect(readSettings).toHaveBeenCalledTimes(1)
-    expect(res.body).toContain('<html data-faixa="0">')
+    expect(res.body).toContain('<html data-faixa="0" data-perfil="padrao">')
     expect(res.headers['Cache-Control']).toBe('public, s-maxage=60')
   })
 
@@ -1117,7 +1119,12 @@ describe('servePage — página fixa, rota de app, 3+ segmentos', () => {
  */
 describe('servePage — o <html> diz se a faixa de avisos existe', () => {
   const ARVORE = [{ id: 'c-raiz', slug: 'joias-afetivas', parent_id: null, name: 'Joias afetivas', description: null }]
-  const config = (announcementBar: boolean | null) => ({ defaultProductCategory: null, storeDescription: null, announcementBar })
+  const config = (announcementBar: boolean | null): PageSettings => ({
+    defaultProductCategory: null,
+    storeDescription: null,
+    announcementBar,
+    styleProfile: 'padrao',
+  })
 
   /** Um caminho de cada ramo HTML, com o status que ele responde. */
   const RAMOS: [string, string, number][] = [
@@ -1147,14 +1154,14 @@ describe('servePage — o <html> diz se a faixa de avisos existe', () => {
   it.each(RAMOS)('%s: faixa ligada com aviso válido ⇒ data-faixa="1", uma vez, na tag <html>', async (_, path, status) => {
     const res = await servir(path, { readSettings: async () => config(true) })
     expect(res.status).toBe(status)
-    expect(tagHtml(res.body)).toBe('<html data-faixa="1">')
+    expect(tagHtml(res.body)).toBe('<html data-faixa="1" data-perfil="padrao">')
     expect(atributos(res.body)).toEqual(['1'])
   })
 
   it.each(RAMOS)('%s: faixa desligada ou sem aviso ⇒ data-faixa="0"', async (_, path, status) => {
     const res = await servir(path, { readSettings: async () => config(false) })
     expect(res.status).toBe(status)
-    expect(tagHtml(res.body)).toBe('<html data-faixa="0">')
+    expect(tagHtml(res.body)).toBe('<html data-faixa="0" data-perfil="padrao">')
     expect(atributos(res.body)).toEqual(['0'])
   })
 
@@ -1196,7 +1203,7 @@ describe('servePage — o <html> diz se a faixa de avisos existe', () => {
     expect(readSettings).toHaveBeenCalledTimes(1)
     expect(readCategories).toHaveBeenCalledTimes(1)
     soltar(config(true))
-    expect(tagHtml((await resposta).body)).toBe('<html data-faixa="1">')
+    expect(tagHtml((await resposta).body)).toBe('<html data-faixa="1" data-perfil="padrao">')
   })
 
   it('falha de leitura do catálogo com a configuração boa: o shell intacto leva o veredito, e no-store', async () => {
@@ -1207,14 +1214,122 @@ describe('servePage — o <html> diz se a faixa de avisos existe', () => {
       },
     })
     expect(res.status).toBe(200)
-    expect(res.body).toBe(SHELL.replace('<html>', '<html data-faixa="1">'))
+    expect(res.body).toBe(SHELL.replace('<html>', '<html data-faixa="1" data-perfil="padrao">'))
     expect(res.headers['Cache-Control']).toBe('no-store')
   })
 
   it('o lang da tag <html> fica', async () => {
     const shell = SHELL.replace('<html>', '<html lang="pt-BR">')
     const res = await servir('/checkout', { shell, readSettings: async () => config(true) })
-    expect(tagHtml(res.body)).toBe('<html lang="pt-BR" data-faixa="1">')
+    expect(tagHtml(res.body)).toBe('<html lang="pt-BR" data-faixa="1" data-perfil="padrao">')
+  })
+})
+
+/**
+ * O perfil de estilo da loja. A paleta é escolhida pelo atributo da tag `<html>`, então TODA resposta
+ * HTML sai do servidor com o perfil salvo, normalizado — e a primeira pintura já vem nele. Leitura de
+ * `store_settings` que falha ⇒ o atributo ausente, o status de sempre e nada cacheado, como a faixa.
+ */
+describe('servePage — o <html> chega com o perfil de estilo da loja', () => {
+  const ARVORE = [{ id: 'c-raiz', slug: 'joias-afetivas', parent_id: null, name: 'Joias afetivas', description: null }]
+  const config = (styleProfile: string) =>
+    ({ defaultProductCategory: null, storeDescription: null, announcementBar: false, styleProfile }) as PageSettings
+
+  /** Um caminho de cada ramo HTML, com o status e o cache que ele responde. */
+  const RAMOS: [string, string, number, string][] = [
+    ['Home', '/', 200, PAGE_CACHE.fixed],
+    ['produto', '/produtos/pulseira-7-nos-ajustavel-protecao-kabbalah', 200, PAGE_CACHE.page],
+    ['categoria', '/joias-afetivas', 200, PAGE_CACHE.page],
+    ['página fixa', '/politica-de-privacidade', 200, PAGE_CACHE.fixed],
+    ['rota de app (checkout)', '/checkout', 200, PAGE_CACHE.fixed],
+    ['404 por classificação', '/a/b/c', 404, PAGE_CACHE.notFound],
+    ['404 de produto inexistente', '/produtos/nao-existe', 404, PAGE_CACHE.notFound],
+  ]
+
+  const servir = (path: string, over: Partial<PageDeps> = {}) =>
+    servePage(
+      deps({
+        readProduct: async slug => (slug === 'nao-existe' ? null : dados()),
+        readCategories: async () => ARVORE,
+        ...over,
+      }),
+      new URL(`https://x${path}`),
+    )
+
+  const perfis = (corpo: string) => [...corpo.matchAll(/data-perfil="([^"]*)"/g)].map(m => m[1])
+  const tagHtml = (corpo: string) => corpo.match(/<html\b[^>]*>/)?.[0]
+
+  it.each(RAMOS)('%s: Black Friday salvo ⇒ data-perfil="black-friday", uma vez, na tag <html>, e o cache de sempre', async (_, path, status, cache) => {
+    const res = await servir(path, { readSettings: async () => config('black-friday') })
+    expect(res.status).toBe(status)
+    expect(tagHtml(res.body)).toBe('<html data-faixa="0" data-perfil="black-friday">')
+    expect(perfis(res.body)).toEqual(['black-friday'])
+    expect(res.headers['Cache-Control']).toBe(cache)
+  })
+
+  it.each(RAMOS)('%s: Padrão salvo ⇒ data-perfil="padrao"', async (_, path, status) => {
+    const res = await servir(path, { readSettings: async () => config('padrao') })
+    expect(res.status).toBe(status)
+    expect(tagHtml(res.body)).toBe('<html data-faixa="0" data-perfil="padrao">')
+  })
+
+  it.each(RAMOS)(
+    '%s: a leitura de store_settings que falha ⇒ <html> sem data-perfil nem data-faixa, o status de sempre e no-store',
+    async (_, path, status) => {
+      const res = await servir(path, {
+        readSettings: async () => {
+          throw new Error('fora')
+        },
+      })
+      expect(res.status).toBe(status)
+      expect(tagHtml(res.body)).toBe('<html>')
+      expect(perfis(res.body)).toEqual([])
+      expect(res.headers['Cache-Control']).toBe('no-store')
+    },
+  )
+
+  it.each([['neon'], [''], ['Black-Friday'], ['black-friday ']])(
+    'perfil desconhecido gravado (%j) ⇒ data-perfil="padrao", sem erro e com o cache de sempre',
+    async valor => {
+      const log = vi.fn()
+      const res = await servir('/politica-de-privacidade', { log, readSettings: async () => config(valor) })
+      expect(res.status).toBe(200)
+      expect(tagHtml(res.body)).toBe('<html data-faixa="0" data-perfil="padrao">')
+      expect(res.headers['Cache-Control']).toBe(PAGE_CACHE.fixed)
+      expect(log).not.toHaveBeenCalled()
+    },
+  )
+
+  it('o 301 passa intacto: sem corpo, com o Location e o cache dele', async () => {
+    const res = await servir('/produtos/nao-existe', {
+      readSettings: async () => config('black-friday'),
+      readProductRedirect: async () => 'pulseira-atual',
+    })
+    expect(res.status).toBe(301)
+    expect(res.headers.Location).toBe('/produtos/pulseira-atual')
+    expect(res.body).toBe('')
+    expect(res.headers['Cache-Control']).toBe(PAGE_CACHE.page)
+  })
+
+  it('o 301 passa intacto também com a leitura da configuração falhando — não vira no-store', async () => {
+    const res = await servir('/produtos/nao-existe', {
+      readSettings: async () => {
+        throw new Error('fora')
+      },
+      readProductRedirect: async () => 'pulseira-atual',
+    })
+    expect(res.status).toBe(301)
+    expect(res.headers).toEqual({ Location: '/produtos/pulseira-atual', 'Cache-Control': PAGE_CACHE.page })
+    expect(res.body).toBe('')
+  })
+
+  it('o lang e o data-faixa da tag <html> ficam ao lado do perfil', async () => {
+    const shell = SHELL.replace('<html>', '<html lang="pt-BR">')
+    const res = await servir('/checkout', {
+      shell,
+      readSettings: async () => ({ ...config('black-friday'), announcementBar: true }),
+    })
+    expect(tagHtml(res.body)).toBe('<html lang="pt-BR" data-faixa="1" data-perfil="black-friday">')
   })
 })
 
@@ -1268,14 +1383,14 @@ describe('servePage — a vitrine da campanha (/ofertas)', () => {
     })
     expect(res.status).toBe(200)
     // O shell intacto, com o veredito da faixa que toda resposta HTML leva (WI 101).
-    expect(res.body).toBe(SHELL.replace('<html>', '<html data-faixa="0">'))
+    expect(res.body).toBe(SHELL.replace('<html>', '<html data-faixa="0" data-perfil="padrao">'))
     expect(res.headers['Cache-Control']).toBe('no-store')
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ erro: 'campanha', path: '/ofertas' }))
   })
 
   it('a vitrine não lê produto nem categoria — só a configuração da faixa, uma vez (WI 101)', async () => {
     const leituras = { readProduct: vi.fn(), readCategories: vi.fn() }
-    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false }))
+    const readSettings = vi.fn(async () => ({ defaultProductCategory: null, storeDescription: null, announcementBar: false, styleProfile: 'padrao' }))
     await servePage(deps({ ...(leituras as any), readSettings, readLiveCampaign: async () => BLACK_FRIDAY }), new URL('https://x/ofertas'))
     for (const f of Object.values(leituras)) expect(f).not.toHaveBeenCalled()
     expect(readSettings).toHaveBeenCalledTimes(1)
