@@ -3,6 +3,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SYMBOL, SYMBOL_TINY } from '@estrelinha/ui/brand/paths'
+import { ESTRELINHA_PROFILES } from '@estrelinha/ui/tokens/estrelinha'
+import { paletteToken } from '@/test/paletteFromSource'
 
 /**
  * Os ativos de marca e a cabeça do documento — `IDN-07`.
@@ -520,15 +522,22 @@ describe('index.html — os metadados dos dois apps (COP-03)', () => {
     expect(meta(INDEX, 'twitter:image:alt')).toBe(alt)
   })
 
-  it('`theme-color` é um token da paleta nova, lido do App.css', () => {
-    // "É uma cor" não basta: qualquer hex passaria. O valor tem de estar
-    // DECLARADO na paleta — senão o topo do navegador no celular fica numa cor
-    // que não existe em lugar nenhum da loja.
+  it('`theme-color` é o `primary-strong` do Padrão, lido do dono da paleta', () => {
+    // "É uma cor" não basta: qualquer hex passaria. O valor tem de ser o token
+    // do DONO — senão o topo do navegador no celular fica numa cor que não
+    // existe em lugar nenhum da loja. É o do Padrão: o `theme-color` não
+    // acompanha o perfil de estilo.
     const cor = meta(INDEX, 'theme-color') ?? ''
-    const appCss = readFileSync(resolve(STORE, 'src/app/App.css'), 'utf8')
     expect(cor).toMatch(/^#[0-9A-Fa-f]{6}$/)
-    // O App.css escreve o hex em minúsculas; o `<head>` não é obrigado a isso.
-    expect(appCss.toLowerCase()).toContain(`--estrelinha-primary-strong: ${cor.toLowerCase()}`)
+    // O `<head>` não é obrigado à mesma caixa do dono.
+    expect(cor.toUpperCase()).toBe(ESTRELINHA_PROFILES.padrao['primary-strong'].toUpperCase())
+    // E é o que o `:root` do App.css declara — o Padrão que a loja pinta.
+    expect(paletteToken('primary-strong', 'padrao')).toBe(cor.toUpperCase())
+  })
+
+  it('`theme-color` NÃO é o do Black Friday (o topo do navegador não muda com o perfil)', () => {
+    const cor = (meta(INDEX, 'theme-color') ?? '').toUpperCase()
+    expect(cor).not.toBe(ESTRELINHA_PROFILES['black-friday']['primary-strong'].toUpperCase())
   })
 
   it('o backoffice se apresenta como Uma Estrelinha e continua fora dos buscadores', () => {

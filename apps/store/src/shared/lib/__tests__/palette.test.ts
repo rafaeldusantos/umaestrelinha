@@ -1,15 +1,23 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import tailwindConfig from '../../../../tailwind.config'
 import atelieConfig from '../../../../../mobile-adm/tailwind.config'
 import {
   ESTRELINHA_COLORS,
+  ESTRELINHA_COLOR_VARIABLES,
   ESTRELINHA_FONTS,
+  ESTRELINHA_PROFILES,
+  ESTRELINHA_PROFILE_SHADOW_RGB,
   ESTRELINHA_RADIUS,
   ESTRELINHA_SHADOW,
+  ESTRELINHA_SHADOW_VARIABLES,
 } from '@estrelinha/ui/tokens/estrelinha'
+import { STYLE_PROFILES, type StyleProfile } from '@estrelinha/core/appearance'
+import {
+  lerAppCss,
+  paletteFromSource,
+  seletorDoPerfil,
+  variaveisDoPerfil,
+} from '@/test/paletteFromSource'
 
 /**
  * A paleta da Uma Estrelinha é declarada em DOIS lugares — `src/app/App.css` e
@@ -22,10 +30,13 @@ import {
  *
  * Os pisos de contraste NÃO estão aqui — são `contrast.test.ts`. Aqui só se
  * prova que os dois arquivos dizem a mesma coisa.
+ *
+ * **Desde o perfil de estilo da loja, a paleta tem um bloco por perfil** no
+ * `App.css` (`:root` com o Padrão, o atributo do perfil no `<html>` com o Black
+ * Friday), e o Tailwind da loja lê as cores POR VARIÁVEL. A comparação passou a
+ * ser bloco a bloco contra `ESTRELINHA_PROFILES`: o hex, os canais `-rgb` que o
+ * Tailwind lê, a camada HSL do shadcn e a cor da sombra.
  */
-
-const HERE = dirname(fileURLToPath(import.meta.url))
-const APP_CSS = resolve(HERE, '../../../app/App.css')
 
 /**
  * Os valores canônicos — o arquivo do Paper "Uma Estrelinha", idêntico a
@@ -53,58 +64,299 @@ const PALETA = {
   'alert-soft': '#F6E7E5', // fundo do selo de alerta
   done: '#3F5A3B', // entregue — texto
   'done-soft': '#EEF0EC', // fundo do selo "entregue"
+  // O papel de desconto (selo "-X%", chip da sacola, barra do frete grátis): no Padrão, a ação.
+  sale: '#34495E',
+  'on-sale': '#FFFFFF',
+  'sale-bar': '#34495E',
 } as const
 
-function cssTokens(): Record<string, string> {
-  const css = readFileSync(APP_CSS, 'utf8')
-  const found: Record<string, string> = {}
+/**
+ * O Black Friday — os valores do protótipo, escritos à mão pelo mesmo motivo da
+ * `PALETA`: é a afirmação contra a qual o dono e o `App.css` são lidos. O que
+ * não está aqui é o do Padrão.
+ */
+const PALETA_BLACK_FRIDAY = {
+  ...PALETA,
+  ink: '#161514',
+  'ink-soft': '#57524B',
+  primary: '#1C1A18',
+  'primary-strong': '#0D0C0B',
+  accent: '#C2A063',
+  'accent-strong': '#9A7A45',
+  line: '#E4DDD0',
+  'ground-deep': '#F0EADF',
+  field: '#857A6C',
+  sale: '#C2A063',
+  'on-sale': '#161514',
+  'sale-bar': '#9A7A45',
+} as const
 
-  for (const match of css.matchAll(/--estrelinha-([a-z-]+):\s*(#[0-9a-fA-F]{3,6})\s*;/g)) {
-    found[match[1]] = match[2].toUpperCase()
+const PALETA_DO_PERFIL: Record<StyleProfile, Record<string, string>> = {
+  padrao: PALETA,
+  'black-friday': PALETA_BLACK_FRIDAY,
+}
+
+/** A cor da sombra suave de cada perfil, em canais — também escrita à mão. */
+const SOMBRA_DO_PERFIL: Record<StyleProfile, string> = {
+  padrao: '52 73 94',
+  'black-friday': '22 21 20',
+}
+
+/**
+ * A camada HSL do shadcn: cada variável e o token da marca de que ela é a
+ * tradução. É o "terceiro lugar" do `DESIGN.md` §2 — sem prefixo da marca,
+ * invisível a qualquer busca por nome.
+ */
+const HSL_DO_SHADCN: Record<string, string> = {
+  background: 'ground',
+  foreground: 'ink',
+  card: 'surface',
+  'card-foreground': 'ink',
+  popover: 'surface',
+  'popover-foreground': 'ink',
+  primary: 'primary',
+  'primary-foreground': 'on-primary',
+  secondary: 'ground-deep',
+  'secondary-foreground': 'ink',
+  muted: 'ground-deep',
+  'muted-foreground': 'ink-soft',
+  accent: 'ground-deep',
+  'accent-foreground': 'primary',
+  border: 'line',
+  input: 'field',
+  ring: 'primary',
+}
+
+/** Os HSL do Padrão como estão escritos hoje: com o perfil Padrão, nada muda. */
+const HSL_DO_PADRAO_DE_HOJE: Record<string, string> = {
+  background: '40 37% 97%',
+  foreground: '206 25% 18%',
+  card: '0 0% 100%',
+  'card-foreground': '206 25% 18%',
+  popover: '0 0% 100%',
+  'popover-foreground': '206 25% 18%',
+  primary: '210 29% 29%',
+  'primary-foreground': '38 41% 95%',
+  secondary: '37 36% 91%',
+  'secondary-foreground': '206 25% 18%',
+  muted: '37 36% 91%',
+  'muted-foreground': '206 12% 37%',
+  accent: '37 36% 91%',
+  'accent-foreground': '210 29% 29%',
+  border: '37 26% 87%',
+  input: '31 10% 50%',
+  ring: '210 29% 29%',
+}
+
+function canais(hex: string): string {
+  const h = hex.replace('#', '')
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(' ')
+}
+
+/** HSL exato (sem arredondar) de um hex. */
+function hslExato(hex: string): [number, number, number] {
+  const [r, g, b] = canais(hex)
+    .split(' ')
+    .map((v) => Number(v) / 255)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  const d = max - min
+  if (d === 0) return [0, 0, l * 100]
+  const s = d / (1 - Math.abs(2 * l - 1))
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  h *= 60
+  if (h < 0) h += 360
+  return [h, s * 100, l * 100]
+}
+
+/**
+ * O HSL escrito é um ARREDONDAMENTO do token? Cada componente a no máximo meio
+ * ponto do valor exato (o Padrão de hoje arredonda 37,5 para 37, então a régua
+ * aceita os dois lados do meio). Devolve `null` quando confere, ou o motivo.
+ */
+function hslDivergente(escrito: string, hex: string): string | null {
+  const m = /^(\d+(?:\.\d+)?) (\d+(?:\.\d+)?)% (\d+(?:\.\d+)?)%$/.exec(escrito)
+  if (!m) return `forma inválida: "${escrito}"`
+  const lido = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const exato = hslExato(hex)
+  const longe = lido.some((v, i) => Math.abs(v - exato[i]) > 0.5 + 1e-9)
+  return longe ? `"${escrito}" não é ${hex} (${exato.map((v) => v.toFixed(2)).join(' ')})` : null
+}
+
+/**
+ * Tudo o que um bloco do `App.css` diverge do dono, num perfil: hex, canais,
+ * HSL do shadcn e sombra. Vazio = conforme. É a mesma função que a asserção e o
+ * sensor chamam.
+ */
+function divergenciasDoPerfil(perfil: StyleProfile, css: string): string[] {
+  const vars = variaveisDoPerfil(perfil, css)
+  const dono = ESTRELINHA_PROFILES[perfil]
+  const erros: string[] = []
+  for (const [token, hex] of Object.entries(dono)) {
+    const lido = vars[`estrelinha-${token}`]?.toUpperCase()
+    if (lido !== hex.toUpperCase()) erros.push(`${perfil} · ${token}: ${lido} ≠ ${hex}`)
+    const rgb = vars[`estrelinha-${token}-rgb`]
+    if (rgb !== canais(hex)) erros.push(`${perfil} · ${token}-rgb: ${rgb} ≠ ${canais(hex)}`)
   }
-
-  return found
+  for (const [variavel, token] of Object.entries(HSL_DO_SHADCN)) {
+    const motivo = hslDivergente(vars[variavel] ?? '', dono[token as keyof typeof dono])
+    if (motivo) erros.push(`${perfil} · --${variavel} (${token}): ${motivo}`)
+  }
+  const sombra = vars['estrelinha-shadow-rgb']
+  if (sombra !== ESTRELINHA_PROFILE_SHADOW_RGB[perfil]) {
+    erros.push(`${perfil} · shadow-rgb: ${sombra} ≠ ${ESTRELINHA_PROFILE_SHADOW_RGB[perfil]}`)
+  }
+  return erros
 }
 
-function tailwindTokens(): Record<string, string> {
-  const estrelinha = (tailwindConfig.theme?.extend?.colors as Record<string, unknown> | undefined)
-    ?.estrelinha as Record<string, string> | undefined
-
-  if (!estrelinha) throw new Error('tailwind.config.ts não declara `colors.estrelinha`')
-
-  return Object.fromEntries(Object.entries(estrelinha).map(([k, v]) => [k, v.toUpperCase()]))
-}
-
-describe('paleta Uma Estrelinha — os valores', () => {
-  const css = cssTokens()
-  const tw = tailwindTokens()
-
-  it('a leitura do App.css encontrou a paleta inteira', () => {
-    // Âncora de contagem: um erro de caminho ou de regex faria as duas leituras
-    // devolverem `{}` e todas as comparações abaixo passariam em silêncio.
-    expect(Object.keys(css).length).toBeGreaterThanOrEqual(14)
+describe('paleta Uma Estrelinha — o dono dos perfis', () => {
+  it('declara os dois perfis, e só eles', () => {
+    expect(Object.keys(ESTRELINHA_PROFILES).sort()).toEqual([...STYLE_PROFILES].sort())
   })
 
-  it.each(Object.entries(PALETA))('`--estrelinha-%s` vale %s no App.css', (token, hex) => {
-    expect(css[token]).toBe(hex.toUpperCase())
+  it('o Padrão É `ESTRELINHA_COLORS` (a mesma referência)', () => {
+    // O ateliê lê `ESTRELINHA_COLORS`: com o Padrão sendo ele, os dois não podem divergir.
+    expect(ESTRELINHA_PROFILES.padrao).toBe(ESTRELINHA_COLORS)
   })
 
-  it.each(Object.entries(PALETA))('`estrelinha.%s` vale %s no Tailwind', (token, hex) => {
-    expect(tw[token]).toBe(hex.toUpperCase())
+  it.each(STYLE_PROFILES)('o perfil `%s` tem os valores do desenho', (perfil) => {
+    expect({ ...ESTRELINHA_PROFILES[perfil] }).toEqual(PALETA_DO_PERFIL[perfil])
   })
 
-  it('os dois arquivos declaram exatamente o mesmo conjunto de tokens', () => {
-    // Sem isto, um token novo entra num lado só e a classe Tailwind
-    // correspondente nasce sem valor (ou vice-versa) sem ninguém notar.
-    expect(Object.keys(css).sort()).toEqual(Object.keys(tw).sort())
+  it.each(STYLE_PROFILES)('o perfil `%s` tem a cor de sombra do desenho', (perfil) => {
+    expect(ESTRELINHA_PROFILE_SHADOW_RGB[perfil]).toBe(SOMBRA_DO_PERFIL[perfil])
   })
 
-  it('os dois arquivos concordam em cada valor', () => {
-    for (const token of Object.keys(css)) {
-      // Comparação com o nome embutido: a mensagem de falha nomeia o token, e
-      // não só "esperava #34495E, recebeu #A62348".
-      expect(`${token}=${tw[token]}`).toBe(`${token}=${css[token]}`)
+  it('os dois perfis têm exatamente o mesmo conjunto de tokens', () => {
+    // O perfil é um conjunto de valores dos MESMOS tokens: um token num perfil só deixaria a
+    // classe sem valor no outro.
+    expect(Object.keys(ESTRELINHA_PROFILES['black-friday']).sort()).toEqual(
+      Object.keys(ESTRELINHA_PROFILES.padrao).sort(),
+    )
+  })
+})
+
+describe('paleta Uma Estrelinha — o App.css, bloco a bloco', () => {
+  const css = lerAppCss()
+
+  it.each(STYLE_PROFILES)('a leitura do bloco `%s` encontrou a paleta inteira', (perfil) => {
+    // Âncora de contagem: um erro de caminho, de seletor ou de regex faria a
+    // leitura devolver `{}` e todas as comparações abaixo passariam em silêncio.
+    expect(Object.keys(paletteFromSource(perfil)).length).toBeGreaterThanOrEqual(
+      Object.keys(PALETA).length,
+    )
+  })
+
+  it.each(STYLE_PROFILES)(
+    'o bloco `%s` é igual ao dono em hex, canais, HSL do shadcn e sombra',
+    (perfil) => {
+      expect(divergenciasDoPerfil(perfil, css)).toEqual([])
+    },
+  )
+
+  it.each(Object.entries(PALETA))('`--estrelinha-%s` vale %s no :root (o Padrão)', (token, hex) => {
+    expect(paletteFromSource('padrao')[token]).toBe(hex.toUpperCase())
+  })
+
+  it.each(Object.entries(PALETA_BLACK_FRIDAY))(
+    '`--estrelinha-%s` vale %s no Black Friday',
+    (token, hex) => {
+      expect(paletteFromSource('black-friday')[token]).toBe(hex.toUpperCase())
+    },
+  )
+
+  it('o Padrão tem os HSL do shadcn de hoje, byte a byte', () => {
+    const vars = variaveisDoPerfil('padrao', css)
+    for (const [variavel, valor] of Object.entries(HSL_DO_PADRAO_DE_HOJE)) {
+      expect(`--${variavel}: ${vars[variavel]}`).toBe(`--${variavel}: ${valor}`)
     }
+  })
+
+  it('o Padrão tem a sombra de hoje (`.glow-*` e a variável)', () => {
+    expect(variaveisDoPerfil('padrao', css)['estrelinha-shadow-rgb']).toBe('52 73 94')
+    // `.glow-*` lê a variável, e não um valor fixo que ficaria no Padrão no Black Friday.
+    expect(css).toMatch(/\.glow-cyan \{\s*\/\*[\s\S]*?\*\/\s*box-shadow: 0 14px 28px -10px rgb\(var\(--estrelinha-shadow-rgb\) \/ 0\.16\);/)
+  })
+
+  it('o bloco do Black Friday é selecionado pelo atributo do perfil', () => {
+    expect(seletorDoPerfil('black-friday')).toBe('html[data-perfil="black-friday"]')
+    expect(css).toContain('html[data-perfil="black-friday"] {')
+  })
+
+  it('sensor: um hex do Black Friday trocado no CSS reprova', () => {
+    const mutado = css.replace(/(html\[data-perfil="black-friday"\] \{[\s\S]*?--estrelinha-ink: )#161514/, '$1#23303a')
+    expect(mutado).not.toBe(css)
+    expect(divergenciasDoPerfil('black-friday', mutado)).toEqual([
+      'black-friday · ink: #23303A ≠ #161514',
+    ])
+  })
+
+  it('sensor: um canal, um HSL ou a sombra do Black Friday trocados reprovam', () => {
+    const canal = css.replace('--estrelinha-primary-rgb: 28 26 24;', '--estrelinha-primary-rgb: 52 73 94;')
+    const hsl = css.replace('--input: 34 10% 47%;', '--input: 31 10% 50%;')
+    const sombra = css.replace('--estrelinha-shadow-rgb: 22 21 20;', '--estrelinha-shadow-rgb: 52 73 94;')
+    for (const m of [canal, hsl, sombra]) expect(m).not.toBe(css)
+    expect(divergenciasDoPerfil('black-friday', canal)).toEqual([
+      'black-friday · primary-rgb: 52 73 94 ≠ 28 26 24',
+    ])
+    expect(divergenciasDoPerfil('black-friday', hsl)).toHaveLength(1)
+    expect(divergenciasDoPerfil('black-friday', sombra)).toEqual([
+      'black-friday · shadow-rgb: 52 73 94 ≠ 22 21 20',
+    ])
+  })
+
+  it('sensor: o bloco do Black Friday NÃO vaza para o Padrão', () => {
+    // Lido o arquivo inteiro de uma vez, a segunda declaração de `--estrelinha-ink` (a do Black
+    // Friday) ganharia, e o Padrão seria medido com a cor do outro perfil.
+    expect(paletteFromSource('padrao', css).ink).toBe('#23303A')
+    expect(paletteFromSource('black-friday', css).ink).toBe('#161514')
+    const semRaiz = css.replace(':root {', ':rot {')
+    expect(() => paletteFromSource('padrao', semRaiz)).toThrow(/:root/)
+  })
+
+  it('sensor: um seletor do perfil com erro derruba a leitura, em vez de medir o Padrão', () => {
+    const errado = css.replace('html[data-perfil="black-friday"] {', 'html[data-perfi="black-friday"] {')
+    expect(() => paletteFromSource('black-friday', errado)).toThrow(/black-friday/)
+  })
+
+  it('sensor: o HSL do shadcn é conferido contra o token, e não só a forma', () => {
+    expect(hslDivergente('206 25% 18%', '#23303A')).toBeNull()
+    expect(hslDivergente('40 37% 97%', '#FAF8F4')).toBeNull() // 37,5 escrito 37
+    expect(hslDivergente('206 25% 18%', '#161514')).not.toBeNull()
+    expect(hslDivergente('206 25 18', '#23303A')).toMatch(/forma inválida/)
+  })
+})
+
+describe('paleta Uma Estrelinha — o Tailwind da loja lê por variável', () => {
+  const cores = (tailwindConfig.theme?.extend?.colors as Record<string, unknown>)
+    .estrelinha as Record<string, string>
+
+  it('as cores são as variáveis do dono (identidade)', () => {
+    expect(cores).toBe(ESTRELINHA_COLOR_VARIABLES)
+  })
+
+  it('cada token vira a variável `-rgb` dele, no formato que preserva a opacidade', () => {
+    expect(Object.keys(cores).sort()).toEqual(Object.keys(PALETA).sort())
+    for (const [token, valor] of Object.entries(cores)) {
+      expect(valor).toBe(`rgb(var(--estrelinha-${token}-rgb) / <alpha-value>)`)
+    }
+  })
+
+  it('as sombras são as do dono por variável, e no Padrão resolvem nas de sempre', () => {
+    const sombras = tailwindConfig.theme?.extend?.boxShadow as Record<string, string>
+    expect(sombras).toBe(ESTRELINHA_SHADOW_VARIABLES)
+    const padrao = variaveisDoPerfil('padrao')
+    const resolvidas = Object.fromEntries(
+      Object.entries(sombras).map(([nome, valor]) => [
+        nome,
+        valor.replace(
+          /rgb\(var\(--([a-z-]+)\) \/ ([\d.]+)\)/g,
+          (_, v: string, a: string) => `rgba(${padrao[v].split(' ').join(', ')}, ${a})`,
+        ),
+      ]),
+    )
+    expect(resolvidas).toEqual(ESTRELINHA_SHADOW)
   })
 })
 
@@ -128,7 +380,7 @@ describe('paleta Uma Estrelinha — a escala de raio', () => {
 })
 
 describe('paleta Uma Estrelinha — as sombras', () => {
-  const shadows = tailwindConfig.theme?.extend?.boxShadow as Record<string, string>
+  const shadows = ESTRELINHA_SHADOW
 
   it.each(['estrelinha-soft', 'estrelinha-lift', 'estrelinha-ink'])('`%s` existe', (name) => {
     expect(shadows[name]).toBeTruthy()
@@ -167,32 +419,53 @@ function objetosDoConfig(config: ConfigLido) {
   }
 }
 
+/** Os objetos do ateliê: a paleta em hex, no Padrão. */
+const DONOS_DO_ATELIE = {
+  colors: ESTRELINHA_COLORS,
+  fontFamily: ESTRELINHA_FONTS,
+  borderRadius: ESTRELINHA_RADIUS,
+  boxShadow: ESTRELINHA_SHADOW,
+} as const
+
+/** Os objetos da loja: cores e sombras por variável, que acompanham o perfil. */
+const DONOS_DA_LOJA = {
+  colors: ESTRELINHA_COLOR_VARIABLES,
+  fontFamily: ESTRELINHA_FONTS,
+  borderRadius: ESTRELINHA_RADIUS,
+  boxShadow: ESTRELINHA_SHADOW_VARIABLES,
+} as const
+
 /** Devolve os nomes dos objetos que NÃO são a referência do dono. Vazio = config conforme. */
-function copiasDoDono(config: ConfigLido): string[] {
+function copiasDoDono(
+  config: ConfigLido,
+  donos: Record<keyof ReturnType<typeof objetosDoConfig>, unknown> = DONOS_DO_ATELIE,
+): string[] {
   const lidos = objetosDoConfig(config)
-  const donos = {
-    colors: ESTRELINHA_COLORS,
-    fontFamily: ESTRELINHA_FONTS,
-    borderRadius: ESTRELINHA_RADIUS,
-    boxShadow: ESTRELINHA_SHADOW,
-  } as const
   return (Object.keys(donos) as (keyof typeof donos)[]).filter((k) => lidos[k] !== donos[k])
 }
 
 describe('paleta Uma Estrelinha — o dono do objeto (feature 72)', () => {
   it('o config da loja entrega ao Tailwind os objetos de `@estrelinha/ui/tokens` (identidade)', () => {
     const lidos = objetosDoConfig(tailwindConfig as ConfigLido)
-    expect(lidos.colors).toBe(ESTRELINHA_COLORS)
+    expect(lidos.colors).toBe(ESTRELINHA_COLOR_VARIABLES)
     expect(lidos.fontFamily).toBe(ESTRELINHA_FONTS)
     expect(lidos.borderRadius).toBe(ESTRELINHA_RADIUS)
-    expect(lidos.boxShadow).toBe(ESTRELINHA_SHADOW)
-    expect(copiasDoDono(tailwindConfig as ConfigLido)).toEqual([])
+    expect(lidos.boxShadow).toBe(ESTRELINHA_SHADOW_VARIABLES)
+    expect(copiasDoDono(tailwindConfig as ConfigLido, DONOS_DA_LOJA)).toEqual([])
+  })
+
+  it('a loja deixou de entregar a paleta em hex (ela lê o perfil pela variável)', () => {
+    const lidos = objetosDoConfig(tailwindConfig as ConfigLido)
+    expect(lidos.colors).not.toBe(ESTRELINHA_COLORS)
+    expect(lidos.boxShadow).not.toBe(ESTRELINHA_SHADOW)
   })
 
   it('o config do app do ateliê (`apps/mobile-adm`) entrega os MESMOS objetos', () => {
-    // O terceiro leitor da paleta. Sem esta asserção, ele poderia nascer com uma cópia.
+    // O terceiro leitor da paleta. Sem esta asserção, ele poderia nascer com uma cópia. E ele
+    // fica no Padrão: os objetos são os em hex, nunca os por variável do perfil.
     expect(copiasDoDono(atelieConfig as ConfigLido)).toEqual([])
     expect(objetosDoConfig(atelieConfig as ConfigLido).colors).toBe(ESTRELINHA_COLORS)
+    expect(objetosDoConfig(atelieConfig as ConfigLido).boxShadow).toBe(ESTRELINHA_SHADOW)
   })
 
   it('o dono declara a paleta canônica inteira', () => {

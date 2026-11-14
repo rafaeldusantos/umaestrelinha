@@ -4,6 +4,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contrastRatio } from '../contrast'
 import { paletteToken } from '@/test/paletteFromSource'
+import { STYLE_PROFILES } from '@estrelinha/core/appearance'
 
 /**
  * Borda de controle é `field`, nunca `line` — `IDN-03`.
@@ -130,6 +131,27 @@ describe('borda de campo — `field`, nunca `line`', () => {
   )
 })
 
+/** O veredito da WCAG 1.4.11 para a borda `field` sobre um fundo — a mesma régua nos dois perfis. */
+function vereditoDaBorda(field: string, nome: string, fundo: string): string {
+  const razao = contrastRatio(field, fundo)
+  return razao >= 3 ? `field sobre ${nome}: OK` : `field sobre ${nome}: ${razao.toFixed(2)}:1`
+}
+
+describe.each(STYLE_PROFILES)('borda de campo — o piso de 3:1 no perfil `%s`', (perfil) => {
+  it.each(['ground', 'ground-deep', 'surface'])('`field` passa sobre `%s`', (nome) => {
+    expect(vereditoDaBorda(paletteToken('field', perfil), nome, paletteToken(nome, perfil))).toBe(
+      `field sobre ${nome}: OK`,
+    )
+  })
+
+  it('sensor: uma borda clara demais neste perfil reprova', () => {
+    // O cinza claro da `line` do perfil no lugar de `field`: a régua tem de acusar.
+    expect(
+      vereditoDaBorda(paletteToken('line', perfil), 'ground', paletteToken('ground', perfil)),
+    ).toMatch(/^field sobre ground: 1\.\d\d:1$/)
+  })
+})
+
 describe('borda de campo — por que `field`, e não outra cor', () => {
   // Lido do disco, não copiado: um hex escrito aqui mediria uma cor que a loja
   // talvez não renderize mais. Ver `src/test/paletteFromSource.ts` — foi o
@@ -144,11 +166,7 @@ describe('borda de campo — por que `field`, e não outra cor', () => {
   it.each(Object.entries(SUPERFICIES))(
     '`field` passa a WCAG 1.4.11 sobre `%s` (≥ 3:1)',
     (nome, fundo) => {
-      const razao = contrastRatio(FIELD, fundo)
-      const veredito =
-        razao >= 3 ? `field sobre ${nome}: OK` : `field sobre ${nome}: ${razao.toFixed(2)}:1`
-
-      expect(veredito).toBe(`field sobre ${nome}: OK`)
+      expect(vereditoDaBorda(FIELD, nome, fundo)).toBe(`field sobre ${nome}: OK`)
     },
   )
 
