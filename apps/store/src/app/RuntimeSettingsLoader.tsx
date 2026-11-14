@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { setRuntimeShippingSettings } from '@estrelinha/core/constants'
+import { freeShippingConfigOf } from '@estrelinha/core/shipping'
 
 /**
  * Componente invisível: ouve as configurações da loja e hidrata os
@@ -13,12 +14,15 @@ const RuntimeSettingsLoader = () => {
 
   useEffect(() => {
     if (!data) return
+    // A configuração do frete grátis sai do leitor único do jsonb, e não campo a campo.
+    const frete = freeShippingConfigOf(data.shipping)
     setRuntimeShippingSettings({
-      // `free_shipping_enabled` junto dos outros dois, e não depois: o `cartStore` decide frete pelo
-      // par (interruptor, faixa), e hidratar só a faixa deixaria uma janela em que ele enxerga a
-      // faixa nova com o interruptor velho — frete zerado numa loja que já desligou o benefício.
-      free_shipping_enabled: data.shipping.free_shipping_enabled,
-      free_shipping_threshold: data.shipping.free_shipping_threshold,
+      // Interruptor, faixa e regiões juntos, e não um depois do outro: o `cartStore` decide frete
+      // pelos três, e hidratar só a faixa deixaria uma janela em que ele enxerga a faixa nova com o
+      // interruptor velho — frete zerado numa loja que já desligou o benefício.
+      free_shipping_enabled: frete.free_shipping_enabled,
+      free_shipping_threshold: frete.free_shipping_threshold,
+      free_shipping_regions: frete.free_shipping_regions,
       default_shipping_cost: data.shipping.default_shipping_cost,
     })
   }, [data])

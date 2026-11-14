@@ -105,6 +105,17 @@ export interface ShippingSettings {
    * Quem responde "aparece para este CEP?" é `pickupAvailable` em `@estrelinha/core/shipping`.
    */
   pickup_enabled: boolean
+  /**
+   * As regiões em que o frete grátis vale, pelos slugs de `@estrelinha/core/shipping`
+   * (`FREE_SHIPPING_REGIONS`). **Ausente vale as cinco**: a linha antiga de `store_settings`
+   * continua se comportando igual depois do deploy. Lista vazia com o interruptor ligado deixa o
+   * frete grátis inativo, e o painel recusa gravá-la.
+   *
+   * Quem interpreta é `freeShippingConfigOf`/`freeShippingState`; nenhuma tela lê a lista crua.
+   * O tipo é `string[]` e não o union dos slugs pelo mesmo motivo de `HomeSection.type`: tipá-lo
+   * aqui faria este pacote importar de `core`, que já importa daqui.
+   */
+  free_shipping_regions?: string[]
 }
 
 /** Order bump do checkout one-page (BMP-01). */
@@ -201,6 +212,10 @@ export const DEFAULT_SHIPPING: ShippingSettings = {
   handling_days: 2,
   // Igual ao que a migration da 63 grava — `storeSettingsDefaults.test.ts` lê o `.sql` e compara.
   pickup_enabled: true,
+  // As cinco, na ordem fixa de `FREE_SHIPPING_REGIONS` (core). Lista literal porque este pacote não
+  // importa de `core`; `storeSettingsDefaults.test.ts` a confere contra `core` e contra a migration
+  // `20261130150000_99-frete-gratis-por-regiao.sql`.
+  free_shipping_regions: ['sul', 'sudeste', 'centro-oeste', 'nordeste', 'norte'],
 }
 
 export const DEFAULT_CHECKOUT: CheckoutSettings = {

@@ -431,6 +431,7 @@ describe('cartStore.shippingCost — o interruptor do frete gratis', () => {
     setRuntimeShippingSettings({
       free_shipping_enabled: true,
       free_shipping_threshold: 150,
+      free_shipping_regions: ['sul', 'sudeste', 'centro-oeste', 'nordeste', 'norte'],
       default_shipping_cost: 9.9,
     })
   })
@@ -469,5 +470,42 @@ describe('cartStore.shippingCost — o interruptor do frete gratis', () => {
   it('carrinho vazio cobra o frete padrao, com o interruptor ligado', () => {
     useCartStore.setState({ items: [] })
     expect(useCartStore.getState().shippingCost()).toBe(9.9)
+  })
+})
+
+/**
+ * As regiões do frete grátis no carrinho. `shippingCost()` não conhece o CEP (o carrinho é anterior
+ * ao endereço), então lê `granted`: com as cinco regiões a faixa atingida concede como sempre; com
+ * as regiões limitadas, sem CEP, nunca concede — "liberado" só depois de saber o destino.
+ */
+describe('cartStore.shippingCost — as regiões do frete gratis', () => {
+  const encher = (unidades: number) => {
+    useCartStore.setState({ items: [] })
+    for (let i = 0; i < unidades; i++) {
+      useCartStore.getState().addItem(product({ id: `p${i}`, price: 20 }))
+    }
+  }
+
+  it('com as cinco regioes e a faixa alcancada, zera (igual a hoje)', () => {
+    setRuntimeShippingSettings({
+      free_shipping_enabled: true,
+      free_shipping_threshold: 150,
+      free_shipping_regions: ['sul', 'sudeste', 'centro-oeste', 'nordeste', 'norte'],
+      default_shipping_cost: 9.9,
+    })
+    encher(10) // 200
+    expect(useCartStore.getState().shippingCost()).toBe(0)
+  })
+
+  it('com Sul + Sudeste e a faixa alcancada, COBRA — sem CEP nao concede', () => {
+    setRuntimeShippingSettings({
+      free_shipping_enabled: true,
+      free_shipping_threshold: 150,
+      free_shipping_regions: ['sul', 'sudeste'],
+      default_shipping_cost: 9.9,
+    })
+    encher(10) // 200
+    expect(useCartStore.getState().shippingCost()).toBe(9.9)
+    expect(useCartStore.getState().total()).toBe(209.9)
   })
 })
