@@ -36,6 +36,11 @@ export interface InfoTipProps {
  * reabriria o balão pelo próprio `onFocus`.
  *
  * O alvo de toque de 44px é o pseudo-elemento de `TAP_44`; o desenho continua com 17px.
+ *
+ * O balão vai de borda a borda da caixa de colisão (a gaveta, quando ela é passada; senão a tela),
+ * a 12px de cada lado: a largura é a disponível que o Radix calcula — a da caixa menos o
+ * `collisionPadding` dos dois lados, porque o `shift` dele está ligado no eixo principal — e o
+ * `shift` o encosta a 12px da borda. Não depende de onde o ⓘ está na linha.
  */
 const InfoTip = ({ label, children, className, collisionBoundary }: InfoTipProps) => {
   const [aberto, setAberto] = useState(false)
@@ -108,11 +113,11 @@ const InfoTip = ({ label, children, className, collisionBoundary }: InfoTipProps
       </PopoverTrigger>
       <PopoverContent
         role="tooltip"
-        collisionPadding={16}
+        collisionPadding={12}
         collisionBoundary={collisionBoundary}
         onOpenAutoFocus={e => e.preventDefault()}
         onCloseAutoFocus={e => e.preventDefault()}
-        className="w-[min(18rem,calc(100vw-32px))] rounded-md border-0 bg-estrelinha-ink px-3 py-2.5 text-[12.5px] font-normal leading-[18px] text-estrelinha-on-primary shadow-estrelinha-ink duration-150 data-[state=open]:![--tw-enter-scale:1] data-[state=open]:![--tw-enter-translate-y:4px] motion-reduce:!animate-none"
+        className="w-[var(--radix-popper-available-width)] rounded-md border-0 bg-estrelinha-ink px-3 py-2.5 text-[12.5px] font-normal leading-[18px] text-estrelinha-on-primary shadow-estrelinha-ink duration-150 data-[state=open]:![--tw-enter-scale:1] data-[state=open]:![--tw-enter-translate-y:4px] motion-reduce:!animate-none"
       >
         {children}
       </PopoverContent>

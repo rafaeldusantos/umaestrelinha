@@ -172,6 +172,19 @@ describe('liberada', () => {
     expect(screen.queryByRole('progressbar')).toBeNull()
   })
 
+  it('a linha tem altura mínima de 22px e a faixa, padding de 10px 20px — 42px no total', () => {
+    montar({ subtotal: 480, cep: SP, place: { city: 'São Paulo', state: 'SP' } })
+    // jsdom não mede altura: a régua é a declaração, por token exato, no próprio nó da linha (o
+    // pai do texto), não num vizinho. O selo tem 20px; sem o mínimo, a linha ficaria com 20.
+    const linha = texto('Frete grátis liberado').parentElement as HTMLElement
+    expect(linha.tagName).toBe('P')
+    expect(linha.className.split(/\s+/)).toContain('min-h-[22px]')
+    expect(linha.className.split(/\s+/)).toContain('items-center')
+    const caixa = faixa().className.split(/\s+/)
+    expect(caixa).toContain('py-2.5')
+    expect(caixa).toContain('px-5')
+  })
+
   it('o ⓘ diz a cidade, a UF e a região do CEP', () => {
     montar({ subtotal: 480, cep: SP, place: { city: 'São Paulo', state: 'SP' } })
     expect(balao()).toBe('Entrega em São Paulo/SP, região Sudeste. A forma de envio mais barata sai sem custo.')

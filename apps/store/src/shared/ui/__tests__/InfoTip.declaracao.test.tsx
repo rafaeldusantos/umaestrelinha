@@ -1,5 +1,5 @@
-// O que jsdom não mede, o ⓘ declara: o alvo de 44px, a folga de 16px até a borda da tela, o teto de
-// largura do balão e a entrada que respeita "menos movimento". jsdom devolve 0 para toda medida de
+// O que jsdom não mede, o ⓘ declara: o alvo de 44px, a folga de 12px até a borda da caixa, a largura
+// do balão e a entrada que respeita "menos movimento". jsdom devolve 0 para toda medida de
 // layout, então a régua aqui é a DECLARAÇÃO — as classes por token exato e as props entregues ao
 // Radix (o `collisionPadding` não chega ao DOM, por isso o conteúdo é dublado e as props, colhidas).
 // A medida é do navegador. Molde de `infoGutter.test.tsx` do painel.
@@ -52,10 +52,15 @@ describe('InfoTip — o que só o navegador mede, declarado', () => {
     expect(botao.querySelector('[aria-hidden="true"]')?.textContent).toBe('i')
   })
 
-  it('o balão leva `collisionPadding` 16 e o teto de largura de 100vw − 32px', () => {
+  it('o balão vai de borda a borda da caixa, a 12px de cada lado: `collisionPadding` 12 e a largura disponível do Radix', () => {
     const { conteudo } = montar()
-    expect(conteudo.collisionPadding).toBe(16)
-    expect(tem(String(conteudo.className), 'w-[min(18rem,calc(100vw-32px))]')).toBe(true)
+    const cls = String(conteudo.className)
+    expect(conteudo.collisionPadding).toBe(12)
+    // A largura disponível é a da caixa de colisão menos o `collisionPadding` dos dois lados (o
+    // `shift` do Radix está ligado no eixo principal): na gaveta de 390, 366px.
+    expect(tem(cls, 'w-[var(--radix-popper-available-width)]')).toBe(true)
+    // Nenhum teto fixo que prenda o balão ao ⓘ.
+    expect(tokens(cls).some(t => /^(max-)?w-\[min\(/.test(t) || t === 'w-72')).toBe(false)
   })
 
   it('o balão recebe o alvo de colisão, quando há', () => {
@@ -81,7 +86,9 @@ describe('InfoTip — o que só o navegador mede, declarado', () => {
 
   it('SENSOR: a régua é de token exato', () => {
     expect(tem('before:absolute relative', 'absolute')).toBe(false)
-    expect(tem('sm:w-[min(18rem,calc(100vw-32px))]', 'w-[min(18rem,calc(100vw-32px))]')).toBe(false)
+    expect(
+      tem('sm:w-[var(--radix-popper-available-width)]', 'w-[var(--radix-popper-available-width)]'),
+    ).toBe(false)
     expect(tem('motion-reduce:animate-none', 'motion-reduce:!animate-none')).toBe(false)
   })
 })

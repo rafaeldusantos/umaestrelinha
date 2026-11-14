@@ -46,7 +46,7 @@ const Destaque = ({ children }: { children: ReactNode }) => (
     >
       <Check className="h-3 w-3 stroke-estrelinha-accent" strokeWidth={3} />
     </span>
-    <p className="flex min-w-0 items-center text-[13px] font-bold leading-[18px]">{children}</p>
+    <p className="flex min-h-[22px] min-w-0 items-center text-[13px] font-bold leading-[18px]">{children}</p>
   </div>
 )
 
