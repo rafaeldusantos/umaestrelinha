@@ -505,6 +505,69 @@ describe('a gaveta — o rodapé', () => {
   })
 })
 
+describe('a gaveta — as medidas do rodapé (régua do protótipo v2)', () => {
+  /** Token exato: `gap-3` não pode casar dentro de `gap-[10px]`, nem `pt-2` dentro de `pt-2.5`. */
+  const token = (t: string) =>
+    new RegExp(`(?:^|\\s)${t.replace(/[[\]().%&]/g, (c) => `\\${c}`)}(?![-\\w.[])`)
+
+  it('o ícone da sacola no "Finalizar Pedido" tem 20px, e o botão não o reduz a 16px', () => {
+    renderDrawer()
+    open()
+    const cta = screen.getByRole('button', { name: 'Finalizar Pedido' })
+    // O `Button` do design system força `[&_svg]:size-4` em todo ícone de dentro, e esse seletor
+    // vence o `h-5 w-5` do próprio ícone: o botão precisa trocar a regra, não só o ícone.
+    expect(cta.className).toMatch(token('[&_svg]:size-5'))
+    expect(cta.className).not.toMatch(token('[&_svg]:size-4'))
+    expect(cta.className).toMatch(token('gap-2.5'))
+  })
+
+  it('a linha recolhida do frete tem 10px entre ícone, texto e valor', async () => {
+    renderDrawer()
+    open()
+    calcular(SP)
+    const [pac] = await radios()
+    fireEvent.click(pac)
+    const linha = screen.getByRole('button', { name: /^Frete: PAC/ })
+    expect(linha.className).toMatch(token('gap-[10px]'))
+    expect(linha.className).not.toMatch(token('gap-3'))
+    expect(linha.className).toMatch(token('py-[7px]'))
+    expect(linha.className).toMatch(token('min-h-[52px]'))
+  })
+
+  it('com o frete escolhido, as classes do rodapé somam no máximo 270px a 390 (sem nota abaixo do Total)', async () => {
+    renderDrawer()
+    open()
+    calcular(SP)
+    const [pac] = await radios()
+    fireEvent.click(pac)
+
+    // A soma, com o prazo da linha recolhida em DUAS linhas (o caso medido a 390):
+    //   borda do rodapé 1
+    //   + linha do frete 7 + 18 + 16 + 16 + 7 + borda 1 = 65
+    //   + "Tem um cupom?" 44 + borda 1 = 45
+    //   + resumo: pt 8 + Subtotal 18 + 3 + Frete 18 + mt 5 + borda 1 + pt 7 + Total 24 = 84
+    //   + "Finalizar Pedido": pt 8 + 48 + pb 12 = 68
+    //   = 263px (o navegador mediu 3px a mais que a soma antes do conserto: 276 contra 273).
+    const total = screen.getByText('Total', { selector: 'dt' })
+    const resumo = total.closest('dl')!
+    expect(resumo.className).toMatch(token('pt-2'))
+    expect(resumo.className).toMatch(token('gap-[3px]'))
+    const linhaDoTotal = total.parentElement!
+    expect(linhaDoTotal.className).toMatch(token('mt-[5px]'))
+    expect(linhaDoTotal.className).toMatch(token('pt-[7px]'))
+    expect(total.className).toMatch(token('leading-6'))
+    expect(total.nextElementSibling!.className).toMatch(token('leading-6'))
+
+    const cta = screen.getByRole('button', { name: 'Finalizar Pedido' })
+    const caixaDoCta = cta.parentElement!
+    expect(caixaDoCta.className).toMatch(token('pt-2'))
+    expect(caixaDoCta.className).toMatch(token('pb-3'))
+    expect(cta.className).toMatch(token('h-12'))
+    expect(screen.getByRole('button', { name: 'Tem um cupom?' }).className).toMatch(token('min-h-11'))
+    expect(resumo.nextElementSibling).toBe(caixaDoCta)
+  })
+})
+
 describe('a gaveta — a sacola mudou depois do cálculo', () => {
   it('mudar a quantidade recota com o mesmo CEP e mantém a opção, com o preço novo', async () => {
     renderDrawer()

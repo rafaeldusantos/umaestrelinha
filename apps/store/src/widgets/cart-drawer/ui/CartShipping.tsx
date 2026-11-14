@@ -162,7 +162,7 @@ const CartShipping = ({ state }: { state: CartShippingState }) => {
         aria-expanded={false}
         aria-label={`Frete: ${nome}, ${shipping.cost === 0 ? 'grátis' : valor}, para o CEP ${cepTexto}. Ver as opções`}
         onClick={state.expand}
-        className="flex min-h-[52px] w-full items-center gap-3 border-b border-estrelinha-line px-5 py-[7px] text-left transition-colors hover:bg-estrelinha-ground-deep/50 motion-reduce:transition-none"
+        className="flex min-h-[52px] w-full items-center gap-[10px] border-b border-estrelinha-line px-5 py-[7px] text-left transition-colors hover:bg-estrelinha-ground-deep/50 motion-reduce:transition-none"
       >
         <Icone aria-hidden strokeWidth={1.8} className="h-5 w-5 shrink-0 text-estrelinha-primary" />
         <span className="flex min-w-0 grow flex-col">

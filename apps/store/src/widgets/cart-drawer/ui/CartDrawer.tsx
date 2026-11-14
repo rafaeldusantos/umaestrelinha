@@ -189,7 +189,7 @@ const FilledCart = ({
           )}
         </div>
 
-        <dl className="flex flex-col gap-[3px] px-5 pt-[10px] text-[12.5px] leading-[18px]">
+        <dl className="flex flex-col gap-[3px] px-5 pt-2 text-[12.5px] leading-[18px]">
           <div className="flex items-center justify-between gap-3">
             <dt className="text-estrelinha-ink-soft">
               Subtotal ({units} {units === 1 ? 'item' : 'itens'})
@@ -241,18 +241,21 @@ const FilledCart = ({
             </div>
           )}
           <div className="mt-[5px] flex items-center justify-between gap-3 border-t border-estrelinha-line pt-[7px]">
-            <dt className="font-heading text-base font-bold text-estrelinha-ink">Total</dt>
-            <dd className="font-heading text-lg font-bold text-estrelinha-ink">
+            <dt className="font-heading text-base font-bold leading-6 text-estrelinha-ink">Total</dt>
+            <dd className="font-heading text-lg font-bold leading-6 text-estrelinha-ink">
               {formatPrice(total)}
             </dd>
           </div>
         </dl>
 
-        {/* Nenhuma nota abaixo do Total, com ou sem frete escolhido. */}
-        <div className="px-5 pb-[14px] pt-[10px] md:pb-5">
+        {/* Nenhuma nota abaixo do Total, com ou sem frete escolhido. O rodapé com o frete escolhido
+            cabe em 270px a 390 (o resumo, a linha do Total em 24px e esta caixa somam o teto). */}
+        <div className="px-5 pb-3 pt-2 md:pb-5">
+          {/* `[&_svg]:size-5`: o `Button` força `[&_svg]:size-4` em todo ícone de dentro, e esse
+              seletor vence o tamanho declarado no próprio ícone. */}
           <Button
             onClick={onCheckout}
-            className="h-12 w-full gap-2.5 rounded-md border-0 bg-estrelinha-primary font-display text-[15px] font-bold text-white transition-colors hover:bg-estrelinha-primary-strong motion-reduce:transition-none"
+            className="h-12 w-full gap-2.5 rounded-md [&_svg]:size-5 border-0 bg-estrelinha-primary font-display text-[15px] font-bold text-white transition-colors hover:bg-estrelinha-primary-strong motion-reduce:transition-none"
           >
             <SacolaIcon className="h-5 w-5" aria-hidden />
             Finalizar Pedido
