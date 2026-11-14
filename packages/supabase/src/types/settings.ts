@@ -34,6 +34,17 @@ export type {
 import type { AnnouncementSettings } from '../../../core/src/announcements/types.ts'
 export { DEFAULT_ANNOUNCEMENTS } from '../../../core/src/announcements/types.ts'
 
+/**
+ * O perfil de estilo da loja — **declarado em `@estrelinha/core/appearance` e só reexportado daqui**,
+ * mesma inversão de `AnnouncementSettings`: quem usa a forma é a regra (a loja, o painel e a função
+ * `api/page`), e este pacote apenas descreve a coluna `store_settings['appearance']`. Sem migration:
+ * a ausência da linha É `DEFAULT_APPEARANCE` (o Padrão). O valor cru pode ser qualquer coisa; quem
+ * o lê passa por `normalizeAppearance`.
+ */
+export type { AppearanceSettings } from '../../../core/src/appearance/types.ts'
+import type { AppearanceSettings } from '../../../core/src/appearance/types.ts'
+export { DEFAULT_APPEARANCE } from '../../../core/src/appearance/types.ts'
+
 export interface GeneralSettings {
   store_name: string
   whatsapp: string
@@ -405,6 +416,7 @@ export type SettingsKey =
   | 'analytics'
   | 'buy_together'
   | 'announcements'
+  | 'appearance'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -420,6 +432,7 @@ export interface SettingsMap {
   analytics: AnalyticsSettings
   buy_together: BuyTogetherSettings
   announcements: AnnouncementSettings
+  appearance: AppearanceSettings
 }
 
 /**

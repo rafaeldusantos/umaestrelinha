@@ -14,6 +14,7 @@ import {
   DEFAULT_ANALYTICS,
   DEFAULT_BUY_TOGETHER,
   DEFAULT_ANNOUNCEMENTS,
+  DEFAULT_APPEARANCE,
   type AnalyticsSettings,
   type GeneralSettings,
   type ShippingSettings,
@@ -56,6 +57,9 @@ const DEFAULTS: SettingsMap = {
   // A faixa de avisos — sem migration, a ausência da linha é a faixa desligada. Sem esta linha
   // `fetchAllSettings` descartaria a chave, e a loja nunca veria a faixa ligada no painel.
   announcements: DEFAULT_ANNOUNCEMENTS,
+  // O perfil de estilo — sem migration, a ausência da linha é o Padrão. Sem esta linha
+  // `fetchAllSettings` descartaria a chave, e a loja nunca veria o perfil escolhido no painel.
+  appearance: DEFAULT_APPEARANCE,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {
