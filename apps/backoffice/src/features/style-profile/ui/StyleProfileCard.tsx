@@ -39,20 +39,32 @@ import StyleProfileLivePreview from './StyleProfileLivePreview'
 /** As quatro amostras de cada opção, nesta ordem. */
 const AMOSTRAS = ['primary-strong', 'primary', 'accent', 'ground-deep'] as const
 
-/** A miniatura da loja num perfil: cabeçalho, menu, três peças sobre o chão e a barra de ação. */
+/**
+ * A miniatura da loja num perfil: cabeçalho, menu, três peças sobre o chão e a barra de ação.
+ *
+ * As peças são hachuradas na cor `ground-deep` do perfil, passada ao bloco pela variável
+ * `--hachura`: a classe é uma só para os dois perfis, e a cor continua vindo do dono dos perfis.
+ */
+const HACHURA = 'bg-[repeating-linear-gradient(135deg,var(--hachura)_0_2px,transparent_2px_6px)]'
+
 const Miniatura = ({ perfil }: { perfil: StyleProfile }) => {
   const cores = ESTRELINHA_PROFILES[perfil]
   return (
     <div aria-hidden className="overflow-hidden rounded-lg border border-border">
-      <div className="h-3" style={{ backgroundColor: cores['primary-strong'] }} />
-      <div className="h-2" style={{ backgroundColor: cores.primary }} />
+      <div data-testid="miniatura-cabecalho" className="h-[22px]" style={{ backgroundColor: cores['primary-strong'] }} />
+      <div data-testid="miniatura-departamentos" className="h-3" style={{ backgroundColor: cores.primary }} />
       <div className="flex gap-1.5 p-2" style={{ backgroundColor: cores.ground }}>
         {[0, 1, 2].map(n => (
-          <div key={n} className="h-8 flex-1 rounded border border-dashed border-border" />
+          <div
+            key={n}
+            data-testid="miniatura-bloco"
+            className={cn('h-[34px] flex-1 rounded', HACHURA)}
+            style={{ '--hachura': cores['ground-deep'] } as React.CSSProperties}
+          />
         ))}
       </div>
       <div className="px-2 pb-2" style={{ backgroundColor: cores.ground }}>
-        <div className="h-2.5 rounded" style={{ backgroundColor: cores.primary }} />
+        <div data-testid="miniatura-botao" className="h-3.5 rounded" style={{ backgroundColor: cores.primary }} />
       </div>
     </div>
   )
@@ -96,8 +108,8 @@ const StyleProfileCard = () => {
                 key={perfil}
                 data-testid={`perfil-${perfil}`}
                 className={cn(
-                  'flex min-h-11 min-w-0 cursor-pointer flex-col gap-3 rounded-xl border p-3 transition-colors motion-reduce:transition-none',
-                  marcado ? 'border-primary bg-primary/5' : 'border-border',
+                  'flex min-h-11 min-w-0 cursor-pointer flex-col gap-3 rounded-xl border-2 p-3 transition-colors motion-reduce:transition-none',
+                  marcado ? 'border-estrelinha-admin-violet bg-estrelinha-admin-violet/[0.03]' : 'border-border',
                   semSalvo && 'cursor-not-allowed opacity-60',
                 )}
               >
@@ -112,7 +124,7 @@ const StyleProfileCard = () => {
                     onChange={() => setEscolhido(perfil)}
                     className="h-5 w-5 shrink-0 accent-primary"
                   />
-                  <span className="text-sm font-bold text-foreground">{name}</span>
+                  <span className="text-sm font-semibold text-foreground">{name}</span>
                   {salvo === perfil && !semSalvo && (
                     <span className="rounded-full border border-estrelinha-admin-emerald/20 bg-estrelinha-admin-emerald/10 px-2 py-0.5 text-xs font-semibold text-estrelinha-admin-emerald">
                       {STYLE_PROFILE_COPY.inUse}
@@ -120,13 +132,13 @@ const StyleProfileCard = () => {
                   )}
                 </span>
                 <span className="break-words text-xs text-muted-foreground">{description}</span>
-                <span className="flex gap-1.5">
+                <span className="flex gap-1">
                   {AMOSTRAS.map(token => (
                     <span
                       key={token}
                       data-testid="amostra-de-cor"
                       data-cor={ESTRELINHA_PROFILES[perfil][token]}
-                      className="h-5 w-5 rounded border border-border"
+                      className="h-5 w-5 rounded-[6px] border border-border"
                       style={{ backgroundColor: ESTRELINHA_PROFILES[perfil][token] }}
                     />
                   ))}
@@ -147,7 +159,7 @@ const StyleProfileCard = () => {
           </div>
         )}
 
-        <InfoBanner icon={Clock} data-testid="aviso-perfil-de-estilo">
+        <InfoBanner icon={Clock} tone="neutro" data-testid="aviso-perfil-de-estilo">
           <p>{STYLE_PROFILE_COPY.notice}</p>
         </InfoBanner>
 

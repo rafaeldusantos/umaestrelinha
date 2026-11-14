@@ -314,6 +314,120 @@ describe('o aviso de quanto tempo leva', () => {
   })
 })
 
+/** Token exato: `\b` não fecha nada quando o vizinho é hífen, e `h-3` é prefixo de `h-3.5`. */
+const temClasse = (el: Element, token: string) =>
+  new RegExp(`(?:^|\\s)${token.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?![-\\w./\\[])`).test(el.getAttribute('class') ?? '')
+
+describe('as opções nas medidas do protótipo', () => {
+  it('a opção tem borda de 2 px; a marcada em violeta com o fundo violeta a 3 %, a outra na borda neutra', () => {
+    comPerfilSalvo('black-friday')
+    render(<StyleProfileCard />)
+
+    const marcada = cartaoDe('black-friday')
+    const outra = cartaoDe('padrao')
+    for (const cartao of [marcada, outra]) {
+      expect(temClasse(cartao, 'border-2')).toBe(true)
+      expect(temClasse(cartao, 'border')).toBe(false)
+    }
+    expect(temClasse(marcada, 'border-estrelinha-admin-violet')).toBe(true)
+    expect(temClasse(marcada, 'bg-estrelinha-admin-violet/[0.03]')).toBe(true)
+    expect(temClasse(marcada, 'border-primary')).toBe(false)
+    expect(temClasse(marcada, 'bg-primary/5')).toBe(false)
+
+    expect(temClasse(outra, 'border-border')).toBe(true)
+    expect(temClasse(outra, 'border-estrelinha-admin-violet')).toBe(false)
+    expect(temClasse(outra, 'bg-estrelinha-admin-violet/[0.03]')).toBe(false)
+  })
+
+  it('a marca segue a escolha, não o salvo', () => {
+    render(<StyleProfileCard />)
+    fireEvent.click(opcao(/Black Friday/))
+
+    expect(temClasse(cartaoDe('black-friday'), 'border-estrelinha-admin-violet')).toBe(true)
+    expect(temClasse(cartaoDe('padrao'), 'border-estrelinha-admin-violet')).toBe(false)
+  })
+
+  it('a miniatura: cabeçalho de 22 px, departamentos de 12 px, três blocos de 34 px com hachura e botão de 14 px', () => {
+    render(<StyleProfileCard />)
+
+    for (const perfil of ['padrao', 'black-friday'] as const) {
+      const cartao = cartaoDe(perfil)
+      expect(temClasse(within(cartao).getByTestId('miniatura-cabecalho'), 'h-[22px]')).toBe(true)
+      expect(temClasse(within(cartao).getByTestId('miniatura-departamentos'), 'h-3')).toBe(true)
+      expect(temClasse(within(cartao).getByTestId('miniatura-botao'), 'h-3.5')).toBe(true)
+
+      const blocos = within(cartao).getAllByTestId('miniatura-bloco')
+      expect(blocos).toHaveLength(3)
+      for (const bloco of blocos) {
+        expect(temClasse(bloco, 'h-[34px]')).toBe(true)
+        expect(temClasse(bloco, 'border-dashed')).toBe(false)
+        // A hachura é uma classe só, e a cor dela é a do perfil, pela variável do próprio bloco.
+        expect(
+          temClasse(bloco, 'bg-[repeating-linear-gradient(135deg,var(--hachura)_0_2px,transparent_2px_6px)]'),
+        ).toBe(true)
+        expect(bloco.style.getPropertyValue('--hachura')).toBe(ESTRELINHA_PROFILES[perfil]['ground-deep'])
+      }
+    }
+  })
+
+  it('as amostras têm raio de 6 px e gap de 4 px', () => {
+    render(<StyleProfileCard />)
+
+    const amostras = within(cartaoDe('padrao')).getAllByTestId('amostra-de-cor')
+    for (const amostra of amostras) {
+      expect(temClasse(amostra, 'rounded-[6px]')).toBe(true)
+      expect(temClasse(amostra, 'rounded')).toBe(false)
+    }
+    const fileira = amostras[0].parentElement!
+    expect(temClasse(fileira, 'gap-1')).toBe(true)
+    expect(temClasse(fileira, 'gap-1.5')).toBe(false)
+  })
+
+  it('o nome do perfil sai em peso 600', () => {
+    render(<StyleProfileCard />)
+
+    for (const [perfil, nome] of [['padrao', 'Padrão'], ['black-friday', 'Black Friday']] as const) {
+      const rotulo = within(cartaoDe(perfil)).getByText(nome)
+      expect(temClasse(rotulo, 'font-semibold')).toBe(true)
+      expect(temClasse(rotulo, 'font-bold')).toBe(false)
+    }
+  })
+})
+
+describe('o aviso do prazo no tom neutro do protótipo', () => {
+  it('fundo `elevated`, sem borda, raio de 10 px, texto `text-secondary` a 12,5 px, e o relógio', () => {
+    render(<StyleProfileCard />)
+    const aviso = screen.getByTestId('aviso-perfil-de-estilo')
+
+    expect(temClasse(aviso, 'bg-estrelinha-admin-elevated')).toBe(true)
+    expect(temClasse(aviso, 'rounded-[10px]')).toBe(true)
+    expect(aviso.className).not.toMatch(/(?:^|\s)border(?:-|\s|$)/)
+    expect(aviso.className).not.toContain('estrelinha-admin-amber')
+
+    const texto = aviso.querySelector('p')!.parentElement!
+    expect(temClasse(texto, 'text-estrelinha-admin-text-secondary')).toBe(true)
+    expect(temClasse(texto, 'text-[12.5px]')).toBe(true)
+    expect(temClasse(texto, 'text-xs')).toBe(false)
+
+    const icone = aviso.querySelector('svg')!
+    expect(icone.getAttribute('class')).toContain('lucide-clock')
+    expect(temClasse(icone, 'text-estrelinha-admin-text-secondary')).toBe(true)
+  })
+
+  it('o par: o aviso de "sem conexão" do mesmo card continua no âmbar do `InfoBanner`', () => {
+    const { rerender } = render(<StyleProfileCard />)
+    fireEvent.click(opcao(/Black Friday/))
+    mutacao.pending = true
+    mutacao.paused = true
+    rerender(<StyleProfileCard />)
+
+    const aviso = screen.getByTestId('perfil-sem-conexao')
+    expect(temClasse(aviso, 'bg-estrelinha-admin-amber/10')).toBe(true)
+    expect(temClasse(aviso, 'border-estrelinha-admin-amber/20')).toBe(true)
+    expect(temClasse(aviso, 'bg-estrelinha-admin-elevated')).toBe(false)
+  })
+})
+
 describe('"Ver a loja com este perfil" — a prévia sem salvar', () => {
   const abrirPrevia = () => fireEvent.click(screen.getByRole('button', { name: 'Ver a loja com este perfil' }))
   const dialogo = () => screen.getByRole('dialog')
