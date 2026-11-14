@@ -11,16 +11,27 @@ import { STYLE_PROFILE_PREVIEW_SOURCE } from '@estrelinha/core/appearance'
 
 const state = vi.hoisted(() => ({
   loading: false,
+  /** A leitura terminou, e o `select` falhou: `fetchAllSettings` devolve os defaults com a marca. */
+  readFailed: false,
+  /** A leitura terminou com o `queryFn` rejeitando: não há dado nenhum. */
+  rejected: false,
   data: { appearance: { profile: 'padrao' } } as Record<string, unknown>,
 }))
+const refetch = vi.hoisted(() => vi.fn())
+const mutacao = vi.hoisted(() => ({ pending: false, paused: false }))
 
 const mutateAsync = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const toast = vi.hoisted(() => vi.fn())
 const { storeUrl } = vi.hoisted(() => ({ storeUrl: { valor: 'http://localhost:8082' as string | undefined } }))
 
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
-  useStoreSettings: () => ({ isLoading: state.loading, data: state.loading ? undefined : state.data }),
-  useUpdateSettings: () => ({ mutateAsync, isPending: false }),
+  useStoreSettings: () => ({
+    isLoading: state.loading,
+    isError: state.rejected,
+    data: state.loading || state.rejected ? undefined : state.readFailed ? { ...state.data, readFailed: true } : state.data,
+    refetch,
+  }),
+  useUpdateSettings: () => ({ mutateAsync, isPending: mutacao.pending, isPaused: mutacao.paused }),
 }))
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ useToast: () => ({ toast }) }))
@@ -44,6 +55,11 @@ const salvar = () => screen.getByTestId('salvar-perfil-de-estilo')
 
 beforeEach(() => {
   state.loading = false
+  state.readFailed = false
+  state.rejected = false
+  mutacao.pending = false
+  mutacao.paused = false
+  refetch.mockClear()
   comPerfilSalvo('padrao')
   storeUrl.valor = 'http://localhost:8082'
   mutateAsync.mockClear()
@@ -115,9 +131,113 @@ describe('o card mostra as duas opções', () => {
     for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
   })
 
+  it('enquanto a configuração carrega, nenhum perfil leva o selo "Em uso" e Salvar fica desabilitado', () => {
+    state.loading = true
+    render(<StyleProfileCard />)
+
+    expect(screen.queryByText('Em uso')).toBeNull()
+    expect(salvar()).toBeDisabled()
+  })
+
   it('com a configuração carregada, as opções ficam habilitadas', () => {
     render(<StyleProfileCard />)
     for (const radio of screen.getAllByRole('radio')) expect(radio).toBeEnabled()
+  })
+})
+
+describe('a leitura da configuração que falha não afirma um perfil salvo', () => {
+  const casos = [
+    ['o `select` respondendo erro (os defaults com a marca)', () => (state.readFailed = true)],
+    ['o `queryFn` rejeitando (sem dado nenhum)', () => (state.rejected = true)],
+  ] as const
+
+  it.each(casos)('%s ⇒ nenhum "Em uso", opções e Salvar desabilitados, e um aviso com "Tentar de novo"', (_nome, falhar) => {
+    comPerfilSalvo('black-friday')
+    falhar()
+    render(<StyleProfileCard />)
+
+    expect(screen.queryByText('Em uso')).toBeNull()
+    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeDisabled()
+    expect(salvar()).toBeDisabled()
+
+    const aviso = screen.getByRole('alert')
+    expect(aviso).toHaveTextContent('Não foi possível ler o perfil salvo da loja.')
+    expect(aviso).toHaveTextContent('Enquanto ele não carregar, as opções ficam desabilitadas.')
+  })
+
+  it('"Tentar de novo" relê a configuração', () => {
+    state.readFailed = true
+    render(<StyleProfileCard />)
+
+    const botao = screen.getByRole('button', { name: 'Tentar de novo' })
+    expect(botao.className).toMatch(/(?:^|\s)h-11(?![-\w])/)
+    fireEvent.click(botao)
+    expect(refetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('o par: com a leitura boa, "Em uso" no perfil salvo, opções habilitadas e nenhum aviso de falha', () => {
+    comPerfilSalvo('black-friday')
+    render(<StyleProfileCard />)
+
+    expect(within(cartaoDe('black-friday')).getByText('Em uso')).toBeInTheDocument()
+    expect(within(cartaoDe('padrao')).queryByText('Em uso')).toBeNull()
+    for (const radio of screen.getAllByRole('radio')) expect(radio).toBeEnabled()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tentar de novo' })).toBeNull()
+  })
+
+  it('a releitura que dá certo devolve o card: o salvo em uso, e o Padrão salvável', () => {
+    comPerfilSalvo('black-friday')
+    state.readFailed = true
+    const { rerender } = render(<StyleProfileCard />)
+    expect(screen.queryByText('Em uso')).toBeNull()
+
+    state.readFailed = false
+    rerender(<StyleProfileCard />)
+
+    expect(opcao(/Black Friday/)).toBeChecked()
+    expect(within(cartaoDe('black-friday')).getByText('Em uso')).toBeInTheDocument()
+    fireEvent.click(opcao(/Padrão/))
+    expect(salvar()).toBeEnabled()
+  })
+})
+
+describe('salvar sem conexão', () => {
+  it('a gravação parada à espera da rede diz que não salvou, e o botão não gira', () => {
+    const { rerender } = render(<StyleProfileCard />)
+    fireEvent.click(opcao(/Black Friday/))
+    mutacao.pending = true
+    mutacao.paused = true
+    rerender(<StyleProfileCard />)
+
+    const aviso = screen.getByTestId('perfil-sem-conexao')
+    expect(aviso).toHaveAttribute('role', 'status')
+    expect(aviso).toHaveTextContent(
+      'Sem conexão. O perfil ainda não foi salvo: ele é gravado quando a conexão voltar, com esta página aberta.',
+    )
+    expect(salvar()).toBeDisabled()
+    expect(salvar().querySelector('.animate-spin')).toBeNull()
+    expect(toast).not.toHaveBeenCalled()
+    // "Em uso" segue no perfil anterior
+    expect(within(cartaoDe('padrao')).getByText('Em uso')).toBeInTheDocument()
+  })
+
+  it('o par: gravando com a rede de pé, o botão gira e o aviso de conexão não aparece', () => {
+    mutacao.pending = true
+    render(<StyleProfileCard />)
+
+    expect(screen.queryByTestId('perfil-sem-conexao')).toBeNull()
+    expect(salvar().querySelector('.animate-spin')).not.toBeNull()
+  })
+
+  it('com a rede de volta, a frase de sucesso do card continua', async () => {
+    render(<StyleProfileCard />)
+    fireEvent.click(opcao(/Black Friday/))
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+    expect(screen.queryByTestId('perfil-sem-conexao')).toBeNull()
+    expect(toast.mock.calls[0][0].title).toBe('Perfil salvo. Quem abrir a loja vê o perfil novo em até 1 hora.')
   })
 })
 

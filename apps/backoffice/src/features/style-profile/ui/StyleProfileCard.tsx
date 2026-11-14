@@ -10,7 +10,7 @@
 // também não veste o perfil: a prévia é a loja num iframe, outro documento.
 
 import { useEffect, useState } from 'react'
-import { Clock, ExternalLink } from 'lucide-react'
+import { Clock, ExternalLink, WifiOff } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@estrelinha/ui/card'
 import {
@@ -59,8 +59,12 @@ const Miniatura = ({ perfil }: { perfil: StyleProfile }) => {
 }
 
 const StyleProfileCard = () => {
-  const { profile: salvo, isLoading } = useStyleProfile()
-  const { salvar, salvando } = useSettingsSave()
+  const { profile: salvo, isLoading, readFailed, retry } = useStyleProfile()
+  const { salvar, salvando, semConexao } = useSettingsSave()
+  // Lendo, ou com a leitura falhando, o card não sabe qual perfil está salvo: nenhum "Em uso", e
+  // nada para escolher nem salvar. Na falha o `salvo` é o Padrão de recuo, e afirmá-lo levaria a
+  // dona a crer que a loja já voltou ao Padrão.
+  const semSalvo = isLoading || readFailed
 
   const [escolhido, setEscolhido] = useState<StyleProfile>(salvo)
   const [previaAberta, setPreviaAberta] = useState(false)
@@ -94,7 +98,7 @@ const StyleProfileCard = () => {
                 className={cn(
                   'flex min-h-11 min-w-0 cursor-pointer flex-col gap-3 rounded-xl border p-3 transition-colors motion-reduce:transition-none',
                   marcado ? 'border-primary bg-primary/5' : 'border-border',
-                  isLoading && 'cursor-not-allowed opacity-60',
+                  semSalvo && 'cursor-not-allowed opacity-60',
                 )}
               >
                 <Miniatura perfil={perfil} />
@@ -104,12 +108,12 @@ const StyleProfileCard = () => {
                     name="perfil-de-estilo"
                     value={perfil}
                     checked={marcado}
-                    disabled={isLoading}
+                    disabled={semSalvo}
                     onChange={() => setEscolhido(perfil)}
                     className="h-5 w-5 shrink-0 accent-primary"
                   />
                   <span className="text-sm font-bold text-foreground">{name}</span>
-                  {salvo === perfil && !isLoading && (
+                  {salvo === perfil && !semSalvo && (
                     <span className="rounded-full border border-estrelinha-admin-emerald/20 bg-estrelinha-admin-emerald/10 px-2 py-0.5 text-xs font-semibold text-estrelinha-admin-emerald">
                       {STYLE_PROFILE_COPY.inUse}
                     </span>
@@ -132,6 +136,17 @@ const StyleProfileCard = () => {
           })}
         </div>
 
+        {readFailed && (
+          <div className="space-y-2" data-testid="perfil-leitura-falhou">
+            <p role="alert" className="text-sm text-destructive">
+              {STYLE_PROFILE_COPY.readFailed}
+            </p>
+            <Button type="button" variant="outline" className="h-11 rounded-xl" onClick={retry}>
+              {STYLE_PROFILE_COPY.retry}
+            </Button>
+          </div>
+        )}
+
         <InfoBanner icon={Clock} data-testid="aviso-perfil-de-estilo">
           <p>{STYLE_PROFILE_COPY.notice}</p>
         </InfoBanner>
@@ -150,11 +165,19 @@ const StyleProfileCard = () => {
           </div>
           <SettingsSaveButton
             testId="salvar-perfil-de-estilo"
-            loading={salvando}
-            disabled={isLoading || escolhido === salvo}
+            loading={salvando && !semConexao}
+            disabled={semSalvo || salvando || escolhido === salvo}
             onClick={gravar}
           />
         </div>
+
+        {/* Sem conexão a gravação fica na fila do React Query até a rede voltar, e sai sozinha. O
+            botão não gira enquanto isso: girar diz "está salvando", e nada está saindo. */}
+        {semConexao && (
+          <InfoBanner icon={WifiOff} role="status" data-testid="perfil-sem-conexao">
+            <p>{STYLE_PROFILE_COPY.offline}</p>
+          </InfoBanner>
+        )}
       </CardContent>
 
       <Dialog open={previaAberta} onOpenChange={setPreviaAberta}>

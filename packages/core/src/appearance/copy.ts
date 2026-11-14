@@ -28,6 +28,13 @@ export const STYLE_PROFILE_COPY = {
   saved: 'Perfil salvo. Quem abrir a loja vê o perfil novo em até 1 hora.',
   previewSubtitle: 'Prévia, sem salvar. A loja publicada não muda.',
   close: 'Fechar',
+  /** A leitura da configuração falhou: o card não sabe qual perfil está salvo. */
+  readFailed:
+    'Não foi possível ler o perfil salvo da loja. Enquanto ele não carregar, as opções ficam desabilitadas.',
+  retry: 'Tentar de novo',
+  /** A gravação está parada à espera da rede. */
+  offline:
+    'Sem conexão. O perfil ainda não foi salvo: ele é gravado quando a conexão voltar, com esta página aberta.',
   /** O rótulo acessível do grupo das duas opções. */
   groupLabel: 'Perfil de estilo',
 } as const

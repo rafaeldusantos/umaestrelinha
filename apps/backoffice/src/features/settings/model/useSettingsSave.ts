@@ -27,6 +27,12 @@ export interface SettingsSave {
    */
   salvar: (key: SettingsKey, value: unknown, sucesso?: SettingsSaveNotice) => Promise<void>
   salvando: boolean
+  /**
+   * A gravação está parada à espera da rede: sem conexão, o React Query não manda a requisição e
+   * a deixa na fila até a conexão voltar — `salvando` fica verdadeiro sem nada acontecer. Quem lê
+   * diz isso à dona; quem não lê continua como sempre.
+   */
+  semConexao: boolean
 }
 
 export const useSettingsSave = (): SettingsSave => {
@@ -46,5 +52,5 @@ export const useSettingsSave = (): SettingsSave => {
     }
   }
 
-  return { salvar, salvando: update.isPending }
+  return { salvar, salvando: update.isPending, semConexao: update.isPaused === true }
 }
