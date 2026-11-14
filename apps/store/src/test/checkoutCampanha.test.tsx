@@ -67,6 +67,9 @@ vi.mock('@/entities/customer', () => ({
   useSaveCustomerCpf: () => ({ mutateAsync: vi.fn().mockResolvedValue('39053344705'), isPending: false }),
 }))
 vi.mock('@/entities/address', () => ({
+  // A gaveta da sacola (montada aqui) lê a cidade do CEP por este endereço; a página lê pelo
+  // de `features/checkout`, dublado à parte.
+  useCepLookup: () => ({ data: undefined }),
   useSaveAddress: () => ({ mutateAsync: vi.fn().mockResolvedValue({ saved: true }), isPending: false }),
   useDefaultAddress: () => ({ data: null }),
 }))

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Product } from '@estrelinha/supabase/types'
 import type { BuyTogetherDiscountConfig } from '@estrelinha/core/buy-together'
 import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
@@ -82,9 +83,13 @@ const aplicar = (discount: number) =>
 
 const abrir = () => {
   render(
-    <MemoryRouter>
-      <CartDrawer />
-    </MemoryRouter>,
+    // O frete da gaveta (a cotação e a busca do CEP) são consultas: a sacola com peças monta
+    // sob um `QueryClientProvider`. Sem CEP no rascunho, nenhuma delas dispara.
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <CartDrawer />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
   act(() => useCartUiStore.getState().openCart())
 }

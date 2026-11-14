@@ -303,3 +303,53 @@ describe('useCartPromotion — promoção contra cupom (D2)', () => {
     expect(result.current.nextTier).toBeNull()
   })
 })
+
+describe('useCartPromotion — o frete cotado da gaveta', () => {
+  it('sem argumento o total é o dos produtos, sem frete', () => {
+    setCart([{ quantity: 2 }])
+
+    const { result } = renderHook(() => useCartPromotion())
+
+    expect(result.current.totals.shipping).toBe(0)
+    expect(result.current.totals.total).toBe(17.8)
+  })
+
+  it('com o frete escolhido, o total soma o frete', () => {
+    setCart([{ quantity: 2 }])
+
+    const { result } = renderHook(() => useCartPromotion(12.5))
+
+    // 2 × 8,90 + 12,50
+    expect(result.current.totals.shipping).toBe(12.5)
+    expect(result.current.totals.total).toBe(30.3)
+  })
+
+  it('trocar o frete refaz o total na hora', () => {
+    setCart([{ quantity: 2 }])
+
+    const { result, rerender } = renderHook(({ frete }) => useCartPromotion(frete), {
+      initialProps: { frete: 10 },
+    })
+    expect(result.current.totals.total).toBe(27.8)
+
+    rerender({ frete: 20 })
+    expect(result.current.totals.total).toBe(37.8)
+  })
+
+  it('com cupom de frete grátis o frete sai do total', () => {
+    setCart([{ quantity: 2 }])
+    useCouponStore.getState().setCoupon({
+      id: 'c2',
+      code: 'FRETEGRATIS',
+      type: 'free_shipping',
+      value: 0,
+      discount: 0,
+      freeShipping: true,
+    })
+
+    const { result } = renderHook(() => useCartPromotion(15))
+
+    expect(result.current.totals.shipping).toBe(0)
+    expect(result.current.totals.total).toBe(17.8)
+  })
+})

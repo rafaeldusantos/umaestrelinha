@@ -48,6 +48,7 @@ vi.mock('@/features/checkout/api/useCardInstallments', () => ({
 }))
 
 import CartDrawer from '@/widgets/cart-drawer/ui/CartDrawer'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import OrderSummary from '@/features/checkout/ui/OrderSummary'
 
 // `formatPrice` separa o símbolo com espaço não separável; `toHaveTextContent` normaliza o espaço do
@@ -86,13 +87,19 @@ const configCom = (percent: number) => ({
   mainNames: new Map([['joia', JOIA]]),
 })
 
-const montar = () =>
-  render(
+// O frete da gaveta (a cotação e a busca do CEP) são consultas: a sacola com peças monta sob um
+// `QueryClientProvider`. Sem CEP no rascunho, nenhuma delas dispara.
+const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+const Tela = () => (
+  <QueryClientProvider client={cliente}>
     <MemoryRouter>
       <CartDrawer />
       <OrderSummary variant="sidebar" />
-    </MemoryRouter>,
-  )
+    </MemoryRouter>
+  </QueryClientProvider>
+)
+
+const montar = () => render(<Tela />)
 
 const abrir = () => {
   const view = montar()
@@ -204,12 +211,7 @@ describe('o desconto do Compre Junto na gaveta e no checkout', () => {
     expect(within(gaveta()).getByTestId('drawer-buy-together')).toHaveTextContent(`−${brl(7.9)}`)
 
     leitura.atual = configCom(20)
-    view.rerender(
-      <MemoryRouter>
-        <CartDrawer />
-        <OrderSummary variant="sidebar" />
-      </MemoryRouter>,
-    )
+    view.rerender(<Tela />)
 
     expect(within(linhaDaGaveta('Corrente Prata')).getByTestId('preco-compre-junto')).toHaveTextContent(
       brl(63.2),

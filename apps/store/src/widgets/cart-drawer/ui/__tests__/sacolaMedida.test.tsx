@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Product } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
@@ -72,11 +73,15 @@ const produto = (over: Partial<Product> = {}): Product =>
 
 const renderGaveta = () =>
   render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route path="/" element={<CartDrawer />} />
-      </Routes>
-    </MemoryRouter>,
+    // O frete da gaveta (a cotação e a busca do CEP) são consultas: a sacola com peças monta
+    // sob um `QueryClientProvider`. Sem CEP no rascunho, nenhuma delas dispara.
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<CartDrawer />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 
 const eventos = (nome: string) =>
