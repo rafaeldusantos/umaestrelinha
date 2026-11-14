@@ -5,13 +5,23 @@
 // separadas, a dona precisava lembrar em qual das duas estava o endereço — e são as duas únicas
 // telas do painel que falam de pacote no correio.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { PackageOpen, Store } from 'lucide-react'
+import { Checkbox } from '@estrelinha/ui/checkbox'
 import { Input } from '@estrelinha/ui/input'
+import { cn } from '@estrelinha/ui/lib/utils'
 import { Textarea } from '@estrelinha/ui/textarea'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { freeShippingRefusal, pickupLocation } from '@estrelinha/core/shipping'
+import {
+  REGION_LABELS,
+  REGION_STATES,
+  effectiveRegions,
+  freeShippingConfigOf,
+  freeShippingRefusal,
+  pickupLocation,
+  type RegionSlug,
+} from '@estrelinha/core/shipping'
 import {
   DEFAULT_MATERIAL,
   DEFAULT_SHIPPING,
@@ -30,6 +40,12 @@ import { SettingsLoading } from './settingsParts'
  * texto que alguém vá colar de outro lugar, então truncar no limite é o comportamento certo.
  */
 const LIMITE_OBSERVACAO = 400
+
+/**
+ * A ordem em que as caixas das regiões aparecem: de cima para baixo no mapa. É só a ordem de
+ * LEITURA da tela; o que se grava sai de `effectiveRegions`, na ordem fixa de `core`.
+ */
+const ORDEM_DAS_CAIXAS: readonly RegionSlug[] = ['norte', 'nordeste', 'centro-oeste', 'sudeste', 'sul']
 
 export const ShippingMaterialSection = () => {
   const { data, isLoading } = useStoreSettings()
@@ -56,13 +72,30 @@ export const ShippingMaterialSection = () => {
    * O veredito é `string | null`, e não união discriminada por booleano: com
    * `strictNullChecks: false` aquela forma não estreita. Mesmo formato de `reservedSlugRefusal`.
    */
+  /**
+   * As regiões marcadas, lidas pelo dono único (`freeShippingConfigOf`): campo ausente vale as cinco,
+   * slug desconhecido sai, e a ordem é a de `core`.
+   */
+  const regioes = freeShippingConfigOf(shipping).free_shipping_regions ?? []
+  const idDasRegioes = useId()
+
+  const alternarRegiao = (regiao: RegionSlug, marcada: boolean) => {
+    const proximas = marcada ? [...regioes, regiao] : regioes.filter(r => r !== regiao)
+    setShipping({ ...shipping, free_shipping_regions: effectiveRegions(proximas) })
+  }
+
   const salvarFrete = () => {
-    const motivo = freeShippingRefusal(shipping)
+    // O que se grava leva SEMPRE a lista: a linha antiga (sem o campo) passa a dizer, por escrito,
+    // as regiões que a tela mostrou marcadas.
+    const gravar: ShippingSettings = { ...shipping, free_shipping_regions: [...regioes] }
+    const motivo = freeShippingRefusal(gravar)
     if (motivo) {
-      toast({ title: 'Frete grátis sem valor mínimo', description: motivo, variant: 'destructive' })
+      // O título é o próprio motivo de `core`: a recusa pode ser da faixa OU das regiões, e um título
+      // fixo nomearia só uma delas.
+      toast({ title: motivo, variant: 'destructive' })
       return
     }
-    void salvar('shipping', shipping)
+    void salvar('shipping', gravar)
   }
 
   if (isLoading) return <SettingsLoading />
@@ -129,6 +162,56 @@ export const ShippingMaterialSection = () => {
             />
           </FieldGroup>
         </div>
+
+        {/*
+          As regiões do frete grátis. Desabilitadas (não escondidas) com o interruptor desligado,
+          como a faixa: a escolha fica guardada. Ligado com nenhuma marcada, salvar é recusado por
+          `freeShippingRefusal`.
+        */}
+        <fieldset className="space-y-2" aria-describedby={`${idDasRegioes}-ajuda`}>
+          <legend className="text-sm font-medium">Regiões com frete grátis</legend>
+          <p id={`${idDasRegioes}-ajuda`} className="text-sm text-muted-foreground">
+            {shipping.free_shipping_enabled
+              ? 'O frete grátis vale só para entregas nas regiões marcadas. A região é conferida pelo CEP.'
+              : 'Guardadas. Voltam a valer quando você ligar o frete grátis.'}
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {ORDEM_DAS_CAIXAS.map(regiao => {
+              const id = `${idDasRegioes}-${regiao}`
+              return (
+                <li
+                  key={regiao}
+                  className="flex min-h-11 items-start gap-3 rounded-lg border border-border bg-muted/40 px-3"
+                >
+                  <Checkbox
+                    id={id}
+                    checked={regioes.includes(regiao)}
+                    disabled={!shipping.free_shipping_enabled}
+                    onCheckedChange={v => alternarRegiao(regiao, v === true)}
+                    aria-describedby={`${id}-estados`}
+                    className="mt-3.5"
+                  />
+                  <div className="min-w-0 flex-1 pb-2">
+                    {/* O rótulo é o alvo de toque: 44px de altura, e tocá-lo marca a caixa. */}
+                    <label
+                      htmlFor={id}
+                      data-testid={`regiao-${regiao}`}
+                      className={cn(
+                        'flex min-h-11 items-center text-sm font-medium',
+                        shipping.free_shipping_enabled ? 'cursor-pointer' : 'cursor-not-allowed text-muted-foreground',
+                      )}
+                    >
+                      {REGION_LABELS[regiao]}
+                    </label>
+                    <span id={`${id}-estados`} className="block break-words text-xs text-muted-foreground">
+                      {REGION_STATES[regiao].join(', ')}
+                    </span>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </fieldset>
 
         {/*
           O campo "CEP de origem" saiu daqui em 2026-09-05, e a remoção é o conserto — não uma
