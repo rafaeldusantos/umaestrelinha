@@ -39,6 +39,20 @@ ateliê no celular, sobre um único backend Supabase. Registro memorial: nada fe
 | ----------- | ------- | ----------------------- | ---------------------- |
 | `.` | Supabase local, portas 54440–54449 (API 54441, Postgres 54442); as edge functions são servidas à parte, com `supabase functions serve --env-file <arquivo com chaves externas inválidas>` (nunca o `.env` da raiz) | `supabase status`; functions: `POST /functions/v1/<nome>` com corpo vazio responde 400 | `supabase migration up --local` (nunca `--linked`; nunca `supabase stop --all`) |
 
+**No browser (QA e prova em navegador)** — o que vale para toda sessão, e é o que a seção *Ambiente da execução*
+do plano de QA leva aos exploradores (eles rodam sem o `CLAUDE.md`):
+
+- **Apps:** loja `http://localhost:8082`, painel `http://localhost:8083`, ateliê `http://localhost:8084`.
+- **Bloquear antes do primeiro `open`:** `**/*.supabase.co/**` (o banco local guarda `image_url` do Storage
+  hospedado, e abrir a Home faria requisição a ele) e `**/g/collect*` (o GA4 envia por `analytics.google.com`:
+  bloqueie pelo caminho, nunca só pelo domínio).
+- **E-mail de dev:** Mailpit em `http://localhost:54444` — todo código de acesso e confirmação cai ali.
+- **Viewport alvo:** `390 × 844` primeiro (≈90% dos acessos são de celular); `1440 × 900` depois. Telas novas
+  também a 130% e 200% de fonte.
+- **Nunca:** pagar de verdade nem digitar número de cartão; chamar serviço externo real (Mercado Pago, Resend,
+  Melhor Envio, Claude API) — as functions locais sobem com chaves inválidas; `supabase stop --all`.
+- **Credenciais:** por variável `QA_<CONTA>_USUARIO` / `QA_<CONTA>_SENHA`, nunca o valor em log ou briefing.
+
 ## Escopo
 
 **Inclui:** loja pública (`apps/store`), Backoffice (`apps/backoffice`), app do ateliê (`apps/mobile-adm`), regras em `packages/core`, banco e edge functions em `supabase/`.
