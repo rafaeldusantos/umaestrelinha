@@ -18,6 +18,7 @@ import {
   renditionUrl,
 } from '../media/rendition.ts'
 import { escapeXml } from '../xml/escape.ts'
+import { STYLE_PROFILE_ATTRIBUTE, type StyleProfile } from '../appearance/types.ts'
 import { ROBOTS_META_OWNER } from '../seo/pages.ts'
 
 /**
@@ -112,6 +113,21 @@ export const markAnnouncementBar = (html: string, exists: boolean | null): strin
   const limpa = tag[0].replace(ATRIBUTO_FAIXA, '')
   const marcada =
     exists === null ? limpa : limpa.replace(/>$/, ` ${ANNOUNCEMENT_BAR_ATTRIBUTE}="${exists ? '1' : '0'}">`)
+  return html.slice(0, tag.index) + marcada + html.slice(tag.index + tag[0].length)
+}
+
+const ATRIBUTO_PERFIL = new RegExp(`\\s+${STYLE_PROFILE_ATTRIBUTE}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]*)`, 'gi')
+
+/**
+ * Marca a tag `<html>` com o perfil de estilo da loja (`core/appearance`), para a primeira pintura já
+ * sair na paleta dele. **Substitui, nunca duplica**, e os outros atributos (`lang`, `data-faixa`)
+ * ficam. `null` (a configuração não respondeu) ⇒ nenhum atributo. Sem tag `<html>`, o HTML intacto.
+ */
+export const markStyleProfile = (html: string, profile: StyleProfile | null): string => {
+  const tag = html.match(TAG_HTML)
+  if (!tag) return html
+  const limpa = tag[0].replace(ATRIBUTO_PERFIL, '')
+  const marcada = profile === null ? limpa : limpa.replace(/>$/, ` ${STYLE_PROFILE_ATTRIBUTE}="${profile}">`)
   return html.slice(0, tag.index) + marcada + html.slice(tag.index + tag[0].length)
 }
 

@@ -7,9 +7,11 @@ import {
   injectIntoHead,
   jsonLdScript,
   markAnnouncementBar,
+  markStyleProfile,
   shellDescription,
   type ServedHead,
 } from '../head.ts'
+import { STYLE_PROFILE_ATTRIBUTE } from '../../appearance/types.ts'
 
 /**
  * Feature 69, T03 — `applyHead`, a generalização de `productHeadTags` (da edge function
@@ -279,5 +281,51 @@ describe('markAnnouncementBar — o <html> diz se a faixa de avisos existe', () 
 
   it('HTML sem <html> volta intacto', () => {
     expect(markAnnouncementBar('<div id="root"></div>', true)).toBe('<div id="root"></div>')
+  })
+})
+
+describe('markStyleProfile — o <html> chega com o perfil de estilo da loja', () => {
+  const COM_LANG_E_FAIXA =
+    '<!doctype html><html lang="pt-BR" data-faixa="1"><head><title>x</title></head><body></body></html>'
+
+  it('o perfil entra na tag <html>, com o lang e o data-faixa mantidos', () => {
+    expect(markStyleProfile(COM_LANG_E_FAIXA, 'black-friday')).toBe(
+      '<!doctype html><html lang="pt-BR" data-faixa="1" data-perfil="black-friday"><head><title>x</title></head><body></body></html>',
+    )
+  })
+
+  it('o Padrão também é escrito — o servidor sempre diz qual perfil vale', () => {
+    expect(markStyleProfile('<html><head></head></html>', 'padrao')).toBe('<html data-perfil="padrao"><head></head></html>')
+  })
+
+  it('substitui, nunca duplica: o data-perfil que já estava sai e o novo entra uma vez só', () => {
+    const saida = markStyleProfile('<html lang="pt-BR" data-perfil="padrao" data-faixa="0"><head></head></html>', 'black-friday')
+    expect(saida).toBe('<html lang="pt-BR" data-faixa="0" data-perfil="black-friday"><head></head></html>')
+    expect(saida.match(/data-perfil=/g)).toHaveLength(1)
+  })
+
+  it('o nome do atributo é o de core/appearance', () => {
+    expect(markStyleProfile('<html></html>', 'padrao')).toContain(`${STYLE_PROFILE_ATTRIBUTE}="padrao"`)
+  })
+
+  it('null (a configuração não respondeu) não escreve — o HTML sem o atributo volta igual', () => {
+    expect(markStyleProfile(COM_LANG_E_FAIXA, null)).toBe(COM_LANG_E_FAIXA)
+  })
+
+  it('null tira o atributo que já estava, e o resto da tag fica', () => {
+    expect(markStyleProfile('<html lang="pt-BR" data-perfil="black-friday" data-faixa="1"><head></head></html>', null)).toBe(
+      '<html lang="pt-BR" data-faixa="1"><head></head></html>',
+    )
+  })
+
+  it('só a tag <html> é marcada — o texto que diz data-perfil fica', () => {
+    const shell = '<html><head></head><body><p>data-perfil="padrao"</p></body></html>'
+    expect(markStyleProfile(shell, 'black-friday')).toBe(
+      '<html data-perfil="black-friday"><head></head><body><p>data-perfil="padrao"</p></body></html>',
+    )
+  })
+
+  it('HTML sem <html> volta intacto', () => {
+    expect(markStyleProfile('<div id="root"></div>', 'black-friday')).toBe('<div id="root"></div>')
   })
 })

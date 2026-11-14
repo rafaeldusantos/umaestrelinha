@@ -29,8 +29,14 @@
 // o status de sempre e `no-store`: um "não existe" cacheado por uma hora esconderia a faixa ligada.
 // O 301 não é HTML e não muda.
 //
+// O perfil de estilo da loja (`core/appearance`) vai pelo MESMO caminho: toda resposta HTML leva
+// `data-perfil` com o perfil salvo, normalizado (valor desconhecido ⇒ Padrão), para a primeira pintura
+// já sair na paleta dele. Ausente só quando a leitura falhou — e aí a resposta já sai `no-store`.
+//
 // Imports por ARQUIVO e com extensão explícita: a função empacota este módulo fora do Vite.
 
+import { styleProfileOf } from '../appearance/normalize.ts'
+import type { StyleProfile } from '../appearance/types.ts'
 import { renditionUrl } from '../media/rendition.ts'
 import {
   categoryPageMeta,
@@ -69,6 +75,7 @@ import {
   imagePreloadLink,
   jsonLdScript,
   markAnnouncementBar,
+  markStyleProfile,
   shellDescription,
   type ServedHead,
 } from './head.ts'
@@ -109,6 +116,11 @@ export interface PageSettings {
    * não sei — a leitura falhou —, e a página sai sem o atributo e sem cache.
    */
   announcementBar: boolean | null
+  /**
+   * O perfil de estilo da loja (`appearance.profile`). O servidor normaliza (`styleProfileOf`): valor
+   * desconhecido ⇒ Padrão. `null` = não sei — a leitura falhou —, e a página sai sem o atributo.
+   */
+  styleProfile: StyleProfile | null
 }
 
 export interface PageDeps {
@@ -217,7 +229,7 @@ export const servePage = async (deps: PageDeps, url: URL): Promise<ServedRespons
   } catch (e) {
     resposta = falha(deps, path, 'inesperado', e)
   }
-  return marcarFaixa(resposta, (await configuracoes).announcementBar)
+  return marcarHtml(resposta, await configuracoes)
 }
 
 const servirRamo = async (
@@ -249,15 +261,17 @@ const servirRamo = async (
 }
 
 /**
- * O veredito da faixa na tag `<html>` de toda resposta HTML. `null` (a configuração não respondeu)
- * ⇒ sem atributo e `no-store`, com o status de sempre. Redirect não tem corpo e passa intacto.
+ * O veredito da faixa e o perfil de estilo na tag `<html>` de toda resposta HTML. `null` (a
+ * configuração não respondeu) ⇒ sem o atributo e `no-store`, com o status de sempre. Redirect não tem
+ * corpo e passa intacto.
  */
-const marcarFaixa = (resposta: ServedResponse, faixa: boolean | null): ServedResponse => {
+const marcarHtml = (resposta: ServedResponse, config: PageSettings): ServedResponse => {
   if (resposta.headers['Content-Type'] !== HTML) return resposta
+  const naoSei = config.announcementBar === null || config.styleProfile === null
   return {
     ...resposta,
-    headers: faixa === null ? { ...resposta.headers, 'Cache-Control': PAGE_CACHE.error } : resposta.headers,
-    body: markAnnouncementBar(resposta.body, faixa),
+    headers: naoSei ? { ...resposta.headers, 'Cache-Control': PAGE_CACHE.error } : resposta.headers,
+    body: markStyleProfile(markAnnouncementBar(resposta.body, config.announcementBar), config.styleProfile),
   }
 }
 
@@ -394,7 +408,7 @@ const servirCategoriaAtiva = (
 }
 
 // ---------------------------------------------------------------------------------------------
-// A configuração da página (produto e faixa de avisos)
+// A configuração da página (produto, faixa de avisos e perfil de estilo)
 // ---------------------------------------------------------------------------------------------
 
 /** A configuração da página, lida uma vez por resposta. Nunca rejeita: a falha vira `null`, com log. */
@@ -405,11 +419,12 @@ const lerConfiguracoes = async (deps: PageDeps, path: string): Promise<PageSetti
       defaultProductCategory: s?.defaultProductCategory ?? null,
       storeDescription: s?.storeDescription ?? null,
       announcementBar: s?.announcementBar ?? null,
+      styleProfile: styleProfileOf(s?.styleProfile),
     }
   } catch (e) {
-    // A página sai assim mesmo: a descrição cai na do shell (A16), e a faixa fica sem veredito.
+    // A página sai assim mesmo: a descrição cai na do shell (A16), e a faixa e o perfil ficam sem veredito.
     deps.log({ fn: 'page', erro: 'configuracoes', path, detalhe: String(e) })
-    return { defaultProductCategory: null, storeDescription: null, announcementBar: null }
+    return { defaultProductCategory: null, storeDescription: null, announcementBar: null, styleProfile: null }
   }
 }
 
