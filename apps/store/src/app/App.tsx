@@ -8,6 +8,7 @@ import ChunkErrorBoundary from "@/app/ChunkErrorBoundary";
 import RuntimeSettingsLoader from "@/app/RuntimeSettingsLoader";
 import { createQueryClient } from "@/app/queryClient";
 import ScrollToTop from "@/app/ScrollToTop";
+import StyleProfileApplier from "@/app/StyleProfileApplier";
 import AnalyticsLoader from "@/app/AnalyticsLoader";
 import PageViewTracker from "@/app/PageViewTracker";
 import VisitCounter from "@/app/VisitCounter";
@@ -98,6 +99,12 @@ const App = () => (
           estão fora dele — dentro do layout, as duas rotas herdariam a rolagem da página anterior.
         */}
         <ScrollToTop />
+        {/*
+          O perfil de estilo da loja no `<html>`. Dentro do `BrowserRouter` porque a troca de rota é
+          o que passa a decisão do atributo da carga para a configuração, e fora das `Routes` porque
+          o checkout e o 404 vestem o perfil também. Montado na prévia: é lá que o rascunho chega.
+        */}
+        <StyleProfileApplier />
         {/*
           Navegar a prévia não pode virar carrinho abandonado: a dona conferindo a vitrine dispararia
           rastreio de uma sessão que não é de cliente nenhuma, e o e-mail de recuperação sairia para
