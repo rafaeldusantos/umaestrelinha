@@ -48,6 +48,7 @@ import { isPriceError, resolveItemPrice } from "../../../packages/core/src/prici
 // Feature 89: o pedido montado pelo painel é cobrado pelo cálculo travado — a mesma função que a
 // página do link usa para mostrar o total (`PRC-06`).
 import { proposalPricing } from "../../../packages/core/src/proposals/pricing.ts"
+import { freeShippingConfigOf } from "../../../packages/core/src/shipping/freeShipping.ts"
 // Notificações (AD-005): import DIRETO do motor, no mesmo processo — sem hop HTTP para a function
 // `send-notification`. Um `fetch` entre duas functions do mesmo deploy exigiria inventar auth
 // interna e pagaria um segundo cold start justamente no caminho do PIX. A `send-notification`
@@ -1449,12 +1450,9 @@ async function lockedProposalCharge(
         shipping: Number(order.shipping_cost || 0),
         method,
         pixDiscountPercent,
-        freeShipping: shipping
-          ? {
-              free_shipping_enabled: shipping.free_shipping_enabled === true,
-              free_shipping_threshold: Number(shipping.free_shipping_threshold ?? 0),
-            }
-          : null,
+        freeShipping: shipping ? freeShippingConfigOf(shipping) : null,
+        // Com o frete grátis limitado a algumas regiões, quem decide é o CEP que o pedido gravou.
+        destinationCep: order.address_zip == null ? null : String(order.address_zip),
       },
     )
   } catch (_err) {

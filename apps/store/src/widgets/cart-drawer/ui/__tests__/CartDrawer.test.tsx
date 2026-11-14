@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
 import { useCartStore } from '@/entities/cart/model/cartStore'
@@ -91,12 +92,16 @@ const product = (overrides: Partial<Product> = {}): Product => ({
 
 const renderDrawer = () =>
   render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route path="/" element={<CartDrawer />} />
-        <Route path="/checkout" element={<div>rota-checkout</div>} />
-      </Routes>
-    </MemoryRouter>,
+    // O frete da gaveta (a cotação e a busca do CEP) são consultas: a sacola com peças monta
+    // sob um `QueryClientProvider`. Sem CEP no rascunho, nenhuma delas dispara.
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<CartDrawer />} />
+          <Route path="/checkout" element={<div>rota-checkout</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 
 // `act` porque quem abre a gaveta é um store fora do React — é exatamente assim que o header, a nav
@@ -244,16 +249,18 @@ describe('CartDrawer — resumo e CTA', () => {
    * A estimativa de frete SAIU da gaveta.
    *
    * Sem CEP, o único número disponível aqui era a faixa padrão de `store_settings` — e a cotação do
-   * checkout quase sempre a contradiz. O total é o dos produtos, e a nota diz de onde o frete vem;
-   * sem ela, este número se lê como valor final do pedido.
+   * checkout quase sempre a contradiz. Sem CEP calculado, o total é o dos produtos — e a nota que
+   * dizia de onde o frete vinha também saiu: o campo do CEP, logo acima, diz isso sozinho.
    */
-  it('o total é o dos produtos, sem linha de frete e com a nota de onde ele é calculado', () => {
+  it('sem frete escolhido, o total é o dos produtos, sem linha de frete e sem nota abaixo do Total', () => {
     renderDrawer()
     open()
     expect(summaryValue('Subtotal (1 item)')).toBe('R$ 30,00')
     expect(screen.queryByText('Frete estimado')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Frete ·/)).not.toBeInTheDocument()
     expect(summaryValue('Total')).toBe('R$ 30,00')
-    expect(screen.getByText('Frete calculado no checkout, com o seu CEP.')).toBeInTheDocument()
+    // A nota de antes ("Frete calculado no checkout, com o seu CEP.") saiu: o CEP se calcula aqui.
+    expect(screen.queryByText(/Frete calculado/)).not.toBeInTheDocument()
   })
 
   it('com a faixa de frete grátis alcançada o total continua o mesmo — nenhum frete entra na conta', () => {
@@ -461,7 +468,7 @@ describe('CartDrawer - o interruptor do frete gratis (FRG-05)', () => {
     open()
 
     expect(screen.getByRole('progressbar', { name: 'Progresso para o frete grátis' })).toBeInTheDocument()
-    expect(screen.getByText(/Faltam .* para frete grátis!/)).toBeInTheDocument()
+    expect(screen.getByText(/^Faltam .* para o frete grátis$/)).toBeInTheDocument()
   })
 
   it('o preenchimento da barra usa o papel de desconto (`sale-bar`), e o trilho segue branco', () => {
@@ -485,7 +492,7 @@ describe('CartDrawer - o interruptor do frete gratis (FRG-05)', () => {
     open()
 
     expect(screen.queryByRole('progressbar')).toBeNull()
-    expect(screen.queryByText(/para frete grátis/)).toBeNull()
+    expect(screen.queryByText(/para o frete grátis/)).toBeNull()
     expect(screen.queryByText(/Frete grátis liberado/)).toBeNull()
     // O numero guardado (150) nao vaza para a tela.
     expect(screen.queryByText(/150/)).toBeNull()

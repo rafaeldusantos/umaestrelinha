@@ -125,3 +125,90 @@ describe('useFreeShipping — o interruptor do banco chega à regra', () => {
     expect(result.current.frete).toBe(primeiro)
   })
 })
+
+describe('useFreeShipping — o CEP do destino chega à regra', () => {
+  const sulSudeste = () =>
+    rows([
+      {
+        key: 'shipping',
+        value: {
+          free_shipping_enabled: true,
+          free_shipping_threshold: 150,
+          free_shipping_regions: ['sul', 'sudeste'],
+        },
+      },
+    ])
+
+  async function comCep(subtotal: number, cep?: string) {
+    const { result, rerender } = renderHook(
+      (props: { cep?: string }) => ({
+        query: useStoreSettings(),
+        frete: useFreeShipping(subtotal, props.cep),
+      }),
+      { wrapper: makeWrapper(), initialProps: { cep } },
+    )
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true))
+    return { result, rerender }
+  }
+
+  it('com CEP de uma região que vale, concede', async () => {
+    sulSudeste()
+    const { result } = await comCep(200, '90010-000') // Porto Alegre, Sul
+    expect(result.current.frete.destination).toBe('inside')
+    expect(result.current.frete.granted).toBe(true)
+    expect(result.current.frete.regionLimited).toBe(true)
+  })
+
+  it('com CEP de uma região que não vale, a faixa atinge e não concede', async () => {
+    sulSudeste()
+    const { result } = await comCep(200, '69900-000') // Rio Branco, Norte
+    expect(result.current.frete.destination).toBe('outside')
+    expect(result.current.frete.reached).toBe(true)
+    expect(result.current.frete.granted).toBe(false)
+  })
+
+  it('sem CEP e com as regiões limitadas, não concede', async () => {
+    sulSudeste()
+    const { result } = await comCep(200)
+    expect(result.current.frete.destination).toBe('unknown')
+    expect(result.current.frete.granted).toBe(false)
+  })
+
+  it('sem CEP e com a linha antiga (sem o campo), o de hoje: atinge e concede', async () => {
+    rows([{ key: 'shipping', value: { free_shipping_enabled: true, free_shipping_threshold: 150 } }])
+    const { result } = await comCep(200)
+    expect(result.current.frete.regions).toEqual(['sul', 'sudeste', 'centro-oeste', 'nordeste', 'norte'])
+    expect(result.current.frete.regionLimited).toBe(false)
+    expect(result.current.frete.reached).toBe(true)
+    expect(result.current.frete.granted).toBe(true)
+  })
+
+  it('lista de regiões vazia com o interruptor ligado deixa o frete grátis inativo', async () => {
+    rows([
+      {
+        key: 'shipping',
+        value: { free_shipping_enabled: true, free_shipping_threshold: 150, free_shipping_regions: [] },
+      },
+    ])
+    const { result } = await comCep(999, '90010-000')
+    expect(result.current.frete.active).toBe(false)
+    expect(result.current.frete.granted).toBe(false)
+  })
+
+  it('mudar só o CEP muda o estado', async () => {
+    sulSudeste()
+    const { result, rerender } = await comCep(200, '90010-000')
+    expect(result.current.frete.granted).toBe(true)
+    rerender({ cep: '69900-000' })
+    expect(result.current.frete.destination).toBe('outside')
+    expect(result.current.frete.granted).toBe(false)
+  })
+
+  it('a identidade é estável entre renders com as mesmas primitivas, com CEP e regiões', async () => {
+    sulSudeste()
+    const { result, rerender } = await comCep(200, '90010-000')
+    const primeiro = result.current.frete
+    rerender({ cep: '90010-000' })
+    expect(result.current.frete).toBe(primeiro)
+  })
+})

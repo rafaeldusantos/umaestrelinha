@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,13 +27,18 @@ import { PROPOSAL_TOKEN_KEY } from '@/features/proposal-checkout/model/proposalT
 //
 // As expectativas são LITERAIS, escritas à mão a partir da letra da spec.
 
-const { invokeMock, createPaymentMock, getCardFormDataMock, toastError, frete, cotacao } = vi.hoisted(() => ({
+const { invokeMock, createPaymentMock, getCardFormDataMock, toastError, frete, cotacao, buscaCep } = vi.hoisted(() => ({
+  buscaCep: { porCep: {} as Record<string, unknown> },
   invokeMock: vi.fn(),
   createPaymentMock: vi.fn(),
   getCardFormDataMock: vi.fn(),
   toastError: vi.fn(),
   // A faixa de frete grátis da loja, trocável por caso (fecho da rodada 3, S13).
-  frete: { free_shipping_enabled: true as boolean, free_shipping_threshold: 1000 },
+  frete: {
+    free_shipping_enabled: true as boolean,
+    free_shipping_threshold: 1000,
+    free_shipping_regions: undefined as string[] | undefined,
+  },
   cotacao: {
     atual: [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }] as Array<Record<string, unknown>>,
   },
@@ -58,12 +63,17 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useShippingSettings: () => ({
     free_shipping_enabled: frete.free_shipping_enabled,
     free_shipping_threshold: frete.free_shipping_threshold,
+    ...(frete.free_shipping_regions ? { free_shipping_regions: frete.free_shipping_regions } : {}),
     default_shipping_cost: 9.9,
     handling_days: 2,
   }),
   useStoreSettings: () => ({ data: undefined, isFetched: true }),
 }))
-vi.mock('@/features/checkout/api/useCepLookup', () => ({ useCepLookup: () => ({ data: undefined }) }))
+// A busca pelo CEP responde por CEP (a mesma referência a cada render, como o cache da consulta);
+// sem entrada, ela ainda não respondeu.
+vi.mock('@/features/checkout/api/useCepLookup', () => ({
+  useCepLookup: (cep: string | null) => ({ data: buscaCep.porCep[String(cep ?? '').replace(/\D/g, '')] }),
+}))
 vi.mock('@/features/checkout/api/useShippingQuote', () => ({
   useShippingQuote: () => ({
     data: cotacao.atual,
@@ -209,7 +219,9 @@ beforeEach(() => {
   respostas['get-proposal'] = () => ({ data: { proposal: proposta() }, error: null })
   frete.free_shipping_enabled = true
   frete.free_shipping_threshold = 1000
+  frete.free_shipping_regions = undefined
   cotacao.atual = [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }]
+  buscaCep.porCep = {}
   createPaymentMock.mockReset()
   getCardFormDataMock.mockReset()
   toastError.mockReset()
@@ -342,6 +354,78 @@ describe('T25 — a página (CON-01..04, CON-07..11, SEG-02, SEG-03)', () => {
     expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 272,50')
   })
 
+  // O frete grátis só para Sul + Sudeste: a página passa o CEP do endereço a `proposalPricing`, e o
+  // total muda quando a cliente troca o endereço de São Paulo por um da Bahia.
+  it('faixa alcançada com o frete grátis só no Sul + Sudeste: o CEP do endereço decide o total', async () => {
+    cotacao.atual = [
+      { id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 },
+      { id: 2, name: 'SEDEX', company: 'Correios', price: '35.00', delivery_time: 2 },
+    ]
+    frete.free_shipping_threshold = 200
+    frete.free_shipping_regions = ['sul', 'sudeste']
+    montar()
+    await screen.findByRole('heading', { level: 1, name: 'Seu pedido' })
+    fireEvent.click((await screen.findAllByText(/SEDEX/))[0])
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
+    // O endereço semeado é de São Paulo: 250 dos itens ≥ 200 ⇒ o SEDEX sai; PIX 12,50 ⇒ 237,50.
+    expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 237,50')
+
+    act(() => {
+      useProposalCheckoutStore.getState().setAddress({
+        cep: '40010-000',
+        street: 'Rua Chile',
+        number: '10',
+        complement: '',
+        neighborhood: 'Centro',
+        city: 'Salvador',
+        state: 'BA',
+        manual: false,
+      })
+    })
+    if (useProposalCheckoutStore.getState().shipping?.serviceName !== 'SEDEX') {
+      fireEvent.click((await screen.findAllByText(/SEDEX/))[0])
+    }
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
+    // Bahia, fora da campanha: 250 − 12,50 + 35 = 272,50.
+    await waitFor(() => expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 272,50'))
+  })
+
+  it('trocar para um CEP que a busca não localiza deixa Rua, Bairro, Cidade e UF vazios, nunca os do CEP anterior', async () => {
+    buscaCep.porCep = {
+      '40020000': { street: '', neighborhood: '', city: '', state: '', manual: true },
+    }
+    montar()
+    await screen.findByRole('heading', { level: 1, name: 'Seu pedido' })
+    expect(useProposalCheckoutStore.getState().address).toMatchObject({
+      cep: '01310-100',
+      street: 'Av. Paulista',
+      city: 'São Paulo',
+      state: 'SP',
+    })
+    const entrega = screen.getAllByRole('region', { name: 'Entrega' })[0]
+    fireEvent.click(within(entrega).getByRole('button', { name: 'Alterar' }))
+
+    fireEvent.change(await screen.findByLabelText('CEP'), { target: { value: '40020000' } })
+
+    expect(screen.getByLabelText('Rua')).toHaveValue('')
+    expect(screen.getByLabelText('Bairro')).toHaveValue('')
+    expect(screen.getByLabelText('Cidade')).toHaveValue('')
+    expect(screen.getByLabelText('UF')).toHaveValue('')
+    expect(screen.getByLabelText('Rua')).toBeEnabled()
+    expect(
+      screen.getByText(
+        'Não localizamos esse CEP. Preencha o endereço à mão — a cotação segue pelo CEP informado.',
+      ),
+    ).toBeInTheDocument()
+    expect(useProposalCheckoutStore.getState().address).toMatchObject({
+      cep: '40020-000',
+      street: '',
+      city: '',
+      state: '',
+      number: '1000',
+    })
+  })
+
   it('sem fragmento e sem token guardado ⇒ o link não vale (CON-08), sem chamar a function', async () => {
     montar('')
     expect(
@@ -437,7 +521,7 @@ describe('QA 89 — a Adri atualizou o pedido com a página aberta (BUG-20261031
     }
     respostas['create-order'] = () => falha(409, { error: 'x', code: 'proposal_changed' })
     montar()
-    fireEvent.click(await screen.findByRole('button', { name: /^Correios PAC/ }))
+    fireEvent.click(await screen.findByRole('radio', { name: /^PAC · Correios/ }))
     await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.cost).toBe(35))
     await waitFor(() => expect(ctaPagar()).toBeEnabled())
     expect(screen.getAllByText(/Frete · Correios PAC/).length).toBeGreaterThan(0)
@@ -459,7 +543,7 @@ describe('QA 89 — a Adri atualizou o pedido com a página aberta (BUG-20261031
 
     // Ela escolhe de novo, e o pedido vai com o frete do pacote atual.
     respostas['create-order'] = () => ({ data: { order_id: 'ord-v4', order_number: '0266', access_token: 'a' }, error: null })
-    fireEvent.click(await screen.findByRole('button', { name: /^Correios PAC/ }))
+    fireEvent.click(await screen.findByRole('radio', { name: /^PAC · Correios/ }))
     await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.cost).toBe(37.49))
     await waitFor(() => expect(ctaPagar()).toBeEnabled())
     fireEvent.click(ctaPagar())

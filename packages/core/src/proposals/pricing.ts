@@ -263,6 +263,11 @@ export interface ProposalPricingInput {
   pixDiscountPercent: number
   /** `store_settings.shipping` — o frete grátis tem um dono só (`freeShippingState`, A-11). */
   freeShipping: FreeShippingConfig | null
+  /**
+   * O CEP do endereço de entrega. Com o frete grátis limitado a algumas regiões, só concede quando
+   * ele é de uma delas; ausente ou desconhecido, não concede. Com as cinco regiões, não importa.
+   */
+  destinationCep?: string | null
 }
 
 /**
@@ -270,14 +275,14 @@ export interface ProposalPricingInput {
  *
  * Não relê catálogo, promoção nem regra de cupom: os preços são os das linhas, o cupom é o valor
  * travado. O frete é zerado pelo cupom `free_shipping` ou pela faixa de frete grátis, conferida sobre
- * o que os itens somam depois dos descontos. O avulso entra como valor em reais — o mesmo
+ * o que os itens somam depois dos descontos — e, com as regiões limitadas, só para o CEP de uma delas. O avulso entra como valor em reais — o mesmo
  * `calculateOrderTotals` o aplica depois do cupom e antes do PIX.
  */
 export function proposalPricing(locked: LockedProposal, input: ProposalPricingInput): OrderTotals {
   const items = locked.lines.map((l) => ({ unit_price: l.unit_price, quantity: l.quantity }))
   const subtotal = round2(items.reduce((s, i) => s + i.unit_price * i.quantity, 0))
   const base = round2(subtotal - locked.couponDiscount - locked.manualDiscount)
-  const freeByThreshold = input.freeShipping ? freeShippingState(input.freeShipping, base).reached : false
+  const freeByThreshold = input.freeShipping ? freeShippingState(input.freeShipping, base, input.destinationCep).granted : false
   const shipping = locked.couponFreeShipping || freeByThreshold ? 0 : input.shipping
 
   return calculateOrderTotals({

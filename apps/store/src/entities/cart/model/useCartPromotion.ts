@@ -161,11 +161,13 @@ function resolveNextTier(
  * passá-lo, a gaveta anunciaria um desconto progressivo que o checkout descartaria em favor do
  * cupom — um desconto exibido e não cobrado, que é a falha exata que esta feature existe para matar.
  *
- * `shipping` e `pixDiscountPercent` entram em zero: a sacola não tem cotação de frete nem método de
- * pagamento escolhido. O veredito de ordem do pedido — com frete cotado — é o do checkout
- * (`useCheckoutTotals`), e é ele que a cliente paga.
+ * `shipping` é o frete que a gaveta cotou e a cliente escolheu — zero sem escolha. Ele chega por
+ * parâmetro, e não lido do rascunho do checkout aqui, porque o rascunho é de `features/checkout` e
+ * `entities` não importa de `features`. Quem zera o frete para o cupom `free_shipping` é
+ * `resolveOrderPricing`. `pixDiscountPercent` entra em zero: a sacola não tem método de pagamento
+ * escolhido, e o veredito com o PIX é o do checkout (`useCheckoutTotals`).
  */
-export function useCartPromotion(): CartPromotion {
+export function useCartPromotion(shipping = 0): CartPromotion {
   const items = useCartStore((s) => s.items)
   const coupon = useCouponStore((s) => s.applied)
   const { data: promotions } = useActivePromotions()
@@ -182,7 +184,7 @@ export function useCartPromotion(): CartPromotion {
 
     const input: OrderPricingInput = {
       items: pricingItems,
-      shipping: 0,
+      shipping,
       pixDiscountPercent: 0,
       method: 'card',
       coupon: coupon ? { type: coupon.type, value: coupon.value } : null,
@@ -209,5 +211,5 @@ export function useCartPromotion(): CartPromotion {
       couponEligibleSubtotal: couponEligibleSubtotal({ items: pricingItems, buyTogether: buyTogetherInput, promotions: [] }),
       campaignName: cartCampaignName(items),
     }
-  }, [items, coupon, promotions, buyTogether])
+  }, [items, coupon, promotions, buyTogether, shipping])
 }

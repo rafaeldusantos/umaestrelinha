@@ -26,10 +26,8 @@ import {
   PICKUP_CARRIER,
   PICKUP_METHOD_NAME,
   PICKUP_SERVICE_ID,
-  cheapestQuoteId,
   formatEstimate,
   isRsCep,
-  quoteToEstimate,
 } from '@estrelinha/core/shipping'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
@@ -43,7 +41,14 @@ import { usePickupOptionState, type PickupOption } from '@/entities/pickup'
 import { useCepLookup } from '../api/useCepLookup'
 import { useShippingQuote } from '../api/useShippingQuote'
 import { useCheckoutStoreApi } from '../model/checkoutStore'
+import {
+  DEFAULT_SHIPPING_SERVICE_ID,
+  deliveryOptions,
+  toShippingDraft as toDraft,
+  type DeliveryOption,
+} from '../lib/deliveryOptions'
 import CollapsedBlock from './CollapsedBlock'
+import ShippingOptionCard from './ShippingOptionCard'
 
 interface Props {
   open: boolean
@@ -70,7 +75,9 @@ interface Props {
   couponFreeShipping?: boolean
 }
 
-export const DEFAULT_SHIPPING_SERVICE_ID = 'default'
+// A constante mora com a regra das opções (`lib/deliveryOptions`); daqui ela segue exportada para
+// quem já a lia deste módulo.
+export { DEFAULT_SHIPPING_SERVICE_ID }
 /**
  * BUG-20260728-bloco-vazio-parece-preenchido: o que o bloco colapsado diz quando ainda não há
  * endereço. Antes ele montava `, — /` com os campos vazios, que lia-se como tela quebrada.
@@ -78,18 +85,6 @@ export const DEFAULT_SHIPPING_SERVICE_ID = 'default'
 export const DELIVERY_EMPTY_SUMMARY = 'Informe seu CEP e escolha o envio'
 export const QUOTE_UNAVAILABLE_MESSAGE =
   'Não foi possível consultar os prazos agora. O pedido segue com o frete padrão da loja.'
-
-interface DeliveryOption extends ShippingDraft {
-  /** Preço cotado antes do frete grátis — é o valor riscado ao lado de "Grátis". */
-  price: number
-  free: boolean
-  /** `null` no fallback: sem cotação não há data honesta a exibir. */
-  estimateLabel: string | null
-}
-
-/** `YYYY-MM-DD` a partir das partes locais — `toISOString` deslocaria o dia por fuso. */
-const toIsoDate = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
 /**
  * O inverso de `toIsoDate`: a data do rascunho volta a ser o texto de `formatEstimate`.
@@ -107,14 +102,6 @@ const draftEstimateLabel = ({ estimateMin, estimateMax }: ShippingDraft): string
   const max = parse(estimateMax)
   return min && max ? formatEstimate(min, max) : null
 }
-
-/** Descarta o que é só apresentação: `ShippingDraft` é o que entra no pedido (SHP-07). */
-const toDraft = ({
-  price: _price,
-  free: _free,
-  estimateLabel: _label,
-  ...draft
-}: DeliveryOption): ShippingDraft => draft
 
 /** O rascunho da retirada — é o que entra no pedido (RET-07). Sem datas: não há transportadora. */
 const PICKUP_DRAFT: ShippingDraft = {
@@ -179,6 +166,8 @@ const DeliveryBlock = ({
   const shipping = useCheckout((s) => s.shipping)
   const setShipping = useCheckout((s) => s.setShipping)
   const markDirty = useCheckout((s) => s.markDirty)
+  // `'sacola'`: o CEP (e a forma de envio) vieram da gaveta. Digitar outro CEP aqui o zera.
+  const daSacola = useCheckout((s) => s.cepOrigin) === 'sacola'
 
   /**
    * FLW-01/FLW-04: sujar é o que impede o bloco de colapsar sozinho — por isso só passa por aqui
@@ -205,7 +194,10 @@ const DeliveryBlock = ({
    * a opção mais barata saía zerada em toda cotação, numa loja que já não anunciava frete grátis.
    * Era o caminho por onde o defeito custava dinheiro de verdade.
    */
-  const freteGratis = useFreeShipping(subtotal)
+  //
+  // Com o CEP do endereço: o frete grátis pode valer só para algumas regiões, e quem zera a mais
+  // barata é `granted` — a faixa alcançada **e** o destino numa região que vale.
+  const freteGratis = useFreeShipping(subtotal, address.cep)
 
   const { data: defaultAddress } = useDefaultAddress(customer?.id)
   const cepLookup = useCepLookup(address.cep)
@@ -236,20 +228,49 @@ const DeliveryBlock = ({
   // abria expandido mesmo com o endereço preenchido. `null` = a cliente digitou o CEP dela.
   const seeded = useRef(false)
   const defaultCep = useRef<string | null>(null)
+  /**
+   * O CEP a que Rua, Bairro, Cidade e UF do rascunho já pertencem — semeados do endereço salvo,
+   * preenchidos pela busca ou digitados à mão. A busca daquele CEP não os reescreve: ela devolve a
+   * rua GERAL do CEP, que não é a do endereço salvo (90010-000 é "Rua Siqueira Campos" na busca e
+   * "Rua dos Andradas" no endereço da cliente). O rascunho só guarda esses campos para o próprio CEP
+   * (`setAddress` os esvazia quando o CEP muda), então campos preenchidos ao montar são do CEP de
+   * agora. `null`: os campos esperam a busca.
+   */
+  const camposDoCep = useRef<string | null>(null)
+  const camposIniciados = useRef(false)
+  if (!camposIniciados.current) {
+    camposIniciados.current = true
+    const inicial = useCheckout.getState().address
+    const preenchido = [inicial.street, inicial.neighborhood, inicial.city, inicial.state].some(
+      (campo) => campo?.trim(),
+    )
+    camposDoCep.current = preenchido ? stripCep(inicial.cep) : null
+  }
   useEffect(() => {
     if (seeded.current || !defaultAddress) return
     seeded.current = true
-    if (useCheckout.getState().address.cep) return
+    const { address: atual, cepOrigin } = useCheckout.getState()
+    // O CEP que veio da gaveta vale. O endereço salvo só entra se for o MESMO CEP — e aí entra
+    // inteiro (número e complemento), e o bloco abre recolhido como o de quem já tem endereço.
+    const mesmoCepDaSacola =
+      cepOrigin === 'sacola' && stripCep(atual.cep) === stripCep(defaultAddress.cep)
+    if (atual.cep && !mesmoCepDaSacola) return
     setAddress({ ...defaultAddress, manual: false })
     const clean = stripCep(defaultAddress.cep)
+    camposDoCep.current = clean
     if (clean.length === 8) defaultCep.current = clean
   }, [useCheckout, defaultAddress, setAddress])
 
-  // ADR-01/SHP-03: resolveu → preenche e trava; não resolveu → `manual` destrava os campos.
+  // ADR-01/SHP-03: resolveu → preenche e trava; não resolveu → os quatro campos ficam VAZIOS e
+  // `manual` os destrava. Só para um CEP cujos campos ainda não foram preenchidos (`camposDoCep`):
+  // a busca nunca reescreve o endereço salvo, nem o que a pessoa digitou para aquele CEP.
   useEffect(() => {
-    if (!cepLookup.data) return
+    const cep = stripCep(address.cep)
+    if (camposDoCep.current !== null && camposDoCep.current !== cep) camposDoCep.current = null
+    if (!cepLookup.data || camposDoCep.current === cep) return
+    camposDoCep.current = cep
     if (cepLookup.data.manual) {
-      setAddress({ manual: true })
+      setAddress({ street: '', neighborhood: '', city: '', state: '', manual: true })
       return
     }
     setAddress({
@@ -259,7 +280,7 @@ const DeliveryBlock = ({
       state: cepLookup.data.state,
       manual: false,
     })
-  }, [cepLookup.data, setAddress])
+  }, [cepLookup.data, address.cep, setAddress])
 
   // Edge case da spec: trocar o CEP descarta a opção de envio já marcada (custo volta a 0).
   const lastCep = useRef<string | null>(null)
@@ -277,65 +298,74 @@ const DeliveryBlock = ({
     if (useCheckout.getState().shipping) setShipping(null)
   }, [useCheckout, address.cep, setShipping])
 
+  // O foco espera o Número uma vez, quando o bloco abre com o CEP trazido da sacola e o número
+  // ainda vazio: rua, bairro e cidade vêm da busca, e o Número é o que falta digitar.
+  const numberRef = useRef<HTMLInputElement>(null)
+  const focusedNumber = useRef(false)
+  useEffect(() => {
+    if (!open || focusedNumber.current) return
+    if (!daSacola || useCheckout.getState().address.number.trim()) return
+    focusedNumber.current = true
+    numberRef.current?.focus()
+  }, [useCheckout, open, daSacola])
+
   const cepComplete = stripCep(address.cep).length === 8
   // Referência estável: sem o memo, o `?? []` refaria o `options` (e o efeito) a cada render.
   const quotes = useMemo(() => quote.data ?? [], [quote.data])
   const quoteFailed = cepComplete && (quote.isError || (quote.isSuccess && quotes.length === 0))
 
-  const options = useMemo<DeliveryOption[]>(() => {
-    if (!cepComplete) return []
+  // A lista sai de `deliveryOptions`, a mesma regra da gaveta. Aqui o "Frete padrão" é permitido
+  // (SHP-05): a compra segue mesmo sem cotação.
+  const { options, cheapestId } = useMemo(
+    () =>
+      cepComplete
+        ? deliveryOptions({
+            quotes: quoteFailed ? [] : quotes,
+            // `granted` já é `false` com o interruptor desligado (invariante 1) e fora das regiões.
+            granted: freteGratis.granted,
+            couponFreeShipping: !!coupon?.freeShipping,
+            fallbackCost: quoteFailed ? default_shipping_cost : null,
+            handlingDays: handling_days,
+            today,
+          })
+        : { options: [] as DeliveryOption[], cheapestId: null as string | null },
+    [
+      cepComplete,
+      quoteFailed,
+      quotes,
+      coupon?.freeShipping,
+      default_shipping_cost,
+      // `subtotal` sai das dependências: ele já está embutido em `freteGratis`, que é memoizado
+      // pelas primitivas. Mantê-lo faria o memo refazer as opções em toda mudança de carrinho que
+      // não muda o veredito do frete grátis.
+      freteGratis.granted,
+      handling_days,
+      today,
+    ],
+  )
 
-    if (quoteFailed) {
-      return [
-        {
-          serviceId: DEFAULT_SHIPPING_SERVICE_ID,
-          serviceName: 'Frete padrão',
-          carrier: 'Correios',
-          cost: coupon?.freeShipping ? 0 : default_shipping_cost,
-          estimateMin: '',
-          estimateMax: '',
-          price: default_shipping_cost,
-          free: !!coupon?.freeShipping,
-          estimateLabel: null,
-        },
-      ]
-    }
+  // O custo gravado acompanha a opção escolhida: uma cotação nova muda o preço, e o veredito do
+  // frete grátis muda quando o subtotal cruza a faixa. Sem isto o rascunho guardaria o custo do
+  // momento da escolha, e o Total cobraria um frete que a tela já não mostra. Só o CUSTO: o resto do
+  // rascunho (serviço, datas) é o que a pessoa escolheu. Não suja o bloco: ela não mudou nada.
+  useEffect(() => {
+    const atual = useCheckout.getState().shipping
+    if (!atual || atual.serviceId === PICKUP_SERVICE_ID) return
+    const opcao = options.find((o) => o.serviceId === atual.serviceId)
+    if (!opcao || opcao.cost === atual.cost) return
+    setShipping({ ...atual, cost: opcao.cost })
+  }, [useCheckout, options, setShipping])
 
-    const cheapest = cheapestQuoteId(quotes)
-    // `reached` já é `false` com o interruptor desligado (invariante 1). Nenhuma checagem a mais.
-    const thresholdReached = freteGratis.reached
-
-    return quotes.map((q) => {
-      const { min, max } = quoteToEstimate(q, handling_days, today)
-      const price = Number.parseFloat(q.price)
-      // Cupom de frete grátis zera todas; o threshold zera só a mais barata (SHP-06).
-      const free = !!coupon?.freeShipping || (thresholdReached && q.id === cheapest)
-
-      return {
-        serviceId: String(q.id),
-        serviceName: q.name,
-        carrier: q.company,
-        cost: free ? 0 : price,
-        estimateMin: toIsoDate(min),
-        estimateMax: toIsoDate(max),
-        price,
-        free,
-        estimateLabel: formatEstimate(min, max),
-      }
-    })
-  }, [
-    cepComplete,
-    quoteFailed,
-    quotes,
-    coupon?.freeShipping,
-    default_shipping_cost,
-    // `subtotal` sai das dependências: ele já está embutido em `freteGratis`, que é memoizado pelas
-    // primitivas. Mantê-lo faria o memo refazer as opções em toda mudança de carrinho que não muda
-    // o veredito do frete grátis.
-    freteGratis.reached,
-    handling_days,
-    today,
-  ])
+  // A opção que a gaveta marcou e que sumiu da cotação do checkout é desfeita: a cliente escolhe
+  // outra, como quando o CEP muda. Só para o CEP trazido da sacola — o rascunho digitado aqui segue
+  // como sempre. A retirada não está em `options` (feature 63) e tem a própria regra.
+  useEffect(() => {
+    if (!daSacola || !options.length) return
+    const atual = useCheckout.getState().shipping
+    if (!atual || atual.serviceId === PICKUP_SERVICE_ID) return
+    if (options.some((o) => o.serviceId === atual.serviceId)) return
+    setShipping(null)
+  }, [useCheckout, daSacola, options, setShipping])
 
   // Pré-seleção sem clique, em dois casos:
   //  · edge case da spec — cotação com uma única opção: não há o que escolher;
@@ -350,10 +380,9 @@ const DeliveryBlock = ({
     if (options.length > 1 && !fromDefaultAddress) return
     if (useCheckout.getState().shipping) return
 
-    const cheapestId = cheapestQuoteId(quotes)
-    const target = options.find((o) => o.serviceId === String(cheapestId)) ?? options[0]
+    const target = options.find((o) => o.serviceId === cheapestId) ?? options[0]
     setShipping(toDraft(target))
-  }, [useCheckout, options, quotes, address.cep, setShipping])
+  }, [useCheckout, options, cheapestId, address.cep, setShipping])
 
   /*
    * Feature 61 · EVT-11 — um `add_shipping_info` por TOQUE da cliente numa opção de frete, a mesma
@@ -410,97 +439,32 @@ const DeliveryBlock = ({
         aria-labelledby={domicilioAgrupado ? domicilioId : undefined}
         className="flex flex-col gap-2"
       >
-        {options.map((option) => {
-          const selected = shipping?.serviceId === option.serviceId
-          return (
-            <button
-              key={option.serviceId}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => select(option)}
-              className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
-                selected
-                  ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
-                  : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
-              }`}
-            >
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                  selected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
-                }`}
-              >
-                {selected && <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />}
-              </span>
-              <span className="flex min-w-0 grow flex-col gap-[2px]">
-                <span className="text-[15px] font-semibold text-estrelinha-ink">
-                  {option.carrier} {option.serviceName}
-                </span>
-                <span className="text-[13px] text-estrelinha-ink-soft">
-                  {option.estimateLabel
-                    ? `Chega ${option.estimateLabel}`
-                    : 'Prazo confirmado após a postagem'}
-                </span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-[2px]">
-                <span
-                  className={`font-heading text-[17px] font-semibold ${
-                    option.free ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
-                  }`}
-                >
-                  {option.free ? 'Grátis' : formatPrice(option.price)}
-                </span>
-                {option.free && (
-                  <span className="text-xs text-estrelinha-ink-soft line-through">
-                    {formatPrice(option.price)}
-                  </span>
-                )}
-              </span>
-            </button>
-          )
-        })}
+        {options.map((option) => (
+          <ShippingOptionCard
+            key={option.serviceId}
+            option={option}
+            selected={shipping?.serviceId === option.serviceId}
+            onSelect={() => select(option)}
+          />
+        ))}
       </div>
 
       {pickup && (
         <div role="group" aria-label="Retirar em" className="flex flex-col gap-2 pt-1">
           <span className="text-[13px] text-estrelinha-ink-soft">Retirar em</span>
-          <button
-            type="button"
-            aria-pressed={pickupSelected}
-            onClick={selectPickup}
-            className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
-              pickupSelected
-                ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
-                : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
-            }`}
-          >
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                pickupSelected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
-              }`}
-            >
-              {pickupSelected && (
-                <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />
-              )}
-            </span>
-            <span className="flex min-w-0 grow flex-col gap-[2px]">
-              {/* Sem `truncate`: a linha do endereço é longa e tem de caber inteira em 390px. */}
-              <span className="break-words text-[15px] font-semibold text-estrelinha-ink">
-                {pickup.location}
-              </span>
-              <span className="text-[13px] text-estrelinha-ink-soft">
-                {`Pronta para retirada ${pickup.readyLabel}`}
-              </span>
-            </span>
-            <span className="shrink-0 font-heading text-[17px] font-semibold text-estrelinha-primary">
-              Grátis
-            </span>
-          </button>
+          <ShippingOptionCard pickup={pickup} selected={pickupSelected} onSelect={selectPickup} />
         </div>
       )}
     </>
   )
 
   const locked = !address.manual
+  // "Trazido da sua sacola · Bairro — Cidade/UF", da busca pelo CEP; sem ela, a frase sozinha.
+  const lugar = cepLookup.data && !cepLookup.data.manual ? cepLookup.data : null
+  const cidadeDaBusca = lugar?.city && lugar.state ? `${lugar.city}/${lugar.state}` : null
+  const origemDaSacola = cidadeDaBusca
+    ? `Trazido da sua sacola · ${[lugar?.neighborhood?.trim(), cidadeDaBusca].filter(Boolean).join(' — ')}`
+    : 'Trazido da sua sacola'
   const lockedFieldClass = locked
     ? 'border-estrelinha-line bg-estrelinha-ground-deep text-estrelinha-ink-soft'
     : 'border-estrelinha-line'
@@ -660,6 +624,13 @@ const DeliveryBlock = ({
         />
       </div>
 
+      {daSacola && (
+        <p role="status" className="-mt-3 flex items-center gap-2 text-[13px] text-estrelinha-ink-soft">
+          <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full bg-estrelinha-accent" />
+          {origemDaSacola}
+        </p>
+      )}
+
       {address.manual && cepComplete && (
         <p role="status" className="text-[13px] text-estrelinha-ink-soft">
           Não localizamos esse CEP. Preencha o endereço à mão — a cotação segue pelo CEP informado.
@@ -685,6 +656,7 @@ const DeliveryBlock = ({
             Número
           </Label>
           <Input
+            ref={numberRef}
             id="delivery-number"
             value={address.number}
             onChange={(e) => edit({ number: e.target.value })}

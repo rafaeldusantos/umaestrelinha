@@ -22,6 +22,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_MATERIAL } from '@estrelinha/supabase/types/settings'
+import { FREE_SHIPPING_REGIONS, freeShippingRefusal } from '@estrelinha/core/shipping'
 
 // `vi.hoisted` roda ANTES dos imports do módulo, então o corpo dele não pode ler `DEFAULT_MATERIAL`
 // (`Cannot access '__vi_import__' before initialization`). Os nove campos vazios ficam escritos aqui,
@@ -472,6 +473,12 @@ describe('Configurações › nenhum campo foi removido (Success Criteria)', () 
     'frete-e-material': [
       'Frete grátis a partir de',
       'Custo de frete padrão',
+      // As cinco regiões do frete grátis.
+      'Norte',
+      'Nordeste',
+      'Centro-Oeste',
+      'Sudeste',
+      'Sul',
       'Destinatário',
       'Logradouro',
       'Número',
@@ -844,8 +851,10 @@ describe('Configurações › Frete — ligado sem faixa e RECUSADO (FRG-12)', (
     await waitFor(() => expect(toast).toHaveBeenCalled())
     const chamada = toast.mock.calls[0][0]
     expect(chamada.variant).toBe('destructive')
-    expect(chamada.description).toMatch(/valor/i)
-    expect(chamada.description).not.toMatch(/🎉|corra|agora/i)
+    // O motivo de `core` é o título do aviso: a recusa pode ser da faixa ou das regiões, e um
+    // título fixo nomearia só uma.
+    expect(chamada.title).toMatch(/valor/i)
+    expect(chamada.title).not.toMatch(/🎉|corra|agora/i)
   })
 
   it('DESLIGADO com o valor zerado e gravavel — a faixa nao importa quando nao ha faixa', async () => {
@@ -874,6 +883,149 @@ describe('Configurações › Frete — ligado sem faixa e RECUSADO (FRG-12)', (
         free_shipping_threshold: 199.9,
       }),
     })
+  })
+})
+
+describe('Configurações › Frete — as regiões do frete grátis ', () => {
+  const ORDEM = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul']
+  const caixa = (nome: string) => screen.getByRole('checkbox', { name: nome })
+
+  const comRegioes = (regioes: string[] | undefined, enabled = true) => {
+    state.data = state.montar({ ...DEFAULT_MATERIAL })
+    state.data.shipping = {
+      ...state.data.shipping,
+      free_shipping_enabled: enabled,
+      ...(regioes === undefined ? {} : { free_shipping_regions: regioes }),
+    } as typeof state.data.shipping
+  }
+
+  it('as cinco caixas aparecem, na ordem Norte → Sul, com os estados de cada uma, marcadas quando a linha não tem o campo', () => {
+    comRegioes(undefined)
+    abrirFreteEMaterial()
+
+    expect(screen.getByText('Regiões com frete grátis')).toBeInTheDocument()
+    const caixas = screen.getAllByRole('checkbox')
+    expect(caixas).toHaveLength(5)
+    expect(caixas.map(c => document.querySelector(`label[for="${c.id}"]`)?.textContent)).toEqual(ORDEM)
+
+    const estados: Record<string, string> = {
+      Norte: 'AC, AP, AM, PA, RO, RR, TO',
+      Nordeste: 'AL, BA, CE, MA, PB, PE, PI, RN, SE',
+      'Centro-Oeste': 'DF, GO, MT, MS',
+      Sudeste: 'SP, RJ, MG, ES',
+      Sul: 'PR, SC, RS',
+    }
+    for (const nome of ORDEM) {
+      expect(caixa(nome), nome).toBeChecked()
+      expect(caixa(nome), nome).toBeEnabled()
+      // A ajuda dos estados é a descrição acessível da caixa.
+      expect(caixa(nome)).toHaveAccessibleDescription(estados[nome])
+    }
+  })
+
+  it('reflete a lista gravada: só Sul e Sudeste marcadas', () => {
+    comRegioes(['sul', 'sudeste'])
+    abrirFreteEMaterial()
+
+    expect(caixa('Sul')).toBeChecked()
+    expect(caixa('Sudeste')).toBeChecked()
+    for (const nome of ['Norte', 'Nordeste', 'Centro-Oeste']) expect(caixa(nome), nome).not.toBeChecked()
+  })
+
+  it('desmarcar TODAS com o interruptor ligado não chega a escrever, e o aviso traz o motivo de `core`', async () => {
+    comRegioes(undefined)
+    abrirFreteEMaterial()
+    for (const nome of ORDEM) fireEvent.click(caixa(nome))
+    for (const nome of ORDEM) expect(caixa(nome), nome).not.toBeChecked()
+    salvarFrete()
+
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(mutateAsync).not.toHaveBeenCalled()
+    const chamada = toast.mock.calls[0][0]
+    expect(chamada.variant).toBe('destructive')
+    expect(chamada.title).toBe(
+      freeShippingRefusal({ free_shipping_enabled: true, free_shipping_threshold: 150, free_shipping_regions: [] }),
+    )
+    expect(chamada.title).toMatch(/região/i)
+  })
+
+  it('salvar Sul + Sudeste grava `free_shipping_regions` na ordem de `core`, junto do resto de `shipping`', async () => {
+    comRegioes(undefined)
+    abrirFreteEMaterial()
+    for (const nome of ['Norte', 'Nordeste', 'Centro-Oeste']) fireEvent.click(caixa(nome))
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    // Só o aviso de sucesso: nenhuma recusa.
+    expect(toast.mock.calls.some(([t]) => t.variant === 'destructive')).toBe(false)
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({
+        free_shipping_enabled: true,
+        free_shipping_threshold: 150,
+        default_shipping_cost: 9.9,
+        free_shipping_regions: ['sul', 'sudeste'],
+      }),
+    })
+  })
+
+  it('remarcar uma região devolve-a à lista gravada', async () => {
+    comRegioes(['sul'])
+    abrirFreteEMaterial()
+    fireEvent.click(caixa('Norte'))
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync.mock.calls[0][0].value.free_shipping_regions).toEqual(['sul', 'norte'])
+  })
+
+  it('a linha sem o campo grava as cinco por escrito', async () => {
+    comRegioes(undefined)
+    abrirFreteEMaterial()
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync.mock.calls[0][0].value.free_shipping_regions).toEqual(FREE_SHIPPING_REGIONS)
+  })
+
+  it('com o interruptor DESLIGADO as caixas ficam desabilitadas, e a lista vazia é gravável', async () => {
+    comRegioes([], false)
+    abrirFreteEMaterial()
+
+    for (const nome of ORDEM) {
+      expect(caixa(nome), nome).toBeDisabled()
+      expect(caixa(nome), nome).not.toBeChecked()
+    }
+    expect(screen.getByText('Guardadas. Voltam a valer quando você ligar o frete grátis.')).toBeInTheDocument()
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    // Só o aviso de sucesso: nenhuma recusa.
+    expect(toast.mock.calls.some(([t]) => t.variant === 'destructive')).toBe(false)
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({ free_shipping_enabled: false, free_shipping_regions: [] }),
+    })
+  })
+
+  it('desligar o interruptor na tela desabilita as caixas na hora', () => {
+    comRegioes(undefined)
+    abrirFreteEMaterial()
+    expect(caixa('Sul')).toBeEnabled()
+    fireEvent.click(interruptor())
+    expect(caixa('Sul')).toBeDisabled()
+  })
+
+  it('cada caixa tem rótulo ligado por `htmlFor`, e o rótulo é um alvo de 44px', () => {
+    abrirFreteEMaterial()
+    for (const nome of ORDEM) {
+      const rotulo = document.querySelector(`label[for="${caixa(nome).id}"]`) as HTMLElement
+      expect(rotulo, nome).not.toBeNull()
+      expect(rotulo.textContent).toBe(nome)
+      expect(temClasse(rotulo, 'min-h-11'), nome).toBe(true)
+      // E a linha inteira também mede 44px.
+      expect(temClasse(rotulo.closest('li') as HTMLElement, 'min-h-11'), nome).toBe(true)
+    }
   })
 })
 

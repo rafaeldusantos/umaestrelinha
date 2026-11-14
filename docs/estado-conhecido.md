@@ -7,6 +7,27 @@ decisão da dona. **Registro novo entra aqui, no topo**, não no `CLAUDE.md`.
 Abaixo, o conteúdo da seção como estava em 2026-11-14, sem edição.
 
 
+- **O WI 99 (frete grátis por região) está IMPLEMENTADO na branch `feature/99`, sem push**, com a migration
+  `20261130150000_99-frete-gratis-por-regiao.sql` aplicada **só no banco local**. **Ordem de publicação:
+  migration → functions (`checkout`, `mercado-pago`) → bundles.** A migration só acrescenta o campo das
+  regiões com as cinco (campo ausente também vale as cinco), então o deploy não muda o frete de ninguém;
+  as functions passam a conferir o frete grátis do pedido montado pela região do CEP, e os bundles a
+  anunciá-lo. ⚠️ O push na `master` aplica a migration no hospedado: perguntar antes. Validation PASS e QA
+  real-user em duas rodadas (7 bugs, todos `resolved`; veredito `partial`): ficaram sem prova na tela o
+  design-check contra o protótipo, o CEP do RS (90010-000) e a gaveta em 1440. Dívidas declaradas pelo WI:
+  - **`PR-11` — o pedido montado zera QUALQUER opção.** Com o frete grátis concedido, a proposta zera o
+    frete da opção que a dona escolheu, seja ela qual for; na loja, só a mais barata sai "Grátis". A
+    cliente do link nunca paga mais que na loja, e pode pagar menos.
+  - **Pergunta 2 — o pedido comum não confere o frete no servidor.** A function `checkout` grava o frete
+    que a loja calculou, sem refazer a cotação nem a regra do frete grátis; com as regiões limitadas, uma
+    requisição forjada poderia gravar frete zero para um CEP de fora. Só o pedido montado é conferido
+    (`proposalPricing`, na `checkout` e na `mercado-pago`). A dívida é anterior ao WI 99; a região só a
+    torna mais visível.
+  - **A faixa 78900–78999 (Norte, Rondônia) é `[conhecimento]`**, não conferida contra a tabela dos
+    Correios. O Norte e o Centro-Oeste se intercalam entre 76800 e 78999, e uma faixa errada ali
+    poria um CEP na região errada sem nada acusar. Conferir antes de a dona limitar o frete grátis a uma
+    das duas. O dono é `core/shipping/region.ts`.
+
 - **O WI-01 (Compre Junto) está IMPLEMENTADO na branch `feature/WI-01`, sem push**, com quatro migrations
   aplicadas **só no banco local** (`AD-072`). **Ordem de publicação**: a migration das tabelas
   (`20261105120000`) → a de conversão (`20261105130000`, que copia `products.buy_together_ids` para os
@@ -587,6 +608,7 @@ código — mas todas explicam por que uma tela parece vazia:
 | O que | Onde ela decide | Por que a tela parece vazia hoje |
 | --- | --- | --- |
 | Material de cada produto | `/admin/produtos`, aba Geral | a `22` semeou 689 produtos por inferência do nome |
+| **As regiões do frete grátis** | `/admin/configuracoes` → **Frete e Material**, card Frete ("Regiões com frete grátis") | o WI 99 nasce com as **cinco** regiões marcadas (a migration as grava, e campo ausente vale as cinco) ⇒ nada muda no deploy. **A campanha Sul + Sudeste é escolha dela**: desmarcar Centro-Oeste, Nordeste e Norte. Com as regiões limitadas, a gaveta e o checkout dizem "Frete grátis só para Sul e Sudeste" para CEP de fora, e o frete é cobrado; o painel recusa gravar a lista vazia com o interruptor ligado |
 | **As listas e os adicionais do Compre Junto** | `/admin/compre-junto` e a aba **Compre junto** do produto | o WI-01 **não semeia lista nenhuma**; a conversão leva só o que havia em `products.buy_together_ids` (até 3 peças, tipo produto). Listas ("Correntes", "Embalagens") e a forma do bloco na loja ("Na linha", padrão) esperam a Adri |
 | O menu de cada dispositivo | `/admin/menu` | `menu_desktop` e `menu_mobile` nascem `false` nas 37 categorias ⇒ barra do topo e folha do celular vazias. **São duas curadorias**, e ligar numa não liga na outra (feature `39`). O único item semeado é o link "Sobre", em `store_settings.menu` |
 | Arte da vitrine | `/admin/categorias` | nenhuma das 37 categorias tem `banner_url` ⇒ a grade de banners não aparece |

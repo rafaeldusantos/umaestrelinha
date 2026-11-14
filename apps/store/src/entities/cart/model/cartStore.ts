@@ -278,8 +278,11 @@ export const useCartStore = create<CartState>()(
         // sempre verdadeiro: o carrinho zerava o frete numa loja que já não anunciava frete grátis
         // em lugar nenhum. Zustand não pode chamar hook, então a configuração hidratada vem de
         // `runtimeFreeShippingConfig()` — mas quem decide continua sendo `freeShippingState`.
+        //
+        // Lê `granted`, não `reached`: o carrinho não conhece o CEP, e com o frete grátis limitado a
+        // algumas regiões a faixa atingida sem destino não concede. Com as cinco regiões, igual.
         const estado = freeShippingState(runtimeFreeShippingConfig(), get().subtotal())
-        return estado.reached ? 0 : SHIPPING_COST
+        return estado.granted ? 0 : SHIPPING_COST
       },
       total: () => get().subtotal() + get().shippingCost(),
     }),

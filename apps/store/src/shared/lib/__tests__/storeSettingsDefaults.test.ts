@@ -18,6 +18,7 @@ import { DEFAULT_BUY_TOGETHER_FORM } from '@estrelinha/core/buy-together'
 import { DEFAULT_ANNOUNCEMENTS as DEFAULT_ANNOUNCEMENTS_DO_CORE } from '@estrelinha/core/announcements'
 import { DEFAULT_APPEARANCE as DEFAULT_APPEARANCE_DO_CORE } from '@estrelinha/core/appearance'
 import { readdirSync } from 'node:fs'
+import { FREE_SHIPPING_REGIONS } from '@estrelinha/core/shipping'
 import { LEGACY_ENABLED_EVENTS, NOTIFICATION_EVENTS } from '@estrelinha/core/notifications'
 
 /**
@@ -644,5 +645,104 @@ describe('o perfil de estilo da loja', () => {
     const semeia = "insert into public.store_settings (key, value) values ('appearance', '{}');"
     expect(semComentarioSql(semeia).includes("'appearance'")).toBe(true)
     expect(semComentarioSql(`-- ${semeia}`).includes("'appearance'")).toBe(false)
+  })
+})
+
+/**
+ * As regiões do frete grátis — a chave `shipping` ganhou `free_shipping_regions` na sua própria
+ * migration, no molde aditivo da 37 e da 63. O valor é uma LISTA, e `campoAditivo` só lê escalar:
+ * daí o parser próprio, que lê o literal `'[…]'::jsonb` e o passa por `JSON.parse`. O padrão do
+ * TypeScript é uma lista literal (o pacote de tipos não importa de `core`, que já importa dele), e
+ * por isso é conferida aqui contra `FREE_SHIPPING_REGIONS`, o dono das cinco.
+ */
+const NOME_REGIOES = readdirSync(MIGRATIONS).find((n) => /_99-frete-gratis-por-regiao\.sql$/.test(n))
+const SQL_REGIOES = NOME_REGIOES ? readFileSync(`${MIGRATIONS}/${NOME_REGIOES}`, 'utf8') : ''
+
+/** O literal de `jsonb_build_object('<campo>', '<json>'::jsonb)` de um UPDATE aditivo, já parseado. */
+function listaAditiva(fonte: string, campo: string): unknown {
+  const re = new RegExp(`jsonb_build_object\\(\\s*'${campo}',\\s*'((?:[^']|'')*)'::jsonb\\s*\\)`)
+  const m = re.exec(semComentarioSql(fonte))
+  if (!m) return undefined
+  return JSON.parse(m[1].replace(/''/g, "'"))
+}
+
+const regioesAditiva = (fonte: string): boolean =>
+  /SET\s+value\s*=\s*value\s*\|\|\s*jsonb_build_object\(\s*'free_shipping_regions'/i.test(
+    semComentarioSql(fonte),
+  )
+const regioesIdempotente = (fonte: string): boolean =>
+  /NOT\s+value\s*\?\s*'free_shipping_regions'/i.test(semComentarioSql(fonte))
+
+describe('free_shipping_regions — as regiões do frete grátis dizem o mesmo nos dois lados', () => {
+  it('ÂNCORA: achou e leu a migration das regiões, e o `update` está nela', () => {
+    expect(NOME_REGIOES).toBeDefined()
+    expect(SQL_REGIOES).toContain('store_settings')
+    expect(semComentarioSql(SQL_REGIOES)).toMatch(/UPDATE\s+public\.store_settings/i)
+  })
+
+  it('o parser DISCRIMINA — campo ausente devolve undefined', () => {
+    expect(listaAditiva(SQL_REGIOES, 'campo_que_nao_existe')).toBeUndefined()
+    expect(listaAditiva(SQL_REGIOES, 'free_shipping_regions')).toBeDefined()
+  })
+
+  it('o padrão do TypeScript são as cinco de core, na mesma ordem', () => {
+    expect(DEFAULT_SHIPPING.free_shipping_regions).toEqual([...FREE_SHIPPING_REGIONS])
+  })
+
+  it('a migration grava exatamente o padrão do TypeScript', () => {
+    expect(listaAditiva(SQL_REGIOES, 'free_shipping_regions')).toEqual(
+      DEFAULT_SHIPPING.free_shipping_regions,
+    )
+  })
+
+  it('sensor: uma região a menos na migration reprova a comparação', () => {
+    const mutante = mutar(SQL_REGIOES, /,\s*"norte"/, '')
+    expect(listaAditiva(mutante, 'free_shipping_regions')).not.toEqual(
+      DEFAULT_SHIPPING.free_shipping_regions,
+    )
+  })
+
+  it('a migration é ADITIVA — `value ||` preserva os outros campos de `shipping`', () => {
+    expect(regioesAditiva(SQL_REGIOES)).toBe(true)
+  })
+
+  it('sensor: sem o `value ||` (troca da linha inteira) a régua reprova', () => {
+    const mutante = mutar(SQL_REGIOES, /value\s*\|\|\s*jsonb_build_object/, 'jsonb_build_object')
+    expect(regioesAditiva(mutante)).toBe(false)
+  })
+
+  it('a migration é IDEMPOTENTE — o segundo `db push` não desfaz a escolha da dona', () => {
+    expect(regioesIdempotente(SQL_REGIOES)).toBe(true)
+  })
+
+  it("sensor: sem o `NOT value ? 'free_shipping_regions'` a régua reprova", () => {
+    const mutante = mutar(SQL_REGIOES, /\n\s*AND\s+NOT\s+value\s*\?\s*'free_shipping_regions'/i, '')
+    expect(regioesIdempotente(mutante)).toBe(false)
+  })
+
+  it('sensor: a forma só citada em comentário não conta como idempotência', () => {
+    const mutante = mutar(
+      SQL_REGIOES,
+      /\n\s*AND\s+NOT\s+value\s*\?\s*'free_shipping_regions'/i,
+      "\n-- AND NOT value ? 'free_shipping_regions'",
+    )
+    expect(regioesIdempotente(mutante)).toBe(false)
+  })
+
+  it('a migration alcança a chave `shipping`, e só ela', () => {
+    expect(soAChaveShipping(SQL_REGIOES)).toBe(true)
+    expect(soAChaveShipping(mutar(SQL_REGIOES, /key\s*=\s*'shipping'/, "key = 'material'"))).toBe(
+      false,
+    )
+  })
+
+  it('nenhuma escrita além do `update` aditivo', () => {
+    const sem = semComentarioSql(SQL_REGIOES).toLowerCase()
+    expect(sem.match(/\bupdate\b/g)).toHaveLength(1)
+    expect(sem).not.toContain('insert ')
+    expect(sem).not.toContain('delete from')
+    expect(sem).not.toContain('alter table')
+    expect(sem).not.toContain('create policy')
+    expect(sem).not.toContain('grant ')
   })
 })

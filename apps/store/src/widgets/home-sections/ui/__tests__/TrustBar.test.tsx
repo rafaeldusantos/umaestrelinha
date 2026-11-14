@@ -23,7 +23,7 @@ const payment = vi.hoisted(() => ({
 // interruptor é campo próprio, e a faixa guardada sobrevive a ele. O componente lê `useFreeShipping`,
 // que consome estas mesmas settings — mockar aqui exercita a regra de verdade, não um dublê dela.
 const shipping = vi.hoisted(() => ({
-  value: { free_shipping_enabled: true, free_shipping_threshold: 150 },
+  value: { free_shipping_enabled: true, free_shipping_threshold: 150 } as Record<string, unknown>,
 }))
 
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
@@ -108,5 +108,42 @@ describe('TrustBar — o que some quando a loja desliga', () => {
     render(<TrustBar />)
     expect(screen.getByText('para todo o Brasil')).toBeInTheDocument()
     expect(screen.queryByText(/grátis acima de/)).toBeNull()
+  })
+})
+
+describe('TrustBar — a região do frete grátis', () => {
+  it('com Sul e Sudeste, a segunda linha do envio diz a região', () => {
+    shipping.value = {
+      free_shipping_enabled: true,
+      free_shipping_threshold: 450,
+      free_shipping_regions: ['sul', 'sudeste'],
+    }
+    render(<TrustBar />)
+    expect(
+      screen.getByText('grátis acima de R$ 450 · para Sul e Sudeste', { normalizer: (t) => t }),
+    ).toBeInTheDocument()
+  })
+
+  it('com as cinco regiões, o texto de hoje, sem falar de região', () => {
+    shipping.value = {
+      free_shipping_enabled: true,
+      free_shipping_threshold: 450,
+      free_shipping_regions: ['sul', 'sudeste', 'centro-oeste', 'nordeste', 'norte'],
+    }
+    render(<TrustBar />)
+    expect(screen.getByText('grátis acima de R$ 450', { normalizer: (t) => t })).toBeInTheDocument()
+    expect(screen.queryByText(/para Sul/)).toBeNull()
+  })
+
+  it('desligado, nenhum anúncio de frete grátis nem de região', () => {
+    shipping.value = {
+      free_shipping_enabled: false,
+      free_shipping_threshold: 450,
+      free_shipping_regions: ['sul', 'sudeste'],
+    }
+    render(<TrustBar />)
+    expect(screen.getByText('para todo o Brasil')).toBeInTheDocument()
+    expect(screen.queryByText(/grátis acima de/)).toBeNull()
+    expect(screen.queryByText(/Sudeste/)).toBeNull()
   })
 })

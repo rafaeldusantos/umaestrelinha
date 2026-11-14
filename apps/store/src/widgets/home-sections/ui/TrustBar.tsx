@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
+import { regionsLabel } from '@estrelinha/core/shipping'
 import { AtendimentoIcon, EnvioIcon, ParcelasIcon, PixIcon } from '@estrelinha/ui/icons'
 
 /**
@@ -25,6 +26,8 @@ interface Vantagem {
 const TrustBar = () => {
   const { pix_enabled, pix_discount_percent, max_installments } = usePaymentSettings()
   const freteGratis = useFreeShipping()
+  // `null` com as cinco regiões: aí a linha é a de sempre, sem falar de região.
+  const regiao = regionsLabel(freteGratis.regions)
 
   const items = [
     max_installments > 1 && {
@@ -46,7 +49,7 @@ const TrustBar = () => {
       // O interruptor decide a segunda linha em vez de sumir com o item: envio para todo o Brasil é
       // verdade com ou sem frete grátis, e é a promessa que a cliente precisa ler.
       bottom: freteGratis.active
-        ? `grátis acima de R$ ${freteGratis.threshold}`
+        ? `grátis acima de R$ ${freteGratis.threshold}${regiao ? ` · para ${regiao}` : ''}`
         : 'para todo o Brasil',
     },
     pix_enabled &&

@@ -17,7 +17,7 @@ vi.mock('@estrelinha/supabase/client', () => ({
 
 // Mesmo molde de `DeliveryBlock.test.tsx`: o hook é mockado em vez de montar QueryClientProvider,
 // para que `handling_days` seja um valor escolhido pelo teste e não uma ida ao banco.
-const shippingSettings = { handling_days: 2 }
+const shippingSettings: { handling_days: number } & Record<string, unknown> = { handling_days: 2 }
 // Feature 63: a retirada lê a configuração inteira (`shipping` + `material`) por `useStoreSettings`.
 // Só é chamada para CEP do RS — os casos acima, com CEP de São Paulo, nunca a alcançam.
 const storeSettings: { data: { shipping: Record<string, unknown>; material: Record<string, unknown> }; isFetched: boolean } = {
@@ -304,5 +304,101 @@ describe('ShippingCalc — retirada no escritório (feature 63)', () => {
     fireEvent.change(screen.getByPlaceholderText('00000-000'), { target: { value: '01310' } })
 
     expect(screen.getByText(LINHA)).toBeInTheDocument()
+  })
+})
+
+describe('ShippingCalc — o anúncio do frete grátis, com a região', () => {
+  const MATERIAL = {
+    recipient: 'Adri Muniz',
+    street: 'Rua Dona Laura',
+    number: '455',
+    complement: 'Sala 3',
+    neighborhood: 'Rio Branco',
+    city: 'Porto Alegre',
+    state: 'RS',
+    zip: '90430091',
+    notes: '',
+  }
+  const cotacao = [
+    { id: 1, name: 'PAC', company: 'Correios', price: '23.22', delivery_time: 6, delivery_range: { min: 5, max: 6 } },
+    { id: 2, name: 'SEDEX', company: 'Correios', price: '41.10', delivery_time: 2 },
+  ]
+  const semNbsp = (t: string) => t.replace(/\u00a0/g, ' ')
+
+  const ligar = (regioes: string[]) => {
+    Object.assign(shippingSettings, {
+      free_shipping_enabled: true,
+      free_shipping_threshold: 450,
+      free_shipping_regions: regioes,
+    })
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 9, 12))
+    storeSettings.isFetched = true
+    storeSettings.data = { shipping: { handling_days: 2, pickup_enabled: true }, material: { ...MATERIAL } }
+    invokeMock.mockResolvedValue({ data: cotacao, error: null } as never)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    for (const chave of ['free_shipping_enabled', 'free_shipping_threshold', 'free_shipping_regions']) {
+      delete shippingSettings[chave]
+    }
+  })
+
+  const calcular = async (cep: string, preco = 500) => {
+    render(<ShippingCalc product={product({ price: preco })} />)
+    fireEvent.change(screen.getByPlaceholderText('00000-000'), { target: { value: cep } })
+    fireEvent.click(screen.getByRole('button', { name: 'Calcular' }))
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1))
+  }
+
+  it('ativo com Sul e Sudeste: uma linha com a faixa e a região, antes de consultar o CEP', () => {
+    ligar(['sul', 'sudeste'])
+    render(<ShippingCalc product={product()} />)
+    expect(
+      screen.getByText('Frete grátis acima de R$ 450,00 · para Sul e Sudeste', { normalizer: semNbsp }),
+    ).toBeInTheDocument()
+  })
+
+  it('ativo com as cinco regiões: a linha com a faixa, sem falar de região', () => {
+    ligar(['sul', 'sudeste', 'centro-oeste', 'nordeste', 'norte'])
+    render(<ShippingCalc product={product()} />)
+    expect(screen.getByText('Frete grátis acima de R$ 450,00', { normalizer: semNbsp })).toBeInTheDocument()
+    expect(screen.queryByText(/para Sul/)).toBeNull()
+  })
+
+  it('com a cotação de uma peça acima da faixa, nenhuma opção sai "Grátis" nem riscada', async () => {
+    ligar(['sul', 'sudeste'])
+    await calcular('01310100')
+
+    expect(await screen.findByText('PAC — Correios')).toBeInTheDocument()
+    expect(screen.getByText('R$ 23,22', { normalizer: semNbsp })).toBeInTheDocument()
+    expect(screen.getByText('R$ 41,10', { normalizer: semNbsp })).toBeInTheDocument()
+    expect(screen.queryByText('Grátis')).toBeNull()
+    expect(document.querySelectorAll('s, del, .line-through')).toHaveLength(0)
+  })
+
+  it('CEP do RS: só a retirada continua "Grátis", como hoje', async () => {
+    ligar(['sul', 'sudeste'])
+    await calcular('91240010')
+
+    expect(await screen.findByText('Retirar em')).toBeInTheDocument()
+    expect(screen.getAllByText('Grátis')).toHaveLength(1)
+    expect(within(screen.getByRole('list', { name: 'Retirar em' })).getByText('Grátis')).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Envio a domicílio' })).getByText('R$ 23,22', { normalizer: semNbsp })).toBeInTheDocument()
+  })
+
+  it('desligado: sem a linha de frete grátis', () => {
+    Object.assign(shippingSettings, {
+      free_shipping_enabled: false,
+      free_shipping_threshold: 450,
+      free_shipping_regions: ['sul', 'sudeste'],
+    })
+    render(<ShippingCalc product={product()} />)
+    expect(screen.queryByText(/Frete grátis/)).toBeNull()
+    expect(screen.queryByText(/Sudeste/)).toBeNull()
   })
 })

@@ -1,3 +1,5 @@
+import { effectiveRegions } from './shipping/region.ts'
+
 // Defaults / valores hardcoded — usados como fallback enquanto as
 // configurações dinâmicas (`store_settings`) não foram carregadas.
 //
@@ -15,13 +17,24 @@ export let SHIPPING_COST = 9.9
  */
 export let FREE_SHIPPING_ENABLED = false
 
+/**
+ * As regiões do frete grátis, no caminho não-React. `undefined` até a hidratação, e ausente vale as
+ * cinco — o mesmo que a linha antiga de `store_settings`, sem o campo.
+ */
+let FREE_SHIPPING_REGIONS_RUNTIME: readonly string[] | undefined
+
 export const setRuntimeShippingSettings = (s: {
   free_shipping_enabled?: boolean
   free_shipping_threshold?: number
+  free_shipping_regions?: readonly string[] | null
   default_shipping_cost?: number
 }) => {
   if (typeof s.free_shipping_enabled === 'boolean') {
     FREE_SHIPPING_ENABLED = s.free_shipping_enabled
+  }
+  if (Array.isArray(s.free_shipping_regions)) {
+    // Cópia: a lista de quem hidratou pode ser mutada depois, e o que vale é o que chegou agora.
+    FREE_SHIPPING_REGIONS_RUNTIME = [...s.free_shipping_regions]
   }
   if (typeof s.free_shipping_threshold === 'number') {
     FREE_SHIPPING_THRESHOLD = s.free_shipping_threshold
@@ -45,6 +58,9 @@ export const setRuntimeShippingSettings = (s: {
 export const runtimeFreeShippingConfig = () => ({
   free_shipping_enabled: FREE_SHIPPING_ENABLED,
   free_shipping_threshold: FREE_SHIPPING_THRESHOLD,
+  // `effectiveRegions` (folha sem import, alcançável pelo Deno): ausente vale as cinco, slug
+  // desconhecido sai, lista vazia continua vazia — a mesma leitura de `freeShippingConfigOf`.
+  free_shipping_regions: effectiveRegions(FREE_SHIPPING_REGIONS_RUNTIME),
 })
 
 /**

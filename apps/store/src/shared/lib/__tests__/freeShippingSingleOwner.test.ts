@@ -29,8 +29,12 @@ import { describe, expect, it } from 'vitest'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '../../../../../..')
 
-/** Escopo literal: as duas pontas que têm tela. */
-const ESCOPO = ['apps']
+/**
+ * Escopo literal: as duas pontas que têm tela, e as edge functions — que recalculam o frete grátis
+ * do pedido montado no servidor (`checkout`, `mercado-pago`) e, rodando com a chave de serviço,
+ * seriam a superfície mais cara para uma segunda leitura do campo.
+ */
+const ESCOPO = ['apps', 'supabase/functions']
 
 const IGNORADOS = new Set(['node_modules', 'dist', '.turbo', '.temp', 'coverage', '.git'])
 const EXTENSOES = ['.ts', '.tsx']
@@ -122,6 +126,9 @@ describe('freeShipping — âncoras da varredura', () => {
     expect(varridos.length).toBeGreaterThan(400)
     expect(varridos.some((a) => a.rel.startsWith('apps/store/src/'))).toBe(true)
     expect(varridos.some((a) => a.rel.startsWith('apps/backoffice/src/'))).toBe(true)
+    // E as functions — a régua das regiões vale também no servidor.
+    expect(varridos.some((a) => a.rel === 'supabase/functions/checkout/proposal.ts')).toBe(true)
+    expect(varridos.some((a) => a.rel === 'supabase/functions/mercado-pago/handlers.ts')).toBe(true)
   })
 
   it('a varredura separa produção de teste, e sobra produção de verdade', () => {
@@ -368,5 +375,218 @@ describe('nenhum valor de frete grátis cravado em JSX (FRG-13)', () => {
       ],
     }
     expect(procurar(/[Ff]rete\s+gr[áa]tis[^'"`\n]{0,24}R\$\s?\d/, [sintetico])).toEqual([])
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// As regiões do frete grátis
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * `free_shipping_regions` tem o mesmo dono que o resto da regra: quem decide "esta região vale?" é
+ * `freeShippingState`, e o único caminho do jsonb cru para a configuração é `freeShippingConfigOf`
+ * (`@estrelinha/core/shipping`). Uma tela que lesse a lista crua trataria "campo ausente" como
+ * "nenhuma região" — a linha antiga de `store_settings` deixaria de dar frete grátis no dia do
+ * deploy, numa tela só, sem nada quebrar.
+ *
+ * O núcleo (`packages/core`) declara o campo e fica FORA desta varredura de propósito: é ele o dono.
+ */
+const ALLOWLIST_REGIOES: Record<string, string> = {
+  'apps/backoffice/src/features/settings/ui/ShippingMaterialSection.tsx':
+    'O editor da configuração: grava a lista que as caixas marcam, lida por `freeShippingConfigOf`.',
+  'apps/store/src/app/RuntimeSettingsLoader.tsx':
+    'A ponte para o caminho não-React: copia o campo JÁ passado por `freeShippingConfigOf`, nunca o jsonb cru.',
+}
+
+const REGRA_REGIOES = /free_shipping_regions/
+
+describe('nenhuma tela nem function lê `free_shipping_regions` direto', () => {
+  const leituras = procurar(REGRA_REGIOES)
+
+  it('toda ocorrência está no allowlist', () => {
+    const foraDaLista = leituras.filter(
+      (o) => !Object.prototype.hasOwnProperty.call(ALLOWLIST_REGIOES, o.arquivo),
+    )
+    expect(
+      foraDaLista.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`),
+      'leia as regiões por `freeShippingConfigOf`/`useFreeShipping` (@estrelinha/core/shipping)',
+    ).toEqual([])
+  })
+
+  it('o allowlist ainda casa — entrada que não nomeia mais o campo reprova', () => {
+    for (const arquivo of Object.keys(ALLOWLIST_REGIOES)) {
+      expect(
+        leituras.some((o) => o.arquivo === arquivo),
+        `${arquivo} está no allowlist das regiões mas não nomeia mais o campo — remova a entrada`,
+      ).toBe(true)
+    }
+  })
+
+  it('o allowlist é FECHADO — dois arquivos, escritos literalmente', () => {
+    expect(Object.keys(ALLOWLIST_REGIOES).sort()).toEqual([
+      'apps/backoffice/src/features/settings/ui/ShippingMaterialSection.tsx',
+      'apps/store/src/app/RuntimeSettingsLoader.tsx',
+    ])
+  })
+
+  it('a ponte copia o campo já passado por `freeShippingConfigOf`, nunca o jsonb cru', () => {
+    const ponte = producao.find((a) => a.rel === 'apps/store/src/app/RuntimeSettingsLoader.tsx')!
+    expect(ponte.linhas.some((l) => /freeShippingConfigOf\(/.test(l))).toBe(true)
+    const linhas = ponte.linhas.filter((l) => REGRA_REGIOES.test(l))
+    expect(linhas.length).toBeGreaterThan(0)
+    for (const linha of linhas) {
+      expect(linha.trim()).toMatch(/^free_shipping_regions:\s*frete\.free_shipping_regions,?$/)
+    }
+    // E `frete` é o resultado do dono, não o jsonb.
+    expect(ponte.linhas.some((l) => /\bfrete\s*=\s*freeShippingConfigOf\(/.test(l))).toBe(true)
+  })
+
+  it('metade positiva: o editor e as duas functions passam pelo dono', () => {
+    // Sem esta metade, apagar as chamadas deixaria a régua de ausência verdadeira e vazia.
+    for (const rel of [
+      'apps/backoffice/src/features/settings/ui/ShippingMaterialSection.tsx',
+      'supabase/functions/checkout/proposal.ts',
+      'supabase/functions/mercado-pago/handlers.ts',
+    ]) {
+      const arquivo = producao.find((a) => a.rel === rel)
+      expect(arquivo, rel).toBeDefined()
+      expect(arquivo!.linhas.some((l) => /freeShippingConfigOf\(/.test(l)), rel).toBe(true)
+    }
+  })
+
+  it('SENSOR: uma leitura crua nova é acusada — numa tela da loja e numa function, com CRLF, LF e o glob', () => {
+    const fontes = [
+      `// a regra cobre ${'apps/' + '*'.repeat(2)}\r\nconst regioes = settings.shipping.free_shipping_regions ?? []\r\n/* fim */\r\n`,
+      `// comentário\nconst regioes = shipping.free_shipping_regions\n`,
+    ]
+    for (const [i, fonte] of fontes.entries()) {
+      for (const rel of ['apps/store/src/widgets/cart-drawer/ui/Sintetico.tsx', 'supabase/functions/checkout/sintetico.ts']) {
+        const sintetico: Arquivo = { rel, linhas: semComentarios(fonte) }
+        const achados = procurar(REGRA_REGIOES, [sintetico])
+        expect(achados.map((o) => o.linha), `${rel} #${i}`).toEqual([2])
+        expect(
+          achados.filter((o) => !Object.prototype.hasOwnProperty.call(ALLOWLIST_REGIOES, o.arquivo)),
+        ).toHaveLength(1)
+      }
+    }
+  })
+
+  it('SENSOR inverso: a prosa e a leitura pelo dono não são acusadas', () => {
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/cart-drawer/ui/Sintetico.tsx',
+      linhas: semComentarios(
+        [
+          '// free_shipping_regions é do dono',
+          '/** free_shipping_regions\r\n */',
+          'const frete = useFreeShipping(subtotal, cep)',
+          'const regras = freeShippingConfigOf(settings.shipping)',
+          '',
+        ].join('\n'),
+      ),
+    }
+    expect(procurar(REGRA_REGIOES, [sintetico])).toEqual([])
+  })
+})
+
+/**
+ * A faixa numérica de CEP por região mora em `packages/core/src/shipping/region.ts`, e só lá. Uma
+ * segunda tabela — "CEP começando por 8 ou 9 é Sul" — divergiria da de `core` no Norte e no
+ * Centro-Oeste, que se intercalam entre 76800 e 78999, e a cliente veria "liberado" numa tela e
+ * pagaria o frete na outra.
+ *
+ * Três formas: a linha da tabela com o slug da região e um prefixo de CEP; a tupla de dois prefixos
+ * de cinco dígitos (a tabela sem o slug); e a comparação de um CEP com um limite redondo de faixa
+ * (`>= 80000`, `<= 99999999`) numa linha que fala de CEP.
+ */
+const DONO_DAS_FAIXAS = 'packages/core/src/shipping/region.ts'
+const ESCOPO_FAIXAS = ['apps', 'supabase/functions', 'packages']
+
+const SLUG_DE_REGIAO = /(['"`])(sul|sudeste|centro-oeste|nordeste|norte)\1/
+const PREFIXO = /\b\d{4,5}\b/
+const TUPLA_DE_PREFIXOS = /\[\s*\d{4,5}\s*,\s*\d{5}\s*[,\]]/
+const COMPARACAO_DE_CEP = /[<>]=?\s*\d{2}(?:000|999)(?:\d{3})?\b/
+const FALA_DE_CEP = /\b(?:cep|prefixo|prefix|zip)\w*/i
+
+const ehFaixaDeCep = (linha: string): boolean =>
+  (SLUG_DE_REGIAO.test(linha) && PREFIXO.test(linha)) ||
+  TUPLA_DE_PREFIXOS.test(linha) ||
+  (FALA_DE_CEP.test(linha) && COMPARACAO_DE_CEP.test(linha))
+
+const varridosFaixas: Arquivo[] = ESCOPO_FAIXAS.flatMap((d) => arquivos(join(ROOT, d))).map((caminho) => ({
+  rel: relative(ROOT, caminho).split('\\').join('/'),
+  linhas: semComentarios(readFileSync(caminho, 'utf8')),
+}))
+const producaoFaixas = varridosFaixas.filter((a) => !eTeste(a.rel))
+
+const faixasEm = (alvo: Arquivo[]): Ocorrencia[] => {
+  const achados: Ocorrencia[] = []
+  for (const { rel, linhas } of alvo) {
+    linhas.forEach((texto, i) => {
+      if (ehFaixaDeCep(texto)) achados.push({ arquivo: rel, linha: i + 1, texto: texto.trim() })
+    })
+  }
+  return achados
+}
+
+describe('a faixa de CEP por região tem um dono', () => {
+  it('âncora: a varredura alcança os três escopos e o dono', () => {
+    expect(producaoFaixas.length).toBeGreaterThan(300)
+    expect(producaoFaixas.some((a) => a.rel.startsWith('apps/store/src/'))).toBe(true)
+    expect(producaoFaixas.some((a) => a.rel.startsWith('supabase/functions/'))).toBe(true)
+    expect(producaoFaixas.some((a) => a.rel === DONO_DAS_FAIXAS)).toBe(true)
+  })
+
+  it('âncora: a régua ENCONTRA a tabela no dono — as dez faixas', () => {
+    // Sem esta âncora, um regex quebrado aprovaria a ausência abaixo por vacuidade.
+    const noDono = faixasEm(producaoFaixas.filter((a) => a.rel === DONO_DAS_FAIXAS))
+    expect(noDono.length).toBeGreaterThanOrEqual(10)
+  })
+
+  it('nenhum arquivo fora do dono escreve faixa de CEP por região', () => {
+    const fora = faixasEm(producaoFaixas.filter((a) => a.rel !== DONO_DAS_FAIXAS))
+    expect(
+      fora.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`),
+      'pergunte a região do CEP a `regionOfCep` (@estrelinha/core/shipping)',
+    ).toEqual([])
+  })
+
+  it('SENSOR: as três formas são acusadas, com CRLF, LF e o glob ao lado', () => {
+    const glob = 'apps/' + '*'.repeat(2)
+    for (const fim of ['\r\n', '\n']) {
+      const sintetico: Arquivo = {
+        rel: 'apps/store/src/features/sintetico.ts',
+        linhas: semComentarios(
+          [
+            `// a regra cobre ${glob}`,
+            "const SUL = [80000, 99999, 'sul']",
+            'const FAIXAS = [[1000, 39999], [40000, 65999]]',
+            'if (prefixoDoCep >= 80000) return true',
+            'const sul = Number(cep.slice(0, 5)) <= 99999',
+            '/* fim */',
+            '',
+          ].join(fim),
+        ),
+      }
+      expect(faixasEm([sintetico]).map((o) => o.linha), JSON.stringify(fim)).toEqual([2, 3, 4, 5])
+    }
+  })
+
+  it('SENSOR inverso: o código legítimo vizinho não é acusado', () => {
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/features/sintetico.ts',
+      linhas: semComentarios(
+        [
+          "const regiao = regionOfCep(cep) // 'sul'",
+          "if (regiao === 'sul') mostrar()",
+          'if (elapsed > 15000) desistir()',
+          'const SRCSET = [720, 1080]',
+          "const LIMITE = 40000 // centavos",
+          "if (cep.length >= 8) consultar()",
+          "/* [80000, 99999, 'sul'] */",
+          '',
+        ].join('\n'),
+      ),
+    }
+    expect(faixasEm([sintetico])).toEqual([])
   })
 })

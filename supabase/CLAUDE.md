@@ -51,7 +51,7 @@ ausente seria indistinguível de run quebrado na aba Actions.
 
 ## Migrations
 
-71 arquivos `.sql` em `migrations/` (contados em 2026-10-27, no fecho da `83`, numa árvore sem a `82`). **Nenhuma credencial no código.**
+105 arquivos `.sql` em `migrations/` (contados em 2026-11-14, no fecho do WI 99). **Nenhuma credencial no código.**
 
 > **A migration do banner principal (`41`) é o caso de "trocar um guarda sem ficar sem nenhum"**, e o
 > molde é o dos dois sentidos. `guard_hero_home_section` (`HOME-08`) tornava o hero indelével; ele foi
@@ -150,6 +150,17 @@ vigente (`payment_status = 'approved'` e `status <> 'cancelled'`), em dias de Br
 adicionais), conta a peça só quando o principal está no mesmo pedido e conta a linha UMA vez (nas peças,
 por joia e por lista). Nenhuma tabela, coluna ou dado. Guarda: `compreJuntoAdesaoSchema.test.ts` (suíte da
 loja, com o fragmento da régua comparado ao do Dashboard). Probe: `probes/05-adesao.sh` do WI-01.
+
+### As regiões do frete grátis (migration `20261130150000_99-frete-gratis-por-regiao.sql`, WI 99)
+
+Só acrescenta `free_shipping_regions` a `store_settings.shipping`, com as **cinco** regiões pelos slugs
+de `core/shipping/region.ts` — nenhuma tabela, coluna ou policy. Molde da `37` e da `63`: **aditiva**
+(`value ||`, preserva os outros campos da chave) e **idempotente** (`NOT value ?`, para o segundo
+`db push` não desfazer a escolha da dona). Nascer com as cinco é o que faz o deploy não mudar o frete
+de ninguém; limitar a Sul + Sudeste é do painel. Guarda: `storeSettingsDefaults.test.ts` (suíte da
+loja) compara a lista gravada com o padrão do TypeScript, na mesma ordem, e cobra as duas guardas.
+Aplicada **só no local**; ordem de publicação: migration → functions (`checkout`, `mercado-pago`) →
+bundles.
 
 ### RLS — o molde que os guardas cobram
 

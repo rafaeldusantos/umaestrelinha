@@ -12,9 +12,22 @@
 // mundo no caixa, sem nada em tela dizendo por quê. É o "defeito 01" do `CLAUDE.md` no caminho do
 // dinheiro, e a propriedade que o tornava caro é a de sempre: nada quebrava.
 //
-// Nada aqui importa React, Supabase ou Deno, e todo import relativo (hoje: nenhum) traz `.ts`
-// explícito — regra do `CLAUDE.md` medida na feature 33, para que o módulo siga alcançável fora do
-// Vite se algum dia uma edge function precisar dele.
+// Nada aqui importa React, Supabase ou Deno, e todo import relativo traz `.ts` explícito — regra do
+// `CLAUDE.md` medida na feature 33: o grafo de `core/proposals`, que três edge functions importam por
+// caminho, passa por este arquivo. Os dois vizinhos importados são folhas sem import.
+//
+// A regra também sabe o DESTINO: o frete grátis pode valer só para algumas regiões, e
+// o estado separa "o valor atingiu a faixa" (`reached`) de "o frete grátis foi concedido"
+// (`granted`). Quem zera o frete ou diz "liberado" lê `granted`.
+
+import { formatPrice } from '../formatters/price.ts'
+import {
+  FREE_SHIPPING_REGIONS,
+  effectiveRegions,
+  regionOfCep,
+  regionsWithStates,
+  type RegionSlug,
+} from './region.ts'
 
 /**
  * A configuração crua, como `store_settings.shipping` guarda.
@@ -27,7 +40,19 @@
 export interface FreeShippingConfig {
   free_shipping_enabled: boolean
   free_shipping_threshold: number
+  /**
+   * As regiões em que o frete grátis vale, pelos slugs de `region.ts`. **Ausente vale as cinco** —
+   * a linha antiga de `store_settings` continua igual depois do deploy. Lista vazia com o
+   * interruptor ligado deixa o frete grátis inativo (e o painel recusa gravá-la).
+   */
+  free_shipping_regions?: readonly string[] | null
 }
+
+/**
+ * O destino em relação às regiões: `inside` = o CEP é de uma região que vale; `outside` = é de uma
+ * que não vale; `unknown` = sem CEP, CEP incompleto ou de região desconhecida (vale como "sem CEP").
+ */
+export type FreeShippingDestination = 'inside' | 'outside' | 'unknown'
 
 /** O que as superfícies leem. Nenhuma delas deriva nada além disto. */
 export interface FreeShippingState {
@@ -42,8 +67,22 @@ export interface FreeShippingState {
   remaining: number
   /** 0–100, já limitado nas duas pontas — a barra nunca passa do fim nem volta para trás. */
   percent: number
-  /** A faixa foi atingida? **Sempre `false` quando inativo** — ver a invariante 1 abaixo. */
+  /**
+   * O VALOR atingiu a faixa? **Sempre `false` quando inativo** — ver a invariante 1 abaixo. Não diz
+   * que o frete grátis foi concedido: para isso, `granted`.
+   */
   reached: boolean
+  /** O destino em relação às regiões efetivas. `unknown` quando inativo. */
+  destination: FreeShippingDestination
+  /**
+   * O frete grátis foi CONCEDIDO? `reached` **e** (destino dentro das regiões **ou** as cinco
+   * regiões valem). É o campo que zera o frete e que diz "liberado". Sempre `false` quando inativo.
+   */
+  granted: boolean
+  /** As regiões que valem, na ordem fixa. Vazia quando inativo. */
+  regions: RegionSlug[]
+  /** As regiões efetivas não são as cinco? Com as cinco, nenhum texto fala de região. */
+  regionLimited: boolean
 }
 
 /**
@@ -58,6 +97,10 @@ const INATIVO: FreeShippingState = Object.freeze({
   remaining: 0,
   percent: 0,
   reached: false,
+  destination: 'unknown',
+  granted: false,
+  regions: Object.freeze([]) as unknown as RegionSlug[],
+  regionLimited: false,
 })
 
 /** Número utilizável para aritmética de dinheiro? Recusa `NaN`, `Infinity` e `undefined`. */
@@ -71,8 +114,15 @@ const finito = (valor: number): boolean => typeof valor === 'number' && Number.i
  * teria copy própria em cinco superfícies ("+R$ 0" no selo do produto não diz nada). Aqui é o
  * **cinto**; o suspensório é `freeShippingRefusal`, que impede o par de ser gravado.
  */
-const ativo = (config: FreeShippingConfig): boolean =>
+const faixaValida = (config: FreeShippingConfig): boolean =>
   !!config?.free_shipping_enabled && finito(config.free_shipping_threshold) && config.free_shipping_threshold > 0
+
+/**
+ * **Invariante 4**: lista de regiões vazia com o interruptor ligado também é inativo,
+ * pela mesma razão da faixa zerada — o suspensório é a recusa de região em `freeShippingRefusal`.
+ */
+const ativo = (config: FreeShippingConfig): boolean =>
+  faixaValida(config) && effectiveRegions(config.free_shipping_regions).length > 0
 
 /**
  * O estado do frete grátis para um subtotal.
@@ -92,10 +142,16 @@ const ativo = (config: FreeShippingConfig): boolean =>
 export const freeShippingState = (
   config: FreeShippingConfig,
   subtotal: number,
+  destinationCep?: string | null,
 ): FreeShippingState => {
   if (!ativo(config)) return INATIVO
 
   const threshold = config.free_shipping_threshold
+  const regions = effectiveRegions(config.free_shipping_regions)
+  const regionLimited = regions.length < FREE_SHIPPING_REGIONS.length
+  const regiaoDoCep = regionOfCep(destinationCep)
+  const destination: FreeShippingDestination =
+    regiaoDoCep === null ? 'unknown' : regions.includes(regiaoDoCep) ? 'inside' : 'outside'
   // Subtotal impossível (`NaN` de um preço quebrado) vira zero em vez de contaminar `percent`: a
   // barra some para o começo, que é o estado honesto, em vez de virar `width: NaN%`.
   const base = finito(subtotal) ? subtotal : 0
@@ -109,7 +165,43 @@ export const freeShippingState = (
     // negativa, que no CSS vira largura inválida e a barra desaparece sem explicação.
     percent: Math.min(Math.max((base / threshold) * 100, 0), 100),
     reached: remaining <= 0,
+    destination,
+    // Sem CEP, com as regiões limitadas, nunca concede: "liberado" só depois de saber o destino.
+    granted: remaining <= 0 && (destination === 'inside' || !regionLimited),
+    regions,
+    regionLimited,
   }
+}
+
+/**
+ * A configuração a partir do objeto cru de `store_settings.shipping` (ou de um parcial dele).
+ *
+ * É o único caminho do jsonb para `FreeShippingConfig`: a loja, o painel e as functions montam a
+ * config por aqui, nunca copiando campo a campo. Valor inválido é descartado — interruptor que não
+ * é `true` vale desligado, faixa que não é número finito vale zero, regiões que não são lista valem
+ * as cinco, e slug desconhecido dentro da lista sai dela.
+ */
+export const freeShippingConfigOf = (raw: unknown): FreeShippingConfig => {
+  const cru = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const faixa = cru.free_shipping_threshold
+  return {
+    free_shipping_enabled: cru.free_shipping_enabled === true,
+    free_shipping_threshold: typeof faixa === 'number' && Number.isFinite(faixa) ? faixa : 0,
+    free_shipping_regions: effectiveRegions(cru.free_shipping_regions),
+  }
+}
+
+/**
+ * A frase da regra, para o ⓘ: "Compras a partir de R$ 450,00 têm frete grátis para entregas no Sul
+ * (PR, SC, RS) e no Sudeste (SP, RJ, MG, ES). A região é conferida pelo CEP." Com as cinco regiões,
+ * sem falar de região. `null` quando o frete grátis está inativo.
+ */
+export const freeShippingRuleText = (config: FreeShippingConfig): string | null => {
+  if (!ativo(config)) return null
+  const valor = formatPrice(config.free_shipping_threshold)
+  const regioes = regionsWithStates(effectiveRegions(config.free_shipping_regions))
+  if (regioes === null) return `Compras a partir de ${valor} têm frete grátis.`
+  return `Compras a partir de ${valor} têm frete grátis para entregas ${regioes}. A região é conferida pelo CEP.`
 }
 
 /**
@@ -129,6 +221,9 @@ export const freeShippingRefusal = (config: FreeShippingConfig): string | null =
   if (!config?.free_shipping_enabled) return null
   if (!finito(config.free_shipping_threshold) || config.free_shipping_threshold <= 0) {
     return 'Para oferecer frete grátis, informe a partir de qual valor. Com zero, a loja anunciaria uma faixa que ela não consegue aplicar.'
+  }
+  if (effectiveRegions(config.free_shipping_regions).length === 0) {
+    return 'Escolha ao menos uma região para o frete grátis, ou desligue o frete grátis.'
   }
   return null
 }

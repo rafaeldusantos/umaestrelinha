@@ -19,7 +19,7 @@ import { SacolaIcon } from '@estrelinha/ui/icons'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { renditionUrl } from '@estrelinha/core/media'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { PICKUP_SERVICE_ID } from '@estrelinha/core/shipping'
+import { PICKUP_SERVICE_ID, regionsLabel } from '@estrelinha/core/shipping'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { useCouponStore } from '@/entities/coupon'
@@ -57,6 +57,7 @@ const OrderSummary = ({ variant }: Props) => {
     campaignName,
   } = useCheckoutTotals()
   const shipping = useCheckoutStore((s) => s.shipping)
+  const cep = useCheckoutStore((s) => s.address.cep)
   const contactEmail = useCheckoutStore((s) => s.contact.email)
   const coupon = useCouponStore((s) => s.applied)
   const clearCoupon = useCouponStore((s) => s.clearCoupon)
@@ -66,8 +67,12 @@ const OrderSummary = ({ variant }: Props) => {
    * Era `cartSubtotal >= free_shipping_threshold`, e com a faixa em zero isso é **sempre
    * verdadeiro**: o resumo anunciava "Frete grátis liberado" numa loja que já não prometia frete
    * grátis em nenhuma outra tela.
+   *
+   * Com o CEP do endereço: o frete grátis pode valer só para algumas regiões, e quem diz "liberado"
+   * é `granted` (o valor alcançou a faixa **e** o destino está numa região que vale). A base do
+   * valor continua a de sempre — as peças, antes do cupom e do desconto progressivo.
    */
-  const freteGratis = useFreeShipping(cartSubtotal)
+  const freteGratis = useFreeShipping(cartSubtotal, cep)
   const { card_enabled } = usePaymentSettings()
   const [expanded, setExpanded] = useState(false)
 
@@ -86,23 +91,34 @@ const OrderSummary = ({ variant }: Props) => {
   const showInstallments = card_enabled && !!cardInstallments
 
   // Some inteira com o interruptor desligado: a faixa é o anúncio do benefício, e sem benefício ela
-  // não tem o que dizer. O resumo abre direto nos itens.
-  const freeShippingBand = freteGratis.active ? (
-    <div className="flex items-center gap-[9px] bg-estrelinha-ground-deep px-6 py-3">
-      {freteGratis.reached ? (
-        <>
-          <Check className="h-4 w-4 shrink-0 text-estrelinha-primary" aria-hidden />
-          <span className="text-sm font-semibold leading-[18px] text-estrelinha-primary">
-            Frete grátis liberado
+  // não tem o que dizer. O resumo abre direto nos itens. Some também com o cupom de frete grátis: o
+  // frete já sai zerado em qualquer região, e a faixa não tem o que acrescentar.
+  //
+  // Os quatro desenhos seguem os textos da faixa da gaveta: destino fora das regiões ⇒ a linha
+  // neutra, em qualquer valor de sacola; faltando ⇒ quanto falta; concedido ⇒ "liberado"; alcançado
+  // sem saber o destino, com as regiões limitadas ⇒ "para <regiões>" (nunca "liberado" sem CEP).
+  const regioes = regionsLabel(freteGratis.regions)
+  const freeShippingBand =
+    freteGratis.active && !coupon?.freeShipping ? (
+      <div className="flex items-center gap-[9px] bg-estrelinha-ground-deep px-6 py-3">
+        {freteGratis.destination === 'outside' && regioes ? (
+          <span className="text-sm leading-[18px] text-estrelinha-ink-soft">
+            Frete grátis só para {regioes}
           </span>
-        </>
-      ) : (
-        <span className="text-sm leading-[18px] text-estrelinha-ink">
-          Faltam {formatPrice(freteGratis.remaining)} para o frete grátis
-        </span>
-      )}
-    </div>
-  ) : null
+        ) : !freteGratis.reached ? (
+          <span className="text-sm leading-[18px] text-estrelinha-ink">
+            Faltam {formatPrice(freteGratis.remaining)} para o frete grátis
+          </span>
+        ) : (
+          <>
+            <Check className="h-4 w-4 shrink-0 text-estrelinha-primary" aria-hidden />
+            <span className="text-sm font-semibold leading-[18px] text-estrelinha-primary">
+              {freteGratis.granted ? 'Frete grátis liberado' : `Frete grátis para ${regioes}`}
+            </span>
+          </>
+        )}
+      </div>
+    ) : null
 
   const itemLines = (
     <div className="flex flex-col gap-4 px-6 py-5">
@@ -431,10 +447,10 @@ const OrderSummary = ({ variant }: Props) => {
               encolha em vez de embrulhar em duas linhas. */}
           <span className="min-w-0 grow truncate text-sm font-semibold leading-[18px] text-estrelinha-ink">
             Resumo · {unitCount} {unitCount === 1 ? 'item' : 'itens'}
-            {/* `reached` já é `false` com o interruptor desligado (invariante 1 de
-                `freeShippingState`) — não precisa de segunda checagem, e não pode ter uma: seria a
-                nona escrita da mesma regra. */}
-            {freteGratis.reached ? ' · frete grátis' : ''}
+            {/* `granted` já é `false` com o interruptor desligado (invariante 1 de
+                `freeShippingState`) e fora das regiões — não precisa de segunda checagem, e não pode
+                ter uma: seria a nona escrita da mesma regra. */}
+            {freteGratis.granted ? ' · frete grátis' : ''}
           </span>
           <span className="shrink-0 font-heading text-[17px] font-semibold leading-[22px] text-estrelinha-ink">
             {formatPrice(totals.total)}

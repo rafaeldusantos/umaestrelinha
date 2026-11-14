@@ -9,6 +9,9 @@
  * antes da primeira linha rodar — e Vite e vitest resolvem as duas formas, então nada acusaria
  * aqui dentro.
  *
+ * `region.ts` é o dono da região do CEP, lido por `freeShipping.ts` — e este, pelo grafo de
+ * `core/proposals` que três functions importam. Folha sem import, como `pickup.ts`.
+ *
  * ⚠️ O barrel `core/shipping/index.ts` NÃO está no escopo, de propósito: `estimate.ts` importa um
  * alias de pacote. Quem a function importa é o ARQUIVO, e é o arquivo que este guarda protege.
  *
@@ -22,7 +25,7 @@ import { describe, expect, it } from 'vitest'
 const DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 /** O que as edge functions importam por caminho relativo. Cresce com a feature. */
-const ENTRADAS = ['pickup.ts']
+const ENTRADAS = ['pickup.ts', 'region.ts']
 
 /** Um leitor de arquivo, injetável — é o que torna o sensor por mutação possível. */
 type Leitor = (caminho: string) => string
@@ -96,6 +99,11 @@ describe('core/shipping — o que as edge functions importam é alcançável por
     )
     // Segunda âncora: o conteúdo é o esperado, não um arquivo vazio que casaria com tudo.
     expect(lerDoDisco(join(DIR, 'pickup.ts'))).toContain('isRsCep')
+    expect(lerDoDisco(join(DIR, 'region.ts'))).toContain('export function regionOfCep')
+  })
+
+  it('region.ts não importa nada — folha, no molde de pickup.ts', () => {
+    expect(especificadores(lerDoDisco(join(DIR, 'region.ts')))).toEqual([])
   })
 
   it('nenhum especificador relativo do grafo vem sem `.ts`', () => {
@@ -160,6 +168,17 @@ describe('core/shipping — o que as edge functions importam é alcançável por
         : lerDoDisco(caminho)
 
     expect(caminharGrafo(caminhos, mutante).semExtensao).toEqual([])
+  })
+
+  it('sensor — em region.ts, um import relativo sem `.ts` É acusado', () => {
+    const mutante: Leitor = (caminho) =>
+      rotulo(caminho) === 'shipping/region.ts'
+        ? `import { isRsCep } from './pickup'\n${lerDoDisco(caminho)}`
+        : lerDoDisco(caminho)
+
+    expect(caminharGrafo(caminhos, mutante).semExtensao).toEqual([
+      'shipping/region.ts → ./pickup',
+    ])
   })
 
   it('sensor — um import de Supabase É acusado', () => {

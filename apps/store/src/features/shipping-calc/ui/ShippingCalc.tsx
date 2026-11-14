@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Truck, Loader2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
-import { formatEstimate, isRsCep, quoteToEstimate } from '@estrelinha/core/shipping'
+import { formatEstimate, isRsCep, quoteToEstimate, regionsLabel } from '@estrelinha/core/shipping'
+import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { maskCep, stripCep } from '@estrelinha/core/validators'
 import { supabase } from '@estrelinha/supabase/client'
@@ -40,6 +41,14 @@ const ShippingCalc = ({ product }: { product: Product }) => {
   const { handling_days } = useShippingSettings()
   // Fixo por montagem: a data exibida não pode pular enquanto a cliente olha a tela.
   const today = useMemo(() => new Date(), [])
+
+  /**
+   * O anúncio do frete grátis é só texto: esta tela não zera nem risca preço de cotação nenhum.
+   * Quem concede o frete grátis é o caixa, que conhece a sacola inteira e o CEP de entrega; aqui a
+   * cliente só fica sabendo da regra. Não depende do CEP consultado.
+   */
+  const freteGratis = useFreeShipping()
+  const regiao = regionsLabel(freteGratis.regions)
 
   const handleCalc = async () => {
     const cleanCep = stripCep(cep)
@@ -87,6 +96,12 @@ const ShippingCalc = ({ product }: { product: Product }) => {
           Calcular frete e prazo
         </h2>
       </div>
+
+      {freteGratis.active && (
+        <p className="text-[12px] leading-4 text-estrelinha-ink-soft">
+          {`Frete grátis acima de ${formatPrice(freteGratis.threshold)}${regiao ? ` · para ${regiao}` : ''}`}
+        </p>
+      )}
 
       <form
         className="flex gap-2"

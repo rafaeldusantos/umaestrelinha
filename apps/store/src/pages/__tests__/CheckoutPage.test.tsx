@@ -120,6 +120,9 @@ vi.mock('@/entities/customer', () => ({
   useSaveCustomerCpf: () => ({ mutateAsync: saveCpfMutateAsync, isPending: false }),
 }))
 vi.mock('@/entities/address', () => ({
+  // A gaveta da sacola (montada aqui) lê a cidade do CEP por este endereço; a página lê pelo
+  // de `features/checkout`, dublado à parte.
+  useCepLookup: () => ({ data: undefined }),
   useSaveAddress: () => ({ mutateAsync: saveAddressMutateAsync, isPending: false }),
   useDefaultAddress: (...args: unknown[]) => defaultAddressMock(...args),
 }))
@@ -1120,7 +1123,7 @@ describe('CheckoutPage — quem avança é a pessoa (FLW-01, FLW-02, FLW-03)', (
     fillAddress()
     renderPage()
 
-    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    fireEvent.click(region('Entrega').getByText('SEDEX · Correios'))
 
     expect(region('Entrega').getByLabelText('CEP')).toBeInTheDocument()
     expect(region('Pagamento').queryByLabelText(DOC_FIELD_LABEL)).not.toBeInTheDocument()
@@ -1130,7 +1133,7 @@ describe('CheckoutPage — quem avança é a pessoa (FLW-01, FLW-02, FLW-03)', (
     fillContact()
     fillAddress()
     renderPage()
-    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    fireEvent.click(region('Entrega').getByText('SEDEX · Correios'))
 
     fireEvent.click(continuar('Entrega'))
 
@@ -1219,7 +1222,7 @@ describe('CheckoutPage — endereço salvo colapsa a Entrega (ADR-02)', () => {
     expect(shipping?.serviceName).toBe('PAC')
     expect(shipping?.carrier).toBe('Correios')
     expect(shipping?.cost).toBe(14.9)
-    expect(region('Entrega').getByText(/Correios PAC/)).toBeInTheDocument()
+    expect(region('Entrega').getByText(/PAC · Correios/)).toBeInTheDocument()
   })
 
   it('a Entrega completa por endereço salvo faz o acordeão avançar para Pagamento', () => {
@@ -2900,7 +2903,7 @@ describe('feature 61 — o funil do checkout no GA4 (EVT-10..12, CMP-01)', () =>
     fillAddress()
     renderPage()
     expect(eventos('add_shipping_info')).toHaveLength(0) // âncora: nada antes do toque
-    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    fireEvent.click(region('Entrega').getByText('SEDEX · Correios'))
     const enviados = eventos('add_shipping_info')
     expect(enviados).toHaveLength(1)
     expect(enviados[0].params.shipping_tier).toBe('SEDEX')
@@ -2911,7 +2914,7 @@ describe('feature 61 — o funil do checkout no GA4 (EVT-10..12, CMP-01)', () =>
     fillContact()
     fillAddress()
     renderPage()
-    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    fireEvent.click(region('Entrega').getByText('SEDEX · Correios'))
     expect(eventos('add_shipping_info')).toHaveLength(1)
     expect(eventos('add_shipping_info')[0].params.items).toEqual([ITEM_ESPERADO])
   })
@@ -2920,7 +2923,7 @@ describe('feature 61 — o funil do checkout no GA4 (EVT-10..12, CMP-01)', () =>
     fillContact()
     fillAddress()
     renderPage()
-    const sedex = () => region('Entrega').getByText('Correios SEDEX')
+    const sedex = () => region('Entrega').getByText('SEDEX · Correios')
     fireEvent.click(sedex())
     expect(useCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX') // âncora: já selecionada
     fireEvent.click(sedex())
@@ -2932,7 +2935,7 @@ describe('feature 61 — o funil do checkout no GA4 (EVT-10..12, CMP-01)', () =>
     fillContact()
     fillAddress()
     renderPage()
-    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    fireEvent.click(region('Entrega').getByText('SEDEX · Correios'))
     expect(eventos('add_shipping_info')).toHaveLength(1)
     expect(eventos('add_shipping_info')[0].params.coupon).toBe('ESTRELA10')
   })
@@ -3098,7 +3101,7 @@ describe('CheckoutPage — retirada no escritório (feature 63, RET-07)', () => 
     renderPage()
 
     const retirada = within(region('Entrega').getByRole('group', { name: 'Retirar em' }))
-    fireEvent.click(retirada.getByRole('button'))
+    fireEvent.click(retirada.getByRole('radio'))
     fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
 
     expect(cta()).toHaveTextContent('R$ 95,00')
@@ -3122,7 +3125,7 @@ describe('CheckoutPage — retirada no escritório (feature 63, RET-07)', () => 
     preencherNoRs()
     renderPage()
 
-    fireEvent.click(region('Entrega').getByText('Correios PAC'))
+    fireEvent.click(region('Entrega').getByText('PAC · Correios'))
     fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
 
     expect(cta()).toHaveTextContent('R$ 109,90')
@@ -3147,7 +3150,7 @@ describe('CheckoutPage — retirada no escritório (feature 63, RET-07)', () => 
     preencherNoRs()
     renderPage()
 
-    fireEvent.click(within(region('Entrega').getByRole('group', { name: 'Retirar em' })).getByRole('button'))
+    fireEvent.click(within(region('Entrega').getByRole('group', { name: 'Retirar em' })).getByRole('radio'))
     fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
     fireEvent.click(cta())
 
@@ -3167,9 +3170,9 @@ describe('CheckoutPage — retirada no escritório (feature 63, RET-07)', () => 
     expect(useCartStore.getState().items).toHaveLength(1)
     // O bloco Entrega reabriu, com a retirada desmarcada.
     const retirada = within(region('Entrega').getByRole('group', { name: 'Retirar em' }))
-    expect(retirada.getByRole('button')).toHaveAttribute('aria-pressed', 'false')
+    expect(retirada.getByRole('radio')).toHaveAttribute('aria-checked', 'false')
 
-    fireEvent.click(region('Entrega').getByText('Correios PAC'))
+    fireEvent.click(region('Entrega').getByText('PAC · Correios'))
     fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
     fireEvent.click(cta())
 
@@ -3183,7 +3186,7 @@ describe('CheckoutPage — retirada no escritório (feature 63, RET-07)', () => 
     preencherNoRs()
     renderPage()
 
-    fireEvent.click(within(region('Entrega').getByRole('group', { name: 'Retirar em' })).getByRole('button'))
+    fireEvent.click(within(region('Entrega').getByRole('group', { name: 'Retirar em' })).getByRole('radio'))
     fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
     fireEvent.click(cta())
 

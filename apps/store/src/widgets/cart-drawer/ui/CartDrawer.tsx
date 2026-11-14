@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { viewCartEvent } from '@estrelinha/core/analytics'
 import { cartLineItem, track } from '@/shared/lib/analytics'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Truck, X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { SacolaIcon } from '@estrelinha/ui/icons'
 import {
   Sheet,
@@ -17,7 +17,6 @@ import {
 import { Button } from '@estrelinha/ui/button'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartPromotion } from '@/entities/cart/model/useCartPromotion'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
@@ -27,7 +26,10 @@ import { useAllProducts } from '@/entities/product/api/useProducts'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { pickCrossSell } from '../model/drawerFacts'
 import CartDrawerRow from './CartDrawerRow'
+import { useCartShipping } from '../model/useCartShipping'
+import CartShipping from './CartShipping'
 import CrossSell from './CrossSell'
+import FreeShippingBand from './FreeShippingBand'
 
 /**
  * A gaveta é a **única** superfície de carrinho da loja (boards "Desktop/Mobile Cart Drawer - v3").
@@ -36,17 +38,44 @@ import CrossSell from './CrossSell'
  * Ela é montada uma vez por layout (`StoreLayout` e `CheckoutPage`) e comandada pelo `cartUiStore` —
  * não tem gatilho embutido, porque quem abre está em quatro lugares diferentes.
  */
-const CartDrawer = () => {
-  const navigate = useNavigate()
-  const open = useCartUiStore((s) => s.open)
-  const setCartOpen = useCartUiStore((s) => s.setCartOpen)
-  const closeCart = useCartUiStore((s) => s.closeCart)
-
+/**
+ * A sacola com peças: a faixa do frete grátis, a lista e o rodapé fixo. Só é montada com a gaveta
+ * aberta — o `SheetContent` sai do DOM ao fechar —, e é por isso que as consultas do frete (cotação,
+ * busca do CEP) moram aqui e não no `CartDrawer`, que vive montado em toda rota da loja.
+ */
+const FilledCart = ({
+  panel,
+  onNavigate,
+  onCheckout,
+}: {
+  /** O painel da gaveta: o balão do ⓘ da faixa não passa da largura dele. */
+  panel: HTMLElement | null
+  onNavigate: () => void
+  onCheckout: () => void
+}) => {
   const items = useCartStore((s) => s.items)
   const subtotal = useCartStore((s) => s.subtotal())
-  const count = useCartStore((s) => s.uniqueItemsCount())
   const applied = useCouponStore((s) => s.applied)
   const { default_shipping_cost } = useShippingSettings()
+  const [couponOpen, setCouponOpen] = useState(false)
+
+  /**
+   * O frete da gaveta: o CEP, as opções reais e a escolha, gravados no rascunho do checkout.
+   *
+   * O estado do frete grátis sai dele — `useFreeShipping(subtotal, cep)`, dono único em
+   * `@estrelinha/core/shipping` —, com o CEP que a gaveta cotou. É o mesmo veredito que zera a opção
+   * mais barata e que a faixa anuncia, então "liberado" e "Grátis" nunca discordam.
+   */
+  const shipping = useCartShipping({ subtotal, couponFreeShipping: !!applied?.freeShipping })
+  const progress = shipping.freeShipping
+  const charge = shipping.charge
+
+  /**
+   * PRM-15: os dois descontos por item saem de `resolveOrderPricing` — a mesma função que o
+   * `create-payment` chama — e não de contas separadas aqui. O frete escolhido entra na MESMA
+   * função, que é quem o zera para o cupom de frete grátis: o Total da gaveta é o do resumo do
+   * checkout com a mesma opção, cupom e promoção. Sem escolha, o Total é o dos produtos.
+   */
   const {
     promotionDiscount,
     totals,
@@ -58,28 +87,195 @@ const CartDrawer = () => {
     orderLines,
     couponEligibleSubtotal,
     campaignName,
-  } = useCartPromotion()
+  } = useCartPromotion(charge?.cost ?? 0)
 
-  /**
-   * `FRG-05` — o estado do frete grátis vem de `@estrelinha/core/shipping`, dono único.
-   *
-   * Antes da feature 37 era `freeShippingProgress(subtotal, free_shipping_threshold)`, uma segunda
-   * escrita da regra com o caso de borda invertido: faixa zerada devolvia `reached: true`, e a
-   * gaveta anunciava "Frete grátis liberado" numa loja que já não oferecia nada.
-   */
-  const progress = useFreeShipping(subtotal)
-
-  // O catálogo só é buscado com a gaveta aberta e faltando frete — a gaveta vive montada em toda
-  // rota, e uma query de catálogo inteiro na montagem seria trabalho que ninguém pediu. A chave é a
-  // mesma de `useAllProducts` em outras telas, então quando já há cache não há requisição nova.
-  //
-  // Com o frete grátis DESLIGADO a busca também não acontece: a faixa de sugestões existe para
-  // "completar o frete", e sem frete grátis ela não é renderizada (decisão do usuário, `context.md`
-  // Q3). Uma requisição a menos, de graça.
-  const { data: catalog } = useAllProducts({
-    enabled: open && items.length > 0 && progress.active && !progress.reached,
-  })
+  // O catálogo só é buscado faltando frete: a faixa de sugestões existe para "completar o frete
+  // grátis". Com o frete grátis desligado, ou com o CEP fora das regiões que ele vale, ela não é
+  // renderizada — e a busca não acontece. A chave é a mesma de `useAllProducts` em outras telas.
+  const crossSellVisible =
+    progress.active && !progress.reached && progress.destination !== 'outside'
+  const { data: catalog } = useAllProducts({ enabled: items.length > 0 && crossSellVisible })
   const suggestions = useMemo(() => pickCrossSell(catalog, items), [catalog, items])
+
+  const units = items.reduce((sum, i) => sum + i.quantity, 0)
+  const discount = totals.couponDiscount
+  const total = totals.total
+
+  return (
+    <>
+      {/* A faixa do frete grátis, entre o cabeçalho e a lista. Some inteira com o interruptor
+          desligado e com cupom de frete grátis — quem decide é ela, pelo estado que recebe. */}
+      <FreeShippingBand
+        state={progress}
+        subtotal={subtotal}
+        cep={shipping.cep}
+        place={shipping.place}
+        freeShippingCoupon={!!applied?.freeShipping}
+        collisionBoundary={panel}
+      />
+
+      {/* Lista + sugestões rolam juntas; o rodapé fica fixo. */}
+      <div className="flex-1 overflow-y-auto overscroll-contain">
+        <ul>
+          <AnimatePresence initial={false}>
+            {items.map((item, index) => (
+              <motion.div
+                key={`${item.product.id}-${item.variantId ?? `${item.size}-${item.finish}`}`}
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -24, height: 0, overflow: 'hidden' }}
+                transition={{ duration: 0.22, delay: Math.min(index * 0.04, 0.2) }}
+              >
+                <CartDrawerRow
+                  item={item}
+                  onNavigate={onNavigate}
+                  buyTogether={buyTogetherLineFacts(
+                    index,
+                    items,
+                    buyTogetherLines,
+                    orderLines,
+                    buyTogether.config,
+                    buyTogether.mainNames,
+                  )}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </ul>
+        {crossSellVisible && <CrossSell products={suggestions} onNavigate={onNavigate} />}
+      </div>
+
+      {/* O rodapé fixo: no máximo 72% da gaveta, e rola por dentro quando a fonte cresce. */}
+      <div
+        data-testid="drawer-footer"
+        className="max-h-[72%] shrink-0 overflow-y-auto border-t border-estrelinha-line pb-[env(safe-area-inset-bottom)]"
+      >
+        {/**
+         * PRM-23 — o convite da próxima faixa. `missing` e `unitPrice` saem de `useCartPromotion`,
+         * que os tira das mesmas funções puras do desconto. Some sozinho na última faixa.
+         */}
+        {nextTier && (
+          <p className="border-b border-estrelinha-line bg-estrelinha-ground-deep px-5 py-2.5 text-xs font-semibold text-estrelinha-primary md:px-6 md:text-[13px]">
+            {nextTier.missing === 1 ? 'Falta 1' : `Faltam ${nextTier.missing}`} para cada peça
+            sair a {formatPrice(nextTier.unitPrice)}
+          </p>
+        )}
+
+        <CartShipping state={shipping} />
+
+        {/* O cupom recolhido numa linha de 44px; aberto e aplicado, o componente de sempre. A
+            variante `drawer` traz o próprio padding, porque a linha aplicada é de borda a borda. */}
+        <div className="border-b border-estrelinha-line">
+          {applied || couponOpen ? (
+            <CouponInput
+              variant="drawer"
+              subtotal={subtotal}
+              shippingCost={charge ? charge.cost : progress.granted ? 0 : default_shipping_cost}
+              discount={discount}
+              notApplied={discarded === 'coupon'}
+              eligibleSubtotal={couponEligibleSubtotal}
+              campaignName={campaignName}
+            />
+          ) : (
+            <button
+              type="button"
+              aria-expanded={false}
+              onClick={() => setCouponOpen(true)}
+              className="flex min-h-11 w-full items-center justify-between gap-3 px-5 text-left text-[13.5px] font-medium text-estrelinha-ink transition-colors hover:bg-estrelinha-ground-deep/50 motion-reduce:transition-none"
+            >
+              Tem um cupom?
+              <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-estrelinha-ink-soft" />
+            </button>
+          )}
+        </div>
+
+        <dl className="flex flex-col gap-[3px] px-5 pt-2 text-[12.5px] leading-[18px]">
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-estrelinha-ink-soft">
+              Subtotal ({units} {units === 1 ? 'item' : 'itens'})
+            </dt>
+            <dd className="font-semibold text-estrelinha-ink">{formatPrice(subtotal)}</dd>
+          </div>
+          {/* O desconto do Compre Junto: o MESMO valor que o resumo do checkout mostra, porque os
+              dois saem de `resolveOrderPricing` com a mesma entrada. Sem desconto, sem linha. */}
+          {(buyTogetherDiscount ?? 0) > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-estrelinha-ink-soft">Desconto do Compre Junto</dt>
+              <dd
+                data-testid="drawer-buy-together"
+                className="shrink-0 font-semibold text-estrelinha-primary"
+              >
+                −{formatPrice(buyTogetherDiscount)}
+              </dd>
+            </div>
+          )}
+          {/* Sem faixa alcançada a linha simplesmente não existe: a gaveta não anuncia
+              "−R$ 0,00", que é anúncio de desconto nenhum. */}
+          {promotionDiscount > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-estrelinha-ink-soft">Desconto progressivo</dt>
+              <dd className="font-semibold text-estrelinha-primary">
+                −{formatPrice(promotionDiscount)}
+              </dd>
+            </div>
+          )}
+          {discount > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-estrelinha-ink-soft">Cupom {applied?.code}</dt>
+              <dd className="font-semibold text-estrelinha-primary">−{formatPrice(discount)}</dd>
+            </div>
+          )}
+          {/* O frete só com uma escolha na gaveta. O valor é o que `resolveOrderPricing` cobra —
+              zero com o cupom de frete grátis —, e zero se lê "Grátis". */}
+          {charge && (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-estrelinha-ink-soft">{charge.label}</dt>
+              <dd
+                data-testid="drawer-shipping"
+                className={`font-semibold ${
+                  totals.shipping === 0 ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
+                }`}
+              >
+                {totals.shipping === 0 ? 'Grátis' : formatPrice(totals.shipping)}
+              </dd>
+            </div>
+          )}
+          <div className="mt-[5px] flex items-center justify-between gap-3 border-t border-estrelinha-line pt-[7px]">
+            <dt className="font-heading text-base font-bold leading-6 text-estrelinha-ink">Total</dt>
+            <dd className="font-heading text-lg font-bold leading-6 text-estrelinha-ink">
+              {formatPrice(total)}
+            </dd>
+          </div>
+        </dl>
+
+        {/* Nenhuma nota abaixo do Total, com ou sem frete escolhido. O rodapé com o frete escolhido
+            cabe em 270px a 390 (o resumo, a linha do Total em 24px e esta caixa somam o teto). */}
+        <div className="px-5 pb-3 pt-2 md:pb-5">
+          {/* `[&_svg]:size-5`: o `Button` força `[&_svg]:size-4` em todo ícone de dentro, e esse
+              seletor vence o tamanho declarado no próprio ícone. */}
+          <Button
+            onClick={onCheckout}
+            className="h-12 w-full gap-2.5 rounded-md [&_svg]:size-5 border-0 bg-estrelinha-primary font-display text-[15px] font-bold text-white transition-colors hover:bg-estrelinha-primary-strong motion-reduce:transition-none"
+          >
+            <SacolaIcon className="h-5 w-5" aria-hidden />
+            Finalizar Pedido
+          </Button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+const CartDrawer = () => {
+  const navigate = useNavigate()
+  const open = useCartUiStore((s) => s.open)
+  const setCartOpen = useCartUiStore((s) => s.setCartOpen)
+  const closeCart = useCartUiStore((s) => s.closeCart)
+
+  const items = useCartStore((s) => s.items)
+  const count = useCartStore((s) => s.uniqueItemsCount())
+  // O painel da gaveta, para o balão do ⓘ da faixa não passar da largura dele.
+  const [panel, setPanel] = useState<HTMLDivElement | null>(null)
 
   /*
    * Feature 61 · EVT-07 — `view_cart` na TRANSIÇÃO fechado → aberto, com itens. A gaveta vive
@@ -95,27 +291,6 @@ const CartDrawer = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const units = items.reduce((sum, i) => sum + i.quantity, 0)
-  /**
-   * PRM-15: os dois descontos por item saem de `resolveOrderPricing` — a mesma função que o
-   * `create-payment` chama — e não de contas separadas aqui.
-   *
-   * É isso que impede a gaveta de anunciar promoção **e** cupom quando o servidor vai aplicar só um
-   * (`AD-015`: os dois não compõem, vale o de menor total). Somando os dois aqui, o total da gaveta
-   * ficaria mais baixo que o do checkout — desconto exibido e não cobrado, a falha exata que esta
-   * feature existe para matar.
-   */
-  const discount = totals.couponDiscount
-  /**
-   * O total da gaveta é o dos PRODUTOS, sem frete.
-   *
-   * A gaveta não tem CEP, então qualquer frete aqui seria a faixa padrão de `store_settings` — um
-   * número que a cotação do checkout quase sempre contradiz (medido na integração do Melhor Envio:
-   * a mesma sacola cotou de R$ 17,89 a R$ 163,64 conforme o destino). `useCartPromotion` já resolve
-   * o pedido com `shipping: 0`, e este total é exatamente o que ela devolve.
-   */
-  const total = totals.total
-
   const goTo = (path: string) => {
     closeCart()
     navigate(path)
@@ -124,6 +299,7 @@ const CartDrawer = () => {
   return (
     <Sheet open={open} onOpenChange={setCartOpen}>
       <SheetContent
+        ref={setPanel}
         side="right"
         /* `[&>button]:hidden` apaga o X padrão do `SheetContent`: o board põe o fechar dentro do
            cabeçalho, alinhado ao título, e não solto sobre o conteúdo. O nosso `SheetClose` abaixo
@@ -176,176 +352,7 @@ const CartDrawer = () => {
             </Button>
           </div>
         ) : (
-          <>
-            {/* Faixa do frete grátis — o único bloco em açúcar acima da dobra.
-                Some inteira com o interruptor desligado (`FRG-05`): sem ela, a gaveta abre com a
-                lista de itens colada no cabeçalho, que é o layout correto para uma loja que não
-                oferece frete grátis. */}
-            {progress.active && (
-              <div className="flex shrink-0 flex-col gap-1.5 bg-estrelinha-ground-deep px-5 py-3 md:gap-2 md:px-6 md:py-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-semibold text-estrelinha-primary md:text-[13px]">
-                    {progress.reached ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Truck className="h-3.5 w-3.5" aria-hidden /> Frete grátis liberado
-                      </span>
-                    ) : (
-                      <>Faltam {formatPrice(progress.remaining)} para frete grátis!</>
-                    )}
-                  </p>
-                  <span className="shrink-0 text-[11px] font-medium text-estrelinha-ink-soft">
-                    {formatPrice(subtotal)} / {formatPrice(progress.threshold)}
-                  </span>
-                </div>
-                <div
-                  className="h-1.5 w-full overflow-hidden rounded-full bg-white"
-                  role="progressbar"
-                  aria-valuenow={Math.round(progress.percent)}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label="Progresso para o frete grátis"
-                >
-                  <motion.div
-                    className="h-full rounded-full bg-estrelinha-sale-bar"
-                    initial={false}
-                    animate={{ width: `${progress.percent}%` }}
-                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Lista + sugestões rolam juntas; o rodapé fica fixo. */}
-            <div className="flex-1 overflow-y-auto overscroll-contain">
-              <ul>
-                <AnimatePresence initial={false}>
-                  {items.map((item, index) => (
-                    <motion.div
-                      key={`${item.product.id}-${item.variantId ?? `${item.size}-${item.finish}`}`}
-                      initial={{ opacity: 0, x: 24 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -24, height: 0, overflow: 'hidden' }}
-                      transition={{ duration: 0.22, delay: Math.min(index * 0.04, 0.2) }}
-                    >
-                      <CartDrawerRow
-                        item={item}
-                        onNavigate={closeCart}
-                        buyTogether={buyTogetherLineFacts(
-                          index,
-                          items,
-                          buyTogetherLines,
-                          orderLines,
-                          buyTogether.config,
-                          buyTogether.mainNames,
-                        )}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </ul>
-              {/* `active` além de `!reached`: o título da faixa é literalmente "Complete o frete
-                  grátis", e sem faixa ele promete o que a loja não faz (decisão do usuário, Q3). */}
-              {progress.active && !progress.reached && (
-                <CrossSell products={suggestions} onNavigate={closeCart} />
-              )}
-            </div>
-
-            <div className="shrink-0 border-t border-estrelinha-line pb-[env(safe-area-inset-bottom)]">
-              {/**
-               * PRM-23 — o convite da próxima faixa.
-               *
-               * `missing` e `unitPrice` saem de `useCartPromotion`, que os tira de `countEligibleUnits`
-               * e `tierUnitPrice` — as mesmas funções puras do desconto. Uma conta aqui (subtrair
-               * quantidades, aplicar a porcentagem) faria a gaveta prometer um preço que o servidor não
-               * cobraria, que é a falha exata que esta feature existe para matar.
-               *
-               * Fica no rodapé fixo, junto do total, e não dentro da lista: a lista rola, e um convite
-               * fora da tela não convida ninguém. Some sozinho na última faixa — `nextTier` é `null`
-               * quando não há faixa acima da atual.
-               */}
-              {nextTier && (
-                <p className="border-b border-estrelinha-line bg-estrelinha-ground-deep px-5 py-2.5 text-xs font-semibold text-estrelinha-primary md:px-6 md:text-[13px]">
-                  {nextTier.missing === 1 ? 'Falta 1' : `Faltam ${nextTier.missing}`} para cada peça
-                  sair a {formatPrice(nextTier.unitPrice)}
-                </p>
-              )}
-
-              {/* Sem padding aqui: a variante `drawer` do cupom traz a própria, porque a linha de
-                  cupom aplicado é de borda a borda (board do checkout, grupo "Cupom Aplicado"). */}
-              <div className="border-b border-estrelinha-line">
-                <CouponInput
-                  variant="drawer"
-                  subtotal={subtotal}
-                  shippingCost={progress.reached ? 0 : default_shipping_cost}
-                  discount={discount}
-                  notApplied={discarded === 'coupon'}
-                  eligibleSubtotal={couponEligibleSubtotal}
-                  campaignName={campaignName}
-                />
-              </div>
-
-              <dl className="flex flex-col gap-2 px-5 pt-3.5 md:px-6 md:pt-4">
-                <div className="flex items-center justify-between text-[13px]">
-                  <dt className="font-medium text-estrelinha-ink-soft">
-                    Subtotal ({units} {units === 1 ? 'item' : 'itens'})
-                  </dt>
-                  <dd className="font-semibold text-estrelinha-ink">{formatPrice(subtotal)}</dd>
-                </div>
-                {/* O desconto do Compre Junto: o MESMO valor que o resumo do checkout mostra, porque os
-                    dois saem de `resolveOrderPricing` com a mesma entrada. Sem desconto, sem linha. */}
-                {(buyTogetherDiscount ?? 0) > 0 && (
-                  <div className="flex items-center justify-between gap-3 text-[13px]">
-                    <dt className="font-medium text-estrelinha-ink-soft">Desconto do Compre Junto</dt>
-                    <dd
-                      data-testid="drawer-buy-together"
-                      className="shrink-0 font-semibold text-estrelinha-primary"
-                    >
-                      −{formatPrice(buyTogetherDiscount)}
-                    </dd>
-                  </div>
-                )}
-                {/* Sem faixa alcançada a linha simplesmente não existe: a gaveta não anuncia
-                    "−R$ 0,00", que é anúncio de desconto nenhum. */}
-                {promotionDiscount > 0 && (
-                  <div className="flex items-center justify-between text-[13px]">
-                    <dt className="font-medium text-estrelinha-ink-soft">Desconto progressivo</dt>
-                    <dd className="font-semibold text-estrelinha-primary">
-                      −{formatPrice(promotionDiscount)}
-                    </dd>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div className="flex items-center justify-between text-[13px]">
-                    <dt className="font-medium text-estrelinha-ink-soft">Cupom {applied?.code}</dt>
-                    <dd className="font-semibold text-estrelinha-primary">−{formatPrice(discount)}</dd>
-                  </div>
-                )}
-                <div className="h-px w-full bg-estrelinha-line" />
-                <div className="flex items-center justify-between">
-                  <dt className="font-heading text-base font-bold text-estrelinha-ink">Total</dt>
-                  <dd className="font-heading text-lg font-extrabold text-estrelinha-ink">
-                    {formatPrice(total)}
-                  </dd>
-                </div>
-              </dl>
-
-              {/* Sem a linha de frete, o Total é o dos produtos. Dizer onde o frete é calculado é o
-                  que impede a cliente de ler este número como valor final do pedido. */}
-              <p className="px-5 pt-2 text-[11px] leading-4 text-estrelinha-ink-soft md:px-6">
-                Frete calculado no checkout, com o seu CEP.
-              </p>
-
-              <div className="px-5 pb-5 pt-3.5 md:px-6 md:pb-6 md:pt-4">
-                <Button
-                  onClick={() => goTo('/checkout')}
-                  className="h-[52px] w-full gap-2.5 rounded-2xl border-0 bg-estrelinha-primary font-display text-[15px] font-bold text-white transition-transform hover:bg-estrelinha-primary hover:opacity-95 active:scale-[0.99]"
-                >
-                  <SacolaIcon className="h-5 w-5" aria-hidden />
-                  Finalizar Pedido
-                </Button>
-              </div>
-            </div>
-          </>
+          <FilledCart panel={panel} onNavigate={closeCart} onCheckout={() => goTo('/checkout')} />
         )}
       </SheetContent>
     </Sheet>

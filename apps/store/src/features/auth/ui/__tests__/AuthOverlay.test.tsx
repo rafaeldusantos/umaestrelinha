@@ -25,7 +25,7 @@ const { flow, isMobileRef } = vi.hoisted(() => ({
  * `useQuery`, e o teste morreria sem `QueryClientProvider`.
  */
 const shipping = vi.hoisted(() => ({
-  value: { free_shipping_enabled: true, free_shipping_threshold: 150 },
+  value: { free_shipping_enabled: true, free_shipping_threshold: 150 } as Record<string, unknown>,
 }))
 
 vi.mock('../../model/useAuthFlow', () => ({ useAuthFlow: () => flow }))
@@ -101,5 +101,46 @@ describe('AuthOverlay (AUTH-01, AUTH-09)', () => {
     useAuthUiStore.setState({ isOpen: false })
     render(<AuthOverlay />)
     expect(screen.queryByText('Entrar ou criar conta')).not.toBeInTheDocument()
+  })
+})
+
+describe('AuthOverlay — a região do frete grátis no painel de marca', () => {
+  it('com Sul e Sudeste, o item diz a região', () => {
+    shipping.value = {
+      free_shipping_enabled: true,
+      free_shipping_threshold: 450,
+      free_shipping_regions: ['sul', 'sudeste'],
+    }
+    useAuthUiStore.setState({ isOpen: true, step: 'entry' })
+    render(<AuthOverlay />)
+    expect(
+      screen.getByText('Frete grátis acima de R$ 450,00 · para Sul e Sudeste', {
+        normalizer: (t) => t.replace(/\u00a0/g, ' '),
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('com as cinco regiões, o texto de hoje', () => {
+    shipping.value = {
+      free_shipping_enabled: true,
+      free_shipping_threshold: 450,
+      free_shipping_regions: ['sul', 'sudeste', 'centro-oeste', 'nordeste', 'norte'],
+    }
+    useAuthUiStore.setState({ isOpen: true, step: 'entry' })
+    render(<AuthOverlay />)
+    expect(screen.getByText('Frete grátis acima de R$ 450,00')).toBeInTheDocument()
+    expect(screen.queryByText(/para Sul/)).toBeNull()
+  })
+
+  it('desligado, nem o item nem a região', () => {
+    shipping.value = {
+      free_shipping_enabled: false,
+      free_shipping_threshold: 450,
+      free_shipping_regions: ['sul', 'sudeste'],
+    }
+    useAuthUiStore.setState({ isOpen: true, step: 'entry' })
+    render(<AuthOverlay />)
+    expect(screen.queryByText(/Frete grátis/)).toBeNull()
+    expect(screen.queryByText(/Sudeste/)).toBeNull()
   })
 })
