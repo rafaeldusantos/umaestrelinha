@@ -385,3 +385,53 @@ describe('checkoutStore — o cartão digitado e a parcela escolhida', () => {
     expect(useCheckoutStore.getState().cardInstallments).toBe(1)
   })
 })
+
+describe('checkoutStore — de onde veio o CEP (cepOrigin)', () => {
+  it('nasce vazio, e marcar a sacola como origem persiste na sessão', () => {
+    expect(useCheckoutStore.getState().cepOrigin).toBeNull()
+
+    useCheckoutStore.getState().setAddress({ cep: '01310-100' })
+    useCheckoutStore.getState().setCepOrigin('sacola')
+
+    expect(useCheckoutStore.getState().cepOrigin).toBe('sacola')
+    const persisted = JSON.parse(sessionStorage.getItem(CHECKOUT_STORAGE_KEY)!)
+    expect(persisted.state.cepOrigin).toBe('sacola')
+  })
+
+  it('sai no reset()', () => {
+    useCheckoutStore.getState().setAddress({ cep: '01310-100' })
+    useCheckoutStore.getState().setCepOrigin('sacola')
+    useCheckoutStore.getState().reset()
+
+    expect(useCheckoutStore.getState().cepOrigin).toBeNull()
+  })
+
+  it('digitar outro CEP no checkout zera a origem', () => {
+    useCheckoutStore.getState().setAddress({ cep: '01310-100' })
+    useCheckoutStore.getState().setCepOrigin('sacola')
+
+    useCheckoutStore.getState().setAddress({ cep: '40020-000' })
+
+    expect(useCheckoutStore.getState().cepOrigin).toBeNull()
+  })
+
+  it('preencher o resto do endereço, ou repetir o mesmo CEP, não zera a origem', () => {
+    useCheckoutStore.getState().setAddress({ cep: '01310-100' })
+    useCheckoutStore.getState().setCepOrigin('sacola')
+
+    useCheckoutStore.getState().setAddress({ street: 'Av. Paulista', number: '1000' })
+    useCheckoutStore.getState().setAddress({ cep: '01310-100' })
+
+    expect(useCheckoutStore.getState().cepOrigin).toBe('sacola')
+  })
+
+  it('não entra no rascunho: marcar a origem não torna o pedido em curso obsoleto', () => {
+    fill()
+    useCheckoutStore.getState().setOrder('order-1', useCheckoutStore.getState().draft())
+
+    useCheckoutStore.getState().setCepOrigin('sacola')
+
+    expect(useCheckoutStore.getState().draft()).not.toHaveProperty('cepOrigin')
+    expect(useCheckoutStore.getState().isStale()).toBe(false)
+  })
+})

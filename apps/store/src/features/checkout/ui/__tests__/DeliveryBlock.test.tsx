@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { act, render, screen, fireEvent, within } from '@testing-library/react'
 import type { Product } from '@estrelinha/supabase/types'
 import type { ShippingQuote } from '@estrelinha/supabase/types/shipping'
 import { useCartStore } from '@/entities/cart'
@@ -440,9 +440,9 @@ describe('DeliveryBlock — prévia do bloco fechado', () => {
     renderCollapsed()
 
     const lista = within(screen.getByRole('group', { name: 'Forma de envio' }))
-    expect(lista.getByRole('button', { name: /Correios PAC/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(lista.getByRole('button', { name: /Correios SEDEX/ })).toHaveAttribute(
-      'aria-pressed',
+    expect(lista.getByRole('radio', { name: /PAC · Correios/ })).toHaveAttribute('aria-checked', 'true')
+    expect(lista.getByRole('radio', { name: /SEDEX · Correios/ })).toHaveAttribute(
+      'aria-checked',
       'false',
     )
     expect(screen.queryByRole('group', { name: 'Frete escolhido' })).not.toBeInTheDocument()
@@ -465,15 +465,15 @@ describe('DeliveryBlock — prévia do bloco fechado', () => {
     })
     renderCollapsed()
 
-    fireEvent.click(screen.getByRole('button', { name: /Correios SEDEX/ }))
+    fireEvent.click(screen.getByRole('radio', { name: /SEDEX · Correios/ }))
 
     const state = useCheckoutStore.getState()
     expect(state.shipping).toMatchObject({ serviceId: '2', serviceName: 'SEDEX', cost: 24.8 })
     // Sujar reabriria a Entrega (FLW-01) — que é exatamente o "Alterar" que a troca evita.
     expect(state.dirty).not.toContain('delivery')
     expect(onEdit).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: /Correios SEDEX/ })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('radio', { name: /SEDEX · Correios/ })).toHaveAttribute(
+      'aria-checked',
       'true',
     )
   })
@@ -495,8 +495,8 @@ describe('DeliveryBlock — opções cotadas (SHP-01, SHP-04)', () => {
     quoteState({ data: [PAC, SEDEX] })
     renderOpen()
 
-    expect(screen.getByText('Correios PAC')).toBeInTheDocument()
-    expect(screen.getByText('Correios SEDEX')).toBeInTheDocument()
+    expect(screen.getByText('PAC · Correios')).toBeInTheDocument()
+    expect(screen.getByText('SEDEX · Correios')).toBeInTheDocument()
   })
 
   it('exibe o preço cotado de cada opção', () => {
@@ -529,7 +529,7 @@ describe('DeliveryBlock — opções cotadas (SHP-01, SHP-04)', () => {
     quoteState({ data: [PAC, SEDEX] })
     renderOpen()
 
-    fireEvent.click(screen.getByText('Correios SEDEX'))
+    fireEvent.click(screen.getByText('SEDEX · Correios'))
 
     expect(useCheckoutStore.getState().shipping).toEqual({
       serviceId: '2',
@@ -559,7 +559,7 @@ describe('DeliveryBlock — cotação indisponível (SHP-05)', () => {
     quoteState({ isError: true })
     renderOpen()
 
-    expect(screen.getByText('Correios Frete padrão')).toBeInTheDocument()
+    expect(screen.getByText('Frete padrão · Correios')).toBeInTheDocument()
     expect(screen.getByText('R$ 9,90')).toBeInTheDocument()
     expect(useCheckoutStore.getState().shipping?.cost).toBe(9.9)
   })
@@ -579,7 +579,7 @@ describe('DeliveryBlock — cotação indisponível (SHP-05)', () => {
     quoteState({ data: [], isSuccess: true })
     renderOpen()
 
-    expect(screen.getByText('Correios Frete padrão')).toBeInTheDocument()
+    expect(screen.getByText('Frete padrão · Correios')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent(QUOTE_UNAVAILABLE_MESSAGE)
   })
 })
@@ -595,7 +595,7 @@ describe('DeliveryBlock — frete grátis (SHP-06 e cupom)', () => {
     expect(screen.getByText('Grátis')).toBeInTheDocument()
     expect(screen.getByText('R$ 14,90')).toHaveClass('line-through')
 
-    fireEvent.click(screen.getByText('Correios PAC'))
+    fireEvent.click(screen.getByText('PAC · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
   })
 
@@ -608,7 +608,7 @@ describe('DeliveryBlock — frete grátis (SHP-06 e cupom)', () => {
 
     expect(screen.getAllByText('Grátis')).toHaveLength(1)
 
-    fireEvent.click(screen.getByText('Correios SEDEX'))
+    fireEvent.click(screen.getByText('SEDEX · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(24.8)
   })
 
@@ -627,7 +627,7 @@ describe('DeliveryBlock — frete grátis (SHP-06 e cupom)', () => {
     expect(screen.getByText('Grátis')).toBeInTheDocument()
     expect(screen.getByText('R$ 14,90')).toHaveClass('line-through')
 
-    fireEvent.click(screen.getByText('Correios PAC'))
+    fireEvent.click(screen.getByText('PAC · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
   })
 
@@ -641,7 +641,7 @@ describe('DeliveryBlock — frete grátis (SHP-06 e cupom)', () => {
 
     expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Correios PAC'))
+    fireEvent.click(screen.getByText('PAC · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(14.9)
   })
 
@@ -659,7 +659,7 @@ describe('DeliveryBlock — frete grátis (SHP-06 e cupom)', () => {
 
     expect(screen.getAllByText('Grátis')).toHaveLength(2)
 
-    fireEvent.click(screen.getByText('Correios SEDEX'))
+    fireEvent.click(screen.getByText('SEDEX · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
   })
 })
@@ -671,7 +671,7 @@ describe('DeliveryBlock — troca de CEP', () => {
     quoteState({ data: [PAC, SEDEX] })
     renderOpen()
 
-    fireEvent.click(screen.getByText('Correios SEDEX'))
+    fireEvent.click(screen.getByText('SEDEX · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(24.8)
 
     fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '01310100' } })
@@ -742,7 +742,7 @@ describe('DeliveryBlock — o que suja o bloco (FLW-01, FLW-04)', () => {
     quoteState({ data: [PAC, SEDEX] })
     renderOpen()
 
-    fireEvent.click(screen.getByText('Correios SEDEX'))
+    fireEvent.click(screen.getByText('SEDEX · Correios'))
 
     expect(useCheckoutStore.getState().dirty).toEqual(['delivery'])
   })
@@ -824,7 +824,7 @@ describe('DeliveryBlock — o interruptor do frete gratis (FRG-07)', () => {
 
     expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Correios PAC'))
+    fireEvent.click(screen.getByText('PAC · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(14.9)
   })
 
@@ -883,7 +883,7 @@ describe('DeliveryBlock — o interruptor do frete gratis (FRG-07)', () => {
 
     expect(screen.getAllByText('Grátis')).toHaveLength(2)
 
-    fireEvent.click(screen.getByText('Correios PAC'))
+    fireEvent.click(screen.getByText('PAC · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
   })
 
@@ -897,7 +897,7 @@ describe('DeliveryBlock — o interruptor do frete gratis (FRG-07)', () => {
     quoteState({ isError: true })
     renderOpen()
 
-    expect(screen.getByText('Correios Frete padrão')).toBeInTheDocument()
+    expect(screen.getByText('Frete padrão · Correios')).toBeInTheDocument()
     expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
     expect(useCheckoutStore.getState().shipping?.cost).toBe(9.9)
   })
@@ -961,7 +961,7 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     renderOpen()
 
     expect(screen.getByText('Envio a domicílio')).toBeInTheDocument()
-    expect(screen.getByText('Correios PAC')).toBeInTheDocument()
+    expect(screen.getByText('PAC · Correios')).toBeInTheDocument()
     expect(grupoRetirada().getByText('Retirar em')).toBeInTheDocument()
     expect(grupoRetirada().getByText(LINHA)).toBeInTheDocument()
     expect(grupoRetirada().getByText('Pronta para retirada a partir de 29 de julho')).toBeInTheDocument()
@@ -986,12 +986,12 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     quoteState({ data: [PAC, SEDEX] })
     renderOpen()
 
-    const botao = grupoRetirada().getByRole('button')
-    expect(botao).toHaveAttribute('aria-pressed', 'false')
+    const botao = grupoRetirada().getByRole('radio')
+    expect(botao).toHaveAttribute('aria-checked', 'false')
     fireEvent.click(botao)
 
     expect(useCheckoutStore.getState().shipping).toEqual(RASCUNHO_RETIRADA)
-    expect(grupoRetirada().getByRole('button')).toHaveAttribute('aria-pressed', 'true')
+    expect(grupoRetirada().getByRole('radio')).toHaveAttribute('aria-checked', 'true')
     expect(useCheckoutStore.getState().dirty).toEqual(['delivery'])
   })
 
@@ -1031,7 +1031,7 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
 
     expect(useCheckoutStore.getState().shipping?.serviceId).toBe('1')
     expect(useCheckoutStore.getState().shipping?.cost).toBe(14.9)
-    expect(grupoRetirada().getByRole('button')).toHaveAttribute('aria-pressed', 'false')
+    expect(grupoRetirada().getByRole('radio')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('CEP do RS: "Envio a domicílio" e "Retirar em" são DOIS grupos nomeados, cada um com a sua opção (RET-06)', () => {
@@ -1041,11 +1041,11 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     renderOpen()
 
     const domicilio = within(screen.getByRole('group', { name: 'Envio a domicílio' }))
-    expect(domicilio.getByText('Correios PAC')).toBeInTheDocument()
-    expect(domicilio.getByText('Correios SEDEX')).toBeInTheDocument()
+    expect(domicilio.getByText('PAC · Correios')).toBeInTheDocument()
+    expect(domicilio.getByText('SEDEX · Correios')).toBeInTheDocument()
     expect(domicilio.queryByText(LINHA)).not.toBeInTheDocument()
     expect(grupoRetirada().getByText(LINHA)).toBeInTheDocument()
-    expect(grupoRetirada().queryByText('Correios PAC')).not.toBeInTheDocument()
+    expect(grupoRetirada().queryByText('PAC · Correios')).not.toBeInTheDocument()
   })
 
   it('CEP de São Paulo: as opções dos Correios não viram grupo nomeado (a tela de antes)', () => {
@@ -1058,8 +1058,8 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     // E nenhum grupo SEM nome em volta das opções dos Correios: um `role="group"` incondicional
     // (o mutante N15 da rodada 2) escaparia da consulta por nome acima. Asserção no PRÓPRIO botão,
     // subindo até o bloco: fora do RS não há grupo nenhum no caminho.
-    for (const nome of [/Correios PAC/, /Correios SEDEX/]) {
-      const opcao = screen.getByRole('button', { name: nome })
+    for (const nome of [/PAC · Correios/, /SEDEX · Correios/]) {
+      const opcao = screen.getByRole('radio', { name: nome })
       expect(opcao.closest('[role="group"]'), String(nome)).toBeNull()
     }
   })
@@ -1083,10 +1083,10 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     expect(screen.getByText('R$ 24,80')).toHaveClass('line-through')
     expect(grupoRetirada().getByText('Grátis')).toBeInTheDocument()
 
-    fireEvent.click(grupoRetirada().getByRole('button'))
+    fireEvent.click(grupoRetirada().getByRole('radio'))
     expect(useCheckoutStore.getState().shipping).toEqual(RASCUNHO_RETIRADA)
 
-    fireEvent.click(screen.getByText('Correios SEDEX'))
+    fireEvent.click(screen.getByText('SEDEX · Correios'))
     expect(useCheckoutStore.getState().shipping?.serviceId).toBe('2')
     expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
   })
@@ -1112,7 +1112,7 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     expect(screen.getByText('R$ 14,90')).toHaveClass('line-through')
     expect(screen.getByText('R$ 24,80')).not.toHaveClass('line-through')
 
-    fireEvent.click(screen.getByText('Correios PAC'))
+    fireEvent.click(screen.getByText('PAC · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
     expect(useCheckoutStore.getState().shipping?.serviceId).toBe('1')
   })
@@ -1124,7 +1124,7 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     renderOpen()
 
     expect(screen.getByRole('alert')).toHaveTextContent(QUOTE_UNAVAILABLE_MESSAGE)
-    expect(screen.getByText('Correios Frete padrão')).toBeInTheDocument()
+    expect(screen.getByText('Frete padrão · Correios')).toBeInTheDocument()
     expect(grupoRetirada().getByText(LINHA)).toBeInTheDocument()
     // SHP-05 pré-seleciona a opção única de fallback — e ela continua sendo o frete padrão.
     expect(useCheckoutStore.getState().shipping?.serviceId).toBe('default')
@@ -1147,7 +1147,7 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     quoteState({ data: [PAC, SEDEX] })
     renderOpen()
 
-    fireEvent.click(grupoRetirada().getByRole('button'))
+    fireEvent.click(grupoRetirada().getByRole('radio'))
     expect(useCheckoutStore.getState().shipping?.serviceId).toBe('retirada')
 
     fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '01310100' } })
@@ -1223,5 +1223,123 @@ describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
     }
     expect(isDeliveryComplete({ address, shipping: RASCUNHO_RETIRADA })).toBe(false)
     expect(isDeliveryComplete({ address: { ...address, number: '120' }, shipping: RASCUNHO_RETIRADA })).toBe(true)
+  })
+})
+
+describe('DeliveryBlock — frete grátis por região', () => {
+  const comRegioes = (regioes: string[] | undefined) => {
+    ;(shippingSettings as any).free_shipping_regions = regioes
+  }
+  const opcao = (nome: RegExp) => screen.getByRole('radio', { name: nome })
+  const digitarCep = (cep: string) =>
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: cep } })
+
+  beforeEach(() => {
+    comRegioes(['sul', 'sudeste'])
+    shippingSettings.free_shipping_threshold = 150
+    setCartSubtotal(200)
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+  })
+  afterEach(() => comRegioes(undefined))
+
+  it('CEP de SP com a faixa alcançada: a mais barata sai Grátis com o valor riscado', () => {
+    withCep('01310-100')
+    renderOpen()
+
+    const pac = within(opcao(/PAC · Correios/))
+    expect(pac.getByText('Grátis')).toBeInTheDocument()
+    expect(pac.getByText('R$ 14,90')).toHaveClass('line-through')
+    expect(within(opcao(/SEDEX · Correios/)).getByText('R$ 24,80')).toBeInTheDocument()
+    expect(within(opcao(/SEDEX · Correios/)).queryByText('Grátis')).toBeNull()
+  })
+
+  it('CEP do RS (Sul) com a faixa alcançada também libera a mais barata', () => {
+    withCep('90010-000')
+    renderOpen()
+
+    expect(within(opcao(/PAC · Correios/)).getByText('Grátis')).toBeInTheDocument()
+  })
+
+  it('CEP da BA com a faixa alcançada: nenhuma opção sai grátis', () => {
+    withCep('40020-000')
+    renderOpen()
+
+    expect(screen.queryByText('Grátis')).toBeNull()
+    expect(within(opcao(/PAC · Correios/)).getByText('R$ 14,90')).not.toHaveClass('line-through')
+  })
+
+  it('trocar o CEP de SP para a BA desfaz a escolha, e a mais barata escolhida soma o frete', () => {
+    withCep('01310-100')
+    renderOpen()
+    fireEvent.click(opcao(/PAC · Correios/))
+    expect(useCheckoutStore.getState().shipping).toMatchObject({ serviceId: '1', cost: 0 })
+
+    digitarCep('40020-000')
+
+    expect(useCheckoutStore.getState().shipping).toBeNull()
+    expect(opcao(/PAC · Correios/)).toHaveAttribute('aria-checked', 'false')
+    expect(within(opcao(/PAC · Correios/)).queryByText('Grátis')).toBeNull()
+
+    fireEvent.click(opcao(/PAC · Correios/))
+    expect(useCheckoutStore.getState().shipping).toMatchObject({ serviceId: '1', cost: 14.9 })
+  })
+
+  it('o custo gravado acompanha a escolhida quando o subtotal cai abaixo da faixa', () => {
+    withCep('01310-100')
+    renderOpen()
+    fireEvent.click(opcao(/PAC · Correios/))
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
+
+    act(() => setCartSubtotal(100))
+
+    expect(useCheckoutStore.getState().shipping).toMatchObject({ serviceId: '1', cost: 14.9 })
+    // Não foi a pessoa que mudou nada: o bloco não fica sujo por isso.
+  })
+
+  it('o custo gravado acompanha a cotação nova da opção escolhida', () => {
+    withCep('40020-000')
+    const { rerender } = renderOpen()
+    fireEvent.click(opcao(/SEDEX · Correios/))
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(24.8)
+
+    quoteState({ data: [PAC, { ...SEDEX, price: '31.50' }] })
+    rerender(
+      <DeliveryBlock open complete={false} onEdit={onEdit} onContinue={onContinue} canContinue={false} />,
+    )
+
+    expect(useCheckoutStore.getState().shipping).toMatchObject({ serviceId: '2', cost: 31.5 })
+  })
+
+  it('a resincronização do custo não suja o bloco', () => {
+    withCep('01310-100')
+    useCheckoutStore.getState().setShipping({
+      serviceId: '1',
+      serviceName: 'PAC',
+      carrier: 'Correios',
+      cost: 14.9,
+      estimateMin: '2026-08-04',
+      estimateMax: '2026-08-06',
+    })
+    renderOpen()
+
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
+    expect(useCheckoutStore.getState().dirty).not.toContain('delivery')
+  })
+
+  it('com o cupom de frete grátis, a BA também fica sem frete (o cupom vale em qualquer região)', () => {
+    useCouponStore.getState().setCoupon({
+      id: 'cp1',
+      code: 'FRETEGRATIS',
+      type: 'free_shipping',
+      value: 0,
+      discount: 0,
+      freeShipping: true,
+    })
+    withCep('40020-000')
+    renderOpen()
+
+    expect(within(opcao(/PAC · Correios/)).getByText('Grátis')).toBeInTheDocument()
+    expect(within(opcao(/SEDEX · Correios/)).getByText('Grátis')).toBeInTheDocument()
   })
 })

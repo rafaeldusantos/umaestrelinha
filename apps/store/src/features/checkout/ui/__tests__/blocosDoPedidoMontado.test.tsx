@@ -179,9 +179,9 @@ describe('DeliveryBlock com as peças do pedido (CON-04, A-11, PRC-05)', () => {
     entrega({ quoteItems: PECAS, subtotal: 180 })
     // Faixa de 150: a mais barata (PAC) zera; o SEDEX mantém o preço.
     expect(gratis()).toBe(1)
-    fireEvent.click(screen.getByText('Correios PAC'))
+    fireEvent.click(screen.getByText('PAC · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
-    fireEvent.click(screen.getByText('Correios SEDEX'))
+    fireEvent.click(screen.getByText('SEDEX · Correios'))
     expect(useCheckoutStore.getState().shipping?.cost).toBe(24.8)
   })
 

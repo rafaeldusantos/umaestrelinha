@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import type { Product } from '@estrelinha/supabase/types'
 import {
@@ -522,6 +522,120 @@ describe('OrderSummary — faixa de frete grátis', () => {
     render(<OrderSummary variant="bar" />)
 
     expect(screen.getByRole('button', { expanded: false })).toHaveTextContent('frete grátis')
+  })
+})
+
+describe('OrderSummary — faixa do frete grátis por região', () => {
+  const comRegioes = (regioes: string[] | undefined) => {
+    ;(shippingSettings as any).free_shipping_regions = regioes
+  }
+  const comCep = (cep: string) => useCheckoutStore.getState().setAddress({ cep })
+  const cupomDeFreteGratis = () =>
+    useCouponStore.getState().setCoupon({
+      id: 'c1',
+      code: 'FRETEGRATIS',
+      type: 'free_shipping',
+      value: 0,
+      discount: 0,
+      freeShipping: true,
+    })
+
+  beforeEach(() => comRegioes(['sul', 'sudeste']))
+  afterEach(() => comRegioes(undefined))
+
+  it('faixa alcançada com CEP de SP: frete grátis liberado', () => {
+    shippingSettings.free_shipping_threshold = 100
+    comCep('01310-100')
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.getByText('Frete grátis liberado')).toBeInTheDocument()
+    expect(screen.queryByText(/só para/)).toBeNull()
+  })
+
+  it('faixa alcançada com CEP da BA: só para Sul e Sudeste, sem "liberado"', () => {
+    shippingSettings.free_shipping_threshold = 100
+    comCep('40020-000')
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.getByText('Frete grátis só para Sul e Sudeste')).toBeInTheDocument()
+    expect(screen.queryByText('Frete grátis liberado')).toBeNull()
+    expect(screen.queryByText(/faltam/i)).toBeNull()
+  })
+
+  it('CEP da BA abaixo da faixa: a mesma linha neutra, sem "faltam"', () => {
+    shippingSettings.free_shipping_threshold = 150
+    comCep('40020-000')
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.getByText('Frete grátis só para Sul e Sudeste')).toBeInTheDocument()
+    expect(screen.queryByText(/faltam/i)).toBeNull()
+  })
+
+  it('faixa alcançada sem CEP: para Sul e Sudeste, sem "liberado"', () => {
+    shippingSettings.free_shipping_threshold = 100
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.getByText('Frete grátis para Sul e Sudeste')).toBeInTheDocument()
+    expect(screen.queryByText('Frete grátis liberado')).toBeNull()
+  })
+
+  it('abaixo da faixa sem CEP: quanto falta, como hoje', () => {
+    shippingSettings.free_shipping_threshold = 150
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.getByText('Faltam R$ 50,00 para o frete grátis')).toBeInTheDocument()
+  })
+
+  it('o rótulo das regiões vem da configuração', () => {
+    shippingSettings.free_shipping_threshold = 100
+    comRegioes(['sudeste', 'nordeste'])
+    comCep('90010-000')
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.getByText('Frete grátis só para Sudeste e Nordeste')).toBeInTheDocument()
+  })
+
+  it('com cupom de frete grátis a faixa some, inclusive com CEP da BA', () => {
+    shippingSettings.free_shipping_threshold = 100
+    cupomDeFreteGratis()
+    comCep('40020-000')
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.queryByText(/Frete grátis só para/)).toBeNull()
+    expect(screen.queryByText('Frete grátis liberado')).toBeNull()
+    expect(screen.queryByText(/para o frete grátis/)).toBeNull()
+  })
+
+  it('com cupom de frete grátis e CEP de SP a faixa também some', () => {
+    shippingSettings.free_shipping_threshold = 100
+    cupomDeFreteGratis()
+    comCep('01310-100')
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.queryByText('Frete grátis liberado')).toBeNull()
+  })
+
+  it('a barra do mobile só anuncia o frete grátis quando ele foi concedido', () => {
+    shippingSettings.free_shipping_threshold = 100
+    comCep('40020-000')
+    const { unmount } = render(<OrderSummary variant="bar" />)
+    expect(screen.getByRole('button', { expanded: false })).not.toHaveTextContent('frete grátis')
+    unmount()
+
+    comCep('01310-100')
+    render(<OrderSummary variant="bar" />)
+    expect(screen.getByRole('button', { expanded: false })).toHaveTextContent(
+      'Resumo · 2 itens · frete grátis',
+    )
+  })
+
+  it('o tom da faixa não tem exclamação nem "infelizmente"', () => {
+    shippingSettings.free_shipping_threshold = 100
+    comCep('40020-000')
+    render(<OrderSummary variant="sidebar" />)
+
+    const texto = screen.getByText('Frete grátis só para Sul e Sudeste').textContent ?? ''
+    expect(texto).not.toMatch(/!|infelizmente/i)
   })
 })
 

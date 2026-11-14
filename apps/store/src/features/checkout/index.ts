@@ -10,6 +10,16 @@ export { default as DeliveryBlock } from './ui/DeliveryBlock'
 export { default as OrderBump } from './ui/OrderBump'
 export { default as OrderSummary } from './ui/OrderSummary'
 export { default as PaymentBlock } from './ui/PaymentBlock'
+export { default as ShippingOptionCard } from './ui/ShippingOptionCard'
+export {
+  DEFAULT_SHIPPING_SERVICE_ID,
+  deliveryOptions,
+  toShippingDraft,
+  type DeliveryOption,
+  type DeliveryOptionsInput,
+  type DeliveryOptionsResult,
+} from './lib/deliveryOptions'
+export { useCheckoutStore, type CepOrigin } from './model/checkoutStore'
 // `PixPayment` saiu daqui na feature `58`: a superfície do PIX tem endereço próprio
 // (`/pedido/:id/pagamento`) e mora em `features/order-payment`. O arquivo foi apagado, e
 // `pagamentoComDonoUnico.test.ts` recusa a volta dele ao disco e ao barrel.

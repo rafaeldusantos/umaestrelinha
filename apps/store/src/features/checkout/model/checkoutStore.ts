@@ -25,6 +25,11 @@ import { binRecognized } from '../lib/cardBrick'
 
 export const CHECKOUT_STORAGE_KEY = 'estrelinha-checkout'
 
+/** De onde veio o CEP do rascunho: da gaveta (`'sacola'`) ou não (`null`). */
+export type CepOrigin = 'sacola' | null
+
+const digitos = (cep: string | null | undefined) => String(cep ?? '').replace(/\D/g, '')
+
 const emptyDraft = (): CheckoutDraft => ({
   contact: { name: '', email: '', whatsapp: '', consent: false },
   address: {
@@ -114,8 +119,16 @@ interface CheckoutState extends CheckoutDraft {
    * zerado por `reset()`.
    */
   scope: string | null
+  /**
+   * De onde veio o CEP do rascunho: `'sacola'` quando a gaveta o calculou, `null` quando foi digitado
+   * (ou semeado) aqui. É estado da TELA, como `scope`: fica fora de `draft()` — marcar a origem não
+   * muda a cobrança, então não torna o pedido em curso obsoleto (CHK-08) —, é persistido com o
+   * rascunho e zerado por `reset()`. Digitar outro CEP no checkout o zera (`setAddress`).
+   */
+  cepOrigin: CepOrigin
 
   setScope: (scope: string | null) => void
+  setCepOrigin: (origin: CepOrigin) => void
   setContact: (patch: Partial<ContactDraft>) => void
   setAddress: (patch: Partial<AddressDraft>) => void
   setShipping: (shipping: ShippingDraft | null) => void
@@ -173,10 +186,21 @@ export function createCheckoutStore(storageKey: string) {
       cardBin: null,
       cardInstallments: 1,
       scope: null,
+      cepOrigin: null,
 
       setScope: (scope) => set((s) => (s.scope === scope ? {} : { scope })),
       setContact: (patch) => set((s) => ({ contact: { ...s.contact, ...patch } })),
-      setAddress: (patch) => set((s) => ({ address: { ...s.address, ...patch } })),
+      setCepOrigin: (cepOrigin) => set((s) => (s.cepOrigin === cepOrigin ? {} : { cepOrigin })),
+      // Um CEP DIFERENTE no endereço deixa de ser o que veio da sacola. Quem grava o CEP da gaveta
+      // chama `setAddress` e só depois `setCepOrigin('sacola')`; o resto do endereço, e o mesmo
+      // CEP com outra máscara, não mexem na origem.
+      setAddress: (patch) =>
+        set((s) => {
+          const address = { ...s.address, ...patch }
+          const trocouCep =
+            patch.cep !== undefined && digitos(patch.cep) !== digitos(s.address.cep)
+          return trocouCep && s.cepOrigin !== null ? { address, cepOrigin: null } : { address }
+        }),
       setShipping: (shipping) => set({ shipping }),
       setPayment: (patch) => set((s) => ({ payment: { ...s.payment, ...patch } })),
       toggleBump: (checked) => set((s) => ({ bumpChecked: checked ?? !s.bumpChecked })),
@@ -237,6 +261,7 @@ export function createCheckoutStore(storageKey: string) {
           cardBin: null,
           cardInstallments: 1,
           scope: null,
+          cepOrigin: null,
         })
         store.persist.clearStorage()
       },
@@ -275,6 +300,7 @@ export function createCheckoutStore(storageKey: string) {
         // de quem só voltou para pagá-lo.
         orderCart: s.orderCart,
         scope: s.scope,
+        cepOrigin: s.cepOrigin,
       }),
     },
   ),

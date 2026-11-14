@@ -479,7 +479,7 @@ describe('QA 89 — a Adri atualizou o pedido com a página aberta (BUG-20261031
     }
     respostas['create-order'] = () => falha(409, { error: 'x', code: 'proposal_changed' })
     montar()
-    fireEvent.click(await screen.findByRole('button', { name: /^Correios PAC/ }))
+    fireEvent.click(await screen.findByRole('radio', { name: /^PAC · Correios/ }))
     await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.cost).toBe(35))
     await waitFor(() => expect(ctaPagar()).toBeEnabled())
     expect(screen.getAllByText(/Frete · Correios PAC/).length).toBeGreaterThan(0)
@@ -501,7 +501,7 @@ describe('QA 89 — a Adri atualizou o pedido com a página aberta (BUG-20261031
 
     // Ela escolhe de novo, e o pedido vai com o frete do pacote atual.
     respostas['create-order'] = () => ({ data: { order_id: 'ord-v4', order_number: '0266', access_token: 'a' }, error: null })
-    fireEvent.click(await screen.findByRole('button', { name: /^Correios PAC/ }))
+    fireEvent.click(await screen.findByRole('radio', { name: /^PAC · Correios/ }))
     await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.cost).toBe(37.49))
     await waitFor(() => expect(ctaPagar()).toBeEnabled())
     fireEvent.click(ctaPagar())
