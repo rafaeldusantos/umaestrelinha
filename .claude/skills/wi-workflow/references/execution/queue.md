@@ -9,17 +9,21 @@ fila veio do fatiamento, e a costura que a governa é o `spec.md` ou o `plan.md`
 > volte, imprima o bloco de finalização e espere. Escrever código sem ele ter pedido é o erro que esta skill
 > mais evita.
 
-Você percorre a fila de `[ITEM_DIR]/tasks/`. Por tarefa: marca a tarefa como em andamento na linha
-`**Status:**` do arquivo dela, despacha um subagent que implementa, submete o que ele escreveu a uma
-revisão adversarial, registra o fechamento na mesma linha e segue para a próxima.
+Você percorre a fila de `[ITEM_DIR]/tasks/` **por ondas** (`[ITEM_DIR]/waves.md`). Por tarefa: marca a
+tarefa como em andamento na linha `**Status:**` do arquivo dela, despacha um subagent que implementa,
+submete o que ele escreveu a uma revisão adversarial e registra o fechamento na mesma linha. As tarefas de
+uma onda fazem esse ciclo ao mesmo tempo; a onda seguinte só abre quando todas fecharam.
 
 ---
 
 ## Regras
 
-1. **Você percorre a fila.** Uma tarefa ou a fila inteira é a mesma mecânica: o ciclo abaixo, uma vez por
-   tarefa, em ordem de numeração. A fila é estritamente sequencial — tarefa propaga descoberta e decisão para
-   os arquivos seguintes, e paralelizar destrói isso
+1. **Você percorre a fila, onda por onda.** Uma tarefa ou a fila inteira é a mesma mecânica: o ciclo
+   abaixo, uma vez por tarefa. **Entre ondas a fila é sequencial** — tarefa propaga descoberta e decisão
+   para os arquivos seguintes, e é a onda seguinte que as recebe. **Dentro da onda é paralela**: o plano de
+   ondas, aprovado com a fila e conferido pelo `wi-task-audit`, garantiu que nenhuma tarefa da onda depende
+   de outra dela e que as posses não se cruzam ([tasks.md](../planning/tasks.md#as-ondas--o-que-roda-em-paralelo)).
+   Sem `waves.md`, cada tarefa é uma onda: a ordem da numeração, uma por vez
 
 2. **Você não implementa.** Quem lê a tarefa, lê os arquivos de instrução, escreve teste, escreve código e
    roda verificação é o subagent `wi-impl-task`. Você resolve qual é a tarefa, despacha, manda revisar,
@@ -31,8 +35,8 @@ revisão adversarial, registra o fechamento na mesma linha e segue para a próxi
    `git status` no preflight, o `git add -N` da regra 4 no passo 4 do ciclo, a gravação do relatório da
    revisão no passo 5, e a edição e a releitura da linha `**Status:**` nos passos 1 e 9 do ciclo — **a
    linha, e só ela**: o resto do arquivo de tarefa você não abre — são o limite. A exceção é o que os passos
-   6 a 8 do preflight leem para resolver comandos, ambiente local e baseline: acontece uma vez, antes da
-   primeira tarefa, e não volta
+   6 a 8 do preflight leem para resolver comandos, ambiente local e baseline, e as linhas `ONDAS:`,
+   `posse:` e `relaxada:` do `waves.md` no passo 3: acontece uma vez, antes da primeira tarefa, e não volta
 
 4. **A corrida não commita** (Regra 1 do `SKILL.md`). Sem `checkout`, `branch`, `pull`, `push`, `commit`,
    `stash`, `reset`, `merge`. **A árvore acumula a fila inteira, suja, de
@@ -92,7 +96,16 @@ revisão adversarial, registra o fechamento na mesma linha e segue para a próxi
    conta própria para contornar
 
 3. Localize `[ITEM_DIR]/tasks/` e liste-a. Não havendo pasta ou arquivo de tarefa, pare: escrever tarefa é
-   do fatiamento ([tasks.md](../planning/tasks.md))
+   do fatiamento ([tasks.md](../planning/tasks.md)). **Leia o plano de ondas** — só as linhas de máquina:
+
+   ```bash
+   grep -nE '^(ONDAS:|- [0-9]+ (posse|relaxada):)' [ITEM_DIR]/waves.md
+   ```
+
+   Sem `waves.md`, ou fila de uma: uma onda por tarefa, e diga isso na linha do passo 9. Com ele, confira
+   que toda tarefa do intervalo (passo 4) aparece numa onda e só numa; não aparecendo, diga qual e pergunte
+   antes de começar — não remonte as ondas por conta. Intervalo que corta uma onda ao meio (_"só a 03"_)
+   roda o que foi pedido, nas ondas em que está, sem as que ficaram de fora
 
 4. **Confirme onde a fila começa e onde termina** — a tarefa inicial, e se é ela só ou até o fim da fila.
    O pedido que abriu esta corrida em geral já diz (_"a tarefa 01"_, _"a fila toda"_); não dizendo,
@@ -145,9 +158,42 @@ revisão adversarial, registra o fechamento na mesma linha e segue para a próxi
    vezes, antes e depois. A árvore suja de tarefas anteriores da mesma fila (passo 5) entra no baseline, e
    está certo que entre: é o ponto de partida desta corrida
 
-9. Confirme a fila numa linha — de qual arquivo a qual — e comece. Não há `git add -N` aqui: antes da
-   primeira tarefa não existe arquivo desta corrida para registrar, e o que está `untracked` na árvore é
-   de outro trabalho
+9. Confirme a fila numa linha — de qual arquivo a qual, e as ondas (`ONDAS: 01,08 | 02 | 03,07`) — e
+   comece. Não há `git add -N` aqui: antes da primeira tarefa não existe arquivo desta corrida para
+   registrar, e o que está `untracked` na árvore é de outro trabalho
+
+## A onda — o ciclo em paralelo
+
+As tarefas de uma onda fazem o [ciclo](#ciclo-uma-vez-por-tarefa) juntas, passo a passo:
+
+1. **Passo 1 para todas** — a linha `**Status:**` de cada tarefa da onda em `in-progress`, conferida
+
+2. **Passo 2 numa mensagem só**: um `wi-impl-task` por tarefa da onda, todos na mesma resposta, para que
+   rodem ao mesmo tempo. O briefing de cada um leva, além dos campos do passo 2, a `cerca` — as outras
+   tarefas da onda, cada uma com a linha `posse:` dela, verbatim do `waves.md` — e a `relaxada`, quando a
+   linha da tarefa existe. Onda de uma tarefa vai sem `cerca`. Onda de mais de 4: em lotes de 4, pela
+   numeração
+
+3. **Espere todos voltarem** antes do passo seguinte de qualquer um. Um `Situação: abortou` encerra a
+   corrida **depois da onda**, não no meio dela: as outras tarefas da onda são independentes e seguem o
+   ciclo até fechar ou parar; a onda seguinte não abre
+
+4. **Passo 4 por tarefa** — o `git add -N` de cada uma, só com os criados dela
+
+5. **Passo 5 numa mensagem só**: um `wi-impl-review` por tarefa, todos juntos, cada um com os seus
+   `alterados` e a mesma `cerca` do implementador. É a `cerca` que diz à revisão que o resto da árvore não
+   é do recorte dela
+
+6. **Passo 7 numa mensagem só**: as continuações de `modo: corrigir` das tarefas com `serve com correção`
+   saem juntas. Veredito `não serve` encerra a corrida depois da onda, como o aborto
+
+7. **Passos 9 e 10 por tarefa**. A onda fecha quando todas as tarefas dela estão `done`; imprima a linha de
+   cada uma e abra a próxima onda
+
+**Por que a onda é segura.** Paralelo só é perigoso quando duas tarefas tocam o mesmo arquivo ou uma
+precisa do que a outra ainda não fez — e é exatamente isso que o plano de ondas e a auditoria excluíram.
+O que sobra, a árvore em movimento (erro de tipo ou teste vermelho no arquivo de outra tarefa da onda), o
+`wi-impl-task` e o `wi-impl-review` tratam pela `cerca`.
 
 ## Ciclo, uma vez por tarefa
 
@@ -270,8 +316,8 @@ elas que dizem ao humano o que revisar primeiro — **raio de alcance largo no t
 ```
 Fila: [ITEM_DIR]/tasks — <nn> a <nn>
 
-| # | Tarefa | Caso | Revisão | Status |
-|---|---|---|---|---|
+| # | Onda | Tarefa | Caso | Revisão | Status |
+|---|---|---|---|---|---|
 `Caso` é o do bloco de retorno da tarefa (`fechou limpo | fechou com divergência | parou`); tarefa que
 encerrou em `Situação: abortou` entra como `parou`. `Status` é o da linha `**Status:**` relida — `done
 <i>/<n>` (a posição na fila inteira), `in-progress` na tarefa em que a corrida parou, ou o motivo de não

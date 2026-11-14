@@ -2,10 +2,11 @@
 name: wi-code-lookup
 description: '**RESEARCH AGENT** — Investiga UM repositório a partir do escopo de um Work Item (`.specs/work-items/<ID>-<slug>/`) e devolve o que já serve, o que muda e o que precisa ser criado, com `caminho:linha`. Um subagent por repositório, todos na mesma mensagem. USE FOR: a etapa "Referência de código" da skill wi-workflow — levantar o impacto de um Work Item em um repositório. DO NOT USE FOR: implementar, editar ou versionar (só lê); ler fonte de design (é o wi-design-lookup); investigar mais de um repositório no mesmo subagent.'
 tools: Read, Grep, Glob
+omitClaudeMd: true
 license: CC-BY-4.0
 metadata:
   author: Softdesign (based on github.com/felipfr)
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Code lookup
@@ -35,6 +36,9 @@ raiz do repositório e em cada módulo que o escopo toca, e **leia por inteiro t
 O briefing pode declarar qual é o deste projeto; declarado, é ele, e você não sai procurando os outros.
 Nenhum existe: diga isso em `Instruções lidas` com a palavra `nenhum` — é informação, não motivo para
 parar. Daqui em diante este relatório chama todos eles de arquivo de instruções
+
+**Você roda sem as instruções do projeto no contexto** (`omitClaudeMd`): nenhum `CLAUDE.md` chega a você
+sozinho — o que você sabe do repositório é o que leu aqui
 
 **Arquivo grande demais para ler inteiro** — acima de ~60 KB ou ~1.500 linhas; na dúvida, conte as linhas
 antes de abrir — estoura o seu contexto antes de você chegar ao código. Dele, leia o índice de títulos (as

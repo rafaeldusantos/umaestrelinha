@@ -2,10 +2,11 @@
 name: wi-task-audit
 description: '**REVIEW AGENT** — Tenta derrubar uma fila de tarefas já escrita, conferindo cada afirmação dela contra a costura da pasta do Work Item — `prd.md` + `spec.md` quando o Work Item tem PRD, ou o `plan.md` sozinho quando não tem —, lida do disco, e contra o código real. Um subagent só, depois de os arquivos existirem. Achado vazio é resultado legítimo e esperado. USE FOR: a etapa "Revisão adversarial da fila" da skill wi-workflow. DO NOT USE FOR: corrigir, escrever ou versionar (só lê); revisar a implementação de uma tarefa (é o wi-impl-review).'
 tools: Read, Grep, Glob
+omitClaudeMd: true
 license: CC-BY-4.0
 metadata:
   author: Softdesign (based on github.com/felipfr)
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Task audit
@@ -69,7 +70,14 @@ adicional, preferência sua de arquitetura ou de nomenclatura, nem nada que só 
    `Contrato` e no corpo das tarefas anteriores, atrás de remoção, substituição ou renomeação. É `citação
 morta` do mesmo jeito que arquivo inexistente, e é pior de achar depois: quem executa abre o arquivo e ele
    não está mais lá
-6. Reúna o que sobreviveu à conferência, com os dois lados de cada achado
+6. **Com `waves.md` na pasta, audite as ondas.** Leia a linha `ONDAS:` e as linhas `posse:` e `relaxada:`.
+   Toda tarefa de `tasks/` aparece numa onda e só numa. Para cada tarefa, o `Depende de` dela aponta só
+   para tarefas de ondas **anteriores** — ou é a `relaxada` da linha dela, com o contrato consumido escrito
+   numa decisão da costura (abra a decisão: sem ela, a relaxada não vale). Para cada par da mesma onda,
+   cruze as posses e os arquivos que cada uma cria ou altera — `VOCÊ CRIA`, `Contrato`, os caminhos do
+   corpo: arquivo em comum, inclusive barrel, roteador, registro de módulo e migration de numeração
+   sequencial, é colisão. Fila de duas ou mais sem `waves.md` não é achado: a corrida a roda em sequência
+7. Reúna o que sobreviveu à conferência, com os dois lados de cada achado
 
 **PRD revisado.** O `prd.md` já traz as edições aprovadas no gate do PRD Tech Review — o
 `## Histórico de revisões` no fim diz quais trechos mudaram e em que rodada. Vale o `prd.md` atual: critério
@@ -88,6 +96,7 @@ Só estas. O que não cabe em nenhuma não é achado desta auditoria
 | `posse errada`        | `JÁ EXISTE` de algo que a costura não achou, ou `VOCÊ CRIA` de algo que já está lá                                                                                                                      |
 | `ordem violada`       | a tarefa consome contrato, tabela ou tela que só nasce em tarefa de número maior                                                                                                                        |
 | `valor emprestado`    | valor fixo que dependia do que uma tarefa anterior fez — o caso típico é o número da migration                                                                                                          |
+| `onda violada`        | no `waves.md`: tarefa fora de onda ou em duas; dependência de tarefa de onda igual ou posterior sem `relaxada` sustentada por decisão da costura; par da mesma onda que toca o mesmo arquivo                       |
 | `cerca furada`        | a tarefa manda fazer o que a costura declarou fora do escopo, ou o que pertence a outra tarefa da fila                                                                                                  |
 | `arquivo incompleto`  | seção obrigatória ausente, ou o bloco depois do `---` adaptado em vez de literal                                                                                                                        |
 

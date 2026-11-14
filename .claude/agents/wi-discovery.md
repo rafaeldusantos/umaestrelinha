@@ -2,10 +2,11 @@
 name: wi-discovery
 description: '**RESEARCH AGENT** — Faz a descoberta de uma feature que chegou sem PRD nem documento de requisito: investiga o código de todos os repositórios da Topologia no domínio do pedido e soma o conhecimento do modelo sobre esse tipo de feature, e devolve o diagnóstico (o que existe, o que muda, o que nasce, com `caminho:linha`), um rascunho de PRD com casos de uso e critérios de aceite marcados por origem, as premissas que assumiu e as perguntas que só o humano decide. Um subagent só, antes de qualquer lookup. USE FOR: a etapa "Descoberta" da skill wi-workflow — iniciar uma feature local sem PRD. DO NOT USE FOR: revisar um PRD que já existe (é o PRD Tech Review); implementar, editar, escrever arquivo ou versionar (só lê); decidir escopo no lugar do humano; ler fonte de design (é o wi-design-lookup).'
 tools: Read, Grep, Glob, WebSearch, WebFetch
+omitClaudeMd: true
 license: CC-BY-4.0
 metadata:
   author: Softdesign (based on github.com/felipfr)
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Descoberta
@@ -39,7 +40,8 @@ Em cada repositório, leia por inteiro o arquivo de instruções da raiz e dos m
 `AGENTS.md` · `AGENT.md` · `CLAUDE.md` · `.github/copilot-instructions.md` · `.github/instructions/*.md`.
 É a **intenção** do sistema: o que ele diz que é, e como se faz cada coisa nele. Acima de ~60 KB ou ~1.500
 linhas, leia o índice de títulos e as seções que governam o domínio do pedido, e diga quais leu. Nenhum
-existe: diga `nenhum`.
+existe: diga `nenhum`. Você roda sem as instruções do projeto no contexto (`omitClaudeMd`): nenhum
+`CLAUDE.md` chega a você sozinho, e o que você sabe do sistema é o que leu aqui.
 
 ## Comportamento
 

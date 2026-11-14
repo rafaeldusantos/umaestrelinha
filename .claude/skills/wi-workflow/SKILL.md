@@ -118,9 +118,10 @@ em diante o caminho é o mesmo. Tudo o que a skill sabe sobre o Work Item está 
                                          ┌─────────────────────────────┐
                                          │ FATIAMENTO → ⛔ GATE (chat)  │ 1 tarefa por tela
                                          │ → tasks/<nn>-<slug>.md      │ sem PRD: plano e fila no MESMO turno
+                                         │   + waves.md (ondas)        │ grafo · posse · até 4 por onda
                                          │ AUDITORIA  wi-task-audit    │ só com fila ≥ 2
                                          │ ──── ⛔ GATE EXECUÇÃO ────── │ fila escrita ≠ autorização de código
-                                         │ CORRIDA DA FILA             │ Status in-progress → wi-impl-task
+                                         │ CORRIDA DA FILA, POR ONDAS  │ Status in-progress → wi-impl-task
                                          │                             │   → wi-impl-review → Status done
                                          │ VALIDATION → qa-report.md   │ build · lint · testes · cobertura
                                          └──────────────┬──────────────┘
@@ -333,14 +334,15 @@ conforme a entrada — tabela de fases em [estado.md](references/setup/estado.md
 
 9. **Fatiamento** ([tasks.md](references/planning/tasks.md)) — escrita a costura, `fase: tasks`
    ([estado.md](references/setup/estado.md#fases)): apresentar a fila e **encerrar o turno**.
-   Aprovada: escrever `tasks/` (cada tarefa com `**Status:** pending`), rodar o `wi-task-audit` **se a
+   Aprovada (a fila e o plano de ondas, numa aprovação só): escrever `tasks/` (cada tarefa com
+   `**Status:** pending`) e o `waves.md`, rodar o `wi-task-audit` **se a
    fila tiver 2 ou mais tarefas**, aplicar o que a auditoria derrubou, e `fase: implement` no `item.md`.
    Então **imprimir o bloco de finalização e encerrar o turno de novo** — a fila escrita não abre a
    corrida (Regra 9).
 10. **Corrida da fila** ([queue.md](references/execution/queue.md)), **a pedido do humano**: no preflight,
     resolver os comandos de verificação (sugerir e confirmar com o humano o que nenhuma fonte declara),
-    conferir o ambiente local e capturar o baseline de tipos; por tarefa, `Status: in-progress` →
-    `wi-impl-task` → `wi-impl-review` → `Status: done`. Fila fechada ⇒ `fase: validation`.
+    conferir o ambiente local e capturar o baseline de tipos; onda por onda (`waves.md`), as tarefas da onda em paralelo — por
+    tarefa, `Status: in-progress` → `wi-impl-task` → `wi-impl-review` → `Status: done`. Fila fechada ⇒ `fase: validation`.
 11. **Validation** ([validation.md](references/execution/validation.md)) → `qa-report.md`. PASS ⇒
     `fase: done`, **ofereça** a `wi-qa-validation` e o git commit dos artefatos de `[ITEM_DIR]` — não
     execute por conta (Regra 1).
@@ -375,8 +377,8 @@ perdido, posse errada — o `wi-impl-review` confere contra o diff, com a costur
 | `wi-design-lookup`         | um por fonte, todos na mesma mensagem           | `fonte` (link do PRD, do `item.md` ou `fixo` do `PROJECT.md`), `escopo`                                                       | comportamento das telas no escopo                                                                       |
 | `wi-code-lookup`           | um por repositório que o escopo alcança         | `repositório`, `escopo` — com o que os insumos dizem e os achados de avaliação que o WI resolve —, `design`, `ambiente local` (opcional) | o que já serve, o que muda, o que nasce — com `caminho:linha`                                    |
 | `wi-task-audit`            | uma vez, fila ≥ 2, depois de a `tasks/` existir | a pasta do WI e a fila aprovada                                                                                              | veredito + achados, conferidos contra a costura no disco                                                |
-| `wi-impl-task`             | um por tarefa                                   | `tarefa`, `tdd`, `modo`, `baseline` (opcional)                                                                               | a árvore com a tarefa implementada + premissas                                                          |
-| `wi-impl-review`           | um por tarefa, depois das fatias                | `tarefa`, `repositórios`, `alterados`, `premissas`, `sem mutação` (opcional)                                                 | veredito + achados sobre o diff e as premissas                                                          |
+| `wi-impl-task`             | um por tarefa, os da onda juntos                | `tarefa`, `tdd`, `modo`, `baseline`, `cerca` e `relaxada` (opcionais)                                                        | a árvore com a tarefa implementada + premissas                                                          |
+| `wi-impl-review`           | um por tarefa, depois das fatias                | `tarefa`, `repositórios`, `alterados`, `premissas`, `sem mutação` e `cerca` (opcionais)                                      | veredito + achados sobre o diff e as premissas                                                          |
 
 **Não delegar:** gravar o `discovery.md` e o `prd.md`, a retriagem do parecer, as conferências, os gates,
 a edição do `item.md` e do `Status`, e o fatiamento. Todas exigem os relatórios lado a lado e o contexto

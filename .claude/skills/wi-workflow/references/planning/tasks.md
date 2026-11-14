@@ -32,10 +32,59 @@ existe fila. A anatomia de cada arquivo está em [task.md](task.md).
 > verde sozinha: um comportamento do usuário, com o teste que o prova, do banco à tela. Quem executa não
 > precisa de nenhuma outra tarefa para saber se acertou.
 
+### As ondas — o que roda em paralelo
+
+A numeração é a ordem; as **ondas** dizem o que dela pode rodar ao mesmo tempo. A corrida
+([queue.md](../execution/queue.md)) despacha as tarefas de uma onda juntas, um `wi-impl-task` por tarefa, e
+só abre a onda seguinte quando todas fecharam. Fila de duas tarefas ou mais sempre leva o plano de ondas;
+sem paralelismo possível, ele é uma onda por tarefa.
+
+5. **O grafo vem do `Depende de` de cada tarefa** — nunca da numeração. Uma tarefa entra na primeira onda
+   em que todas as dependências dela já fecharam em ondas anteriores. Escreva o grafo numa linha:
+   `01→02→03`, `06 ← 03+04`
+
+6. **Posse exclusiva por onda.** Para cada tarefa, os arquivos e pastas que ela pode criar ou editar — os
+   `VOCÊ CRIA` e os arquivos que ela altera. **Duas tarefas da mesma onda nunca tocam o mesmo arquivo**:
+   barrel `index.ts`, roteador, registro de módulo, componente compartilhado, migration de numeração
+   sequencial e o arquivo de instruções contam. Colidindo, separe-as em ondas seguidas, ou mande uma delas
+   criar a parte nova em arquivo próprio e registrar numa linha que só ela toca
+
+7. **Dependência relaxada só com contrato fixado.** Uma tarefa sobe para a onda da que ela consome só
+   quando o contrato consumido já está escrito numa decisão da costura (nome, forma, campos) **e** ela não
+   precisa do código da outra para verificar — teste com o contrato dublado, não com a implementação. Diga
+   qual dependência relaxou e por quê. Na dúvida, não relaxe: uma onda a mais custa tempo, e uma
+   dependência furada custa uma tarefa refeita
+
+8. **Até 4 tarefas por onda.** Onda maior se quebra em ondas seguidas, pela numeração. Mudança global
+   (renomeação em massa, dependência nova, configuração de build) roda sozinha na sua onda
+
+O plano vai para `[ITEM_DIR]/waves.md` (seção 3), neste formato — as linhas `ONDAS:`, `posse:` e
+`relaxada:` são lidas por máquina, então siga a forma:
+
+```markdown
+# Ondas — <WI-ID>
+
+ONDAS: 01,08 | 02 | 03,07 | 04 | 05,06
+
+Grafo: 01→02→03→04→05 · 06 ← 03+04 · 07 ← 02 · 08 ← 02 (relaxada)
+
+## W1: 01, 08
+- 01 posse: apps/api/src/orders/, packages/contracts/src/orders.ts
+- 08 posse: apps/web/src/reports/
+- 08 relaxada: depende da 02; o formato do campo foi fixado nas Decisões do spec.md e a 08 não precisa do código da 02 para verificar
+
+## W2: 02
+- 02 posse: apps/web/src/orders/
+```
+
+Uma seção `## W<n>` por onda, na ordem de `ONDAS:`; toda tarefa da fila aparece numa onda e só numa.
+
 ## 2. Apresentar, e esperar
 
 Apresente a fila no CLI e peça aprovação: **uma linha por tarefa**, com número, repositórios, tela, o que
-ela passa a possuir e os UCs que cobre. Depois da última, `Fica fora`. **Na entrada sem PRD**, o plano vai
+ela passa a possuir e os UCs que cobre. Depois da última, `Fica fora`, e então o plano de ondas — a linha
+`ONDAS:`, o grafo e, por onda, a posse de cada tarefa e a dependência relaxada, se houver. É uma aprovação
+só: aprovar a fila é aprovar as ondas. **Na entrada sem PRD**, o plano vai
 no mesmo turno, antes da fila, já com as respostas do gate das perguntas do plano aplicadas — e, depois da
 fila, uma linha com o que esse gate ratificou ou mudou ([plan.md](../seam/plan.md#as-perguntas--o-gate-da-página)).
 
@@ -52,9 +101,13 @@ sem PRD, ao plano: corrija a costura e a fila antes, e apresente de novo.
 ├── item.md         # a ficha — fase: tasks
 ├── prd.md          # já escrito (só com PRD)
 ├── spec.md         # a costura — já escrita (plan.md sem PRD)
+├── waves.md        # o plano de ondas (fila de 2 ou mais)
 └── tasks/
     └── <nn>-<slug>.md
 ```
+
+O `waves.md` sai junto com a `tasks/`, pelo formato da seção 1 › As ondas. Fila de uma tarefa não o
+escreve.
 
 `<slug>` é o título em kebab-case, curto, sem artigo, e o prefixo tem dois dígitos (`01`, não `1`).
 
@@ -62,8 +115,8 @@ sem PRD, ao plano: corrija a costura e a fila antes, e apresente de novo.
 ([task.md](task.md), [estado.md](../setup/estado.md#status-das-tarefas)). É o único registro de progresso
 da fila, e quem o move é a corrida.
 
-**A numeração dos arquivos é a única fonte da ordem**, e não existe índice nem arquivo de estado da fila —
-nem `tasks.md`. Cada tarefa se basta: quem a executa leva ao fim, propaga o que descobriu nos arquivos
+**A numeração dos arquivos é a única fonte da ordem** — o `waves.md` só agrupa o que dela roda junto —, e
+não existe índice nem arquivo de estado da fila — nem `tasks.md`. Cada tarefa se basta: quem a executa leva ao fim, propaga o que descobriu nos arquivos
 seguintes e relata.
 
 ## 4. Auditar
@@ -78,7 +131,10 @@ cruzar: a auditoria não roda, e a finalização diz `não roda: fila de 1`.
    Critérios de aceite, design, lookup e decisões ele lê do `prd.md` e do `spec.md` (do `plan.md`, sem
    PRD), no disco. **Nada do que ele julga passa por você**: é isso que torna a auditoria independente do
    contexto que escreveu a fila. O `prd.md` já traz as edições aprovadas no gate do PRD Tech Review: é
-   contra ele, como está, que a auditoria confere
+   contra ele, como está, que a auditoria confere. O `waves.md` também é dela: nenhuma tarefa depende de
+   algo que só uma tarefa de onda igual ou posterior cria (salvo a `relaxada` com contrato fixado na
+   costura), e nenhum par da mesma onda toca o mesmo arquivo. O que ela derrubar muda a `tasks/` **e** o
+   `waves.md` antes do `fase: implement`
 
 2. **Achado vazio é resultado legítimo, e o briefing diz isso com essas palavras.** Fila sem defeito é o
    esperado quando o fatiamento foi bem feito. Não peça um número de achados, não peça "pelo menos um", não
@@ -126,6 +182,10 @@ escrito: edite ou acrescente o arquivo em `tasks/`, e só ele. O arquivo novo na
 corrigido **mantém o status que tinha** — corrigir não desfaz progresso. Fix task nova devolve o `item.md`
 a `fase: implement`.
 
+Fix tasks novas ganham ondas pelas mesmas regras da seção 1 — posse pela localização do bug, sem arquivo em
+comum ⇒ mesma onda, a maior severidade primeiro: acrescente as ondas ao fim da linha `ONDAS:` do
+`waves.md` e uma seção `## W<n>` para cada. A corrida das fix tasks percorre só essas.
+
 ## 6. Finalização — e o gate da execução
 
 A fila escrita **não autoriza escrever código**. Aprovar o fatiamento responde _"a divisão está certa"_;
@@ -141,6 +201,7 @@ Encerre com este bloco quando a auditoria não condenou a fila, **e nada depois 
   item.md                       ← fase implement · gate fila
   prd.md + spec.md | plan.md    ← a costura desta entrada
   tasks/<nn>-<slug>.md          ← uma linha por arquivo escrito, todos pending
+  waves.md                      ← ONDAS: <a linha do arquivo>  (fila de 2 ou mais)
 
 Auditoria: <veredito>            <n> corrigido(s) · <n> ao humano · "nenhum achado" · "não roda: fila de 1"
 

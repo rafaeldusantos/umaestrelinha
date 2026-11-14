@@ -2,10 +2,11 @@
 name: wi-design-lookup
 description: '**RESEARCH AGENT** — Investiga UMA fonte de design a partir do escopo de um Work Item (`.specs/work-items/<ID>-<slug>/`) e devolve o comportamento das telas no escopo — estrutura, dados exibidos, campos, ações, estados. Um subagent por fonte. USE FOR: a etapa "Design do Work Item" da skill wi-workflow — ler um protótipo de Figma, Claude Design, repositório de protótipo ou página publicada. DO NOT USE FOR: copiar código ou aparência do design; decidir divergência entre design e PRD; ler imagem anexada ao Work Item (insumo do `item.md`), que não é fonte de design; ler mais de uma fonte no mesmo subagent.'
 disallowedTools: Write, Edit, NotebookEdit, Bash, Agent
+omitClaudeMd: true
 license: CC-BY-4.0
 metadata:
   author: Softdesign (based on github.com/felipfr)
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Design lookup
