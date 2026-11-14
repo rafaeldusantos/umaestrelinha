@@ -30,6 +30,15 @@ export type CepOrigin = 'sacola' | null
 
 const digitos = (cep: string | null | undefined) => String(cep ?? '').replace(/\D/g, '')
 
+/** Os campos que pertencem ao CEP — os que a busca preenche. Trocar o CEP os esvazia. */
+const CAMPOS_DO_CEP_VAZIOS = {
+  street: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  manual: false,
+} as const
+
 const emptyDraft = (): CheckoutDraft => ({
   contact: { name: '', email: '', whatsapp: '', consent: false },
   address: {
@@ -194,11 +203,19 @@ export function createCheckoutStore(storageKey: string) {
       // Um CEP DIFERENTE no endereço deixa de ser o que veio da sacola. Quem grava o CEP da gaveta
       // chama `setAddress` e só depois `setCepOrigin('sacola')`; o resto do endereço, e o mesmo
       // CEP com outra máscara, não mexem na origem.
+      //
+      // E leva junto Rua, Bairro, Cidade e UF do CEP anterior: esses quatro campos são do CEP, e
+      // quem os preenche de novo é a busca do CEP novo (ou a pessoa, quando a busca não o localiza).
+      // Assim o rascunho nunca guarda um CEP com o endereço de outro — nem quando a gaveta troca o
+      // CEP com o checkout fechado. O que vier no mesmo `patch` vale (semear um endereço inteiro);
+      // número e complemento ficam, porque são da pessoa.
       setAddress: (patch) =>
         set((s) => {
-          const address = { ...s.address, ...patch }
           const trocouCep =
             patch.cep !== undefined && digitos(patch.cep) !== digitos(s.address.cep)
+          const address = trocouCep
+            ? { ...s.address, ...CAMPOS_DO_CEP_VAZIOS, ...patch }
+            : { ...s.address, ...patch }
           return trocouCep && s.cepOrigin !== null ? { address, cepOrigin: null } : { address }
         }),
       setShipping: (shipping) => set({ shipping }),

@@ -1542,3 +1542,214 @@ describe('DeliveryBlock — o CEP trazido da sacola', () => {
     expect(document.activeElement).not.toBe(screen.getByLabelText('Número'))
   })
 })
+
+/**
+ * Os campos de endereço acompanham o CEP e a origem certa.
+ *
+ * A busca pelo CEP devolve a rua GERAL do CEP (a ViaCEP diz "Rua Siqueira Campos" para 90010-000),
+ * que não é a rua do endereço salvo. Quem tem conta e calcula na sacola com o CEP do próprio
+ * endereço recebe o endereço salvo inteiro em toda ida ao checkout — a busca daquele CEP não o
+ * reescreve. E um CEP novo que a busca não localiza deixa os quatro campos vazios, nunca os do CEP
+ * anterior.
+ */
+describe('DeliveryBlock — o endereço acompanha o CEP', () => {
+  const SALVO_POA = {
+    cep: '90010-000',
+    street: 'Rua dos Andradas',
+    number: '1234',
+    complement: 'apto 501',
+    neighborhood: 'Centro Histórico',
+    city: 'Porto Alegre',
+    state: 'RS',
+  }
+  const BUSCA_POA = {
+    street: 'Rua Siqueira Campos',
+    neighborhood: 'Centro Histórico',
+    city: 'Porto Alegre',
+    state: 'RS',
+    manual: false,
+  }
+  const BUSCA_PAULISTA = {
+    street: 'Avenida Paulista',
+    neighborhood: 'Bela Vista',
+    city: 'São Paulo',
+    state: 'SP',
+    manual: false,
+  }
+  const BUSCA_PINHEIROS = {
+    street: 'Rua dos Pinheiros',
+    neighborhood: 'Pinheiros',
+    city: 'São Paulo',
+    state: 'SP',
+    manual: false,
+  }
+  const NAO_LOCALIZADO = { street: '', neighborhood: '', city: '', state: '', manual: true }
+  const RETIRADA = {
+    serviceId: 'retirada',
+    serviceName: 'Retirada no escritório',
+    carrier: 'Uma Estrelinha',
+    cost: 0,
+    estimateMin: '',
+    estimateMax: '',
+  }
+  const PAC_ESCOLHIDO = {
+    serviceId: '1',
+    serviceName: 'PAC',
+    carrier: 'Correios',
+    cost: 14.9,
+    estimateMin: '2026-08-04',
+    estimateMax: '2026-08-06',
+  }
+
+  /** A busca responde POR CEP, com a mesma referência a cada render (como o cache da consulta). */
+  const buscaPorCep = (porCep: Record<string, unknown>) =>
+    cepLookupMock.mockImplementation(
+      (cep: string | null) => ({ data: porCep[String(cep ?? '').replace(/\D/g, '')] }) as any,
+    )
+
+  const gavetaCalcula = (cep: string, shipping: typeof PAC_ESCOLHIDO | typeof RETIRADA) => {
+    const store = useCheckoutStore.getState()
+    store.setAddress({ cep })
+    store.setCepOrigin('sacola')
+    store.setShipping(shipping)
+  }
+
+  const campos = () => ({
+    rua: (screen.getByLabelText('Rua') as HTMLInputElement).value,
+    bairro: (screen.getByLabelText('Bairro') as HTMLInputElement).value,
+    cidade: (screen.getByLabelText('Cidade') as HTMLInputElement).value,
+    uf: (screen.getByLabelText('UF') as HTMLInputElement).value,
+  })
+
+  beforeEach(() => {
+    setCartSubtotal(209.9)
+    quoteState({ data: [PAC, SEDEX] })
+  })
+
+  it('cliente com conta: a segunda ida da sacola (retirada → PAC) mostra o endereço salvo inteiro, também depois de recarregar', () => {
+    defaultAddressMock.mockReturnValue({ data: SALVO_POA } as any)
+    buscaPorCep({ '90010000': BUSCA_POA })
+
+    // Primeira ida: a gaveta calculou 90010-000 e a cliente escolheu a retirada.
+    gavetaCalcula('90010-000', RETIRADA)
+    const primeira = renderCollapsed()
+    expect(screen.getByText('Rua dos Andradas, 1234, apto 501')).toBeInTheDocument()
+    primeira.unmount()
+
+    // Volta à sacola, troca a retirada pelo PAC (mesmo CEP) e segue de novo ao checkout.
+    useCheckoutStore.getState().setShipping(PAC_ESCOLHIDO)
+    const segunda = renderCollapsed()
+    expect(screen.getByText('Rua dos Andradas, 1234, apto 501')).toBeInTheDocument()
+    expect(screen.queryByText(/Siqueira Campos/)).not.toBeInTheDocument()
+    expect(useCheckoutStore.getState().address).toMatchObject({
+      cep: '90010-000',
+      street: 'Rua dos Andradas',
+      number: '1234',
+      complement: 'apto 501',
+      city: 'Porto Alegre',
+      state: 'RS',
+    })
+    segunda.unmount()
+
+    // Recarregar: o rascunho volta do `sessionStorage` e as consultas recomeçam do zero. O endereço
+    // salvo chega PRIMEIRO e a busca do CEP depois — a ordem em que a busca reescrevia a rua.
+    act(() => {
+      void useCheckoutStore.persist.rehydrate()
+    })
+    buscaPorCep({})
+    const recarregada = renderCollapsed()
+    expect(screen.getByText('Rua dos Andradas, 1234, apto 501')).toBeInTheDocument()
+    buscaPorCep({ '90010000': BUSCA_POA })
+    recarregada.rerender(
+      <DeliveryBlock open={false} complete onEdit={onEdit} onContinue={onContinue} canContinue />,
+    )
+    expect(screen.getByText('Rua dos Andradas, 1234, apto 501')).toBeInTheDocument()
+    expect(screen.queryByText(/Siqueira Campos/)).not.toBeInTheDocument()
+    expect(useCheckoutStore.getState().address).toMatchObject({
+      street: 'Rua dos Andradas',
+      number: '1234',
+      complement: 'apto 501',
+    })
+  })
+
+  it('cliente com conta: a busca do CEP chegando DEPOIS do endereço salvo não troca a rua', () => {
+    defaultAddressMock.mockReturnValue({ data: SALVO_POA } as any)
+    buscaPorCep({})
+    gavetaCalcula('90010-000', PAC_ESCOLHIDO)
+    const { rerender } = renderOpen()
+    expect(screen.getByLabelText('Rua')).toHaveValue('Rua dos Andradas')
+
+    buscaPorCep({ '90010000': BUSCA_POA })
+    rerender(
+      <DeliveryBlock open complete={false} onEdit={onEdit} onContinue={onContinue} canContinue={false} />,
+    )
+    expect(campos()).toEqual({
+      rua: 'Rua dos Andradas',
+      bairro: 'Centro Histórico',
+      cidade: 'Porto Alegre',
+      uf: 'RS',
+    })
+  })
+
+  it('trocar para um CEP que a busca NÃO localiza deixa Rua, Bairro, Cidade e UF vazios, com a mensagem de hoje', () => {
+    authState.customer = null
+    buscaPorCep({ '01310100': BUSCA_PAULISTA, '40020000': NAO_LOCALIZADO })
+    renderOpen()
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '01310100' } })
+    expect(campos()).toEqual({ rua: 'Avenida Paulista', bairro: 'Bela Vista', cidade: 'São Paulo', uf: 'SP' })
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '40020000' } })
+    expect(campos()).toEqual({ rua: '', bairro: '', cidade: '', uf: '' })
+    expect(screen.getByLabelText('Rua')).toBeEnabled()
+    expect(screen.getByLabelText('UF')).toBeEnabled()
+    expect(
+      screen.getByText(
+        'Não localizamos esse CEP. Preencha o endereço à mão — a cotação segue pelo CEP informado.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('a gaveta trocou o CEP com o checkout fechado: o endereço do CEP anterior não volta', () => {
+    authState.customer = null
+    buscaPorCep({ '40020000': NAO_LOCALIZADO })
+    useCheckoutStore.getState().setAddress({
+      cep: '01310-100',
+      street: 'Avenida Paulista',
+      number: '1000',
+      neighborhood: 'Bela Vista',
+      city: 'São Paulo',
+      state: 'SP',
+    })
+    gavetaCalcula('40020-000', PAC_ESCOLHIDO)
+    renderOpen()
+
+    expect(campos()).toEqual({ rua: '', bairro: '', cidade: '', uf: '' })
+  })
+
+  it('trocar para um CEP que a busca localiza continua preenchendo pela busca', () => {
+    authState.customer = null
+    buscaPorCep({ '01310100': BUSCA_PAULISTA, '05422000': BUSCA_PINHEIROS })
+    renderOpen()
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '01310100' } })
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '05422000' } })
+
+    expect(campos()).toEqual({ rua: 'Rua dos Pinheiros', bairro: 'Pinheiros', cidade: 'São Paulo', uf: 'SP' })
+    expect(screen.getByLabelText('Rua')).toBeDisabled()
+  })
+
+  it('o endereço digitado à mão para o CEP da sacola não localizado sobrevive à segunda ida', () => {
+    authState.customer = null
+    buscaPorCep({ '40020000': NAO_LOCALIZADO })
+    gavetaCalcula('40020-000', PAC_ESCOLHIDO)
+    const primeira = renderOpen()
+    fireEvent.change(screen.getByLabelText('Rua'), { target: { value: 'Rua Chile' } })
+    fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: 'Salvador' } })
+    primeira.unmount()
+
+    renderOpen()
+    expect(screen.getByLabelText('Rua')).toHaveValue('Rua Chile')
+    expect(screen.getByLabelText('Cidade')).toHaveValue('Salvador')
+  })
+})

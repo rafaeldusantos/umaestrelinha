@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,7 +27,8 @@ import { PROPOSAL_TOKEN_KEY } from '@/features/proposal-checkout/model/proposalT
 //
 // As expectativas são LITERAIS, escritas à mão a partir da letra da spec.
 
-const { invokeMock, createPaymentMock, getCardFormDataMock, toastError, frete, cotacao } = vi.hoisted(() => ({
+const { invokeMock, createPaymentMock, getCardFormDataMock, toastError, frete, cotacao, buscaCep } = vi.hoisted(() => ({
+  buscaCep: { porCep: {} as Record<string, unknown> },
   invokeMock: vi.fn(),
   createPaymentMock: vi.fn(),
   getCardFormDataMock: vi.fn(),
@@ -68,7 +69,11 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   }),
   useStoreSettings: () => ({ data: undefined, isFetched: true }),
 }))
-vi.mock('@/features/checkout/api/useCepLookup', () => ({ useCepLookup: () => ({ data: undefined }) }))
+// A busca pelo CEP responde por CEP (a mesma referência a cada render, como o cache da consulta);
+// sem entrada, ela ainda não respondeu.
+vi.mock('@/features/checkout/api/useCepLookup', () => ({
+  useCepLookup: (cep: string | null) => ({ data: buscaCep.porCep[String(cep ?? '').replace(/\D/g, '')] }),
+}))
 vi.mock('@/features/checkout/api/useShippingQuote', () => ({
   useShippingQuote: () => ({
     data: cotacao.atual,
@@ -216,6 +221,7 @@ beforeEach(() => {
   frete.free_shipping_threshold = 1000
   frete.free_shipping_regions = undefined
   cotacao.atual = [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }]
+  buscaCep.porCep = {}
   createPaymentMock.mockReset()
   getCardFormDataMock.mockReset()
   toastError.mockReset()
@@ -382,6 +388,42 @@ describe('T25 — a página (CON-01..04, CON-07..11, SEG-02, SEG-03)', () => {
     await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
     // Bahia, fora da campanha: 250 − 12,50 + 35 = 272,50.
     await waitFor(() => expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 272,50'))
+  })
+
+  it('trocar para um CEP que a busca não localiza deixa Rua, Bairro, Cidade e UF vazios, nunca os do CEP anterior', async () => {
+    buscaCep.porCep = {
+      '40020000': { street: '', neighborhood: '', city: '', state: '', manual: true },
+    }
+    montar()
+    await screen.findByRole('heading', { level: 1, name: 'Seu pedido' })
+    expect(useProposalCheckoutStore.getState().address).toMatchObject({
+      cep: '01310-100',
+      street: 'Av. Paulista',
+      city: 'São Paulo',
+      state: 'SP',
+    })
+    const entrega = screen.getAllByRole('region', { name: 'Entrega' })[0]
+    fireEvent.click(within(entrega).getByRole('button', { name: 'Alterar' }))
+
+    fireEvent.change(await screen.findByLabelText('CEP'), { target: { value: '40020000' } })
+
+    expect(screen.getByLabelText('Rua')).toHaveValue('')
+    expect(screen.getByLabelText('Bairro')).toHaveValue('')
+    expect(screen.getByLabelText('Cidade')).toHaveValue('')
+    expect(screen.getByLabelText('UF')).toHaveValue('')
+    expect(screen.getByLabelText('Rua')).toBeEnabled()
+    expect(
+      screen.getByText(
+        'Não localizamos esse CEP. Preencha o endereço à mão — a cotação segue pelo CEP informado.',
+      ),
+    ).toBeInTheDocument()
+    expect(useProposalCheckoutStore.getState().address).toMatchObject({
+      cep: '40020-000',
+      street: '',
+      city: '',
+      state: '',
+      number: '1000',
+    })
   })
 
   it('sem fragmento e sem token guardado ⇒ o link não vale (CON-08), sem chamar a function', async () => {

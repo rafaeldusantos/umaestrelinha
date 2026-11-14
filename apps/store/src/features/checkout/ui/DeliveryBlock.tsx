@@ -228,6 +228,24 @@ const DeliveryBlock = ({
   // abria expandido mesmo com o endereço preenchido. `null` = a cliente digitou o CEP dela.
   const seeded = useRef(false)
   const defaultCep = useRef<string | null>(null)
+  /**
+   * O CEP a que Rua, Bairro, Cidade e UF do rascunho já pertencem — semeados do endereço salvo,
+   * preenchidos pela busca ou digitados à mão. A busca daquele CEP não os reescreve: ela devolve a
+   * rua GERAL do CEP, que não é a do endereço salvo (90010-000 é "Rua Siqueira Campos" na busca e
+   * "Rua dos Andradas" no endereço da cliente). O rascunho só guarda esses campos para o próprio CEP
+   * (`setAddress` os esvazia quando o CEP muda), então campos preenchidos ao montar são do CEP de
+   * agora. `null`: os campos esperam a busca.
+   */
+  const camposDoCep = useRef<string | null>(null)
+  const camposIniciados = useRef(false)
+  if (!camposIniciados.current) {
+    camposIniciados.current = true
+    const inicial = useCheckout.getState().address
+    const preenchido = [inicial.street, inicial.neighborhood, inicial.city, inicial.state].some(
+      (campo) => campo?.trim(),
+    )
+    camposDoCep.current = preenchido ? stripCep(inicial.cep) : null
+  }
   useEffect(() => {
     if (seeded.current || !defaultAddress) return
     seeded.current = true
@@ -239,14 +257,20 @@ const DeliveryBlock = ({
     if (atual.cep && !mesmoCepDaSacola) return
     setAddress({ ...defaultAddress, manual: false })
     const clean = stripCep(defaultAddress.cep)
+    camposDoCep.current = clean
     if (clean.length === 8) defaultCep.current = clean
   }, [useCheckout, defaultAddress, setAddress])
 
-  // ADR-01/SHP-03: resolveu → preenche e trava; não resolveu → `manual` destrava os campos.
+  // ADR-01/SHP-03: resolveu → preenche e trava; não resolveu → os quatro campos ficam VAZIOS e
+  // `manual` os destrava. Só para um CEP cujos campos ainda não foram preenchidos (`camposDoCep`):
+  // a busca nunca reescreve o endereço salvo, nem o que a pessoa digitou para aquele CEP.
   useEffect(() => {
-    if (!cepLookup.data) return
+    const cep = stripCep(address.cep)
+    if (camposDoCep.current !== null && camposDoCep.current !== cep) camposDoCep.current = null
+    if (!cepLookup.data || camposDoCep.current === cep) return
+    camposDoCep.current = cep
     if (cepLookup.data.manual) {
-      setAddress({ manual: true })
+      setAddress({ street: '', neighborhood: '', city: '', state: '', manual: true })
       return
     }
     setAddress({
@@ -256,7 +280,7 @@ const DeliveryBlock = ({
       state: cepLookup.data.state,
       manual: false,
     })
-  }, [cepLookup.data, setAddress])
+  }, [cepLookup.data, address.cep, setAddress])
 
   // Edge case da spec: trocar o CEP descarta a opção de envio já marcada (custo volta a 0).
   const lastCep = useRef<string | null>(null)
