@@ -45,6 +45,11 @@ const FONTES_MENU = arquivos(MENU).filter(f => !/\.test\.tsx?$/.test(f))
 const FAIXA = resolve(__dirname, '../../announcement-bar')
 const FAIXA_UI = join(FAIXA, 'ui')
 const FONTES_FAIXA = arquivos(FAIXA).filter(f => !/\.test\.tsx?$/.test(f))
+
+/** A quarta prévia: o perfil de estilo, a loja num iframe dentro do modal do card. */
+const PERFIL = resolve(__dirname, '../../style-profile')
+const PERFIL_UI = join(PERFIL, 'ui')
+const FONTES_PERFIL = arquivos(PERFIL).filter(f => !/\.test\.tsx?$/.test(f))
 const ler = (caminho: string) => readFileSync(caminho, 'utf8')
 
 /**
@@ -377,10 +382,11 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
     expect(previasEm(UI)).toEqual(['HomeLivePreview.tsx'])
     expect(previasEm(MENU_UI)).toEqual(['MenuLivePreview.tsx'])
     expect(previasEm(FAIXA_UI)).toEqual(['AnnouncementLivePreview.tsx'])
+    expect(previasEm(PERFIL_UI)).toEqual(['StyleProfileLivePreview.tsx'])
   })
 
   it('nenhum arquivo com nome de tela cheia apareceu nas duas pastas de UI', () => {
-    for (const pasta of [UI, MENU_UI, FAIXA_UI]) {
+    for (const pasta of [UI, MENU_UI, FAIXA_UI, PERFIL_UI]) {
       for (const nome of ['FullscreenPreview.tsx', 'PreviewModal.tsx', 'PreviewOverlay.tsx']) {
         expect(existsSync(join(pasta, nome))).toBe(false)
       }
@@ -388,7 +394,7 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
   })
 
   it('cada palco continua montando UM `<iframe>`, e nenhum outro arquivo monta iframe', () => {
-    const comIframe = [...FONTES, ...FONTES_MENU, ...FONTES_FAIXA]
+    const comIframe = [...FONTES, ...FONTES_MENU, ...FONTES_FAIXA, ...FONTES_PERFIL]
       .filter(f => semComentarios(ler(f)).includes('<iframe'))
       .map(f => f.replace(/\\/g, '/').replace(/^.*\/(features\/.*)$/, '$1'))
       .sort()
@@ -397,12 +403,14 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
       'features/announcement-bar/ui/AnnouncementLivePreview.tsx',
       'features/home-composition/ui/HomeLivePreview.tsx',
       'features/store-menu/ui/MenuLivePreview.tsx',
+      'features/style-profile/ui/StyleProfileLivePreview.tsx',
     ])
 
     for (const palco of [
       join(UI, 'HomeLivePreview.tsx'),
       join(MENU_UI, 'MenuLivePreview.tsx'),
       join(FAIXA_UI, 'AnnouncementLivePreview.tsx'),
+      join(PERFIL_UI, 'StyleProfileLivePreview.tsx'),
     ]) {
       const iframes = semComentarios(ler(palco)).match(/<iframe/g) ?? []
       expect(iframes).toHaveLength(1)
@@ -498,6 +506,70 @@ describe('a faixa de avisos — o painel não desenha a faixa', () => {
     for (const quebra of ['\r\n', '\n']) {
       const comentado = `const a = 1${quebra}// o palco não lê aviso.highlight${quebra}const b = 2`
       expect(DESENHO_DA_FAIXA.test(semComentarios(comentado))).toBe(false)
+      expect(semComentarios(comentado)).toContain('const b = 2')
+    }
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// O PERFIL DE ESTILO — a quarta prévia, e o painel também não veste a paleta da loja
+// ───────────────────────────────────────────────────────────────────────────
+//
+// O pedido que traz o defeito de volta aqui é "pinta o card com as cores do perfil, assim a dona vê
+// antes". A amostra de quatro cores do card é legítima (ela lê o dono dos perfis); vestir a paleta no
+// palco, ou escrever o atributo do perfil no documento do painel, não é: a prévia é a loja num iframe,
+// e o painel fica nas cores dele.
+
+/** O que um palco que vestisse o perfil leria: o dono das cores, ou o atributo do perfil. */
+const VESTE_O_PERFIL = /\b(ESTRELINHA_PROFILES|STYLE_PROFILE_ATTRIBUTE)\b|data-perfil/
+
+describe('o perfil de estilo — o painel não veste a paleta da loja', () => {
+  it('âncora: leu os arquivos do perfil e achou as superfícies dele', () => {
+    expect(FONTES_PERFIL.length).toBeGreaterThanOrEqual(3)
+    for (const alvo of [
+      'ui/StyleProfileLivePreview.tsx',
+      'ui/StyleProfileCard.tsx',
+      'model/useStyleProfilePreviewBridge.ts',
+    ]) {
+      expect(FONTES_PERFIL.some(f => f.replace(/\\/g, '/').endsWith(alvo))).toBe(true)
+    }
+  })
+
+  it('o palco monta a loja — `<iframe>` com `previewSrc` e o quadro de `previewFrame(` — e não veste o perfil', () => {
+    const fonte = semComentarios(ler(join(PERFIL_UI, 'StyleProfileLivePreview.tsx')))
+    expect(fonte).toContain('<iframe')
+    expect(fonte).toContain('previewSrc')
+    expect(fonte).toContain('previewFrame(')
+    expect(fonte).not.toMatch(VESTE_O_PERFIL)
+    // Nenhum palco escreve a própria moldura de tela cheia.
+    expect(fonte).not.toMatch(/'[^']*\bfixed inset-0\b/)
+  })
+
+  it('nenhum arquivo do perfil escreve o atributo do perfil no painel', () => {
+    const infratores = FONTES_PERFIL.filter(f =>
+      /\b(STYLE_PROFILE_ATTRIBUTE)\b|data-perfil/.test(semComentarios(ler(f))),
+    )
+    expect(infratores).toEqual([])
+  })
+
+  it('a ponte manda pela origem exata, nunca `\'*\'`', () => {
+    const ponte = semComentarios(ler(join(PERFIL, 'model', 'useStyleProfilePreviewBridge.ts')))
+    expect(ponte).toContain('postMessage(')
+    expect(ponte).not.toMatch(/['"]\*['"]/)
+  })
+
+  it('o perfil não importa nada de `apps/store`', () => {
+    const infratores = FONTES_PERFIL.filter(f => /from ['"].*apps\/store/.test(ler(f)))
+    expect(infratores).toEqual([])
+  })
+
+  it('SENSOR: um palco que vestisse o perfil seria acusado, e a prosa não', () => {
+    const veste = "document.documentElement.setAttribute(STYLE_PROFILE_ATTRIBUTE, 'black-friday')"
+    expect(VESTE_O_PERFIL.test(semComentarios(veste))).toBe(true)
+    expect(VESTE_O_PERFIL.test(semComentarios('const c = ESTRELINHA_PROFILES[perfil].primary'))).toBe(true)
+    for (const quebra of ['\r\n', '\n']) {
+      const comentado = `const a = 1${quebra}// o palco não lê ESTRELINHA_PROFILES nem data-perfil${quebra}const b = 2`
+      expect(VESTE_O_PERFIL.test(semComentarios(comentado))).toBe(false)
       expect(semComentarios(comentado)).toContain('const b = 2')
     }
   })

@@ -466,6 +466,8 @@ describe('Configurações › nenhum campo foi removido (Success Criteria)', () 
       'Título padrão',
       'Descrição padrão',
       'Imagem Open Graph (URL)',
+      // O perfil de estilo da loja: o grupo das duas opções, o último card da seção.
+      'Perfil de estilo',
     ],
     'frete-e-material': [
       'Frete grátis a partir de',
@@ -508,6 +510,34 @@ describe('Configurações › nenhum campo foi removido (Success Criteria)', () 
     abrirVendas()
     expect(screen.getByRole('switch', { name: /PIX habilitado/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /Cartão de crédito habilitado/i })).toBeInTheDocument()
+  })
+})
+
+describe('Configurações › Dados da loja — o card do perfil de estilo', () => {
+  it('aparece na seção, como o último card, depois do SEO', () => {
+    abrirDadosDaLoja()
+    const titulo = screen.getByRole('heading', { level: 2, name: 'Perfil de estilo da loja' })
+    expect(painel()).toContainElement(titulo)
+
+    const seo = screen.getByText('SEO')
+    // O título do perfil vem DEPOIS do do SEO na ordem do documento.
+    expect(seo.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('o dublê sem a chave `appearance` não quebra o card: o Padrão aparece em uso', () => {
+    expect('appearance' in state.data).toBe(false)
+    abrirDadosDaLoja()
+
+    expect(screen.getByRole('radio', { name: /Padrão/ })).toBeChecked()
+    expect(within(screen.getByTestId('perfil-padrao')).getByText('Em uso')).toBeInTheDocument()
+  })
+
+  it('não aparece nas outras seções', () => {
+    for (const abrir of [abrirFreteEMaterial, abrirVendas]) {
+      const { unmount } = abrir()
+      expect(screen.queryByRole('heading', { name: 'Perfil de estilo da loja' })).toBeNull()
+      unmount()
+    }
   })
 })
 

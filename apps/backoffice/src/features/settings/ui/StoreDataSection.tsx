@@ -19,6 +19,7 @@ import {
   type SeoSettings,
 } from '@estrelinha/supabase/types/settings'
 import { CharCounter, FormCard, FieldGroup, SettingsSaveButton } from '@/shared/ui'
+import { StyleProfileCard } from '@/features/style-profile'
 import { useSettingsSave } from '../model/useSettingsSave'
 import { SettingsLoading } from './settingsParts'
 
@@ -178,6 +179,10 @@ export const StoreDataSection = () => {
           onClick={() => void salvar('seo', seo)}
         />
       </FormCard>
+
+      {/* O último card da seção: o perfil também responde "como a loja se apresenta", e é
+          autocontido — grava só a chave `appearance`. */}
+      <StyleProfileCard />
     </div>
   )
 }
