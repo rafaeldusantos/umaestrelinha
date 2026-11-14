@@ -1284,6 +1284,37 @@ avulsa e a do conjunto são a mesma linha e somam) e **não decide preço** (o s
   gaveta reexporta (a mesma referência; o painel diz a mesma). Minha Conta não muda (foto e contagem).
   O pedido de quem não usou o Compre Junto fica igual.
 
+### A prévia de frete na gaveta, e o checkout que a recebe (WI 99, com os critérios do WI 97)
+
+A gaveta calcula o frete pelo CEP da cliente, mostra as opções reais, marca a mais barata e soma o
+frete ao Total. **Ela não tem regra de frete própria**: a cotação é `useShippingQuote` (a mesma chave
+do bloco Entrega, então seguir para o checkout com o mesmo CEP e a mesma sacola não chama o Melhor
+Envio de novo), a lista é `deliveryOptions` (`features/checkout/lib`) e o cartão de cada opção é
+`ShippingOptionCard` — os três do checkout, e o cartão é o mesmo nas duas superfícies (só a altura
+muda). O estado mora em `widgets/cart-drawer/model/useCartShipping`, e o Total sai de
+`useCartPromotion(frete)` → `resolveOrderPricing`, a mesma função do resumo do checkout.
+
+- **O CEP e a escolha moram no rascunho PADRÃO do checkout** (`useCheckoutStore`, lido pelo import
+  direto, nunca pelo provider), com `cepOrigin: 'sacola'`. O rascunho do pedido montado é outra
+  instância, e a gaveta não lê nem escreve nele. Marcar a mais barata, e desfazer a escolha numa
+  cotação que falhou, são decisões só do CEP que a **gaveta** calculou: aberta dentro de `/checkout`
+  com um CEP digitado no bloco Entrega, ela não escolhe pela cliente nem apaga o "Frete padrão" que
+  o bloco gravou.
+- **Na gaveta não existe o "Frete padrão"** (SHP-05) quando a cotação falha — ali ele seria lido como
+  o frete dela. A falha diz que o checkout calcula de novo, e "Finalizar Pedido" segue funcionando. A
+  escolha não emite `add_shipping_info`: a cliente ainda não está no caixa.
+- **O checkout abre sobre o que a gaveta deixou** (`DeliveryBlock`): o CEP trazido da sacola vale, o
+  endereço salvo só entra se for o mesmo CEP, a linha "Trazido da sua sacola · Bairro — Cidade/UF"
+  diz de onde ele veio, o foco espera o Número, e a opção marcada que sumiu da cotação nova é
+  desfeita.
+- **A paridade é provada por execução**: `src/test/sacolaECheckoutMesmoTotal.test.tsx` monta a gaveta
+  e, depois, o bloco Entrega e o resumo sobre as stores reais e a mesma cotação, e cobra o mesmo
+  Total para a mesma sacola, o mesmo CEP e a mesma opção — com a faixa alcançada em SP e no RS, com o
+  CEP da BA fora das regiões, e com cupom e promoção.
+- **O ⓘ é `shared/ui/InfoTip`**: um disco de 17px com balão, que abre por passar o mouse, clique,
+  toque e teclado, com alvo de 44px (`TAP_44`). Na gaveta ele recebe o painel como
+  `collisionBoundary`, para o balão não passar da largura dela.
+
 ### As parcelas do cartão são da loja, e os juros são do Mercado Pago (2026-10-04)
 
 - **O Brick monta com `maxInstallments: 1`, e com isso não desenha lista de parcelas** (medido em
@@ -1518,6 +1549,32 @@ ninguém é avisado.
     três sensores no arquivo provam o CRLF, o LF e o glob. **A forma do glob importa**: um que
     termine em `**/` fecha o bloco sozinho e não reproduz nada — o que cega é `apps/**` seguido, mais
     abaixo, de um bloco de verdade que forneça o fecha-bloco.
+
+### Por região do CEP (WI 99)
+
+O frete grátis por valor pode valer só para algumas regiões do Brasil — a campanha é Sul + Sudeste.
+**Quem responde "de que região é este CEP?" é `regionOfCep`** (`core/shipping/region.ts`, folha sem
+import, alcançável pelo Deno), e quem responde "o frete grátis foi CONCEDIDO para este CEP?" continua
+sendo `freeShippingState`, agora com o CEP: `useFreeShipping(subtotal, cep)`.
+
+- **`reached` não é mais "liberado".** `reached` diz que o valor alcançou a faixa; **`granted`** diz
+  que, além disso, o destino está numa região que vale. Quem zera a opção mais barata ou escreve
+  "Frete grátis liberado" lê `granted`. Com as cinco regiões, `granted` é o `reached` de sempre; com
+  as regiões limitadas e sem CEP, ele nunca é verdadeiro — a loja não promete o que não sabe.
+- **Quatro desenhos de faixa, iguais na gaveta (`FreeShippingBand`) e no resumo do checkout**:
+  destino fora das regiões ⇒ "Frete grátis só para Sul e Sudeste", em tom neutro e sem barra, em
+  qualquer valor de sacola (a faixa de sugestões para "completar o frete grátis" some junto, e o
+  catálogo não é buscado); faltando ⇒ quanto falta; concedido ⇒ "liberado"; alcançado sem CEP com as
+  regiões limitadas ⇒ "para Sul e Sudeste", nunca "liberado". O cupom de frete grátis apaga a faixa:
+  o frete já é zero em qualquer região.
+- **As superfícies que só anunciam ganham o sufixo " · para <regiões>"** quando as regiões estão
+  limitadas (`regionsLabel` devolve `null` com as cinco, e aí a frase é a de sempre): a `TrustBar`, o
+  `AuthOverlay` e o `ShippingCalc` da página do produto. Este último anuncia a regra e **não** risca
+  preço de cotação nenhum — quem concede é o caixa, que conhece a sacola e o CEP de entrega.
+- **O `cartStore` lê as regiões pelo caminho não-React**: `RuntimeSettingsLoader` hidrata
+  `runtimeFreeShippingConfig()` com o resultado de `freeShippingConfigOf`, nunca o jsonb cru —
+  `freeShippingSingleOwner.test.ts` recusa a leitura crua do campo das regiões fora de um allowlist de
+  dois (o loader e o editor do painel).
 
 ## Retirada no escritório (feature `63`, `AD-049`)
 

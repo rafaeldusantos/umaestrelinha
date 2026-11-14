@@ -748,6 +748,21 @@ deste formato:
     importado — criaria um segundo dono da medida); os outros 7 usos de `ToggleField` continuam com
     o `Switch` cru.
 
+- **As regiões do frete grátis (WI 99)** são cinco caixas sob o valor — "Regiões com frete grátis",
+  na ordem Norte, Nordeste, Centro-Oeste, Sudeste, Sul, cada uma com as siglas dos estados abaixo do
+  nome (`REGION_STATES`, de `@estrelinha/core/shipping`). **Nascem as cinco marcadas** (a migration
+  as grava, e campo ausente vale as cinco), então o deploy não muda nada; limitar a Sul + Sudeste é
+  escolha da dona. Como o valor, as caixas ficam **desabilitadas, não escondidas**, com o interruptor
+  desligado, e a ajuda diz que as regiões guardadas voltam a valer ao religar.
+  - **Salvar recusa "ligado, sem região nenhuma"** pela mesma `freeShippingRefusal`, antes de
+    qualquer escrita — a lista vazia deixaria o frete grátis inativo com o painel dizendo "ligado".
+  - O editor lê e grava o campo pelo dono (`freeShippingConfigOf`), e é um dos **dois** arquivos que
+    podem nomeá-lo (`freeShippingSingleOwner.test.ts`, suíte da loja).
+  - **O pedido montado confere a região no servidor**: `proposalPricing` recebe o CEP da entrega
+    (`destinationCep`), e as functions `checkout` e `mercado-pago` o passam. Com o frete grátis
+    concedido, a proposta zera a opção escolhida, qualquer que seja ela (`PR-11`, dívida declarada no
+    `CLAUDE.md` da raiz).
+
 ## Retirada no escritório no painel (feature `63`, `AD-049`)
 
 - **Configurações › Frete e Material**: interruptor "Retirada no escritório"
