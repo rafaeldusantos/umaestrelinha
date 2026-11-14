@@ -1343,3 +1343,202 @@ describe('DeliveryBlock — frete grátis por região', () => {
     expect(within(opcao(/SEDEX · Correios/)).getByText('Grátis')).toBeInTheDocument()
   })
 })
+
+/**
+ * Da gaveta para o checkout: a gaveta grava o CEP, a forma de envio e `cepOrigin: 'sacola'` no
+ * rascunho; o bloco Entrega abre com eles, diz de onde o CEP veio e espera o Número.
+ */
+describe('DeliveryBlock — o CEP trazido da sacola', () => {
+  const BELA_VISTA = {
+    street: 'Avenida Paulista',
+    neighborhood: 'Bela Vista',
+    city: 'São Paulo',
+    state: 'SP',
+    manual: false,
+  }
+  const PAC_DA_GAVETA = {
+    serviceId: '1',
+    serviceName: 'PAC',
+    carrier: 'Correios',
+    cost: 14.9,
+    estimateMin: '2026-08-04',
+    estimateMax: '2026-08-06',
+  }
+  const opcao = (nome: RegExp) => screen.getByRole('radio', { name: nome })
+  const linhaDaSacola = () =>
+    screen.queryByText(/Trazido da sua sacola/, {
+      normalizer: (texto) => texto,
+    })
+
+  /** O que a gaveta deixa no rascunho ao calcular o frete e escolher uma opção. */
+  const daGaveta = (cep = '01310-100', shipping: typeof PAC_DA_GAVETA | null = PAC_DA_GAVETA) => {
+    const store = useCheckoutStore.getState()
+    store.setAddress({ cep })
+    store.setCepOrigin('sacola')
+    if (shipping) store.setShipping(shipping)
+  }
+
+  beforeEach(() => {
+    setCartSubtotal(50)
+    cepLookup(BELA_VISTA)
+    quoteState({ data: [PAC, SEDEX] })
+  })
+
+  it('abre com o CEP, o endereço da busca, a opção da gaveta marcada, a linha de origem e o foco no Número', () => {
+    daGaveta()
+    defaultAddressMock.mockReturnValue({ data: null } as any)
+    renderOpen()
+
+    expect(screen.getByLabelText('CEP')).toHaveValue('01310-100')
+    expect(screen.getByLabelText('Rua')).toHaveValue('Avenida Paulista')
+    expect(screen.getByLabelText('Bairro')).toHaveValue('Bela Vista')
+    expect(screen.getByLabelText('Cidade')).toHaveValue('São Paulo')
+    expect(screen.getByLabelText('UF')).toHaveValue('SP')
+    expect(opcao(/PAC · Correios/)).toHaveAttribute('aria-checked', 'true')
+    expect(opcao(/SEDEX · Correios/)).toHaveAttribute('aria-checked', 'false')
+
+    const linha = screen.getByRole('status')
+    expect(linha.textContent).toBe('Trazido da sua sacola · Bela Vista — São Paulo/SP')
+    expect(linha.className).toMatch(/(^|\s)text-\[13px\](\s|$)/)
+    expect(linha.className).toMatch(/(^|\s)text-estrelinha-ink-soft(\s|$)/)
+    expect(document.activeElement).toBe(screen.getByLabelText('Número'))
+  })
+
+  it('sem a busca pelo CEP, a linha diz só "Trazido da sua sacola"', () => {
+    daGaveta()
+    cepLookup(undefined)
+    renderOpen()
+
+    expect(screen.getByRole('status').textContent).toBe('Trazido da sua sacola')
+  })
+
+  it('o foco no Número acontece uma vez: fechar e reabrir o bloco não o puxa de novo', () => {
+    daGaveta()
+    const { rerender } = renderOpen()
+    expect(document.activeElement).toBe(screen.getByLabelText('Número'))
+
+    rerender(
+      <DeliveryBlock open={false} complete={false} onEdit={onEdit} onContinue={onContinue} canContinue={false} />,
+    )
+    rerender(
+      <DeliveryBlock open complete={false} onEdit={onEdit} onContinue={onContinue} canContinue={false} />,
+    )
+    expect(document.activeElement).not.toBe(screen.getByLabelText('Número'))
+  })
+
+  it('o bloco que abre DEPOIS (o Contato vem antes) recebe o foco no Número ao abrir', () => {
+    daGaveta()
+    const { rerender } = render(
+      <DeliveryBlock open={false} complete={false} onEdit={onEdit} onContinue={onContinue} canContinue={false} />,
+    )
+    rerender(
+      <DeliveryBlock open complete={false} onEdit={onEdit} onContinue={onContinue} canContinue={false} />,
+    )
+    expect(document.activeElement).toBe(screen.getByLabelText('Número'))
+  })
+
+  it('com o número já preenchido, o foco não vai para o Número', () => {
+    daGaveta()
+    useCheckoutStore.getState().setAddress({ number: '900' })
+    renderOpen()
+
+    expect(document.activeElement).not.toBe(screen.getByLabelText('Número'))
+  })
+
+  it('a opção da gaveta que sumiu da cotação é desfeita', () => {
+    daGaveta('01310-100', {
+      ...PAC_DA_GAVETA,
+      serviceId: '9',
+      serviceName: '.Package',
+      carrier: 'Jadlog',
+      cost: 19.5,
+    })
+    renderOpen()
+
+    expect(useCheckoutStore.getState().shipping).toBeNull()
+    expect(opcao(/PAC · Correios/)).toHaveAttribute('aria-checked', 'false')
+    expect(opcao(/SEDEX · Correios/)).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('o preço novo da opção da gaveta vale no checkout', () => {
+    daGaveta('01310-100', { ...PAC_DA_GAVETA, cost: 12 })
+    quoteState({ data: [{ ...PAC, price: '16.40' }, SEDEX] })
+    renderOpen()
+
+    expect(useCheckoutStore.getState().shipping).toMatchObject({ serviceId: '1', cost: 16.4 })
+  })
+
+  it('a retirada escolhida na gaveta não é desfeita por não estar na cotação', () => {
+    const retirada = {
+      serviceId: 'retirada',
+      serviceName: 'Retirada no escritório',
+      carrier: 'Uma Estrelinha',
+      cost: 0,
+      estimateMin: '',
+      estimateMax: '',
+    }
+    storeSettings.data = undefined
+    storeSettings.isFetched = false
+    try {
+      daGaveta('90010-000', retirada)
+      renderOpen()
+      expect(useCheckoutStore.getState().shipping?.serviceId).toBe('retirada')
+    } finally {
+      storeSettings.isFetched = true
+    }
+  })
+
+  it('digitar outro CEP no checkout tira a linha', () => {
+    daGaveta()
+    renderOpen()
+    expect(linhaDaSacola()).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '04538133' } })
+
+    expect(linhaDaSacola()).not.toBeInTheDocument()
+    expect(useCheckoutStore.getState().cepOrigin).toBeNull()
+  })
+
+  it('quem tem conta com endereço salvo do MESMO CEP recebe o endereço inteiro, e o bloco fica completo e limpo', () => {
+    defaultAddressMock.mockReturnValue({ data: DEFAULT_ADDRESS } as any)
+    cepLookup(RESOLVED)
+    daGaveta('04538133')
+    renderOpen()
+
+    const { address, shipping, dirty } = useCheckoutStore.getState()
+    expect(address).toMatchObject({
+      cep: '04538-133',
+      street: 'Av. Brigadeiro Faria Lima',
+      number: '3477',
+      complement: 'Apto 42',
+    })
+    expect(shipping?.serviceId).toBe('1')
+    expect(isDeliveryComplete({ address, shipping })).toBe(true)
+    expect(dirty).not.toContain('delivery')
+    expect(document.activeElement).not.toBe(screen.getByLabelText('Número'))
+  })
+
+  it('quem tem conta com endereço salvo de OUTRO CEP: o endereço salvo não entra', () => {
+    defaultAddressMock.mockReturnValue({ data: DEFAULT_ADDRESS } as any)
+    daGaveta('01310-100')
+    renderOpen()
+
+    const { address, shipping } = useCheckoutStore.getState()
+    expect(address.cep).toBe('01310-100')
+    expect(address.number).toBe('')
+    expect(address.complement).toBe('')
+    expect(address.street).toBe('Avenida Paulista')
+    expect(shipping?.serviceId).toBe('1')
+    expect(document.activeElement).toBe(screen.getByLabelText('Número'))
+  })
+
+  it('sem `cepOrigin`, o bloco é o de hoje: nem linha de origem, nem foco no Número', () => {
+    withCep('01310-100')
+    useCheckoutStore.getState().setShipping(PAC_DA_GAVETA)
+    renderOpen()
+
+    expect(linhaDaSacola()).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(document.activeElement).not.toBe(screen.getByLabelText('Número'))
+  })
+})

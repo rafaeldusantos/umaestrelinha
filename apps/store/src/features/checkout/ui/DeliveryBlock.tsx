@@ -166,6 +166,8 @@ const DeliveryBlock = ({
   const shipping = useCheckout((s) => s.shipping)
   const setShipping = useCheckout((s) => s.setShipping)
   const markDirty = useCheckout((s) => s.markDirty)
+  // `'sacola'`: o CEP (e a forma de envio) vieram da gaveta. Digitar outro CEP aqui o zera.
+  const daSacola = useCheckout((s) => s.cepOrigin) === 'sacola'
 
   /**
    * FLW-01/FLW-04: sujar é o que impede o bloco de colapsar sozinho — por isso só passa por aqui
@@ -229,7 +231,12 @@ const DeliveryBlock = ({
   useEffect(() => {
     if (seeded.current || !defaultAddress) return
     seeded.current = true
-    if (useCheckout.getState().address.cep) return
+    const { address: atual, cepOrigin } = useCheckout.getState()
+    // O CEP que veio da gaveta vale. O endereço salvo só entra se for o MESMO CEP — e aí entra
+    // inteiro (número e complemento), e o bloco abre recolhido como o de quem já tem endereço.
+    const mesmoCepDaSacola =
+      cepOrigin === 'sacola' && stripCep(atual.cep) === stripCep(defaultAddress.cep)
+    if (atual.cep && !mesmoCepDaSacola) return
     setAddress({ ...defaultAddress, manual: false })
     const clean = stripCep(defaultAddress.cep)
     if (clean.length === 8) defaultCep.current = clean
@@ -266,6 +273,17 @@ const DeliveryBlock = ({
     if (clean !== defaultCep.current) defaultCep.current = null
     if (useCheckout.getState().shipping) setShipping(null)
   }, [useCheckout, address.cep, setShipping])
+
+  // O foco espera o Número uma vez, quando o bloco abre com o CEP trazido da sacola e o número
+  // ainda vazio: rua, bairro e cidade vêm da busca, e o Número é o que falta digitar.
+  const numberRef = useRef<HTMLInputElement>(null)
+  const focusedNumber = useRef(false)
+  useEffect(() => {
+    if (!open || focusedNumber.current) return
+    if (!daSacola || useCheckout.getState().address.number.trim()) return
+    focusedNumber.current = true
+    numberRef.current?.focus()
+  }, [useCheckout, open, daSacola])
 
   const cepComplete = stripCep(address.cep).length === 8
   // Referência estável: sem o memo, o `?? []` refaria o `options` (e o efeito) a cada render.
@@ -313,6 +331,17 @@ const DeliveryBlock = ({
     if (!opcao || opcao.cost === atual.cost) return
     setShipping({ ...atual, cost: opcao.cost })
   }, [useCheckout, options, setShipping])
+
+  // A opção que a gaveta marcou e que sumiu da cotação do checkout é desfeita: a cliente escolhe
+  // outra, como quando o CEP muda. Só para o CEP trazido da sacola — o rascunho digitado aqui segue
+  // como sempre. A retirada não está em `options` (feature 63) e tem a própria regra.
+  useEffect(() => {
+    if (!daSacola || !options.length) return
+    const atual = useCheckout.getState().shipping
+    if (!atual || atual.serviceId === PICKUP_SERVICE_ID) return
+    if (options.some((o) => o.serviceId === atual.serviceId)) return
+    setShipping(null)
+  }, [useCheckout, daSacola, options, setShipping])
 
   // Pré-seleção sem clique, em dois casos:
   //  · edge case da spec — cotação com uma única opção: não há o que escolher;
@@ -406,6 +435,12 @@ const DeliveryBlock = ({
   )
 
   const locked = !address.manual
+  // "Trazido da sua sacola · Bairro — Cidade/UF", da busca pelo CEP; sem ela, a frase sozinha.
+  const lugar = cepLookup.data && !cepLookup.data.manual ? cepLookup.data : null
+  const cidadeDaBusca = lugar?.city && lugar.state ? `${lugar.city}/${lugar.state}` : null
+  const origemDaSacola = cidadeDaBusca
+    ? `Trazido da sua sacola · ${[lugar?.neighborhood?.trim(), cidadeDaBusca].filter(Boolean).join(' — ')}`
+    : 'Trazido da sua sacola'
   const lockedFieldClass = locked
     ? 'border-estrelinha-line bg-estrelinha-ground-deep text-estrelinha-ink-soft'
     : 'border-estrelinha-line'
@@ -565,6 +600,13 @@ const DeliveryBlock = ({
         />
       </div>
 
+      {daSacola && (
+        <p role="status" className="-mt-3 flex items-center gap-2 text-[13px] text-estrelinha-ink-soft">
+          <span aria-hidden className="h-[6px] w-[6px] shrink-0 rounded-full bg-estrelinha-accent" />
+          {origemDaSacola}
+        </p>
+      )}
+
       {address.manual && cepComplete && (
         <p role="status" className="text-[13px] text-estrelinha-ink-soft">
           Não localizamos esse CEP. Preencha o endereço à mão — a cotação segue pelo CEP informado.
@@ -590,6 +632,7 @@ const DeliveryBlock = ({
             Número
           </Label>
           <Input
+            ref={numberRef}
             id="delivery-number"
             value={address.number}
             onChange={(e) => edit({ number: e.target.value })}
