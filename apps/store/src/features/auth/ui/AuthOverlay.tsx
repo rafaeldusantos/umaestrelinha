@@ -4,6 +4,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@estrelinha/ui/drawer'
 import { useIsMobile } from '@estrelinha/ui/hooks/use-mobile'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
+import { regionsLabel } from '@estrelinha/core/shipping'
 import { EstrelinhaSignature } from '@estrelinha/ui/brand'
 import { useAuthUiStore } from '../model/authUiStore'
 import type { AuthStep } from '../model/authUiStore'
@@ -47,8 +48,13 @@ const BENEFITS = ['Peça única, feita à mão', 'Acompanhe seu pedido do iníci
 
 const BrandPanel = () => {
   const freteGratis = useFreeShipping()
+  // `null` com as cinco regiões: aí o item é o de sempre, sem falar de região.
+  const regiao = regionsLabel(freteGratis.regions)
   const benefits = freteGratis.active
-    ? [`Frete grátis acima de ${formatPrice(freteGratis.threshold)}`, ...BENEFITS]
+    ? [
+        `Frete grátis acima de ${formatPrice(freteGratis.threshold)}${regiao ? ` · para ${regiao}` : ''}`,
+        ...BENEFITS,
+      ]
     : BENEFITS
 
   return (
