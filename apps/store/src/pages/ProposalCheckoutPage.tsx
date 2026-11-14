@@ -252,6 +252,8 @@ const ProposalCheckout = ({ token, proposal, ajuda, reler }: ProposalCheckoutPro
       method,
       pixDiscountPercent: Number(pix_discount_percent) || 0,
       freeShipping: shippingSettings,
+      // Com o frete grátis limitado a algumas regiões, quem decide é o CEP do endereço.
+      destinationCep: address?.cep ?? null,
     })
   const totals = precificar(payment.method === 'card' ? 'card' : 'pix')
   const cardTotal = precificar('card').total

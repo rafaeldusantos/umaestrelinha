@@ -29,6 +29,7 @@ import { guestAccessExpiry, hashAccessToken, newAccessToken } from '../../../pac
 import { initialMaterialStatus } from '../../../packages/core/src/material/material.ts'
 import { normalizeEmail } from '../../../packages/core/src/validators/email.ts'
 import { PICKUP_SERVICE_ID } from '../../../packages/core/src/shipping/pickup.ts'
+import { freeShippingConfigOf } from '../../../packages/core/src/shipping/freeShipping.ts'
 import { json } from '../_shared/http.ts'
 import { clientIp, type RateLimiter } from '../_shared/rateLimit.ts'
 import type { Deps } from './handlers.ts'
@@ -393,19 +394,18 @@ export async function createOrderFromProposal(
   }
 
   // PRC-05, A-11: o frete cotado da entrega escolhida, zerado pelo cupom `free_shipping` ou pela
-  // faixa de frete grátis — pela MESMA `proposalPricing` que a página do link chama.
+  // faixa de frete grátis (e, com as regiões limitadas, pelo CEP do endereço) — pela MESMA
+  // `proposalPricing` que a página do link chama.
   const shipping = await lerAjuste(deps, 'shipping')
   const payment = await lerAjuste(deps, 'payment')
+  const cep = texto(body?.address_zip).replace(/\D/g, '') || null
   const totais = proposalPricing(travado(row, linhas), {
     shipping: Math.max(0, Number(body?.shipping_cost) || 0),
     method: metodo,
     pixDiscountPercent: Number(payment?.pix_discount_percent ?? 0),
-    freeShipping: shipping
-      ? {
-          free_shipping_enabled: shipping.free_shipping_enabled === true,
-          free_shipping_threshold: Number(shipping.free_shipping_threshold ?? 0),
-        }
-      : null,
+    freeShipping: shipping ? freeShippingConfigOf(shipping) : null,
+    // Com o frete grátis limitado a algumas regiões, quem decide é o CEP da entrega.
+    destinationCep: cep,
   })
 
   // O acesso de convidada é SEMPRE emitido (`CON-07`): quem conclui pelo link pode não ter sessão.
@@ -415,7 +415,7 @@ export async function createOrderFromProposal(
     customer_phone: nuloSeVazio(body?.customer_phone) ?? row.customer_phone ?? null,
     customer_document: texto(body?.customer_document).replace(/\D/g, '') || row.customer_document || null,
     payment_method: metodo,
-    address_zip: texto(body?.address_zip).replace(/\D/g, '') || null,
+    address_zip: cep,
     address_street: nuloSeVazio(body?.address_street),
     address_number: nuloSeVazio(body?.address_number),
     address_complement: nuloSeVazio(body?.address_complement),

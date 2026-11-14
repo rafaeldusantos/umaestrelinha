@@ -283,6 +283,36 @@ describe('proposalPricing — o que a cliente paga (PRC-03, PRC-05, PRC-06, A-11
     expect(t.shipping).toBe(20)
   })
 
+  describe('frete grátis só para algumas regiões: o CEP do endereço decide', () => {
+    // itens = 188, faixa de 150 atingida; a campanha vale Sul + Sudeste.
+    const sulSudeste = { free_shipping_enabled: true, free_shipping_threshold: 150, free_shipping_regions: ['sul', 'sudeste'] }
+    const cincoRegioes = { free_shipping_enabled: true, free_shipping_threshold: 150 }
+    const frete = (freeShipping: typeof sulSudeste | typeof cincoRegioes, destinationCep?: string | null) =>
+      proposalPricing(travada, { shipping: 20, method: 'card', pixDiscountPercent: 0, freeShipping, destinationCep })
+
+    it('CEP da Bahia, fora da campanha, cobra o frete cotado', () => {
+      const t = frete(sulSudeste, '40010-000')
+      expect(t.shipping).toBe(20)
+      expect(t.total).toBe(208)
+    })
+
+    it('CEP de São Paulo, dentro da campanha, zera o frete', () => {
+      const t = frete(sulSudeste, '01001000')
+      expect(t.shipping).toBe(0)
+      expect(t.total).toBe(188)
+    })
+
+    it('sem CEP, com as regiões limitadas, cobra o frete', () => {
+      expect(frete(sulSudeste, null).shipping).toBe(20)
+      expect(frete(sulSudeste).shipping).toBe(20)
+    })
+
+    it('com as cinco regiões, sem CEP, zera como antes', () => {
+      expect(frete(cincoRegioes, null).shipping).toBe(0)
+      expect(frete(cincoRegioes).shipping).toBe(0)
+    })
+  })
+
   it('não relê promoção nem cupom: o preço travado vale mesmo que hoje fossem outros', () => {
     const t = proposalPricing(
       { lines: [{ unit_price: 4.6, quantity: 5 }], couponDiscount: 3.45, couponFreeShipping: false, manualDiscount: 0 },

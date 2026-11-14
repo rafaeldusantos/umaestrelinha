@@ -261,6 +261,30 @@ describe('create-payment de pedido montado — o frete (PRC-05, A-11)', () => {
     expect(cobrado(e)).toBe('58.50')
   })
 
+  describe('frete grátis só para Sul + Sudeste: o CEP do pedido decide no servidor', () => {
+    const SUL_SUDESTE = { free_shipping_enabled: true, free_shipping_threshold: 40, free_shipping_regions: ['sul', 'sudeste'] }
+
+    it('CEP da Bahia com a faixa atingida cobra o frete: cartão 58,50, o mesmo total que o create-order gravou', async () => {
+      // O `create-order` gravou o frete cotado (18,50) e o total 55 − 10 − 5 + 18,50 = 58,50.
+      const e = cenario({ shippingSettings: SUL_SUDESTE, order: { address_zip: '40010000', total: 58.5 } })
+      await createPayment(e.deps, request(), card)
+      expect(cobrado(e)).toBe('58.50')
+      expect(persistido(e).map((u) => u.values.total)).toEqual([58.5])
+    })
+
+    it('CEP de São Paulo com a faixa atingida zera o frete: cartão 40,00', async () => {
+      const e = cenario({ shippingSettings: SUL_SUDESTE, order: { address_zip: '01001000' } })
+      await createPayment(e.deps, request(), card)
+      expect(cobrado(e)).toBe('40.00')
+    })
+
+    it('sem `free_shipping_regions` na linha, o CEP da Bahia ganha o frete grátis como antes', async () => {
+      const e = cenario({ shippingSettings: { free_shipping_enabled: true, free_shipping_threshold: 40 }, order: { address_zip: '40010000' } })
+      await createPayment(e.deps, request(), card)
+      expect(cobrado(e)).toBe('40.00')
+    })
+  })
+
   it('a faixa desligada não zera, mesmo atingida', async () => {
     const e = cenario({ shippingSettings: { free_shipping_enabled: false, free_shipping_threshold: 10 } })
     await createPayment(e.deps, request(), card)

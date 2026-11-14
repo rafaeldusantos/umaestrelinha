@@ -33,7 +33,11 @@ const { invokeMock, createPaymentMock, getCardFormDataMock, toastError, frete, c
   getCardFormDataMock: vi.fn(),
   toastError: vi.fn(),
   // A faixa de frete grátis da loja, trocável por caso (fecho da rodada 3, S13).
-  frete: { free_shipping_enabled: true as boolean, free_shipping_threshold: 1000 },
+  frete: {
+    free_shipping_enabled: true as boolean,
+    free_shipping_threshold: 1000,
+    free_shipping_regions: undefined as string[] | undefined,
+  },
   cotacao: {
     atual: [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }] as Array<Record<string, unknown>>,
   },
@@ -58,6 +62,7 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useShippingSettings: () => ({
     free_shipping_enabled: frete.free_shipping_enabled,
     free_shipping_threshold: frete.free_shipping_threshold,
+    ...(frete.free_shipping_regions ? { free_shipping_regions: frete.free_shipping_regions } : {}),
     default_shipping_cost: 9.9,
     handling_days: 2,
   }),
@@ -209,6 +214,7 @@ beforeEach(() => {
   respostas['get-proposal'] = () => ({ data: { proposal: proposta() }, error: null })
   frete.free_shipping_enabled = true
   frete.free_shipping_threshold = 1000
+  frete.free_shipping_regions = undefined
   cotacao.atual = [{ id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 }]
   createPaymentMock.mockReset()
   getCardFormDataMock.mockReset()
@@ -340,6 +346,42 @@ describe('T25 — a página (CON-01..04, CON-07..11, SEG-02, SEG-03)', () => {
     await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
     // 250 − 12,50 + 35 = 272,50.
     expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 272,50')
+  })
+
+  // O frete grátis só para Sul + Sudeste: a página passa o CEP do endereço a `proposalPricing`, e o
+  // total muda quando a cliente troca o endereço de São Paulo por um da Bahia.
+  it('faixa alcançada com o frete grátis só no Sul + Sudeste: o CEP do endereço decide o total', async () => {
+    cotacao.atual = [
+      { id: 1, name: 'PAC', company: 'Correios', price: '20.00', delivery_time: 6 },
+      { id: 2, name: 'SEDEX', company: 'Correios', price: '35.00', delivery_time: 2 },
+    ]
+    frete.free_shipping_threshold = 200
+    frete.free_shipping_regions = ['sul', 'sudeste']
+    montar()
+    await screen.findByRole('heading', { level: 1, name: 'Seu pedido' })
+    fireEvent.click((await screen.findAllByText(/SEDEX/))[0])
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
+    // O endereço semeado é de São Paulo: 250 dos itens ≥ 200 ⇒ o SEDEX sai; PIX 12,50 ⇒ 237,50.
+    expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 237,50')
+
+    act(() => {
+      useProposalCheckoutStore.getState().setAddress({
+        cep: '40010-000',
+        street: 'Rua Chile',
+        number: '10',
+        complement: '',
+        neighborhood: 'Centro',
+        city: 'Salvador',
+        state: 'BA',
+        manual: false,
+      })
+    })
+    if (useProposalCheckoutStore.getState().shipping?.serviceName !== 'SEDEX') {
+      fireEvent.click((await screen.findAllByText(/SEDEX/))[0])
+    }
+    await waitFor(() => expect(useProposalCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX'))
+    // Bahia, fora da campanha: 250 − 12,50 + 35 = 272,50.
+    await waitFor(() => expect(screen.getAllByTestId('proposta-total')[0]).toHaveTextContent('R$ 272,50'))
   })
 
   it('sem fragmento e sem token guardado ⇒ o link não vale (CON-08), sem chamar a function', async () => {

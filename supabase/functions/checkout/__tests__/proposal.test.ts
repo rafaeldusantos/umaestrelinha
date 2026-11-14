@@ -454,6 +454,32 @@ describe('create-order com proposta — o pedido nasce da proposta (PRC-03, CON-
     expect(p.total).toBe(250)
   })
 
+  describe('frete grátis só para Sul + Sudeste: o CEP do endereço decide no servidor', () => {
+    const SUL_SUDESTE = { ...AJUSTES, shipping: { free_shipping_enabled: true, free_shipping_threshold: 200, free_shipping_regions: ['sul', 'sudeste'] } }
+
+    it('CEP da Bahia com a faixa alcançada grava o frete cotado', async () => {
+      const f = ambiente({ ajustes: SUL_SUDESTE })
+      await route(f.deps, pedir('create-order', CONCLUIR({ address_zip: '40010-000', address_city: 'Salvador', address_state: 'BA' })))
+      const p = argsDoPedido(f)[0].p_order
+      expect(p.shipping_cost).toBe(20)
+      expect(p.total).toBe(250)
+    })
+
+    it('CEP de São Paulo com a faixa alcançada grava frete zero', async () => {
+      const f = ambiente({ ajustes: SUL_SUDESTE })
+      await route(f.deps, pedir('create-order', CONCLUIR({ address_zip: '01001-000', address_city: 'São Paulo', address_state: 'SP' })))
+      const p = argsDoPedido(f)[0].p_order
+      expect(p.shipping_cost).toBe(0)
+      expect(p.total).toBe(230)
+    })
+
+    it('a linha de settings sem `free_shipping_regions` concede como antes, para qualquer CEP', async () => {
+      const f = ambiente({ ajustes: { ...AJUSTES, shipping: { free_shipping_enabled: true, free_shipping_threshold: 200 } } })
+      await route(f.deps, pedir('create-order', CONCLUIR({ address_zip: '40010-000', address_city: 'Salvador', address_state: 'BA' })))
+      expect(argsDoPedido(f)[0].p_order.shipping_cost).toBe(0)
+    })
+  })
+
   it('A-08: e-mail COM conta conclui sem desafio e sem criar conta; o pedido fica na ficha da proposta', async () => {
     const f = ambiente({ extra: { rpcByFn: { account_exists: { data: true }, create_order_from_proposal: { data: { order_id: 'ord-9', order_number: '0201', reused: false } } } } })
     const res = await route(f.deps, pedir('create-order', CONCLUIR()))
