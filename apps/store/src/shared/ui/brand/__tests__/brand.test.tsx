@@ -56,14 +56,36 @@ describe('EstrelinhaSignature — o degrau do chrome', () => {
   })
 
   it.each([
-    ['brand', '#283A4A'],
+    ['brand', 'var(--estrelinha-primary-strong, #283A4A)'],
     ['onInk', '#F7F3EC'],
-    ['accent', '#B8945F'],
+    ['accent', 'var(--estrelinha-accent, #B8945F)'],
     ['mono', 'currentColor'],
   ] as const)('o tom `%s` pinta o traço em %s', (tone, stroke) => {
     render(<EstrelinhaSignature width={202} tone={tone} />)
     for (const path of marca().querySelectorAll('path')) {
       expect(path).toHaveAttribute('stroke', stroke)
+    }
+  })
+
+  it('os tons escuro e de destaque acompanham o perfil da loja, com o ardósia e o ouro de recuo', () => {
+    // A loja declara `--estrelinha-*` por perfil; o painel e o ateliê não declaram
+    // nada, e é o recuo dentro do `var()` que os mantém no tom de sempre.
+    const { unmount } = render(<EstrelinhaSignature width={202} tone="brand" />)
+    const escuro = marca().querySelector('path')!.getAttribute('stroke')!
+    unmount()
+    render(<EstrelinhaSignature width={202} tone="accent" />)
+    const destaque = marca().querySelector('path')!.getAttribute('stroke')!
+    expect(escuro).toMatch(/^var\(--estrelinha-primary-strong,\s*#283A4A\)$/)
+    expect(destaque).toMatch(/^var\(--estrelinha-accent,\s*#B8945F\)$/)
+    expect(escuro).not.toBe('#283A4A')
+    expect(destaque).not.toBe('#B8945F')
+  })
+
+  it('o tom claro não acompanha o perfil — continua o hex fixo do cabeçalho', () => {
+    render(<EstrelinhaSignature width={202} tone="onInk" />)
+    for (const path of marca().querySelectorAll('path')) {
+      expect(path).toHaveAttribute('stroke', '#F7F3EC')
+      expect(path.getAttribute('stroke')).not.toContain('var(')
     }
   })
 

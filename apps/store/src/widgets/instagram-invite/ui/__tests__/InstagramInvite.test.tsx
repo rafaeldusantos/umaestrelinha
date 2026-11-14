@@ -227,7 +227,9 @@ describe('o que o convite diz', () => {
     // O símbolo, no tom positivo (`primary-strong`), e nada de foto.
     const simbolo = avatar.querySelector('svg')!
     expect(simbolo).not.toBeNull()
-    expect(simbolo.querySelector('path')!.getAttribute('stroke')).toBe('#283A4A')
+    expect(simbolo.querySelector('path')!.getAttribute('stroke')).toBe(
+      'var(--estrelinha-primary-strong, #283A4A)',
+    )
     expect(avatar.querySelector('img')).toBeNull()
   })
 

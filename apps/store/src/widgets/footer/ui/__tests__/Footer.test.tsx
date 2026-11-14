@@ -33,8 +33,11 @@ vi.mock('@/entities/category', () => ({
 
 /** `--estrelinha-ground`, que é a superfície do rodapé. */
 const GROUND = '#FAF8F4'
-/** `--estrelinha-primary-strong` — o tom `brand`, que é o correto sobre claro. */
-const PRIMARY_STRONG = '#283A4A'
+/**
+ * `--estrelinha-primary-strong` — o tom `brand`, que é o correto sobre claro. Lê a
+ * variável do perfil de estilo, com o ardósia de recuo.
+ */
+const PRIMARY_STRONG = 'var(--estrelinha-primary-strong, #283A4A)'
 /** `--estrelinha-on-primary` — o tom `onInk`, que sobre `ground` some. */
 const ON_PRIMARY = '#F7F3EC'
 
