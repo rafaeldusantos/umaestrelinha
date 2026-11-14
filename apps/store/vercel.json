@@ -22,6 +22,7 @@
       "source": "/feeds/google-shopping.xml",
       "destination": "https://hgkrsfpupypxtygjgthf.supabase.co/functions/v1/google-feed"
     },
+    { "source": "/", "destination": "/api/page?__path=/" },
     { "source": "/:path*", "destination": "/api/page?__path=/:path*" }
   ],
   "headers": [

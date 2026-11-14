@@ -388,13 +388,23 @@ describe('vercel.json — o sitemap (features 33 e 70)', () => {
     expect(fonte.indexOf('await serveSitemap(')).toBeLessThan(fonte.indexOf('await servePage('))
   })
 
-  it('âncora de contagem dos rewrites: são 2 — o feed e o catch-all, nesta ordem', () => {
+  it('âncora de contagem dos rewrites: são 3 — o feed, a raiz e o catch-all, nesta ordem', () => {
     // Sem a âncora, uma entrada removida por edição deixaria as buscas acima achando o que procuram
     // num arquivo já pela metade. Feature 69: desceu de 4 para 3 — saiu o `/produtos/:slug`.
     // Feature 70: desceu de 3 para 2 — saiu o `/sitemap.xml`.
-    expect(CONFIG.rewrites).toHaveLength(2)
+    // 2026-11-14: subiu de 2 para 3 — entrou a raiz (ver o caso abaixo).
+    expect(CONFIG.rewrites).toHaveLength(3)
     expect(CONFIG.rewrites[0].source).toBe('/feeds/google-shopping.xml')
-    expect(CONFIG.rewrites[1]).toEqual(CATCH_ALL)
+    expect(CONFIG.rewrites[1].source).toBe('/')
+    expect(CONFIG.rewrites[2]).toEqual(CATCH_ALL)
+  })
+
+  it('a raiz tem rewrite PRÓPRIO para a função — o catch-all não casa `/` na Vercel', () => {
+    // Medido em produção em 2026-11-14: desde o WI 101 o build tira o `index.html` da saída publicada
+    // (`scripts/shell.mjs`), contando que a Home cairia no catch-all. Não cai: sem o arquivo, a raiz
+    // respondeu o 404 da plataforma (`x-vercel-error: NOT_FOUND`, sem chegar à função), com todas as
+    // outras páginas de pé. Sem esta entrada a Home da loja sai do ar, e nenhum outro teste acusa.
+    expect(CONFIG.rewrites).toContainEqual({ source: '/', destination: '/api/page?__path=/' })
   })
 })
 
