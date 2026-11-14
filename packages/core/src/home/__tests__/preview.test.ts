@@ -9,12 +9,15 @@ import { describe, expect, it } from 'vitest'
 import {
   PREVIEW_DEBOUNCE_MS,
   PREVIEW_DEVICES,
+  PREVIEW_HOME_PARAM,
+  PREVIEW_PARAM,
   PREVIEW_SOURCE,
   isPreviewWindow,
   parsePreviewMessage,
   previewFrame,
   previewMetrics,
   previewScale,
+  previewHomeSource,
   previewSrc,
   type PreviewBox,
   type PreviewFrame,
@@ -290,6 +293,48 @@ describe('previewSrc — o endereço não carrega o estado do alternador', () =>
     expect(previewSrc('https://umaestrelinha.com.br')).toBe(
       previewSrc('https://umaestrelinha.com.br'),
     )
+  })
+})
+
+describe('previewSrc com a Home publicada — o palco que não manda composição diz de onde ela vem', () => {
+  it('sem opção, o endereço é o de sempre (os palcos da Home, do menu e da faixa não mudam)', () => {
+    expect(previewSrc('http://localhost:8082', {})).toBe('http://localhost:8082/?preview=1')
+    expect(previewSrc('http://localhost:8082', { home: 'rascunho' })).toBe('http://localhost:8082/?preview=1')
+  })
+
+  it('com a Home publicada, o parâmetro novo vai ao lado do `preview`, uma vez, sem barra dupla', () => {
+    const src = previewSrc('http://localhost:8082/', { home: 'publicada' })
+    expect(src).toBe(`http://localhost:8082/?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=publicada`)
+    expect(src).not.toContain('//?')
+    expect(src.split(`${PREVIEW_HOME_PARAM}=`)).toHaveLength(2)
+  })
+
+  it('o endereço com a opção continua sendo prévia para `isPreviewWindow`', () => {
+    const search = new URL(previewSrc('http://localhost:8082', { home: 'publicada' })).search
+    expect(isPreviewWindow(search, true)).toBe(true)
+    expect(isPreviewWindow(search, false)).toBe(false)
+  })
+})
+
+describe('previewHomeSource — de onde a Home da prévia vem', () => {
+  it('"publicada" só com o parâmetro e o valor exato', () => {
+    expect(previewHomeSource(`?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=publicada`)).toBe('publicada')
+    expect(previewHomeSource(new URL(previewSrc('https://umaestrelinha.com.br', { home: 'publicada' })).search)).toBe(
+      'publicada',
+    )
+  })
+
+  it('"rascunho" sem o parâmetro — o contrato de `/admin/home` (PRV-02)', () => {
+    expect(previewHomeSource(`?${PREVIEW_PARAM}=1`)).toBe('rascunho')
+    expect(previewHomeSource('')).toBe('rascunho')
+    expect(previewHomeSource(new URL(previewSrc('http://localhost:8082')).search)).toBe('rascunho')
+  })
+
+  it('"rascunho" com valor desconhecido ou vazio — nunca liga a leitura do banco por engano', () => {
+    expect(previewHomeSource(`?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=1`)).toBe('rascunho')
+    expect(previewHomeSource(`?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=`)).toBe('rascunho')
+    expect(previewHomeSource(`?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}`)).toBe('rascunho')
+    expect(previewHomeSource(`?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=PUBLICADA`)).toBe('rascunho')
   })
 })
 

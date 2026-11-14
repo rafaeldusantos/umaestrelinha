@@ -6,7 +6,12 @@
 
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { PREVIEW_SOURCE, type HomeSection } from '@estrelinha/core/home'
+import {
+  PREVIEW_HOME_PARAM,
+  PREVIEW_PARAM,
+  PREVIEW_SOURCE,
+  type HomeSection,
+} from '@estrelinha/core/home'
 import { useHomePreview } from '../useHomePreview'
 
 const paiFalso = { postMessage: vi.fn() }
@@ -71,6 +76,27 @@ describe('PRV-01 — o modo só liga com as duas condições', () => {
 
   it('NÃO liga sem o parâmetro', () => {
     url('')
+    const { result } = renderHook(() => useHomePreview())
+    expect(result.current.preview).toBe(false)
+  })
+})
+
+describe('a Home da prévia: rascunho por padrão, publicada só quando o endereço pede', () => {
+  it('só com `?preview=1` a Home é o rascunho — o contrato de `/admin/home`', () => {
+    const { result } = renderHook(() => useHomePreview())
+    expect(result.current.homeSource).toBe('rascunho')
+  })
+
+  it('com o parâmetro da Home publicada, dentro de iframe, a Home é a publicada', () => {
+    url(`?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=publicada`)
+    const { result } = renderHook(() => useHomePreview())
+    expect(result.current.preview).toBe(true)
+    expect(result.current.homeSource).toBe('publicada')
+  })
+
+  it('o parâmetro sozinho, fora de iframe, não liga a prévia', () => {
+    semIframe()
+    url(`?${PREVIEW_PARAM}=1&${PREVIEW_HOME_PARAM}=publicada`)
     const { result } = renderHook(() => useHomePreview())
     expect(result.current.preview).toBe(false)
   })

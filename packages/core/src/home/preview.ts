@@ -29,6 +29,25 @@ export const PREVIEW_SOURCE = 'estrelinha-home-preview'
 export const PREVIEW_PARAM = 'preview'
 
 /**
+ * O parâmetro que diz DE ONDE vem a Home da prévia.
+ *
+ * O modo prévia é um só para quatro palcos (Home, menu, faixa de avisos e perfil de estilo), mas só
+ * o de `/admin/home` manda a composição. Sem este parâmetro a Home da prévia desenha o rascunho que
+ * chega por mensagem e não lê o banco (`PRV-02`); com ele, ela lê as seções publicadas, como a loja
+ * que a cliente vê. Quem não manda composição e quer a Home inteira passa o parâmetro.
+ *
+ * Não liga modo prévia nenhum sozinho: quem decide se a janela é prévia continua sendo
+ * `isPreviewWindow`, e este parâmetro só é lido dentro dela.
+ */
+export const PREVIEW_HOME_PARAM = 'home'
+
+/** De onde vem a Home da prévia: o rascunho que o painel manda, ou a composição publicada. */
+export type PreviewHomeSource = 'rascunho' | 'publicada'
+
+/** O único valor que liga a leitura das seções publicadas. */
+const HOME_PUBLICADA: PreviewHomeSource = 'publicada'
+
+/**
  * O intervalo do debounce do rascunho.
  *
  * Vale para o `draft` e **não** para o `highlight`: o rascunho acompanha digitação e não precisa de
@@ -87,6 +106,18 @@ export const isPreviewWindow = (search: string, framed: boolean): boolean => {
   // `?preview` sem valor conta: é a forma que alguém digita à mão, e recusá-la daria um modo prévia
   // que só liga com a sintaxe exata que o painel usa.
   return valor !== null && valor !== '0' && valor !== 'false'
+}
+
+/**
+ * De onde a Home da prévia vem — `'publicada'` só com o parâmetro e o valor exato.
+ *
+ * Qualquer outra coisa (ausente, vazio, valor desconhecido) é `'rascunho'`, que é o contrato de
+ * sempre: a leitura do banco só liga quando quem monta o endereço pediu, nunca por engano. Irmã de
+ * `isPreviewWindow` e no mesmo dono, para que a loja não tenha dois detectores do modo prévia.
+ */
+export const previewHomeSource = (search: string): PreviewHomeSource => {
+  const params = new URLSearchParams(search ?? '')
+  return params.get(PREVIEW_HOME_PARAM) === HOME_PUBLICADA ? HOME_PUBLICADA : 'rascunho'
 }
 
 const ehObjeto = (valor: unknown): valor is Record<string, unknown> =>
@@ -234,15 +265,26 @@ export const previewFrame = (
 export const previewMetrics = (frame: PreviewFrame): string =>
   `${frame.width} × ${frame.height} · ${Math.round(frame.scale * 100)}%`
 
+/** O que o palco pode pedir ao endereço da prévia. */
+export interface PreviewSrcOptions {
+  /** De onde a Home vem. Ausente é `'rascunho'`, o contrato de `/admin/home`. */
+  home?: PreviewHomeSource
+}
+
 /**
  * O endereço que o iframe carrega.
  *
  * Montado **uma vez** por quem chama, e sem nada do estado de dispositivo dentro: se a largura
  * entrasse no `src`, cada clique no alternador remontaria o documento e a prévia perderia o rascunho
  * que o painel já tinha mandado.
+ *
+ * `home: 'publicada'` acrescenta `PREVIEW_HOME_PARAM` — é o que o palco do perfil de estilo usa, porque
+ * a ponte dele manda só o perfil e nunca a composição.
  */
-export const previewSrc = (storeUrl: string): string =>
-  `${storeUrl.replace(/\/$/, '')}/?${PREVIEW_PARAM}=1`
+export const previewSrc = (storeUrl: string, options: PreviewSrcOptions = {}): string => {
+  const base = `${storeUrl.replace(/\/$/, '')}/?${PREVIEW_PARAM}=1`
+  return options?.home === HOME_PUBLICADA ? `${base}&${PREVIEW_HOME_PARAM}=${HOME_PUBLICADA}` : base
+}
 
 /** O atributo que marca o bloco de uma seção no DOM da prévia. */
 export const PREVIEW_SECTION_ATTR = 'data-home-section-id'

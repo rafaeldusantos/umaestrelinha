@@ -28,7 +28,10 @@ import { InstagramInvite } from '@/widgets/instagram-invite'
  * verdade em vez de um segundo desenho da Home: uma fonte diferente, o mesmo renderizador.
  */
 const HomePage = () => {
-  const { preview, sections: rascunho, highlightId, selectSection } = useHomePreview()
+  const { preview, homeSource, sections: rascunho, highlightId, selectSection } = useHomePreview()
+  // A prévia do perfil de estilo pede a Home PUBLICADA no endereço: a ponte dela manda só o perfil,
+  // e sem isto o rascunho ficaria vazio para sempre. A de `/admin/home` não pede, e segue no rascunho.
+  const homePublicada = preview && homeSource === 'publicada'
 
   // Feature 62 (A6): título e descrição da Home são os que a dona edita em Configurações
   // (`store_settings.seo`). Enquanto a configuração carrega, nada é escrito — o `page_view` espera
@@ -56,7 +59,12 @@ const HomePage = () => {
   // `isPending && isFetching`, e com `enabled: false` o `isPending` é verdadeiro para sempre —
   // o esqueleto nunca sairia da prévia. Afirmar sensibilidade que não existe encerra a
   // investigação de quem vier depois, e por isso o limite está declarado em vez de sugerido.
-  const { data: sections, isLoading } = useHomeSections({ enabled: !preview })
+  //
+  // A exceção é a prévia que pede a Home publicada (`homePublicada`, feature 100 · BUG-005): lá não
+  // chega rascunho nenhum, então a leitura é a ÚNICA fonte — os mesmos três estados da loja, dentro
+  // do invólucro da prévia. Nesse ramo o esqueleto É alcançado, e o "sem dente" acima vale só para a
+  // prévia de rascunho.
+  const { data: sections, isLoading } = useHomeSections({ enabled: !preview || homePublicada })
 
   // O convite para o Instagram é sobreposição, não seção: não passa pelo `HomeRenderer` e só monta
   // com a Home resolvida — o atraso dele começa a contar quando o conteúdo de verdade está na tela.
@@ -69,6 +77,8 @@ const HomePage = () => {
       </>
     )
   }
+
+  if (homePublicada && isLoading) return <HomeSkeleton />
 
   return (
     <div
@@ -85,8 +95,9 @@ const HomePage = () => {
       }}
     >
       {/* `rascunho` começa `[]`, e `[]` aqui é "ainda não chegou" — não "Home vazia". O piso semeado
-          não entra neste caminho: ele existe para erro de leitura, e em modo prévia não há leitura. */}
-      <HomeRenderer sections={rascunho} preview={{ highlightId }} />
+          não entra neste caminho: ele existe para erro de leitura, e na prévia de rascunho não há
+          leitura. Na prévia da Home publicada a fonte é a leitura, com o piso dela. */}
+      <HomeRenderer sections={homePublicada ? sections ?? [] : rascunho} preview={{ highlightId }} />
     </div>
   )
 }

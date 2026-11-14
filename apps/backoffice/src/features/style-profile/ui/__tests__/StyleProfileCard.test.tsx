@@ -432,7 +432,7 @@ describe('"Ver a loja com este perfil" — a prévia sem salvar', () => {
   const abrirPrevia = () => fireEvent.click(screen.getByRole('button', { name: 'Ver a loja com este perfil' }))
   const dialogo = () => screen.getByRole('dialog')
 
-  it('abre o modal com o perfil escolhido, UM iframe de `previewSrc`, e não grava nada', () => {
+  it('abre o modal com o perfil escolhido, UM iframe de `previewSrc` com a Home publicada, e não grava nada', () => {
     render(<StyleProfileCard />)
     fireEvent.click(opcao(/Black Friday/))
     abrirPrevia()
@@ -442,7 +442,9 @@ describe('"Ver a loja com este perfil" — a prévia sem salvar', () => {
 
     const iframes = dialogo().querySelectorAll('iframe')
     expect(iframes).toHaveLength(1)
-    expect(iframes[0].getAttribute('src')).toBe('http://localhost:8082/?preview=1')
+    // A ponte do perfil manda só o perfil, nunca seções: sem pedir a Home publicada no endereço, a
+    // loja desenharia um rascunho que nunca chega — a Home vazia entre o cabeçalho e o rodapé.
+    expect(iframes[0].getAttribute('src')).toBe('http://localhost:8082/?preview=1&home=publicada')
     expect(mutateAsync).not.toHaveBeenCalled()
   })
 
@@ -561,5 +563,10 @@ describe('"Ver a loja com este perfil" — a prévia sem salvar', () => {
     expect(depois.getAttribute('data-device')).toBe('desktop')
     expect(depois).toBe(iframe)
     expect(depois.getAttribute('src')).toBe(src)
+    expect(depois.getAttribute('src')).toBe('http://localhost:8082/?preview=1&home=publicada')
+
+    fireEvent.click(within(dialogo()).getByRole('button', { name: /Celular/ }))
+    expect(dialogo().querySelector('iframe')).toBe(iframe)
+    expect(iframe.getAttribute('src')).toBe('http://localhost:8082/?preview=1&home=publicada')
   })
 })

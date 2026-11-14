@@ -6,6 +6,9 @@
 // Vive dentro do modal do card, e por isso não tem modo de tela cheia: o modal já é a vista ampliada.
 // Os dois tamanhos e a conta da escala são os de `previewFrame`. Trocar de dispositivo não toca no
 // `src`.
+//
+// O endereço pede a Home PUBLICADA (`previewSrc` com `home: 'publicada'`): a ponte deste palco manda
+// só o perfil, nunca a composição, e a Home em prévia sem o pedido esperaria um rascunho que não vem.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Monitor, Smartphone } from 'lucide-react'
@@ -35,7 +38,7 @@ const StyleProfileLivePreview = ({ profile }: Props) => {
   const [device, setDevice] = useState<PreviewDevice>('mobile')
 
   const origem = useMemo(() => storeOrigin(), [])
-  const src = useMemo(() => (STORE_URL ? previewSrc(STORE_URL) : null), [])
+  const src = useMemo(() => (STORE_URL ? previewSrc(STORE_URL, { home: 'publicada' }) : null), [])
 
   const { aoCarregar } = useStyleProfilePreviewBridge({ iframeRef, origin: origem, profile })
 
