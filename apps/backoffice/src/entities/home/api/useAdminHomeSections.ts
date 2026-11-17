@@ -31,6 +31,11 @@ import type { FetchMode } from '@/shared/lib/fetchMode'
  */
 export interface HomeWriteError {
   message: string
+  /**
+   * O código do banco, quando veio dele (`23505`, `23514`…). É o que deixa a tela reconhecer a
+   * colisão do índice "um bloco por campanha" sem reescrever as outras mensagens (`AD-029`).
+   */
+  code?: string
 }
 
 /**
@@ -119,7 +124,12 @@ export const useAdminHomeSections = () => {
    */
   const pedido = useRef(0)
 
-  const fetchSections = useCallback(async (modo: FetchMode = 'inicial') => {
+  /**
+   * Devolve as seções lidas (fora de ordem; quem ordena é `orderSections`), ou `null` quando a
+   * leitura falhou ou foi superada. Quem precisa da lista DE AGORA logo depois de uma gravação — a
+   * tradução da colisão "esta campanha já tem um bloco" — não tem como esperar o próximo render.
+   */
+  const fetchSections = useCallback(async (modo: FetchMode = 'inicial'): Promise<HomeSection[] | null> => {
     const meu = ++pedido.current
     // `'revalidar'` **não liga `loading`**, e é só isso que separa a releitura de gravação da
     // primeira carga. Ligar aqui trocaria a árvore inteira por `<TableSkeleton/>` e desmontaria o
@@ -136,7 +146,7 @@ export const useAdminHomeSections = () => {
 
     // Resposta de uma leitura que já foi superada por outra: descartada inteira, inclusive o erro.
     // Sem este recorte, a leitura velha sobrescreveria o resultado da nova.
-    if (meu !== pedido.current) return
+    if (meu !== pedido.current) return null
 
     if (readError || !data) {
       // **Na revalidação a lista FICA** (`VIV-07`): a faixa de erro aparece sobre os dados que já
@@ -145,11 +155,13 @@ export const useAdminHomeSections = () => {
       if (modo === 'inicial') setRows([])
       setError(readError?.message ?? 'Não foi possível carregar as seções da Home.')
       setLoading(false)
-      return
+      return null
     }
 
-    setRows((data as unknown as DbHomeSection[]).map(mapSection))
+    const lidas = (data as unknown as DbHomeSection[]).map(mapSection)
+    setRows(lidas)
     setLoading(false)
+    return lidas
   }, [])
 
   useEffect(() => {
@@ -180,11 +192,17 @@ export const useAdminHomeSections = () => {
     }
   }
 
-  /** O conteúdo da seção. Só o `config` — posição e estado têm cada um a sua porta. */
-  const updateSectionConfig = async (id: string, config: HomeSectionConfig) => {
+  /**
+   * O conteúdo da seção. Só o `config` — posição e estado têm cada um a sua porta.
+   *
+   * O bloco "Joias em oferta" grava também a campanha (`campaignId`), na MESMA escrita: o conteúdo e
+   * a campanha são uma decisão só da dona. As outras seções não passam o argumento, e o payload
+   * delas continua sendo `{ config }` e nada mais.
+   */
+  const updateSectionConfig = async (id: string, config: HomeSectionConfig, campaignId?: string | null) => {
     const { error: writeError } = await supabase
       .from('home_sections')
-      .update({ config })
+      .update(campaignId === undefined ? { config } : { config, campaign_id: campaignId })
       .eq('id', id)
     if (!writeError) await fetchSections('revalidar')
     return (writeError as HomeWriteError | null) ?? null

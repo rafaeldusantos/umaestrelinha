@@ -27,5 +27,7 @@ export {
 // desenho da Home.
 export { default as HomeLivePreview } from './ui/HomeLivePreview'
 export { usePreviewBridge } from './model/usePreviewBridge'
+// O bloco "Joias em oferta": a campanha que outro bloco já tem, e a colisão do índice na gravação.
+export { campaignCollisionText, campaignsTaken, isCampaignCollision } from './model/campaignOffersTaken'
 export { default as HomeSectionList } from './ui/HomeSectionList'
 export { default as HomeSectionRow } from './ui/HomeSectionRow'

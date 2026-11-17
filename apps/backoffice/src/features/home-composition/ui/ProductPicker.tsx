@@ -19,14 +19,23 @@ interface Props {
   escolhidos: readonly string[]
   /** Acrescenta a peça ao fim da lista. */
   onPick: (item: DraftItem) => void
+  /**
+   * O recorte da busca (o bloco "Joias em oferta": só as peças marcadas na campanha dele). Ausente,
+   * o catálogo inteiro.
+   */
+  permitidos?: readonly string[] | null
+  /** O que o contador diz do conjunto oferecido, quando há recorte. */
+  rotuloDoConjunto?: string
 }
 
-const ProductPicker = ({ escolhidos, onPick }: Props) => (
+const ProductPicker = ({ escolhidos, onPick, permitidos, rotuloDoConjunto }: Props) => (
   <ProductSearchField
     id="busca-peca"
     rotulo="Acrescentar uma peça"
     modo="multiplo"
     selecionados={escolhidos}
+    permitidos={permitidos}
+    rotuloDoConjunto={rotuloDoConjunto}
     onEscolher={produto =>
       onPick({
         key: draftKey(),

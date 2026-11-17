@@ -601,3 +601,34 @@ describe('ProductSearchField — `minimoDeLetras` e `teto`', () => {
     expect(nomesNaLista()).toHaveLength(20)
   })
 })
+
+describe('ProductSearchField — `permitidos`: o recorte por ids (a busca das peças de uma campanha)', () => {
+  it('oferece só as peças do recorte, e o contador diz quantas há nele', async () => {
+    await montar({ permitidos: ['p1', 'p3', 'p5'], rotuloDoConjunto: 'na campanha' })
+    expect(nomesNaLista()).toEqual(['Anel Coração', 'Broche Pena', 'Colar de Cinzas'])
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('3 na campanha')
+    buscar('colar')
+    // `Colar Memória` tem o termo e está no catálogo, mas fora do recorte: não é oferecida.
+    expect(nomesNaLista()).toEqual(['Colar de Cinzas'])
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('1 de 3')
+  })
+
+  it('o vazio fala do termo dentro do recorte', async () => {
+    await montar({ permitidos: ['p1', 'p3'] })
+    buscar('gota')
+    expect(screen.getByTestId('busca-sem-resultado')).toHaveTextContent('Nenhuma peça com “gota”.')
+  })
+
+  it('"já está no bloco" vale dentro do recorte', async () => {
+    await montar({ permitidos: ['p1', 'p3'], selecionados: ['p1'] })
+    expect(screen.getByTestId('peca-p1')).toBeDisabled()
+    expect(screen.getByTestId('ja-escolhida-p1')).toHaveTextContent('já está no bloco')
+    expect(screen.queryByTestId('peca-p2')).toBeNull()
+  })
+
+  it('recorte vazio não oferece o catálogo inteiro', async () => {
+    await montar({ permitidos: [], rotuloDoConjunto: 'na campanha' })
+    expect(screen.queryByTestId('pecas-encontradas')).toBeNull()
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('0 na campanha')
+  })
+})

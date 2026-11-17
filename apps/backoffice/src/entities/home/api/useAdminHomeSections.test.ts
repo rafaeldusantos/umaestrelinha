@@ -689,6 +689,55 @@ describe('useAdminHomeSections — salvar conteúdo (HOME-14)', () => {
   })
 })
 
+describe('useAdminHomeSections — a campanha do bloco "Joias em oferta"', () => {
+  it('manda `config` e `campaign_id`, e nada mais, na linha da própria seção', async () => {
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.updateSectionConfig('sec-hero', { title: 'Natal' }, 'camp-natal')
+    })
+    const escrita = escritas('home_sections')[0]
+    expect(escrita.update).toEqual({ config: { title: 'Natal' }, campaign_id: 'camp-natal' })
+    expect(escrita.filters).toEqual([{ method: 'eq', args: ['id', 'sec-hero'] }])
+  })
+
+  it('revalida sem ligar o esqueleto — gravar não desmonta a tela', async () => {
+    const { result } = await montar()
+    // A asserção é feita com a releitura NO AR: é a única janela em que os dois modos diferem.
+    const { medido, responder } = await enquantoRele(result, () =>
+      result.current.updateSectionConfig('sec-hero', {}, 'camp-natal'),
+    )
+    expect(medido.loading).toBe(false)
+    expect(medido.ids).toEqual(['sec-hero', 'sec-banners', 'sec-news'])
+    // Nenhum render intermediário com o esqueleto ligado.
+    expect(loadings).not.toContain(true)
+    await responder({ data: linhas(), error: null })
+  })
+
+  it('a recusa do banco chega com o código, para a tela reconhecer a colisão', async () => {
+    writeResponse = {
+      error: {
+        message: 'duplicate key value violates unique constraint "home_sections_campaign_offers_campaign_idx"',
+        code: '23505',
+      } as { message: string },
+    }
+    const { result } = await montar()
+    let devolvido: { message: string; code?: string } | null = null
+    await act(async () => {
+      devolvido = await result.current.updateSectionConfig('sec-hero', {}, 'camp-natal')
+    })
+    expect(devolvido).toMatchObject({ code: '23505' })
+  })
+
+  it('a releitura devolve as seções lidas — quem traduz a colisão precisa da lista de agora', async () => {
+    const { result } = await montar()
+    let lidas: unknown = null
+    await act(async () => {
+      lidas = await result.current.fetchSections('revalidar')
+    })
+    expect((lidas as { id: string }[]).map(s => s.id)).toEqual(['sec-hero', 'sec-banners', 'sec-news'])
+  })
+})
+
 describe('useAdminHomeSections — o Banner principal (BNR-02, BNR-52)', () => {
   it('a seção nova nasce DESLIGADA, seja qual for o tipo', async () => {
     // `HOME-10`/`BNR-02`: a Adri monta o bloco inteiro antes de a cliente ver, e "publicar" é um

@@ -70,6 +70,12 @@ const postoDe = (nomeDobrado: string, palavras: readonly string[], termoInteiro:
 export interface OpcoesDaBusca {
   /** Ids que nem entram no resultado — nem nos `itens`, nem no `total`. */
   excluir?: readonly string[]
+  /**
+   * O recorte: quando presente, só estes ids podem entrar — no resultado e no `total`. Ausente (ou
+   * `null`), o pool inteiro vale. Lista vazia é "nenhuma peça", nunca "todas": quem recorta pela
+   * campanha sem peça marcada não pode ver o catálogo inteiro oferecido.
+   */
+  permitidos?: readonly string[] | null
   teto?: number
 }
 
@@ -92,6 +98,7 @@ export const buscarProdutos = (
 ): ResultadoDaBusca => {
   const teto = opcoes?.teto ?? RESULTADOS_VISIVEIS
   const excluidos = new Set(opcoes?.excluir ?? [])
+  const recorte = opcoes?.permitidos ? new Set(opcoes.permitidos) : null
   const palavras = palavrasDoTermo(termo)
   /**
    * O "termo inteiro" do posto 0 é a junção das PALAVRAS, nunca o termo cru dobrado.
@@ -108,6 +115,7 @@ export const buscarProdutos = (
   const casaram: { produto: ProdutoDoPool; posto: number }[] = []
   for (const produto of pool) {
     if (excluidos.has(produto.id)) continue
+    if (recorte && !recorte.has(produto.id)) continue
     const nome = dobrarTexto(produto.name)
     if (!palavras.every(palavra => nome.includes(palavra))) continue
     casaram.push({ produto, posto: postoDe(nome, palavras, termoInteiro) })

@@ -225,14 +225,17 @@ describe('DST-02 — o painel não desenha a vitrine de peças', () => {
   it('a varredura ALCANÇA os dois arquivos novos', () => {
     // Âncora, e é ela que dá sentido às asserções seguintes. Um `FONTES` que não os enxergasse
     // faria as três regras abaixo varrerem zero arquivo e aprovarem por vacuidade.
-    for (const alvo of ['ui/FeaturedProductsEditor.tsx', 'ui/ProductPicker.tsx']) {
+    // O editor de "Joias em oferta" também lista peças (só as da campanha), e entra na mesma régua.
+    for (const alvo of ['ui/FeaturedProductsEditor.tsx', 'ui/ProductPicker.tsx', 'ui/CampaignOffersEditor.tsx']) {
       expect(FONTES.some(f => f.replace(/\\/g, '/').endsWith(alvo))).toBe(true)
       expect(existsSync(join(UI, alvo.replace('ui/', '')))).toBe(true)
     }
   })
 
   it('nenhum dos dois monta trilho de slides nem grade de cards', () => {
-    const suspeitos = ['FeaturedProductsEditor.tsx', 'ProductPicker.tsx'].map(n => join(UI, n))
+    const suspeitos = ['FeaturedProductsEditor.tsx', 'ProductPicker.tsx', 'CampaignOffersEditor.tsx'].map(n =>
+      join(UI, n),
+    )
 
     for (const arquivo of suspeitos) {
       const fonte = semComentarios(ler(arquivo))

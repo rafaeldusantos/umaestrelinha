@@ -65,6 +65,14 @@ export interface ProductSearchFieldProps {
    */
   excluir?: readonly string[]
   /**
+   * O recorte: só estes ids são oferecidos — no resultado, no contador e no vazio. Ausente, o pool
+   * inteiro. É como o bloco "Joias em oferta" restringe a busca às peças marcadas na campanha dele
+   * sem montar lista própria: a régua continua sendo a de `buscarProdutos`.
+   */
+  permitidos?: readonly string[] | null
+  /** O que o contador diz do conjunto oferecido. Padrão `no catálogo`; com recorte, o de quem chama. */
+  rotuloDoConjunto?: string
+  /**
    * O que a linha desabilitada diz — o vocabulário de quem chama, não o do componente.
    *
    * "já está no bloco" é da Home, e numa aba de produtos relacionados ela lê mal. É um **parâmetro**
@@ -118,6 +126,8 @@ const ProductSearchField = ({
   nomeEscolhido = null,
   selecionados,
   excluir,
+  permitidos = null,
+  rotuloDoConjunto = 'no catálogo',
   rotuloJaEscolhida = 'já está no bloco',
   bloqueados,
   onEscolher,
@@ -138,11 +148,12 @@ const ProductSearchField = ({
   // `useMemo` de refazer a busca sem nada ter mudado.
   const chaveExcluir = (excluir ?? []).join(',')
   const chaveSelecionados = (selecionados ?? []).join(',')
+  const chavePermitidos = permitidos ? permitidos.join(',') : null
 
   const resultado = useMemo(
-    () => buscarProdutos(produtos, busca, { excluir, teto }),
+    () => buscarProdutos(produtos, busca, { excluir, permitidos, teto }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [produtos, busca, chaveExcluir, teto],
+    [produtos, busca, chaveExcluir, chavePermitidos, teto],
   )
 
   /**
@@ -153,9 +164,9 @@ const ProductSearchField = ({
    * outra coisa.
    */
   const disponiveis = useMemo(
-    () => buscarProdutos(produtos, '', { excluir, teto: 0 }).total,
+    () => buscarProdutos(produtos, '', { excluir, permitidos, teto: 0 }).total,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [produtos, chaveExcluir],
+    [produtos, chaveExcluir, chavePermitidos],
   )
 
   const jaEscolhidos = useMemo(
@@ -183,7 +194,7 @@ const ProductSearchField = ({
           {rotulo}
         </label>
         <span data-testid="contador-encontrados" className="shrink-0 text-[11px] text-muted-foreground">
-          {termo === '' ? `${disponiveis} no catálogo` : `${resultado.total} de ${disponiveis}`}
+          {termo === '' ? `${disponiveis} ${rotuloDoConjunto}` : `${resultado.total} de ${disponiveis}`}
         </span>
       </div>
 

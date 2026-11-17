@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { HomeSection } from '@estrelinha/core/home'
-import { applyDraft } from '../sectionDraft'
+import { applyDraft, draftChanged } from '../sectionDraft'
 import type { DraftItem } from '../sectionDraft'
 
 const secao = (id: string, over: Partial<HomeSection> = {}): HomeSection => ({
@@ -218,5 +218,40 @@ describe('o título da Lista de categorias atravessa a tradução (feature 64, L
     })
 
     expect(aplicada.items![0].title).toBeNull()
+  })
+})
+
+describe('a campanha do bloco "Joias em oferta" atravessa a tradução', () => {
+  const oferta = secao('o', { type: 'campaign_offers', campaign_id: 'natal', config: {} })
+
+  it('a prévia recebe a campanha do rascunho, antes de salvar', () => {
+    const [saida] = applyDraft([oferta], 'o', { config: {}, items: [], campaign_id: 'pascoa' })
+    expect(saida.campaign_id).toBe('pascoa')
+  })
+
+  it('rascunho sem campanha tira a campanha da prévia — o bloco sem campanha não aparece', () => {
+    const [saida] = applyDraft([oferta], 'o', { config: {}, items: [], campaign_id: null })
+    expect(saida.campaign_id).toBeNull()
+  })
+
+  it('o rascunho que não fala de campanha deixa a salva', () => {
+    const [saida] = applyDraft([oferta], 'o', { config: {}, items: [] })
+    expect(saida.campaign_id).toBe('natal')
+  })
+})
+
+describe('draftChanged — trocar a campanha é alteração', () => {
+  const oferta = secao('o', { type: 'campaign_offers', campaign_id: 'natal', config: {} })
+
+  it('a mesma campanha não acusa alteração', () => {
+    expect(draftChanged(oferta, {}, [], 'natal')).toBe(false)
+  })
+
+  it('outra campanha acusa', () => {
+    expect(draftChanged(oferta, {}, [], 'pascoa')).toBe(true)
+  })
+
+  it('seção sem a coluna vale como sem campanha', () => {
+    expect(draftChanged(secao('x', { config: {} }), {}, [], null)).toBe(false)
   })
 })

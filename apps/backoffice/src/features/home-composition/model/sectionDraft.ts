@@ -98,10 +98,19 @@ export const toNewItems = (drafts: readonly DraftItem[]): NewHomeSectionItem[] =
  *
  * Compara **o que seria gravado**, não a estrutura de tela: a `key` fica de fora, senão reabrir a
  * mesma seção acusaria alteração sem ninguém ter digitado nada.
+ *
+ * `campaignId` é a campanha do rascunho (só o bloco "Joias em oferta" a usa); ausente, não entra na
+ * conta. A coluna ausente na seção vale `null`.
  */
-export const draftChanged = (section: HomeSection, config: HomeSectionConfig, items: readonly DraftItem[]): boolean =>
+export const draftChanged = (
+  section: HomeSection,
+  config: HomeSectionConfig,
+  items: readonly DraftItem[],
+  campaignId?: string | null,
+): boolean =>
   JSON.stringify(config ?? {}) !== JSON.stringify(section.config ?? {}) ||
-  JSON.stringify(toNewItems(items)) !== JSON.stringify(toNewItems(toDraftItems(section.items)))
+  JSON.stringify(toNewItems(items)) !== JSON.stringify(toNewItems(toDraftItems(section.items))) ||
+  (campaignId !== undefined && (campaignId ?? null) !== (section.campaign_id ?? null))
 
 /** A curadoria mudou? Só então vale apagar e reescrever a lista inteira. */
 export const itemsChanged = (section: HomeSection, items: readonly DraftItem[]): boolean =>
@@ -121,7 +130,7 @@ export const itemsChanged = (section: HomeSection, items: readonly DraftItem[]):
 export const applyDraft = (
   sections: readonly HomeSection[],
   sectionId: string | null,
-  draft: { config: HomeSectionConfig; items: readonly DraftItem[] } | null,
+  draft: { config: HomeSectionConfig; items: readonly DraftItem[]; campaign_id?: string | null } | null,
 ): HomeSection[] => {
   if (!sectionId || !draft) return [...sections]
 
@@ -130,6 +139,9 @@ export const applyDraft = (
       ? {
           ...section,
           config: draft.config,
+          // A campanha do bloco "Joias em oferta": a loja mostra o bloco só quando ela é a vigente, e
+          // a prévia precisa da escolhida no rascunho para mostrar o bloco antes de salvar.
+          ...(draft.campaign_id !== undefined ? { campaign_id: draft.campaign_id } : {}),
           items: draft.items.map((item, index) => ({
             id: item.key,
             section_id: section.id,

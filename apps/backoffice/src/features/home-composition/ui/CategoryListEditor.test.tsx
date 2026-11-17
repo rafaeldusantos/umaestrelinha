@@ -89,6 +89,9 @@ const Palco = ({ inicio, config: config0 = {} }: { inicio: DraftItem[]; config?:
       onItemsChange={setItems}
       categories={CATALOGO}
       products={[]}
+      campaignId={null}
+      onCampaignChange={() => {}}
+      sections={[]}
     />
   )
 }

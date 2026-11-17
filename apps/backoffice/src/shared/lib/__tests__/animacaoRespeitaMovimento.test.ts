@@ -106,6 +106,9 @@ const ARQUIVOS = [
   // A campanha na linha da lista de produtos — sem movimento próprio: as contagens não mudam, e a
   // âncora de arquivos lidos sobe junto (+1).
   'features/product-list/ui/CampaignMarksCell.tsx',
+  // O editor do bloco "Joias em oferta" da Home — sem movimento próprio (os botões são o `Button` do
+  // pacote de UI): as contagens não mudam, e a âncora de arquivos lidos sobe junto (+1).
+  'features/home-composition/ui/CampaignOffersEditor.tsx',
 ] as const
 
 /**

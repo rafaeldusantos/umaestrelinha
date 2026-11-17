@@ -193,6 +193,30 @@ describe('buscarProdutos — `excluir` some do resultado E da contagem', () => {
   })
 })
 
+describe('buscarProdutos — `permitidos` recorta o pool antes da busca', () => {
+  it('só as peças permitidas casam, mesmo que outras tenham o termo no nome', () => {
+    expect(nomes(buscarProdutos(CATALOGO, 'colar', { permitidos: ['p2', 'p4'] }))).toEqual([
+      'Anel Colar Duplo',
+    ])
+  })
+
+  it('o `total` conta só dentro do recorte — é o denominador do contador', () => {
+    expect(buscarProdutos(CATALOGO, '', { permitidos: ['p2', 'p4', 'p5'], teto: 0 }).total).toBe(3)
+  })
+
+  it('recorte vazio não oferece peça nenhuma — nunca vira "todas"', () => {
+    expect(buscarProdutos(CATALOGO, '', { permitidos: [] }).total).toBe(0)
+  })
+
+  it('sem o recorte, o pool inteiro continua valendo', () => {
+    expect(buscarProdutos(CATALOGO, '', { teto: 0 }).total).toBe(5)
+  })
+
+  it('`excluir` continua valendo dentro do recorte', () => {
+    expect(buscarProdutos(CATALOGO, '', { permitidos: ['p2', 'p4'], excluir: ['p2'], teto: 0 }).total).toBe(1)
+  })
+})
+
 describe('buscarProdutos — o resultado é DETERMINÍSTICO (BUS-15)', () => {
   it('mesmo termo, mesmo pool, mesma ordem — inclusive os empates', () => {
     const a = buscarProdutos(CATALOGO, 'colar').itens.map(p => p.id)

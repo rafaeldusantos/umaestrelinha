@@ -11,6 +11,7 @@
 // primeiro ajuste, que é o "defeito 01" do projeto.
 
 import {
+  campaignOffersRefusal,
   categoryListRefusal as categoryListRefusalDoCore,
   configRefusal,
   ctaHrefRefusal,
@@ -180,6 +181,22 @@ export const categoryListRefusal = (
   items: readonly DraftItem[],
 ): string | null =>
   categoryListRefusalDoCore(config, items) ?? configRefusal('category_grid', config)
+
+/**
+ * O bloco **Joias em oferta**.
+ *
+ * **Não redige uma linha de regra**: a campanha (sem ela o bloco não aparece), os tetos do título,
+ * da descrição e das peças, a peça apagada e a repetida são `campaignOffersRefusal` de `core` — a
+ * mesma que `campaignOffers.test.ts` prova. Recebe a campanha do RASCUNHO, que não mora no `config`
+ * (é coluna da seção). A campanha que outro bloco já tem não é cobrada aqui: o seletor a oferece
+ * desabilitada, e a colisão de duas gravações é recusada pelo índice do banco, com a mesma frase.
+ */
+export const campaignOffersSectionRefusal = (
+  config: HomeSectionConfig,
+  items: readonly DraftItem[],
+  campaignId?: string | null,
+): string | null =>
+  campaignOffersRefusal(campaignId ?? null, config, items) ?? configRefusal('campaign_offers', config)
 
 /**
  * As seções de texto: limite dentro da faixa do tipo (`HOME-42`) e link de escape que a loja serve.

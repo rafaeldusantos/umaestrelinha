@@ -15,6 +15,7 @@ import type { AdminCategory } from '@/entities/category'
 import type { DraftItem } from '../model/sectionDraft'
 import {
   bannerGridRefusal,
+  campaignOffersSectionRefusal,
   categoryListRefusal,
   collectionFeatureRefusal,
   collectionRowsRefusal,
@@ -65,6 +66,14 @@ export interface SectionEditorProps {
   onItemsChange: (next: DraftItem[]) => void
   categories: readonly AdminCategory[]
   products: readonly EditorProduct[]
+  /**
+   * A campanha do RASCUNHO (só o bloco "Joias em oferta" a usa). É coluna da seção, e não chave do
+   * `config`: o rascunho a guarda à parte, e a gravação a manda junto do `config`.
+   */
+  campaignId: string | null
+  onCampaignChange: (campaignId: string | null) => void
+  /** As seções da Home, na ordem da lista — para dizer qual OUTRO bloco já tem uma campanha. */
+  sections: readonly HomeSection[]
 }
 
 export interface SectionEditorEntry {
@@ -75,7 +84,7 @@ export interface SectionEditorEntry {
    * `string | null` como toda recusa deste projeto: `strictNullChecks: false` não estreita união
    * discriminada por literal booleano, e ler o motivo no ramo do `else` seria TS2339.
    */
-  refusal?: (config: HomeSectionConfig, items: readonly DraftItem[]) => string | null
+  refusal?: (config: HomeSectionConfig, items: readonly DraftItem[], campaignId?: string | null) => string | null
 }
 
 export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry>> = {
@@ -97,6 +106,7 @@ export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry
   brand_statement: { Body: TextSectionEditor, refusal: textSectionRefusal('brand_statement') },
   trending_tags: { Body: TextSectionEditor, refusal: textSectionRefusal('trending_tags') },
   newsletter: { Body: TextSectionEditor, refusal: textSectionRefusal('newsletter') },
-  // Joias em oferta: sem campo nem recusa; o conteúdo é o da campanha em vigência.
-  campaign_offers: { Body: CampaignOffersEditor },
+  // Joias em oferta: título, descrição, a campanha do bloco e as peças marcadas nela. A recusa é a de
+  // `core`, com a campanha do rascunho.
+  campaign_offers: { Body: CampaignOffersEditor, refusal: campaignOffersSectionRefusal },
 }

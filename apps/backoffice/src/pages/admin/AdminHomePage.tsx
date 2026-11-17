@@ -25,12 +25,15 @@ import { sectionMeta, type HomeSectionType } from '@estrelinha/core/home'
 import { useAdminCategories } from '@/entities/category'
 import { useProductPool } from '@/entities/product'
 import { useAdminHomeSections } from '@/entities/home'
+import { useCampaigns } from '@/entities/campaign'
 import {
   HomeBlockTray,
   HomeLivePreview,
   HomeSectionEditor,
   HomeSectionList,
   applyDraft,
+  campaignCollisionText,
+  isCampaignCollision,
   itemsChanged,
   toNewItems,
   useAdminResolvedHome,
@@ -65,6 +68,9 @@ const AdminHomePage = () => {
   } = useAdminHomeSections()
   const { categories, loading: loadingCategorias } = useAdminCategories()
   const { produtos } = useProductPool()
+  // Só o nome de cada campanha: a frase da colisão "esta campanha já está no Nº bloco" diz o título
+  // do outro bloco, e o recuo dele é o nome da campanha.
+  const { campaigns } = useCampaigns()
 
   const navigate = useNavigate()
   const { sectionId } = useParams()
@@ -207,8 +213,31 @@ const AdminHomePage = () => {
     const alvo = sections.find(s => s.id === id)
     setSaving(true)
     try {
-      const falha = await updateSectionConfig(id, draft.config)
-      if (falha) return falha.message
+      // O bloco "Joias em oferta" grava a campanha junto do conteúdo, ANTES dos itens: a seção e a
+      // campanha são uma decisão só, e os itens só fazem sentido na campanha escolhida. As outras
+      // seções gravam só o `config`, como sempre.
+      const ehOfertas = alvo?.type === 'campaign_offers'
+      const falha = ehOfertas
+        ? await updateSectionConfig(id, draft.config, draft.campaign_id ?? null)
+        : await updateSectionConfig(id, draft.config)
+      if (falha) {
+        // A colisão do índice "um bloco por campanha" (duas gravações ao mesmo tempo) vira a MESMA
+        // frase do seletor, com o bloco que já tem a campanha — lido de novo, porque é justamente o
+        // que esta tela ainda não via. Outro `23505` segue com a mensagem do banco (`AD-029`).
+        if (ehOfertas && draft.campaign_id && isCampaignCollision(falha)) {
+          const atuais = await fetchSections('revalidar')
+          const frase = atuais
+            ? campaignCollisionText(
+                atuais,
+                id,
+                draft.campaign_id,
+                campaignId => campaigns.find(c => c.id === campaignId)?.name ?? '',
+              )
+            : null
+          return frase ?? falha.message
+        }
+        return falha.message
+      }
 
       if (alvo && itemsChanged(alvo, draft.items)) {
         const falhaItens = await curateSection(id, toNewItems(draft.items))
@@ -369,6 +398,7 @@ const AdminHomePage = () => {
                   entry={emEdicao}
                   categories={categories}
                   products={produtos}
+                  sections={sections}
                   saving={saving}
                   justSaved={salvo}
                   onCancel={() => navigate('/admin/home')}

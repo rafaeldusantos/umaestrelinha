@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from 'react'
 import { Trash2, TriangleAlert } from 'lucide-react'
-import { sectionMeta, type HomeSectionConfig, type ResolvedSection } from '@estrelinha/core/home'
+import { sectionMeta, type HomeSection, type HomeSectionConfig, type ResolvedSection } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
 import { FormCard, FormPageHeader } from '@/shared/ui'
 import {
@@ -27,12 +27,19 @@ import { SECTION_EDITORS, type EditorProduct } from './sectionEditors'
 export interface SectionSaveDraft {
   config: HomeSectionConfig
   items: DraftItem[]
+  /**
+   * A campanha do rascunho — a da seção, até o bloco "Joias em oferta" escolher outra. Coluna, não
+   * chave do `config`; quem grava decide se a manda (só esse tipo a usa).
+   */
+  campaign_id?: string | null
 }
 
 interface Props {
   entry: ResolvedSection
   categories: readonly AdminCategory[]
   products: readonly EditorProduct[]
+  /** As seções da Home, na ordem da lista. O bloco "Joias em oferta" diz qual outro tem a campanha. */
+  sections?: readonly HomeSection[]
   saving: boolean
   /**
    * Acabou de salvar, e o editor CONTINUA ABERTO (feature 50, `VIV-05`).
@@ -67,6 +74,7 @@ const HomeSectionEditor = ({
   entry,
   categories,
   products,
+  sections = [],
   saving,
   justSaved = false,
   onCancel,
@@ -83,32 +91,33 @@ const HomeSectionEditor = ({
   // qualquer gravação vizinha, o que a dona ainda não salvou.
   const [config, setConfig] = useState<HomeSectionConfig>(() => ({ ...(section.config ?? {}) }))
   const [items, setItems] = useState<DraftItem[]>(() => toDraftItems(section.items))
+  const [campaignId, setCampaignId] = useState<string | null>(() => section.campaign_id ?? null)
   const [problema, setProblema] = useState<string | null>(null)
 
-  const alterado = draftChanged(section, config, items)
+  const alterado = draftChanged(section, config, items, campaignId)
 
   // Sobe o rascunho a cada mudança — inclusive na montagem, e é de propósito: ao abrir o editor a
   // prévia já precisa estar mostrando **esta** seção com os valores dela, senão o primeiro caractere
   // digitado é que faria a prévia "acordar".
   useEffect(() => {
-    onDraftChange?.({ config, items })
+    onDraftChange?.({ config, items, campaign_id: campaignId })
     // `onDraftChange` fica fora das deps de propósito: quem monta este componente costuma passar uma
     // função nova a cada render, e incluí-la aqui daria um envio por render — o oposto do debounce.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, items])
+  }, [config, items, campaignId])
 
   const handleSave = async () => {
     // A recusa vem do editor daquele tipo: só ele sabe se falta `alt`, se falta destino ou se o
     // limite estourou. O casco não adivinha, e um casco que adivinhasse seria o segundo dono da
     // regra de cada formulário.
-    const recusa = editor?.refusal?.(config, items) ?? null
+    const recusa = editor?.refusal?.(config, items, campaignId) ?? null
     if (recusa) {
       setProblema(recusa)
       return
     }
 
     setProblema(null)
-    const falha = await onSave({ config, items })
+    const falha = await onSave({ config, items, campaign_id: campaignId })
     // **Nada é limpo aqui.** `HOME-14`: falha diz o que não foi salvo e preserva o preenchido.
     if (falha) setProblema(falha)
   }
@@ -157,6 +166,9 @@ const HomeSectionEditor = ({
             onItemsChange={setItems}
             categories={categories}
             products={products}
+            campaignId={campaignId}
+            onCampaignChange={setCampaignId}
+            sections={sections}
           />
         ) : (
           // Tipo sem editor ainda: dizer isso é melhor que uma coluna vazia, que a dona leria como

@@ -15,7 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RADIX_POINTER_DOWN, enableRadixSelectInJsdom } from '@/test/radix'
-import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
+import { DEFAULT_HOME_COMPOSITION, campaignOffersTakenText } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 
 const cat = (over: Partial<AdminCategory> & { id: string; name: string }): AdminCategory =>
@@ -104,6 +104,33 @@ vi.mock('@/entities/product', async importOriginal => ({
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
 
+/**
+ * As campanhas e as marcações do bloco "Joias em oferta", dubladas na fronteira (os hooks de
+ * `entities/campaign` são provados em `campaignMarks.test.tsx`). Mock PARCIAL: o resto do barril
+ * continua o de verdade.
+ */
+const campanhas = vi.hoisted(() => ({
+  lista: [] as unknown[],
+  marcadas: {} as Record<string, string[]>,
+}))
+
+vi.mock('@/entities/campaign', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/campaign')>()),
+  useCampaigns: () => ({ campaigns: campanhas.lista, loading: false, error: null, refetch: vi.fn() }),
+  useCampaignMarks: (id: string | null) => {
+    const ids = id ? (campanhas.marcadas[id] ?? null) : null
+    return {
+      marks: ids ? ids.map(product_id => ({ product_id, percent: 10 })) : null,
+      ids,
+      loading: false,
+      error: null,
+      retry: vi.fn(),
+    }
+  },
+  useCampaignPiecesState: () => ({ states: null, loading: false, error: null }),
+}))
+
+
 /** Q09 do QA da `86` — `VITE_STORE_URL` fixada aqui, e não lida do ambiente. */
 const loja = vi.hoisted(() => ({ origem: 'http://localhost:8082' as string | null }))
 vi.mock('@/shared/lib/storeOrigin', () => ({
@@ -128,6 +155,7 @@ vi.mock('@/features/home-composition/ui/HomeLivePreview', () => ({
   }: {
     sections: {
       id: string
+      campaign_id?: string | null
       config?: { title_line1?: string; title?: string }
       items?: { product_slug?: string | null }[]
     }[]
@@ -138,6 +166,11 @@ vi.mock('@/features/home-composition/ui/HomeLivePreview', () => ({
       data-highlight={highlightId ?? ''}
       data-secoes={sections.map(s => s.id).join(',')}
       data-titulos={sections.map(s => s.config?.title_line1 ?? s.config?.title ?? '').join('|')}
+      // O bloco "Joias em oferta" só aparece com a campanha dele: o palco expõe a que recebeu.
+      data-campanhas={sections
+        .filter(s => s.campaign_id)
+        .map(s => `${s.id}:${s.campaign_id}`)
+        .join(',')}
       // Feature 50: o palco precisa expor os slugs que recebeu, senão `DST-24` — "a prévia mostra a
       // peça escolhida antes de salvar" — não tem como ser asserido nesta camada. O dublê mostra o
       // que a página entregou; quem prova que a LOJA desenha é a suíte dela.
@@ -1307,5 +1340,131 @@ describe('R-05 — a releitura não sobrescreve o que a dona digitou', () => {
     fireEvent.click(screen.getByRole('button', { name: /Abrir Chamada principal/ }))
 
     expect(screen.getByLabelText(/1ª linha/i)).not.toHaveValue('Digitado')
+  })
+})
+
+
+describe('AdminHomePage — o bloco "Joias em oferta" grava a seção e a campanha antes das peças', () => {
+  const DIA = 24 * 60 * 60 * 1000
+  const NATAL = {
+    id: 'c-natal',
+    name: 'Natal 2026',
+    badge_text: 'Natal',
+    band_color: '#000',
+    accent_color: '#fff',
+    starts_at: new Date(Date.now() - 5 * DIA).toISOString(),
+    ends_at: new Date(Date.now() + 5 * DIA).toISOString(),
+    active: true,
+    created_at: 'x',
+    updated_at: 'x',
+    percents: [10],
+    usage: { 10: 2 },
+    productCount: 2,
+  }
+
+  const bloco = (over: Record<string, unknown> = {}) => ({
+    id: 'ofertas',
+    type: 'campaign_offers',
+    position: 90,
+    active: false,
+    config: {},
+    campaign_id: 'c-natal',
+    items: [
+      {
+        id: 'i1',
+        section_id: 'ofertas',
+        position: 1,
+        category_id: null,
+        product_id: 'p1',
+        product_slug: 'pingente-gota',
+        href: null,
+        image_url: null,
+        image_mobile_url: null,
+        alt: null,
+        title: null,
+        label_snapshot: 'Pingente Gota',
+      },
+    ],
+    ...over,
+  })
+
+  const salvar = () => fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
+
+  beforeEach(() => {
+    campanhas.lista = [NATAL]
+    campanhas.marcadas = { 'c-natal': ['p1', 'p2'] }
+    state.sections = [...DEFAULT_HOME_COMPOSITION.map(s => ({ ...s })), bloco()]
+  })
+
+  it('a seção vai com `config` e `campaign_id`, e só depois os itens', async () => {
+    renderPage('/admin/home/ofertas')
+    await waitFor(() => expect(screen.getByTestId('peca-p2')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('peca-p2'))
+    fireEvent.change(screen.getByLabelText('Título do bloco'), { target: { value: 'Para o Natal' } })
+
+    await act(async () => {
+      salvar()
+    })
+
+    await waitFor(() => expect(hook.curateSection).toHaveBeenCalled())
+    expect(hook.updateSectionConfig).toHaveBeenCalledWith('ofertas', { title: 'Para o Natal' }, 'c-natal')
+    expect(hook.curateSection).toHaveBeenCalledWith('ofertas', [
+      { category_id: null, product_id: 'p1', href: null, image_url: null, image_mobile_url: null, alt: null, title: null, label_snapshot: 'Pingente Gota' },
+      { category_id: null, product_id: 'p2', href: null, image_url: null, image_mobile_url: null, alt: null, title: null, label_snapshot: 'Colar de Cinzas' },
+    ])
+    expect(hook.updateSectionConfig.mock.invocationCallOrder[0]).toBeLessThan(
+      hook.curateSection.mock.invocationCallOrder[0],
+    )
+    expect(screen.getByTestId('editor-secao')).toHaveAttribute('data-section', 'ofertas')
+  })
+
+  it('as outras seções continuam gravando só o `config`', async () => {
+    renderPage('/admin/home/newsletter')
+    await act(async () => {
+      salvar()
+    })
+    await waitFor(() => expect(hook.updateSectionConfig).toHaveBeenCalled())
+    expect(hook.updateSectionConfig.mock.calls[0]).toHaveLength(2)
+  })
+
+  it('a colisão do índice por campanha vira a frase do bloco que já tem a campanha', async () => {
+    hook.updateSectionConfig.mockResolvedValueOnce({
+      code: '23505',
+      message: 'duplicate key value violates unique constraint "home_sections_campaign_offers_campaign_idx"',
+    })
+    // A releitura depois da colisão traz o bloco que a outra aba gravou, no topo da Home.
+    hook.fetchSections.mockResolvedValueOnce([
+      ...state.sections,
+      bloco({ id: 'outro', position: -1, config: { title: 'Presentes' }, items: [] }),
+    ])
+    renderPage('/admin/home/ofertas')
+
+    await act(async () => {
+      salvar()
+    })
+
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-recusa')).toHaveTextContent(campaignOffersTakenText(1, 'Presentes')),
+    )
+    expect(hook.fetchSections).toHaveBeenCalledWith('revalidar')
+    expect(hook.curateSection).not.toHaveBeenCalled()
+  })
+
+  it('outro `23505` segue com a mensagem do banco', async () => {
+    const doBanco = 'duplicate key value violates unique constraint "home_sections_unique_types_idx"'
+    hook.updateSectionConfig.mockResolvedValueOnce({ code: '23505', message: doBanco })
+    renderPage('/admin/home/ofertas')
+
+    await act(async () => {
+      salvar()
+    })
+
+    await waitFor(() => expect(screen.getByTestId('editor-recusa')).toHaveTextContent(doBanco))
+    expect(hook.curateSection).not.toHaveBeenCalled()
+  })
+
+  it('o rascunho leva a campanha à prévia', () => {
+    renderPage('/admin/home/ofertas')
+    expect(screen.getByTestId('palco-previa').getAttribute('data-campanhas')).toContain('ofertas:c-natal')
   })
 })
