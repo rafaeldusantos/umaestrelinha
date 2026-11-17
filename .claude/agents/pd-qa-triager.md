@@ -2,7 +2,6 @@
 name: pd-qa-triager
 description: '**EXECUTION AGENT** — Delegue a Fase 3 "Triagem" da skill pd-qa-validation: lê os logs de sessão, o reteste e o plano, deduplica os achados contra os bugs já registrados em qa/issues/, aplica a severidade por impacto ao usuário, escreve os BUG-NNN.md novos com envelope qa-issue/v1 e o qa-result.md com envelope qa-result/v1, e propõe as transições de status do reteste e das reaberturas. USE FOR: transformar os achados de uma rodada de QA em bugs e no resultado da rodada. DO NOT USE FOR: executar testes; reabrir sessões; gravar status em bug existente; versionar; publicar o resultado fora do disco.'
 tools: Read, Grep, Glob, Write
-model: sonnet
 omitClaudeMd: true
 license: UNLICENSED
 metadata:

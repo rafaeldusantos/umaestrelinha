@@ -2,7 +2,6 @@
 name: pd-qa-retester
 description: "**EXECUTION AGENT** — Delegue o reteste da Fase 2 da skill pd-qa-validation: para cada bug aberto do Work Item, segue os passos do bug no app real no browser real (`agent-browser`, `playwright-cli` ou Playwright MCP) e devolve o veredito — resolved, still-open ou cannot-reproduce —, com evidência, conferindo também o entorno do fix. USE FOR: retestar os bugs abertos em qa/issues/ depois de uma correção do Dev. DO NOT USE FOR: explorar charters; registrar bug novo como se fosse reteste; mudar o status no arquivo do bug; versionar; publicar o resultado fora do disco."
 disallowedTools: Agent, AskUserQuestion, Artifact, ArtifactComments, ArtifactData, Skill, Workflow, WebFetch, WebSearch, NotebookEdit, TodoWrite, EnterWorktree, ExitWorktree, EnterPlanMode, ExitPlanMode, Monitor, SendMessage, ListAgents, ScheduleWakeup, CronCreate, CronDelete, CronList, RemoteTrigger, PushNotification, SendFeedback, ShareOnboardingGuide, ReportFindings, LSP, mcp__productdock, mcp__supabase, mcp__claude-in-chrome, mcp__claude_ai_Claude_Docs
-model: sonnet
 omitClaudeMd: true
 license: UNLICENSED
 metadata:

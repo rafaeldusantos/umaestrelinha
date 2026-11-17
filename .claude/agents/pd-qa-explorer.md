@@ -2,7 +2,6 @@
 name: pd-qa-explorer
 description: '**EXECUTION AGENT** — Delegue a Fase 2 "Execução" da skill pd-qa-validation, um charter por agent: conduz uma sessão exploratória time-boxed no app real (`agent-browser`, `playwright-cli` ou Playwright MCP), sozinho ou em lote com outros charters, como a persona do charter, seguindo o tour e os casos TC-* que o charter cita — inclusive CFR e conferência contra o protótipo —, e registra o log da sessão com screenshots e os achados. USE FOR: executar um charter do plano de QA; conferir a tela contra o design do Work Item; passe de CFR. DO NOT USE FOR: planejar; retestar bugs já registrados; gerar ou corrigir teste automatizado; versionar; publicar o resultado fora do disco.'
 disallowedTools: Agent, AskUserQuestion, Artifact, ArtifactComments, ArtifactData, Skill, Workflow, WebFetch, WebSearch, NotebookEdit, TodoWrite, EnterWorktree, ExitWorktree, EnterPlanMode, ExitPlanMode, Monitor, SendMessage, ListAgents, ScheduleWakeup, CronCreate, CronDelete, CronList, RemoteTrigger, PushNotification, SendFeedback, ShareOnboardingGuide, ReportFindings, LSP, mcp__productdock, mcp__supabase, mcp__claude-in-chrome, mcp__claude_ai_Claude_Docs
-model: sonnet
 omitClaudeMd: true
 license: UNLICENSED
 metadata:

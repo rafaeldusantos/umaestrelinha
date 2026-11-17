@@ -2,7 +2,6 @@
 name: pd-qa-planner
 description: "**EXECUTION AGENT** — Delegue a Fase 1 \"Plano\" da skill pd-qa-validation: a partir do Work Item em disco (PRD, costura, fontes de design, insumos), escreve o plano de QA real-user — personas, jornadas, charters exploratórios (inclui CFR e conferência visual), casos TC-* priorizados e a suíte smoke ou de regressão — com o envelope qa-plan/v1 no topo do test-plan. USE FOR: planejar o QA de um Work Item; revisar um plano existente com ajustes do humano; montar suíte de regressão ou smoke. DO NOT USE FOR: executar testes; gerar automação E2E; versionar; publicar o plano fora do disco."
 tools: Read, Grep, Glob, Write
-model: sonnet
 omitClaudeMd: true
 license: UNLICENSED
 metadata:
