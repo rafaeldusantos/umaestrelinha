@@ -83,12 +83,20 @@ export interface CampaignMarksRead {
   retry: () => void
 }
 
-/** As marcações da campanha. Sem campanha não lê nada. */
+/**
+ * As marcações da campanha. Sem campanha não lê nada.
+ *
+ * A falha chega à tela na primeira tentativa (`retry: false`): com as novas tentativas automáticas
+ * do React Query a leitura fica pendente, sem erro, enquanto elas correm — e elas param quando a aba
+ * não está visível —, e o editor ficaria em "Conferindo…" sem dizer que não conseguiu. Tentar de
+ * novo é decisão da dona, pelo botão que acompanha o aviso de falha.
+ */
 export const useCampaignMarks = (campaignId: string | null): CampaignMarksRead => {
   const query = useQuery({
     queryKey: campaignMarksKey(campaignId),
     queryFn: () => fetchCampaignMarks(campaignId as string),
     enabled: !!campaignId,
+    retry: false,
   })
   const marks = query.isSuccess ? query.data : null
   return {
