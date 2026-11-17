@@ -21,6 +21,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowLeft,
   ExternalLink,
   Loader2,
   Menu as MenuIcon,
@@ -146,6 +147,11 @@ const AdminMenuPage = () => {
   const [seletor, setSeletor] = useState<{ modo: MenuPickerMode; parentId: string | null } | null>(null)
   const [emEdicao, setEmEdicao] = useState<string | null>(null)
   const [aRemover, setARemover] = useState<string | null>(null)
+  /**
+   * O que o editor aberto tem e ainda não gravou. A prévia mostra o documento com ele aplicado — o
+   * gravado continua o mesmo até "Salvar" — e fechar o editor o descarta.
+   */
+  const [rascunhoDoEditor, setRascunhoDoEditor] = useState<MenuItemEdit | null>(null)
 
   const pool = categories as MenuCategory[]
 
@@ -269,6 +275,9 @@ const AdminMenuPage = () => {
   }
 
   const abrirEditor = (id: string) => {
+    // Um editor por vez. Trocar o item em edição por baixo dele reiniciaria os campos sem perguntar
+    // — e sem apagar a arte de banner enviada e não gravada. Para editar outro, fecha-se este.
+    if (emEdicao) return
     focoPendente.current = null
     const achado = acharNo(document, id)
     voltarDoEditor.current = achado?.ehRaiz ? `acoes-${id}` : `editar-${id}`
@@ -311,6 +320,17 @@ const AdminMenuPage = () => {
   }
 
   const editado = acharNo(document, emEdicao)
+
+  // A mesma op pura que "Salvar" usa, aplicada só ao que vai para a prévia.
+  const documentoDaPrevia = useMemo(
+    () =>
+      document && emEdicao && rascunhoDoEditor ? updateNode(document, emEdicao, rascunhoDoEditor) : document,
+    [document, emEdicao, rascunhoDoEditor],
+  )
+  const fecharEditor = () => {
+    setRascunhoDoEditor(null)
+    setEmEdicao(null)
+  }
   const removido = acharNo(document, aRemover)
 
   const salvarEdicao = (edicao: MenuItemEdit) =>
@@ -463,6 +483,10 @@ const AdminMenuPage = () => {
           <div className="grid gap-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[560px_minmax(0,1fr)]">
             <div
               data-testid="coluna-entradas"
+              // O editor não é modal (a prévia ao lado é parte da edição), mas a LISTA sai de alcance
+              // enquanto ele está aberto: Tab, ponteiro e leitor de tela. Ela grava na hora (chaves,
+              // Mover, Remover) e abre outro editor — nada disso cabe no meio de uma edição.
+              {...(editado ? { inert: '' } : {})}
               className={cn(
                 'flex min-h-0 min-w-0 flex-col gap-6 lg:overflow-y-auto',
                 vista !== 'entradas' && 'hidden lg:flex',
@@ -488,6 +512,19 @@ const AdminMenuPage = () => {
               data-testid="coluna-previa-menu"
               className={cn('flex min-h-0 min-w-0 flex-col gap-3', vista !== 'previa' && 'hidden lg:flex')}
             >
+              {/* Abaixo de `lg`, com o editor aberto, a prévia é uma ida e volta: o editor só sai da
+                  vista, com o que tem, e este botão o traz de volta. */}
+              {editado && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className={cn('min-h-11 self-start lg:hidden', BOTAO_FANTASMA)}
+                  data-testid="voltar-ao-editor"
+                  onClick={() => setVista('entradas')}
+                >
+                  <ArrowLeft className="mr-1.5 h-4 w-4" aria-hidden /> Voltar ao editor
+                </Button>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-semibold text-muted-foreground">Conferir em</p>
                 <div
@@ -526,7 +563,7 @@ const AdminMenuPage = () => {
               <MenuLivePreview
                 surface={surface}
                 categories={pool}
-                document={document}
+                document={documentoDaPrevia}
                 openId={selecionado}
               />
             </div>
@@ -557,10 +594,13 @@ const AdminMenuPage = () => {
         onOpenChange={aberto => {
           if (!aberto) {
             if (voltarDoEditor.current) focarDepois(voltarDoEditor.current)
-            setEmEdicao(null)
+            fecharEditor()
           }
         }}
         onCloseAutoFocus={devolverFoco}
+        onDraftChange={setRascunhoDoEditor}
+        onVerPrevia={() => setVista('previa')}
+        recolhido={vista === 'previa'}
         node={editado?.node ?? null}
         ehRaiz={editado?.ehRaiz ?? false}
         categories={pool}
@@ -572,7 +612,7 @@ const AdminMenuPage = () => {
         }
         onRemove={() => {
           const id = emEdicao
-          setEmEdicao(null)
+          fecharEditor()
           if (id) pedirRemocao(id)
         }}
       />

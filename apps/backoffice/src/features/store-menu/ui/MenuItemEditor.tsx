@@ -48,6 +48,7 @@ import {
   MENU_LABEL_MAX,
   menuIconKey,
   menuLabelColorRefusal,
+  menuLabelColorSurfaceRefusal,
   menuLabelColorsOf,
   menuNodeLabelRefusal,
   menuNodeName,
@@ -87,6 +88,19 @@ interface Props {
   onRemove: () => void
   /** Q07 — quem abriu decide para onde o foco volta ao fechar. */
   onCloseAutoFocus?: (evento: Event) => void
+  /**
+   * O que o editor tem agora e ainda não gravou, para a prévia mostrar antes de Salvar. Só o que a
+   * loja desenharia entra: nome recusado fica de fora, e cor fora do formato ou recusada cede à
+   * gravada daquela superfície. Nunca grava — quem grava é `onSave`.
+   */
+  onDraftChange?: (edit: MenuItemEdit) => void
+  /**
+   * Abaixo de `lg` a prévia mora noutra aba da tela: este botão leva a ela sem fechar o editor. Sem
+   * ele (quem abriu não tem prévia), o botão não aparece.
+   */
+  onVerPrevia?: () => void
+  /** Abaixo de `lg`, o editor some enquanto a dona confere a prévia — continua aberto, com o que tem. */
+  recolhido?: boolean
 }
 
 /**
@@ -108,6 +122,9 @@ const MenuItemEditor = ({
   onSaveBanners,
   onRemove,
   onCloseAutoFocus,
+  onDraftChange,
+  onVerPrevia,
+  recolhido = false,
 }: Props) => {
   const deCategoria = node?.target.kind === 'category'
   const nomeDaCategoria =
@@ -125,6 +142,11 @@ const MenuItemEditor = ({
   const [dispositivo, setDispositivo] = useState<MenuSurface>('desktop')
   const [recusa, setRecusa] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
+  /**
+   * O nó cujo rascunho já nasceu. No commit da abertura os campos ainda têm o valor da edição
+   * anterior; o rascunho só sai depois que eles foram trocados pelos deste nó.
+   */
+  const [prontoPara, setProntoPara] = useState<string | null>(null)
   /**
    * Q05 do QA da `86` — o que o editor de banners tem e não gravou. Esc, fechar ou "Voltar" com
    * alteração não salva PERGUNTA antes ("Descartar as alterações do banner?"); descartar apaga do
@@ -165,7 +187,10 @@ const MenuItemEditor = ({
   // "Salvar" gravar num item o que a dona digitou e desistiu em outro.
   const idDoNo = node?.id ?? null
   useEffect(() => {
-    if (!open || !node) return
+    if (!open || !node) {
+      setProntoPara(null)
+      return
+    }
     const proprio = typeof node.label === 'string' && node.label.trim() !== ''
     setUsarNome(node.target.kind === 'category' ? !proprio : false)
     setNome(proprio ? (node.label as string) : '')
@@ -178,10 +203,41 @@ const MenuItemEditor = ({
     setRecusa(null)
     setDescartarPara(null)
     rascunhoDosBanners.current = { sujo: false, artesNaoGravadas: [] }
+    setProntoPara(node.id)
     // O nó muda de identidade a cada gravação; reabrir o rascunho a cada uma apagaria o que está
     // sendo digitado. A chave é o id e a abertura.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, idDoNo])
+
+  // O rascunho que a prévia mostra. A forma é a do `MenuItemEdit` que "Salvar" entregaria, com o que
+  // não passaria trocado pelo gravado: a prévia mostra o que a loja desenharia.
+  const coresGravadas = menuLabelColorsOf(ehRaizNo(node) ? node.labelColors : null)
+  const corGravadaBarra = coresGravadas.bar
+  const corGravadaFolha = coresGravadas.sheet
+  useEffect(() => {
+    if (!onDraftChange || !open || !node || prontoPara !== node.id) return
+    const edicao: MenuItemEdit =
+      node.target.kind === 'category' && usarNome
+        ? { label: null }
+        : nome.trim() !== '' && !menuNodeLabelRefusal(nome)
+          ? { label: nome.trim() }
+          : { label: node.label }
+    if (ehRaiz && ehRaizNo(node)) {
+      const corDaPrevia = (digitada: string, surface: MenuSurface, gravada: string | null) => {
+        if (digitada === '') return null
+        if (!MENU_LABEL_HEX.test(digitada) || menuLabelColorSurfaceRefusal(digitada, surface)) return gravada
+        return digitada
+      }
+      edicao.icon = icone
+      edicao.labelColors = {
+        bar: corDaPrevia(corBarra, 'desktop', corGravadaBarra),
+        sheet: corDaPrevia(corFolha, 'mobile', corGravadaFolha),
+      }
+    }
+    onDraftChange(edicao)
+    // `node` muda de identidade a cada gravação; o que importa dele está em `prontoPara` e nas cores.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onDraftChange, open, prontoPara, usarNome, nome, icone, corBarra, corFolha, corGravadaBarra, corGravadaFolha, ehRaiz])
 
   if (!node) return null
 
@@ -262,12 +318,20 @@ const MenuItemEditor = ({
   const bannersNoCelular = raiz ? bannersGravados(raiz.banners, 'mobile').length : 0
 
   return (
-    <Dialog open={open} onOpenChange={aoMudarAbertura}>
+    // NÃO modal: a prévia ao lado é parte da edição. Modal, ele escurecia a prévia e tirava da árvore
+    // de acessibilidade o alternador Celular/Computador dela. Por isso tocar fora (o alternador, a
+    // prévia) não fecha o editor — fecha Esc, o X, Cancelar e Salvar. No computador ele fica sobre a
+    // coluna da lista, à esquerda, e deixa o palco inteiro à vista.
+    <Dialog open={open} onOpenChange={aoMudarAbertura} modal={false}>
       <DialogContent
         ref={conteudoDoEditor}
         data-testid="editor-do-item"
         onCloseAutoFocus={onCloseAutoFocus}
-        className="flex max-h-[90vh] flex-col gap-4 overflow-y-auto max-sm:bottom-0 max-sm:top-auto max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:p-4 sm:max-w-xl"
+        onInteractOutside={evento => evento.preventDefault()}
+        className={cn(
+          'flex max-h-[90vh] flex-col gap-4 overflow-y-auto max-sm:bottom-0 max-sm:top-auto max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:p-4 sm:max-w-xl lg:left-4 lg:translate-x-0',
+          recolhido && 'max-lg:hidden',
+        )}
       >
         <DialogHeader>
           <DialogTitle>Editar “{nomeAtual || 'item'}”</DialogTitle>
@@ -275,6 +339,17 @@ const MenuItemEditor = ({
             {ehRaiz ? 'Item do menu principal.' : 'Item de submenu.'} A mudança é salva ao tocar em
             Salvar.
           </DialogDescription>
+          {onVerPrevia && (
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(QUEBRA, BOTAO_CONTORNO, 'self-start lg:hidden')}
+              data-testid="editor-ver-previa"
+              onClick={onVerPrevia}
+            >
+              <Smartphone className="mr-1.5 h-4 w-4" aria-hidden /> Ver na prévia
+            </Button>
+          )}
         </DialogHeader>
 
         {vista === 'banners' && raiz ? (

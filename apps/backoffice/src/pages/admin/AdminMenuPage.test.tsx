@@ -1105,6 +1105,133 @@ describe('Itens | Prévia abaixo de `lg` (FOCO-35..37)', () => {
   })
 })
 
+/**
+ * A prévia acompanha o editor do item antes de Salvar: o que a dona escolhe no editor (ícone, cor do
+ * rótulo) chega à loja no iframe como rascunho, sem gravar nada — e o alternador Celular/Computador
+ * da prévia continua ao alcance com o editor aberto.
+ */
+describe('a prévia acompanha o editor do item antes de Salvar', () => {
+  const abrirEditorDoSobre = async () => {
+    abrirAcoes('n-sobre')
+    fireEvent.click(screen.getByTestId('editar-n-sobre'))
+    await screen.findByTestId('editor-do-item')
+  }
+  const digitarCor = (id: 'cor-barra' | 'cor-folha', valor: string) =>
+    fireEvent.change(window.document.getElementById(id) as HTMLInputElement, { target: { value: valor } })
+  const sobreNoRascunho = (postMessage: ReturnType<typeof vi.fn>) =>
+    ultimoRascunho(postMessage)?.document.items.find(i => i.id === 'n-sobre') as MenuRootNode | undefined
+
+  it('o ícone do sistema e as cores escolhidos chegam à prévia, sem gravar', async () => {
+    await montar()
+    const postMessage = janelaDoQuadro()
+    await abrirEditorDoSobre()
+
+    fireEvent.click(screen.getByTestId('icone-opcao-etiqueta'))
+    digitarCor('cor-barra', '#E8C77A')
+    digitarCor('cor-folha', '#8A5A2B')
+
+    await waitFor(() =>
+      expect(sobreNoRascunho(postMessage)).toMatchObject({
+        icon: 'etiqueta',
+        labelColors: { bar: '#E8C77A', sheet: '#8A5A2B' },
+      }),
+    )
+    expect(escritasEm('store_settings')).toEqual([])
+    expect(screen.getByTestId('editor-do-item')).toBeInTheDocument()
+  })
+
+  it('cancelar o editor sem salvar devolve à prévia o documento gravado', async () => {
+    await montar()
+    const postMessage = janelaDoQuadro()
+    await waitFor(() => expect(ultimoRascunho(postMessage)).toBeDefined())
+    const gravado = ultimoRascunho(postMessage)!.document
+
+    await abrirEditorDoSobre()
+    fireEvent.click(screen.getByTestId('icone-opcao-etiqueta'))
+    digitarCor('cor-barra', '#E8C77A')
+    await waitFor(() => expect(sobreNoRascunho(postMessage)?.icon).toBe('etiqueta'))
+
+    fireEvent.click(within(screen.getByTestId('editor-do-item')).getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => expect(screen.queryByTestId('editor-do-item')).toBeNull())
+
+    await waitFor(() => expect(ultimoRascunho(postMessage)!.document).toEqual(gravado))
+    expect(sobreNoRascunho(postMessage)!.icon).toBeNull()
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+
+  it('com o editor aberto, o alternador Celular/Computador da prévia continua ao alcance', async () => {
+    await montar()
+    await abrirEditorDoSobre()
+
+    // Pela árvore de acessibilidade: sob uma camada modal o grupo sairia dela (`aria-hidden`).
+    const grupo = screen.getByRole('group', { name: 'Dispositivo da prévia' })
+    const celular = within(grupo).getByRole('button', { name: 'Celular' })
+    fireEvent.pointerDown(celular, RADIX_POINTER_DOWN)
+    act(() => celular.focus())
+    fireEvent.click(celular)
+
+    expect(celular).toHaveAttribute('aria-pressed', 'true')
+    // Conferir a prévia não fecha o editor: o rascunho continua lá.
+    expect(screen.getByTestId('editor-do-item')).toBeInTheDocument()
+  })
+
+  it('abaixo de `lg`, o editor leva à prévia e a prévia volta ao editor, sem fechá-lo', async () => {
+    const recolhido = /(?:^|\s)max-lg:hidden(?![-\w])/
+    await montar()
+    await abrirEditorDoSobre()
+    fireEvent.click(screen.getByTestId('icone-opcao-etiqueta'))
+
+    const verPrevia = screen.getByTestId('editor-ver-previa')
+    expect(verPrevia.className).toMatch(/(?:^|\s)min-h-11(?![-\w])/)
+    expect(verPrevia.className).toMatch(/(?:^|\s)lg:hidden(?![-\w])/)
+    fireEvent.click(verPrevia)
+    expect(screen.getByTestId('coluna-previa-menu').className).not.toContain('hidden')
+    expect(screen.getByTestId('editor-do-item').className).toMatch(recolhido)
+
+    const voltar = screen.getByTestId('voltar-ao-editor')
+    expect(voltar.className).toMatch(/(?:^|\s)min-h-11(?![-\w])/)
+    fireEvent.click(voltar)
+    expect(screen.getByTestId('editor-do-item').className).not.toMatch(recolhido)
+    // O que estava escolhido continua lá.
+    expect(screen.getByTestId('icone-opcao-etiqueta')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('com o editor aberto, a lista fica fora de alcance e não troca o item em edição', async () => {
+    await montar()
+    await abrirEditorDoSobre()
+    fireEvent.click(screen.getByTestId('icone-opcao-etiqueta'))
+
+    // A lista sai do Tab, do ponteiro e da árvore de acessibilidade enquanto o editor está aberto.
+    expect(screen.getByTestId('coluna-entradas')).toHaveAttribute('inert')
+
+    // Mesmo que um "Editar" da lista chegue a disparar, o editor aberto não é trocado em silêncio.
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('editar-n-chaveiros'))
+    expect(screen.getByTestId('editor-do-item')).toHaveTextContent('Editar “Sobre”')
+    expect(screen.getByTestId('icone-opcao-etiqueta')).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(within(screen.getByTestId('editor-do-item')).getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => expect(screen.queryByTestId('editor-do-item')).toBeNull())
+    expect(screen.getByTestId('coluna-entradas')).not.toHaveAttribute('inert')
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+
+  it('uma cor recusada não chega à prévia como cor do item', async () => {
+    await montar()
+    const postMessage = janelaDoQuadro()
+    await abrirEditorDoSobre()
+
+    // Escura demais sobre a barra do computador: o editor a recusa.
+    digitarCor('cor-barra', '#333333')
+    digitarCor('cor-folha', '#8A5A2B')
+
+    await waitFor(() => expect(sobreNoRascunho(postMessage)?.labelColors?.sheet).toBe('#8A5A2B'))
+    expect(sobreNoRascunho(postMessage)!.labelColors).toEqual({ bar: null, sheet: '#8A5A2B' })
+    expect(screen.getByTestId('cor-barra-medida')).toHaveTextContent('4,5:1')
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+})
+
 describe('a prévia é a LOJA (previaUnica)', () => {
   it('o palco é um iframe da loja em modo prévia', async () => {
     await montar()
