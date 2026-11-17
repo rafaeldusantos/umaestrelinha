@@ -305,10 +305,16 @@ const MobileMenuEntry = ({
   onToggle: () => void
   onNavigate: () => void
 }) => {
+  // A cor que a dona escolheu para a folha, já medida por `core` antes de gravar. Por `style`, no
+  // rótulo só: vence a troca de tom do aberto, e a pista do aberto continua sendo o chevron. Sem cor,
+  // nenhum `style`: as classes de sempre.
+  const cor = item.labelColor ? { color: item.labelColor } : undefined
   const rotulo = (
     <>
       <EntryIcon icon={item.icon} />
-      <span className="min-w-0 flex-1 text-base font-semibold text-estrelinha-ink">{item.name}</span>
+      <span className="min-w-0 flex-1 text-base font-semibold text-estrelinha-ink" style={cor}>
+        {item.name}
+      </span>
     </>
   )
 
@@ -335,6 +341,7 @@ const MobileMenuEntry = ({
           className={`min-w-0 flex-1 text-base font-semibold ${
             expanded ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
           }`}
+          style={cor}
         >
           {item.name}
         </span>

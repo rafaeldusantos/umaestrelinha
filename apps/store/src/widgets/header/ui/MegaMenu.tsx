@@ -316,7 +316,13 @@ const MegaMenu = ({ items }: { items: MenuItem[] }) => {
           else triggers.current.delete(item.id)
         }
         const comPainel = abrePainel(item)
+        // A cor que a dona escolheu para a barra, já medida por `core` antes de gravar. Por `style`, e
+        // não por classe: o `style` vence o `hover:text-white` e o `text-white` do aberto, então o
+        // rótulo mantém a cor nos dois estados, e a régua de 2px segue marcando o aberto. O ícone tem
+        // a classe dele e não herda. Sem cor, nenhum `style`: as classes de sempre.
+        const cor = item.labelColor ? { color: item.labelColor } : undefined
         const gatilho = {
+          style: cor,
           onPointerEnter: () => schedule(comPainel ? item.id : null, OPEN_DELAY),
           onFocus: () => {
             if (ignoreNextFocus.current) {
@@ -348,6 +354,7 @@ const MegaMenu = ({ items }: { items: MenuItem[] }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`${NAV_ITEM} border-transparent`}
+                style={cor}
               >
                 {conteudo}
               </a>

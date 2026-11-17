@@ -91,6 +91,8 @@ const comoAntes = (item: LegacyMenuItem, categorias: readonly MenuCategory[]) =>
   href: item.href,
   external: item.kind === 'link' ? item.external : false,
   icon: item.icon,
+  // O legado não tem cor de rótulo: a loja desenha como sempre.
+  labelColor: null,
   children:
     item.kind === 'category'
       ? item.children.map(f => ({
@@ -284,6 +286,21 @@ describe('com documento — submenu e painel (MNM-27)', () => {
   it('o ícone passa por menuIconKey: chave desconhecida vira null', () => {
     const d = doc(raiz('a', C('joias'), { icon: 'corrente' }), raiz('b', C('chaveiros'), { icon: 'emoji' }))
     expect(ler(d).map(i => i.icon)).toEqual(['corrente', null])
+  })
+
+  it('a cor do rótulo é a da superfície: a barra leva `bar`, a folha leva `sheet`', () => {
+    const d = doc(
+      raiz('a', C('joias'), { labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }),
+      raiz('b', C('chaveiros')),
+    )
+    expect(ler(d, 'desktop').map(i => i.labelColor)).toEqual(['#F7F3EC', null])
+    expect(ler(d, 'mobile').map(i => i.labelColor)).toEqual(['#23303A', null])
+  })
+
+  it('cor só numa superfície deixa a outra como hoje; cor fora do formato não chega à loja', () => {
+    const d = doc(raiz('a', C('joias'), { labelColors: { bar: 'claro', sheet: '#23303A' } }))
+    expect(ler(d, 'desktop')[0].labelColor).toBeNull()
+    expect(ler(d, 'mobile')[0].labelColor).toBe('#23303A')
   })
 
   it('externo de raiz é marcado; endereço interno é normalizado', () => {

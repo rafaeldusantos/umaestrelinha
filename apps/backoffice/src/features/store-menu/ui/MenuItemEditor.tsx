@@ -11,6 +11,9 @@
 //   mostra o seletor.
 // - **Banners do painel** (só item principal, categoria **ou** link — `MNM-33`): a caixa mostra a
 //   contagem por dispositivo e abre o editor da `39`, que grava pelo nó.
+// - **Cor do texto** (só item principal): uma cor para a barra do computador e outra para a lista do
+//   celular. A medida e a recusa são de `core` (`menuLabelColorRefusal`), e a recusa vem antes da
+//   rede; "Usar a cor padrão" grava `null` naquela superfície.
 //
 // Nada aqui grava sozinho: "Salvar" entrega o patch a quem abriu (a tela, que chama `updateNode`).
 
@@ -40,12 +43,17 @@ import {
   AlertDialogTitle,
 } from '@estrelinha/ui/alert-dialog'
 import {
+  MENU_LABEL_COLOR_FORMAT,
+  MENU_LABEL_HEX,
   MENU_LABEL_MAX,
   menuIconKey,
+  menuLabelColorRefusal,
+  menuLabelColorsOf,
   menuNodeLabelRefusal,
   menuNodeName,
   type MenuBanners,
   type MenuCategory,
+  type MenuLabelColors,
   type MenuNode,
   type MenuRootNode,
   type MenuSurface,
@@ -55,12 +63,14 @@ import { bannersGravados } from '../model/bannersGravados'
 import { deleteBannerImage } from '../lib/uploadBannerImage'
 import MenuBannerEditor, { type MenuBannerDraftState } from './MenuBannerEditor'
 import MenuIconPicker from './MenuIconPicker'
+import MenuLabelColorField from './MenuLabelColorField'
 import { BOTAO_CONTORNO, BOTAO_CTA, BOTAO_FANTASMA, BOTAO_PERIGO } from './estilos'
 
-/** O que "Salvar" entrega. `icon` só vem do item principal. */
+/** O que "Salvar" entrega. `icon` e `labelColors` só vêm do item principal. */
 export interface MenuItemEdit {
   label: string | null
   icon?: string | null
+  labelColors?: MenuLabelColors
 }
 
 interface Props {
@@ -108,6 +118,9 @@ const MenuItemEditor = ({
   const [usarNome, setUsarNome] = useState(true)
   const [nome, setNome] = useState('')
   const [icone, setIcone] = useState<string | null>(null)
+  /** O código digitado de cada superfície; `''` = a cor padrão. */
+  const [corBarra, setCorBarra] = useState('')
+  const [corFolha, setCorFolha] = useState('')
   const [vista, setVista] = useState<'item' | 'banners'>('item')
   const [dispositivo, setDispositivo] = useState<MenuSurface>('desktop')
   const [recusa, setRecusa] = useState<string | null>(null)
@@ -157,6 +170,9 @@ const MenuItemEditor = ({
     setUsarNome(node.target.kind === 'category' ? !proprio : false)
     setNome(proprio ? (node.label as string) : '')
     setIcone(ehRaizNo(node) ? node.icon : null)
+    const cores = menuLabelColorsOf(ehRaizNo(node) ? node.labelColors : null)
+    setCorBarra(cores.bar ?? '')
+    setCorFolha(cores.sheet ?? '')
     setVista('item')
     setDispositivo('desktop')
     setRecusa(null)
@@ -217,7 +233,21 @@ const MenuItemEditor = ({
       }
       label = nome.trim()
     }
-    const edicao: MenuItemEdit = raiz ? { label, icon: icone } : { label }
+    let edicao: MenuItemEdit = { label }
+    if (raiz) {
+      // Código fora do formato seria lido como "sem cor": recusa, em vez de voltar ao padrão calado.
+      if ([corBarra, corFolha].some(c => c !== '' && !MENU_LABEL_HEX.test(c))) {
+        setRecusa(MENU_LABEL_COLOR_FORMAT)
+        return
+      }
+      const labelColors: MenuLabelColors = { bar: corBarra || null, sheet: corFolha || null }
+      const ilegivel = menuLabelColorRefusal(labelColors)
+      if (ilegivel) {
+        setRecusa(ilegivel)
+        return
+      }
+      edicao = { label, icon: icone, labelColors }
+    }
     setOcupado(true)
     const falha = await onSave(edicao)
     setOcupado(false)
@@ -352,6 +382,34 @@ const MenuItemEditor = ({
                 value={menuIconKey(icone)}
                 onChange={valor => setIcone(valor)}
               />
+            )}
+
+            {raiz && (
+              <fieldset className="flex flex-col gap-3 rounded-xl border border-border p-3">
+                <legend className="px-1 text-sm font-semibold text-foreground">Cor do texto</legend>
+                <MenuLabelColorField
+                  id="cor-barra"
+                  label="Na barra do computador (fundo escuro)"
+                  surface="desktop"
+                  value={corBarra}
+                  placeholderColor="#ffffff"
+                  onChange={valor => {
+                    setRecusa(null)
+                    setCorBarra(valor)
+                  }}
+                />
+                <MenuLabelColorField
+                  id="cor-folha"
+                  label="Na lista do celular (fundo branco)"
+                  surface="mobile"
+                  value={corFolha}
+                  placeholderColor="#000000"
+                  onChange={valor => {
+                    setRecusa(null)
+                    setCorFolha(valor)
+                  }}
+                />
+              </fieldset>
             )}
 
             {raiz && (

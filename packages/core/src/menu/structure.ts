@@ -30,6 +30,7 @@ import {
 } from './menu.ts'
 import { menuIconKey, type MenuIconKey } from './icons.ts'
 import type { MenuBanners } from './banners.ts'
+import { menuLabelColorFor, menuLabelColorsOf, type MenuLabelColors } from './labelColor.ts'
 
 // ===========================================================================
 // A forma do documento
@@ -63,6 +64,12 @@ export interface MenuRootNode extends MenuNode {
   icon: string | null
   /** A forma da `39`, intacta (`{ desktop: [], mobile: [] }`). Quem valida é `resolveMenuBanners`. */
   banners: MenuBanners | null
+  /**
+   * A cor do rótulo por superfície (`labelColor.ts`). **Ausente** quando nenhuma superfície tem cor
+   * válida — no legado convertido, em documento gravado antes dela e no item que voltou à cor padrão:
+   * o documento sem cor lê igual ao de antes, e a loja desenha como sempre.
+   */
+  labelColors?: MenuLabelColors
   /** Até `MENU_SUBMENU_LIMIT` (a recusa mora em `refusals.ts`). */
   children: MenuNode[]
 }
@@ -105,6 +112,8 @@ export interface MenuItem {
   href: string
   external: boolean
   icon: MenuIconKey | null
+  /** A cor do rótulo nesta superfície (`#RRGGBB`), ou `null` para a cor de sempre. */
+  labelColor: string | null
   /** Só os visíveis nesta superfície, na ordem gravada. */
   children: MenuChild[]
   /** Cru, para `resolveMenuBanners`. */
@@ -177,10 +186,12 @@ const parseRoot = (raw: unknown): MenuRootNode | null => {
   const no = parseNode(raw)
   if (!no) return null
   const bruto = raw as Record<string, unknown>
+  const cores = menuLabelColorsOf(bruto.labelColors)
   return {
     ...no,
     icon: typeof bruto.icon === 'string' ? bruto.icon : null,
     banners: ehObjeto(bruto.banners) ? (bruto.banners as unknown as MenuBanners) : null,
+    ...(cores.bar || cores.sheet ? { labelColors: cores } : {}),
     children: parseList(bruto.children, parseNode, n => n.id),
   }
 }
@@ -403,6 +414,7 @@ export const menuItems = (input: MenuDocumentInput, surface: MenuSurface): MenuI
       href: alvo.href,
       external: alvo.external,
       icon: menuIconKey(raiz.icon),
+      labelColor: menuLabelColorFor(raiz.labelColors, surface),
       children,
       banners,
       hasPanel: children.length > 0 || menuBannerSlots(banners, surface).length > 0,

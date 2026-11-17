@@ -232,6 +232,28 @@ describe('updateNode (MNM-14..17)', () => {
     expect(Object.keys(updateNode(DOC, 'a1', { label: 'X', icon: 'estrela' }).items[0].children[0])).not.toContain('icon')
   })
 
+  it('a cor do rótulo vai só na raiz; no filho é ignorada', () => {
+    const cores = { bar: '#F7F3EC', sheet: '#23303A' }
+    const doc = updateNode(DOC, 'a', { labelColors: cores })
+    expect(doc.items[0].labelColors).toEqual(cores)
+    expect(doc.items[1]).toBe(DOC.items[1])
+
+    expect(updateNode(DOC, 'a1', { labelColors: cores })).toBe(DOC)
+    expect(Object.keys(updateNode(DOC, 'a1', { label: 'X', labelColors: cores }).items[0].children[0])).not.toContain(
+      'labelColors',
+    )
+  })
+
+  it('a mesma cor devolve o MESMO documento — inclusive "sem cor" sobre item que nunca teve cor', () => {
+    const comCor = updateNode(DOC, 'a', { labelColors: { bar: '#F7F3EC', sheet: null } })
+    expect(updateNode(comCor, 'a', { labelColors: { bar: '#F7F3EC', sheet: null } })).toBe(comCor)
+    expect(updateNode(DOC, 'a', { labelColors: { bar: null, sheet: null } })).toBe(DOC)
+    // Voltar à cor padrão é mudança, e o item volta à forma sem cor (sem a chave).
+    const padrao = updateNode(comCor, 'a', { labelColors: { bar: null, sheet: null } })
+    expect(padrao).not.toBe(comCor)
+    expect('labelColors' in padrao.items[0]).toBe(false)
+  })
+
   it('o nome de um filho muda só nele', () => {
     const doc = updateNode(DOC, 'a2', { label: 'Anéis afetivos' })
     expect(doc.items[0].children.map(c => c.label)).toEqual([null, 'Anéis afetivos', null])

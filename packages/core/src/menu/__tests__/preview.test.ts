@@ -39,6 +39,7 @@ const rascunho = (): MenuPreviewDraft => ({
         mobile: true,
         icon: null,
         banners: null,
+        labelColors: { bar: '#F7F3EC', sheet: '#23303A' },
         children: [],
       },
     ],
@@ -107,6 +108,16 @@ describe('`draft` — as categorias e a montagem da dona', () => {
     expect(mensagem?.type).toBe('draft')
     expect(mensagem?.type === 'draft' && mensagem.draft.categories).toHaveLength(1)
     expect(mensagem?.type === 'draft' && mensagem.draft.document).toEqual(rascunho().document)
+  })
+
+  it('o rascunho carrega a cor do rótulo de cada superfície até a loja', () => {
+    const mensagem = parseMenuPreviewMessage({
+      source: MENU_PREVIEW_SOURCE,
+      type: 'draft',
+      draft: rascunho(),
+    })
+    const item = mensagem?.type === 'draft' ? mensagem.draft.document.items[0] : null
+    expect(item?.labelColors).toEqual({ bar: '#F7F3EC', sheet: '#23303A' })
   })
 
   it('a forma da 39 (`{ categories, links }`, sem documento) é RECUSADA — painel e loja em versões diferentes', () => {

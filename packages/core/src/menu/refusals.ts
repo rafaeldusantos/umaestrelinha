@@ -14,6 +14,7 @@
 
 import { menuHrefIsExternal, menuHrefKey, MENU_PANEL_COLUMN_SIZE } from './menu.ts'
 import { menuBannerRefusal } from './banners.ts'
+import { menuLabelColorRefusal, menuLabelColorsOf } from './labelColor.ts'
 import type { MenuDocument, MenuNode } from './structure.ts'
 
 /** O nome próprio de um item: até 40 caracteres (`MNM-14`). */
@@ -114,7 +115,8 @@ const enderecoDoNo = (no: MenuNode): string | null => {
 
 /**
  * O documento inteiro, antes de gravar. Cobra, nesta ordem, por item principal: rótulo, endereço,
- * categoria repetida no menu principal (`MNM-10`), banners, teto do submenu (`MNM-24`); e por item de
+ * categoria repetida no menu principal (`MNM-10`), cor do rótulo (`menuLabelColorRefusal`), banners,
+ * teto do submenu (`MNM-24`); e por item de
  * submenu: rótulo, endereço, categoria repetida **no mesmo** submenu (`MNM-25`). A mesma categoria em
  * submenus de itens diferentes é curadoria, e passa.
  *
@@ -125,6 +127,10 @@ const enderecoDoNo = (no: MenuNode): string | null => {
  * do item**: acima de 24 recusa só se o submenu cresceu. Item que o `anterior` não tem conta como
  * vindo de zero. **Sem `anterior`**, a régua é a estrita — acima de 24 recusa —, que é o que vale para
  * quem não sabe de onde o documento veio.
+ *
+ * **A cor do rótulo segue a mesma régua do `anterior`**: a cor ilegível que o mesmo item já tinha
+ * (gravada à mão no banco) não trava as outras ações da dona; escolher uma cor nova abaixo do piso
+ * recusa.
  */
 export const menuDocumentRefusal = (
   doc: MenuDocument,
@@ -163,6 +169,13 @@ export const menuDocumentRefusal = (
       : [],
   )
 
+  /** As cores de cada item antes da operação, pelo id; vazio sem `anterior` (régua estrita). */
+  const coresAntes = new Map<string, string>(
+    anterior && Array.isArray(anterior.items)
+      ? anterior.items.map(i => [i.id, JSON.stringify(menuLabelColorsOf(i.labelColors))])
+      : [],
+  )
+
   const naRaiz = new Set<string>()
   const paginasNaRaiz = new Set<string>()
   for (const item of doc.items) {
@@ -181,6 +194,11 @@ export const menuDocumentRefusal = (
         return 'Esta página já está no menu principal. Cada página aparece lá uma vez só.'
       }
       paginasNaRaiz.add(chave)
+    }
+
+    if (coresAntes.get(item.id) !== JSON.stringify(menuLabelColorsOf(item.labelColors))) {
+      const recusa = menuLabelColorRefusal(item.labelColors)
+      if (recusa) return recusa
     }
 
     const banners = item.banners

@@ -322,6 +322,57 @@ describe('NAV-17 / NAV-18 — o ícone da entrada', () => {
   })
 })
 
+describe('a cor do rótulo escolhida pela dona', () => {
+  it('a barra pinta o rótulo na cor da barra, por `style` — e o ícone continua no tom dele', () => {
+    renderMenu([categoria({ id: 'correntes', name: 'Correntes', icon: 'corrente', labelColor: '#F7D9A0' })])
+    const entrada = screen.getByRole('link', { name: 'Correntes' })
+
+    expect(entrada.style.color).toBe('rgb(247, 217, 160)')
+    // A cor é da dona, e não um token: nenhuma classe arbitrária `text-[#…]` entra no rótulo.
+    expect(entrada.getAttribute('class')).not.toMatch(/text-\[#/)
+    expect(temToken(entrada.querySelector('svg')!.getAttribute('class'), 'text-estrelinha-accent')).toBe(true)
+  })
+
+  it('aberto, o rótulo mantém a cor da dona, e a régua de 2px continua marcando o aberto', () => {
+    renderMenu([{ ...AFETIVAS, labelColor: '#F7D9A0' }, CORRENTES])
+    hover('Coleção Afetivas')
+    const entrada = screen.getByRole('link', { name: 'Coleção Afetivas' })
+
+    expect(entrada.getAttribute('aria-expanded')).toBe('true')
+    expect(entrada.style.color).toBe('rgb(247, 217, 160)')
+    expect(temToken(entrada.getAttribute('class'), 'border-estrelinha-accent')).toBe(true)
+  })
+
+  it('o item de link também leva a cor — interno e externo', () => {
+    renderMenu([
+      link({ id: 'sobre', name: 'Sobre', labelColor: '#FFFFFF' }),
+      link({ id: 'blog', name: 'Blog', href: 'https://blog.example', external: true, labelColor: '#F7D9A0' }),
+    ])
+    expect(screen.getByRole('link', { name: 'Sobre' }).style.color).toBe('rgb(255, 255, 255)')
+    expect(screen.getByRole('link', { name: 'Blog' }).style.color).toBe('rgb(247, 217, 160)')
+  })
+
+  it('sem cor, nada muda: nenhum `style` de cor, e o rótulo segue em `on-primary`', () => {
+    renderMenu([
+      categoria({ id: 'correntes', name: 'Correntes', labelColor: null }),
+      { ...AFETIVAS, labelColor: null },
+    ])
+    for (const nome of ['Correntes', 'Coleção Afetivas']) {
+      const entrada = screen.getByRole('link', { name: nome })
+      expect(entrada.style.color).toBe('')
+      expect(temToken(entrada.getAttribute('class'), 'text-estrelinha-on-primary')).toBe(true)
+    }
+  })
+
+  it('a cor de um item não vaza para o painel: o submenu e o "ver tudo em X" ficam no padrão', () => {
+    renderMenu([{ ...AFETIVAS, labelColor: '#F7D9A0' }, CORRENTES])
+    hover('Coleção Afetivas')
+
+    expect(screen.getByRole('link', { name: 'Cinzas de cremação' }).style.color).toBe('')
+    expect(screen.getByRole('link', { name: /ver tudo em Coleção Afetivas/ }).style.color).toBe('')
+  })
+})
+
 describe('NAV-12 — item de link é link direto', () => {
   it('interno vira `<a href>` de rota, sem painel, sem seta e sem aria-expanded', () => {
     renderMenu([link({ id: 'sobre', name: 'Sobre' })])

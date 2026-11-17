@@ -328,6 +328,58 @@ describe('NAV-17 / NAV-18 — o ícone da linha', () => {
   })
 })
 
+describe('a cor do rótulo escolhida pela dona', () => {
+  it('o link direto pinta o rótulo na cor da folha, por `style` — e o ícone continua no tom dele', () => {
+    renderSheet([categoria({ id: 'pingentes', name: 'Pingentes', icon: 'corrente', labelColor: '#7A1F1F' })])
+    const rotulo = screen.getByText('Pingentes')
+
+    expect(rotulo.style.color).toBe('rgb(122, 31, 31)')
+    expect(rotulo.className).not.toMatch(/text-\[#/)
+    const svg = screen.getByRole('link', { name: 'Pingentes' }).querySelector('svg')!
+    expect(svg.getAttribute('class')).toContain('text-estrelinha-accent-strong')
+  })
+
+  it('o item de link também leva a cor', () => {
+    renderSheet([link({ id: 'sobre', name: 'Sobre', labelColor: '#1F4F7A' })])
+    expect(screen.getByText('Sobre').style.color).toBe('rgb(31, 79, 122)')
+  })
+
+  it('no acordeão o rótulo leva a cor fechado E aberto; a pista do aberto continua no chevron', () => {
+    renderSheet([{ ...AFETIVAS, labelColor: '#7A1F1F' } as MenuItem])
+    const entrada = screen.getByRole('button', { name: 'Coleção Afetivas' })
+    expect(screen.getByText('Coleção Afetivas').style.color).toBe('rgb(122, 31, 31)')
+
+    fireEvent.click(entrada)
+    expect(entrada).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Coleção Afetivas').style.color).toBe('rgb(122, 31, 31)')
+    const chevron = entrada.querySelector('svg')!
+    expect(chevron.getAttribute('class')).toContain('text-estrelinha-primary')
+  })
+
+  it('a cor não vaza para as filhas nem para o "ver tudo em X"', () => {
+    renderSheet([{ ...AFETIVAS, labelColor: '#7A1F1F' } as MenuItem])
+    fireEvent.click(screen.getByRole('button', { name: 'Coleção Afetivas' }))
+
+    expect(screen.getByRole('link', { name: 'Cinzas de cremação' }).style.color).toBe('')
+    expect(screen.getByRole('link', { name: /ver tudo em Coleção Afetivas/ }).style.color).toBe('')
+  })
+
+  it('sem cor, como hoje: nenhum `style` de cor, e as classes de sempre', () => {
+    renderSheet([
+      categoria({ id: 'pingentes', name: 'Pingentes', labelColor: null }),
+      { ...AFETIVAS, labelColor: null } as MenuItem,
+    ])
+    const direto = screen.getByText('Pingentes')
+    expect(direto.style.color).toBe('')
+    expect(direto.className).toContain('text-estrelinha-ink')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Coleção Afetivas' }))
+    const aberto = screen.getByText('Coleção Afetivas')
+    expect(aberto.style.color).toBe('')
+    expect(aberto.className).toContain('text-estrelinha-primary')
+  })
+})
+
 describe('MENU-18 — a busca', () => {
   it('fecha a folha e abre o overlay — nunca um segundo campo de busca', () => {
     renderSheet()

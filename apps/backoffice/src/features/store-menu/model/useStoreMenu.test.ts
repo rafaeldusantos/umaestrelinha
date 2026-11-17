@@ -240,6 +240,31 @@ describe('gravação com conflito por updated_at (MNM-37, MNM-41)', () => {
     await waitFor(() => expect(result.current.saving).toBe('idle'), { timeout: STORE_MENU_SALVO_MS + 1000 })
   })
 
+  it('o documento gravado leva a cor do rótulo do item principal', async () => {
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.apply(d => updateNode(d, 'n1', { labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }))
+    })
+    const update = escritas()
+    expect(update).toHaveLength(1)
+    const { value } = update[0].args[0] as { value: MenuDocument }
+    expect(value.items[0].labelColors).toEqual({ bar: '#F7F3EC', sheet: '#23303A' })
+    expect('labelColors' in value.items[1]).toBe(false)
+    expect(result.current.saving).toBe('saved')
+  })
+
+  it('cor ilegível é recusada com a medida de core, sem chamada nenhuma', async () => {
+    const { result } = await montar()
+    db.chamadas = []
+    let r: { kind: string; message: string } | null = null
+    await act(async () => {
+      r = await result.current.apply(d => updateNode(d, 'n1', { labelColors: { bar: '#B8945F', sheet: null } }))
+    })
+    expect(r?.kind).toBe('recusa')
+    expect(r?.message).toContain('3,3:1')
+    expect(db.chamadas).toEqual([])
+  })
+
   it('a segunda gravação usa o updated_at NOVO, devolvido pela primeira', async () => {
     const { result } = await montar()
     await act(async () => {

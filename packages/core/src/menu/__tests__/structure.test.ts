@@ -124,6 +124,7 @@ describe('parseMenuDocument — os campos', () => {
       mobile: false,
       icon: 'corrente',
       banners,
+      labelColors: { bar: '#F7F3EC', sheet: '#23303A' },
       children: [no({ id: 'c1', mobile: false })],
     })
     expect(lido).toEqual({
@@ -134,6 +135,7 @@ describe('parseMenuDocument — os campos', () => {
       mobile: false,
       icon: 'corrente',
       banners,
+      labelColors: { bar: '#F7F3EC', sheet: '#23303A' },
       children: [
         {
           id: 'c1',
@@ -160,6 +162,19 @@ describe('parseMenuDocument — os campos', () => {
     const lido = um({ icon: 3, banners: [] })
     expect(lido.icon).toBeNull()
     expect(lido.banners).toBeNull()
+  })
+
+  it('cor do rótulo fora de #RRGGBB vira "sem cor" naquela superfície, sem derrubar o item', () => {
+    expect(um({ labelColors: { bar: 'branco', sheet: '#23303A' } }).labelColors).toEqual({
+      bar: null,
+      sheet: '#23303A',
+    })
+    expect('labelColors' in um({ labelColors: 'x' })).toBe(false)
+    expect('labelColors' in um({ labelColors: { bar: '#FFF', sheet: null } })).toBe(false)
+  })
+
+  it('sem cor gravada, o item lê igual ao de antes — sem a chave', () => {
+    expect('labelColors' in um({})).toBe(false)
   })
 
   it('submenu não-array vira lista vazia', () => {

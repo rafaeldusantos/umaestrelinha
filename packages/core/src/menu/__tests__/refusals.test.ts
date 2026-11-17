@@ -135,6 +135,41 @@ describe('menuDocumentRefusal', () => {
     expect(menuDocumentRefusal(doc(raiz('a', L('/sobre'), { label: null })))).toEqual(expect.any(String))
   })
 
+  it('cor do rótulo ilegível num item principal recusa o documento, com a medida', () => {
+    // #B8945F mede 3,29:1 sobre a barra do Padrão.
+    const recusa = menuDocumentRefusal(
+      doc(raiz('a', C('joias')), raiz('b', C('chaveiros'), { labelColors: { bar: '#B8945F', sheet: null } })),
+    )
+    expect(recusa).toContain('3,3:1')
+    expect(recusa).toContain('barra do computador')
+    // #777777 mede 4,48:1 sobre o branco da folha.
+    expect(
+      menuDocumentRefusal(doc(raiz('a', C('joias'), { labelColors: { bar: null, sheet: '#777777' } }))),
+    ).toContain('4,4:1')
+  })
+
+  it('cor legível, ou cor fora do formato (lida como "sem cor"), passa', () => {
+    expect(
+      menuDocumentRefusal(doc(raiz('a', C('joias'), { labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }))),
+    ).toBeNull()
+    expect(
+      menuDocumentRefusal(doc(raiz('a', C('joias'), { labelColors: { bar: 'claro', sheet: '#FFF' } }))),
+    ).toBeNull()
+  })
+
+  it('a cor ilegível que o documento anterior já tinha no mesmo item não trava as outras ações', () => {
+    const ilegivel = raiz('a', C('joias'), { labelColors: { bar: '#B8945F', sheet: null } })
+    const anterior = doc(ilegivel)
+    expect(menuDocumentRefusal(doc(ilegivel, raiz('b', C('chaveiros'))), anterior)).toBeNull()
+    // Trocar por outra cor ilegível é escolha nova, e recusa.
+    expect(
+      menuDocumentRefusal(
+        doc(raiz('a', C('joias'), { labelColors: { bar: '#222222', sheet: null } })),
+        anterior,
+      ),
+    ).toContain('Black Friday')
+  })
+
   it('24 filhos aceita, 25 recusa nomeando o 24', () => {
     const filhos = (n: number) => Array.from({ length: n }, (_, i) => no(`f${i}`, C(`c${i}`)))
     expect(menuDocumentRefusal(doc(raiz('a', C('joias'), { children: filhos(24) })))).toBeNull()

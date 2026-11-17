@@ -79,7 +79,9 @@ const filho = (over: Partial<MenuNode> = {}): MenuNode => ({
   ...over,
 })
 
-const onSave = vi.fn<(e: { label: string | null; icon?: string | null }) => Promise<string | null>>()
+const onSave = vi.fn<
+  (e: { label: string | null; icon?: string | null; labelColors?: { bar: string | null; sheet: string | null } }) => Promise<string | null>
+>()
 const onSaveBanners = vi.fn().mockResolvedValue(null)
 const onRemove = vi.fn()
 const onOpenChange = vi.fn()
@@ -129,7 +131,7 @@ describe('MNM-14 — "Usar o nome da categoria" e o nome próprio', () => {
     fireEvent.click(screen.getByTestId('usar-nome-da-categoria'))
     salvar()
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
-    expect(onSave.mock.calls[0][0]).toEqual({ label: null, icon: 'corrente' })
+    expect(onSave.mock.calls[0][0]).toEqual({ label: null, icon: 'corrente', labelColors: { bar: null, sheet: null } })
   })
 
   it('desligar abre o nome próprio, pré-preenchido com o nome da categoria, com contador de 40', () => {
@@ -145,7 +147,7 @@ describe('MNM-14 — "Usar o nome da categoria" e o nome próprio', () => {
     fireEvent.change(screen.getByTestId('nome-do-item'), { target: { value: '  Para presentear ' } })
     salvar()
     await waitFor(() => expect(onSave).toHaveBeenCalled())
-    expect(onSave.mock.calls[0][0]).toEqual({ label: 'Para presentear', icon: 'corrente' })
+    expect(onSave.mock.calls[0][0]).toEqual({ label: 'Para presentear', icon: 'corrente', labelColors: { bar: null, sheet: null } })
   })
 
   it('item de LINK não tem o interruptor: o nome é sempre próprio', () => {
@@ -210,7 +212,7 @@ describe('MNM-17 — o ícone do item principal', () => {
     fireEvent.click(screen.getByTestId('icone-opcao-gota-afetiva'))
     salvar()
     await waitFor(() => expect(onSave).toHaveBeenCalled())
-    expect(onSave.mock.calls[0][0]).toEqual({ label: null, icon: 'gota-afetiva' })
+    expect(onSave.mock.calls[0][0]).toEqual({ label: null, icon: 'gota-afetiva', labelColors: { bar: null, sheet: null } })
   })
 
   it('"Sem ícone" grava `null`', async () => {
@@ -218,7 +220,96 @@ describe('MNM-17 — o ícone do item principal', () => {
     fireEvent.click(screen.getByTestId('icone-nenhum'))
     salvar()
     await waitFor(() => expect(onSave).toHaveBeenCalled())
-    expect(onSave.mock.calls[0][0]).toEqual({ label: null, icon: null })
+    expect(onSave.mock.calls[0][0]).toEqual({ label: null, icon: null, labelColors: { bar: null, sheet: null } })
+  })
+})
+
+describe('a cor do texto do item principal', () => {
+  const corBarra = () => screen.getByLabelText('Na barra do computador (fundo escuro)')
+  const corFolha = () => screen.getByLabelText('Na lista do celular (fundo branco)')
+  const tem = (el: Element, t: string) => el.className.split(/\s+/).includes(t)
+
+  it('mostra os dois campos, cada um com o seletor de cor, o código e "Usar a cor padrão"', () => {
+    montar(raizDeCategoria())
+    expect(screen.getByText('Cor do texto')).toBeInTheDocument()
+    expect(corBarra()).toHaveValue('')
+    expect(corFolha()).toHaveValue('')
+    for (const id of ['cor-barra', 'cor-folha']) {
+      const seletor = screen.getByTestId(`${id}-seletor`)
+      expect(seletor).toHaveAttribute('type', 'color')
+      expect(tem(seletor, 'h-11') && tem(seletor, 'w-11') && tem(seletor, 'border-input')).toBe(true)
+      expect(screen.getByTestId(`${id}-padrao`)).toHaveTextContent('Usar a cor padrão')
+    }
+    expect(tem(corBarra(), 'h-11') && tem(corBarra(), 'border-input')).toBe(true)
+    expect(tem(corFolha(), 'h-11') && tem(corFolha(), 'border-input')).toBe(true)
+  })
+
+  it('abre com as cores gravadas do item', () => {
+    montar(raizDeCategoria({ labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }))
+    expect(corBarra()).toHaveValue('#F7F3EC')
+    expect(corFolha()).toHaveValue('#23303A')
+  })
+
+  it('grava as duas cores no patch, junto do nome e do ícone', async () => {
+    montar(raizDeCategoria())
+    fireEvent.change(corBarra(), { target: { value: '#f7f3ec' } })
+    fireEvent.change(screen.getByTestId('cor-folha-seletor'), { target: { value: '#23303a' } })
+    salvar()
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][0]).toEqual({
+      label: null,
+      icon: 'corrente',
+      labelColors: { bar: '#F7F3EC', sheet: '#23303A' },
+    })
+  })
+
+  it('mostra a medida de contraste de core: verde quando passa, vermelha com a frase quando não', () => {
+    montar(raizDeCategoria())
+    fireEvent.change(corBarra(), { target: { value: '#F7F3EC' } })
+    const verde = screen.getByTestId('cor-barra-medida')
+    expect(verde).toHaveTextContent('8,4:1')
+    expect(tem(verde, 'text-emerald-700')).toBe(true)
+
+    fireEvent.change(corBarra(), { target: { value: '#B8945F' } })
+    const vermelha = screen.getByTestId('cor-barra-medida')
+    expect(vermelha).toHaveTextContent('3,3:1')
+    expect(vermelha).toHaveTextContent('Padrão')
+    expect(tem(vermelha, 'text-destructive')).toBe(true)
+
+    fireEvent.change(corFolha(), { target: { value: '#777777' } })
+    expect(screen.getByTestId('cor-folha-medida')).toHaveTextContent('4,4:1')
+  })
+
+  it('a cor ilegível é recusada antes da rede, com a razão e a medida', async () => {
+    montar(raizDeCategoria())
+    fireEvent.change(corBarra(), { target: { value: '#222222' } })
+    salvar()
+    const recusa = await screen.findByTestId('editor-recusa')
+    expect(recusa).toHaveTextContent('1,1:1')
+    expect(recusa).toHaveTextContent('Black Friday')
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('código fora do formato #RRGGBB não é gravado como "sem cor" escondido: recusa e pede o formato', async () => {
+    montar(raizDeCategoria())
+    fireEvent.change(corFolha(), { target: { value: '#12' } })
+    salvar()
+    expect(await screen.findByTestId('editor-recusa')).toHaveTextContent('#RRGGBB')
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('"Usar a cor padrão" volta a `null`', async () => {
+    montar(raizDeCategoria({ labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }))
+    fireEvent.click(screen.getByTestId('cor-barra-padrao'))
+    expect(corBarra()).toHaveValue('')
+    expect(screen.queryByTestId('cor-barra-medida')).toBeNull()
+    salvar()
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][0]).toEqual({
+      label: null,
+      icon: 'corrente',
+      labelColors: { bar: null, sheet: '#23303A' },
+    })
   })
 })
 
@@ -230,7 +321,14 @@ describe('MNM-26 — item de submenu', () => {
     expect(screen.queryByTestId('caixa-banners')).toBeNull()
   })
 
-  it('o patch do filho não leva `icon`', async () => {
+  it('não tem a cor do texto: o submenu fica no padrão', () => {
+    montar(filho(), false)
+    expect(screen.queryByText('Cor do texto')).toBeNull()
+    expect(screen.queryByTestId('cor-barra-seletor')).toBeNull()
+    expect(screen.queryByTestId('cor-folha-seletor')).toBeNull()
+  })
+
+  it('o patch do filho não leva `icon` nem `labelColors`', async () => {
     montar(filho(), false)
     salvar()
     await waitFor(() => expect(onSave).toHaveBeenCalled())

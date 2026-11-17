@@ -111,6 +111,10 @@ describe('legacyMenuDocument — a união das duas superfícies', () => {
     expect(porId('link:blog').target).toEqual({ kind: 'link', href: 'https://exemplo.com/blog' })
   })
 
+  it('o legado não tem cor de rótulo: nenhum item nasce com `labelColors`', () => {
+    expect(doc.items.filter(i => 'labelColors' in i).map(i => i.id)).toEqual([])
+  })
+
   it('categoria sem banners ⇒ banners null', () => {
     expect(porId('cat:afetivas').banners).toBeNull()
   })

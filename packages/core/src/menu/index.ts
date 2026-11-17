@@ -18,3 +18,5 @@ export * from './preview.ts'
 // contrário: `menu.ts` é alcançado pelo Deno por caminho, sem passar por este barril.
 export * from './structure.ts'
 export * from './refusals.ts'
+// A cor do rótulo do item principal, por superfície, e a régua de contraste dela.
+export * from './labelColor.ts'

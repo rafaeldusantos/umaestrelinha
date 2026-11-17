@@ -16,8 +16,10 @@
 
 import {
   bySortOrder,
+  menuLabelColorsOf,
   MENU_SUBMENU_LIMIT,
   type MenuBanners,
+  type MenuLabelColors,
   type MenuCategory,
   type MenuDocument,
   type MenuNode,
@@ -166,6 +168,15 @@ export interface MenuNodePatch {
   target?: MenuNodeTarget
   icon?: string | null
   banners?: MenuBanners | null
+  /** A cor do rótulo por superfície — só do item principal. */
+  labelColors?: MenuLabelColors
+}
+
+/** As duas cores lidas pela régua de `core`: "sem cor" gravado e ausente são a mesma coisa. */
+const mesmasCores = (a: unknown, b: unknown): boolean => {
+  const x = menuLabelColorsOf(a)
+  const y = menuLabelColorsOf(b)
+  return x.bar === y.bar && x.sheet === y.sheet
 }
 
 const aplicar = <T extends MenuNode>(no: T, patch: Partial<T>): T => {
@@ -174,7 +185,7 @@ const aplicar = <T extends MenuNode>(no: T, patch: Partial<T>): T => {
   return { ...no, ...patch }
 }
 
-/** Edita um nó (nome, destino, ícone, banners). Nada muda ⇒ o mesmo documento. */
+/** Edita um nó (nome, destino, ícone, banners, cor do rótulo). Nada muda ⇒ o mesmo documento. */
 export const updateNode = (doc: MenuDocument, nodeId: string, patch: MenuNodePatch): MenuDocument => {
   const daRaiz: Partial<MenuRootNode> = {}
   const doFilho: Partial<MenuNode> = {}
@@ -191,6 +202,14 @@ export const updateNode = (doc: MenuDocument, nodeId: string, patch: MenuNodePat
   let mudou = false
   const items = doc.items.map(i => {
     if (i.id === nodeId) {
+      // A cor é objeto: compara pelo valor, ou a mesma cor reescreveria o documento a cada salvar.
+      if ('labelColors' in patch && !mesmasCores(i.labelColors, patch.labelColors)) {
+        mudou = true
+        const { labelColors: _antes, ...semCor } = aplicar(i, daRaiz)
+        const cores = menuLabelColorsOf(patch.labelColors)
+        // Sem cor nas duas superfícies, a chave sai — a mesma forma que a leitura de `core` devolve.
+        return cores.bar || cores.sheet ? { ...semCor, labelColors: cores } : semCor
+      }
       const proximo = aplicar(i, daRaiz)
       if (proximo !== i) mudou = true
       return proximo
