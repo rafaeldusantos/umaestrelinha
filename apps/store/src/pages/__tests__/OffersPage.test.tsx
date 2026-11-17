@@ -146,7 +146,7 @@ beforeEach(() => {
 describe('a vitrine com campanha em vigência', () => {
   beforeEach(() => {
     estado.respostas = {
-      campaigns: { data: [campanha(BLACK_FRIDAY, [20, 10, 15])], error: null },
+      live_campaigns: { data: [campanha(BLACK_FRIDAY, [20, 10, 15])], error: null },
       products: {
         data: [
           peca('p1', 'Colar de cinzas', 20),
@@ -200,7 +200,7 @@ describe('a vitrine com campanha em vigência', () => {
     )
     const pecas = estado.consultas.find(c => c.tabela === 'products')!
     expect(pecas.filtros).toEqual([['eq', 'oferta.campaign_id', 'camp-bf']])
-    expect(pecas.select).toContain('oferta:product_campaigns!inner(campaign_id)')
+    expect(pecas.select).toContain('oferta:live_product_campaigns!inner(campaign_id)')
   })
 
   it('os chips "Todas · N" e "{p}% · n", com a contagem de cada percentual', async () => {
@@ -249,7 +249,7 @@ describe('a vitrine com campanha em vigência', () => {
 describe('a vitrine com outra campanha ("Dia das Mães")', () => {
   it('o título e o selo são os dela, sem mudança de código', async () => {
     estado.respostas = {
-      campaigns: { data: [campanha(DIA_DAS_MAES, [15])], error: null },
+      live_campaigns: { data: [campanha(DIA_DAS_MAES, [15])], error: null },
       products: { data: [peca('p1', 'Colar de cinzas', 15, DIA_DAS_MAES)], error: null },
       filter_groups: { data: [], error: null },
     }
@@ -264,7 +264,7 @@ describe('a vitrine com outra campanha ("Dia das Mães")', () => {
 
 describe('a vitrine sem campanha em vigência', () => {
   beforeEach(() => {
-    estado.respostas = { campaigns: { data: [], error: null }, filter_groups: { data: [], error: null } }
+    estado.respostas = { live_campaigns: { data: [], error: null }, filter_groups: { data: [], error: null } }
   })
 
   it('diz que não há ofertas agora, com a trilha, o texto e o botão literais, e leva às coleções', async () => {

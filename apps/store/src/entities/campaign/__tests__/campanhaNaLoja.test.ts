@@ -12,10 +12,12 @@ import { contrastRatio } from '@estrelinha/core/color'
  * 1. **O selo só usa as cores da campanha.** As duas cores vêm do cadastro, por `style` inline; um
  *    token da paleta da loja (`estrelinha-*`) nos componentes do selo faria a faixa mudar quando a
  *    paleta muda — e nada quebraria: build, `tsc` e teste de componente passam com as duas cores.
- * 2. **A loja não decide a vigência.** Quem decide é a policy pública de `campaigns` (relógio do
- *    banco). Uma chamada à regra de vigência no navegador usaria o relógio do aparelho da cliente, e
- *    a loja mostraria um preço que o servidor não cobra. Allowlist de UM, escrito literalmente: o
- *    mapeador — e a metade positiva prova que ele é quem precifica.
+ * 2. **A loja não decide a vigência.** Quem decide é o banco, pelas views da vigência
+ *    (`live_campaigns`, `live_product_campaigns`, relógio do banco) — também para a sessão de admin,
+ *    a quem a tabela crua entrega toda campanha. Uma chamada à regra de vigência no navegador usaria
+ *    o relógio do aparelho da cliente, e a loja mostraria um preço que o servidor não cobra.
+ *    Allowlist de UM, escrito literalmente: o mapeador — e a metade positiva prova que ele é quem
+ *    precifica, e que a marcação vem da view.
  * 3. **O par de cores com que a campanha nasce passa no contraste** pela medida de `core/color`.
  *
  * Âncora dupla: a varredura leu arquivos E encontrou os componentes do selo e o mapeador.
@@ -84,14 +86,14 @@ describe('a loja não decide a vigência da campanha', () => {
     expect(achados).toEqual([])
   })
 
-  it('o mapeador também não a chama — confia na leitura pública filtrada por `now()`', () => {
+  it('o mapeador também não a chama — confia na view filtrada por `now()` do banco', () => {
     expect(VIGENCIA.test(de(MAPEADOR)!.codigo)).toBe(false)
   })
 
-  it('metade positiva: o mapeador precifica pela função de `core` e pede a marcação pelo embed', () => {
+  it('metade positiva: o mapeador precifica pela função de `core` e pede a marcação pela view da vigência', () => {
     const codigo = de(MAPEADOR)!.codigo
     expect(codigo).toMatch(/\bcampaignUnitPrice\(/)
-    expect(codigo).toContain("'product_campaigns(percent, campaigns(")
+    expect(codigo).toContain(':live_product_campaigns(percent, campaigns(')
   })
 
   it('sensor: a chamada com o relógio do navegador é acusada, a prosa sem parênteses não', () => {

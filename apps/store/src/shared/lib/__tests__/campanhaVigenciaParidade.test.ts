@@ -12,6 +12,11 @@ import { isCampaignLive } from '@estrelinha/core/campaigns'
  * - **`isCampaignLive`** (`core/campaigns/live.ts`) é quem responde a mesma pergunta para o painel,
  *   as functions e o feed, com o relógio de quem chama.
  *
+ * Desde as views da vigência (`live_campaigns` e `live_product_campaigns`, que a loja lê para não
+ * receber, com sessão de admin, as campanhas que a policy de admin entrega), há uma TERCEIRA escrita:
+ * o filtro de `live_campaigns`. A view das marcações não o repete — pergunta à das campanhas —, e
+ * este arquivo confere as duas coisas.
+ *
  * Duas cópias da mesma regra é o "defeito 01", e a contrapartida obrigatória é este arquivo (molde
  * de `materialTransitions.test.ts`): ele **lê a policy do disco**, interpreta o predicado dela e
  * confere que as duas respondem IGUAL nas bordas — o instante do início (inclusivo), o do fim
@@ -28,6 +33,8 @@ const ROOT = resolve(HERE, '../../../../../..')
 /** O caminho por extenso: a régua nunca é o objeto medido. */
 const MIGRATION = join(ROOT, 'supabase/migrations/20261130120000_102-campanhas.sql')
 const SQL = readFileSync(MIGRATION, 'utf8').replace(/\r\n/g, '\n').replace(/--[^\n]*/g, '')
+const MIGRATION_VIGENCIA = join(ROOT, 'supabase/migrations/20261130160000_103-campanha-vigente.sql')
+const SQL_VIGENCIA = readFileSync(MIGRATION_VIGENCIA, 'utf8').replace(/\r\n/g, '\n').replace(/--[^\n]*/g, '')
 
 const mutar = (texto: string, de: string | RegExp, para: string): string => {
   const mutante = texto.replace(de, para)
@@ -38,6 +45,18 @@ const mutar = (texto: string, de: string | RegExp, para: string): string => {
 /** O `using` da policy pública de `campaigns`, ou `null`. */
 const predicadoDaPolicy = (sql: string): string | null => {
   const m = sql.match(/create policy "campaigns_public_read" on public\.campaigns\s+for select[\s\S]*?using \(([\s\S]*?)\);/i)
+  return m ? m[1].replace(/\s+/g, ' ').trim() : null
+}
+
+/** O `where` da view `live_campaigns`, ou `null`. */
+const predicadoDaView = (sql: string): string | null => {
+  const m = sql.match(/create or replace view public\.live_campaigns\b[\s\S]*?from public\.campaigns\s+where ([\s\S]*?);/i)
+  return m ? m[1].replace(/\s+/g, ' ').trim() : null
+}
+
+/** O `where` da view `live_product_campaigns`, ou `null`. */
+const filtroDasMarcacoes = (sql: string): string | null => {
+  const m = sql.match(/create or replace view public\.live_product_campaigns\b[\s\S]*?from public\.product_campaigns pc\s+where ([\s\S]*?);/i)
   return m ? m[1].replace(/\s+/g, ' ').trim() : null
 }
 
@@ -138,5 +157,42 @@ describe('a vigência da campanha — a policy pública e `isCampaignLive` respo
   it('sensor — um termo fora do vocabulário LANÇA, em vez de ser lido como verdadeiro', () => {
     const mutante = mutar(SQL, 'now() < ends_at', 'coalesce(ends_at, now()) > now()')
     expect(() => interpretar(predicadoDaPolicy(mutante)!)).toThrow(/condição desconhecida/)
+  })
+})
+
+describe('a vigência da campanha — a view que a loja lê responde igual à policy e a `core`', () => {
+  it('âncora: o filtro da view foi encontrado e tem as três condições', () => {
+    const predicado = predicadoDaView(SQL_VIGENCIA)
+    expect(predicado).not.toBeNull()
+    expect(predicado!.split(/\s+and\s+/i)).toHaveLength(3)
+  })
+
+  it('nas bordas, a view e `core` dão a mesma resposta (18 casos)', () => {
+    expect(divergencias(interpretar(predicadoDaView(SQL_VIGENCIA)!))).toEqual([])
+  })
+
+  it('o filtro da view é, termo a termo, o `using` da policy pública', () => {
+    expect(predicadoDaView(SQL_VIGENCIA)).toBe(predicadoDaPolicy(SQL))
+  })
+
+  it('a view das marcações não reescreve a vigência: pergunta à view das campanhas', () => {
+    expect(filtroDasMarcacoes(SQL_VIGENCIA)).toBe('exists (select 1 from public.live_campaigns lc where lc.id = pc.campaign_id)')
+  })
+
+  it('sensor — o fim INCLUSIVO na view diverge no instante do fim', () => {
+    const mutante = mutar(SQL_VIGENCIA, 'now() < ends_at', 'now() <= ends_at')
+    expect(divergencias(interpretar(predicadoDaView(mutante)!))).toEqual([
+      'ligada @ 2026-12-01T03:00:00.000Z: SQL true × TS false',
+    ])
+  })
+
+  it('sensor — a view sem `active` diverge na desligada', () => {
+    const mutante = mutar(SQL_VIGENCIA, 'where active and ', 'where ')
+    expect(divergencias(interpretar(predicadoDaView(mutante)!)).length).toBeGreaterThan(0)
+  })
+
+  it('sensor — a view das marcações lendo a tabela crua de campanhas é acusada', () => {
+    const mutante = mutar(SQL_VIGENCIA, 'from public.live_campaigns lc', 'from public.campaigns lc')
+    expect(filtroDasMarcacoes(mutante)).not.toBe(filtroDasMarcacoes(SQL_VIGENCIA))
   })
 })

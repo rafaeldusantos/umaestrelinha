@@ -1,9 +1,11 @@
 // A campanha de desconto em vigência — ou nenhuma.
 //
-// Quem decide a vigência é o BANCO: a policy pública de `campaigns` só entrega a campanha ligada com
-// `starts_at <= now() < ends_at`. A loja nunca a decide com o relógio do navegador (a hora do
-// aparelho da cliente pode estar errada, e o preço cobrado é o do servidor). Por isso este hook não
-// chama `isCampaignLive`: linha devolvida é campanha valendo.
+// Quem decide a vigência é o BANCO: a view `live_campaigns` só entrega a campanha ligada com
+// `starts_at <= now() < ends_at`, para qualquer sessão — a tabela `campaigns` crua não serve à loja,
+// porque com sessão de admin aberta a policy de admin entrega também a agendada, a encerrada e a
+// desligada. A loja nunca decide a vigência com o relógio do navegador (a hora do aparelho da
+// cliente pode estar errada, e o preço cobrado é o do servidor). Por isso este hook não chama
+// `isCampaignLive`: linha devolvida é campanha valendo.
 
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
@@ -47,7 +49,7 @@ export const toLiveCampaign = (rows: readonly unknown[]): LiveCampaign | null =>
 export const liveCampaignQueryOptions = () => ({
   queryKey: LIVE_CAMPAIGN_KEY,
   queryFn: async (): Promise<LiveCampaign | null> => {
-    const { data, error } = await supabase.from('campaigns').select(LIVE_CAMPAIGN_SELECT)
+    const { data, error } = await supabase.from('live_campaigns').select(LIVE_CAMPAIGN_SELECT)
     if (error) {
       throw new LiveCampaignQueryError(`carregar campanha: ${error.message ?? 'erro desconhecido'}`)
     }

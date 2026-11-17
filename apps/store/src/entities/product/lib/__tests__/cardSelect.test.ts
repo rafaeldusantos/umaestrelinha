@@ -144,7 +144,7 @@ describe('PRODUCT_CARD_SELECT — a forma do select', () => {
     expect(colunas.length).toBeGreaterThanOrEqual(20)
     expect(embeds.map(e => e.relacao).sort()).toEqual([
       'categories',
-      'product_campaigns',
+      'live_product_campaigns',
       'product_categories',
       'product_filter_values',
       'product_option_filter_values',
@@ -454,19 +454,19 @@ describe('PRODUCT_CARD_SELECT — sensores da régua', () => {
 })
 
 describe('campanhas de desconto — a marcação em vigência chega pelos três `select` da vitrine', () => {
-  // A linha completa com a marcação como o banco a tem: com `campaign_id`/`created_at` que o `select`
-  // não pede, e a campanha com colunas a mais (`starts_at`, `active`) que a RLS já filtrou.
+  // A linha completa com a marcação como o banco a tem: pela view `live_product_campaigns` (a
+  // vigência aplicada pelo banco, também para a sessão de admin), com `campaign_id` que o `select`
+  // não pede, e a campanha com colunas a mais (`starts_at`, `active`).
   const COM_CAMPANHA: Record<string, unknown> = {
     ...LINHA_COMPLETA,
     base_price: 209.9,
     original_price: null,
     product_variants: [],
-    product_campaigns: [
+    live_product_campaigns: [
       {
         product_id: 'prod-1',
         campaign_id: 'camp-bf',
         percent: 20,
-        created_at: '2026-11-01T00:00:00Z',
         campaigns: {
           id: 'camp-bf',
           name: 'Black Friday',
@@ -481,10 +481,13 @@ describe('campanhas de desconto — a marcação em vigência chega pelos três 
     ],
   }
 
-  it('o embed pede só o percentual e a campanha com as colunas do selo, nunca `*`', () => {
+  it('o embed lê a view da vigência, com o nome que o mapeador lê, e pede só o percentual e a campanha com as colunas do selo, nunca `*`', () => {
     for (const select of [PRODUCT_CARD_SELECT, PRODUCT_SELECT]) {
-      const embed = parseSelect(select).embeds.find(e => e.relacao === 'product_campaigns')
+      const embed = parseSelect(select).embeds.find(e => e.relacao === 'live_product_campaigns')
       expect(embed, select).toBeDefined()
+      expect(embed!.alias, select).toBe('product_campaigns')
+      // A tabela crua não é embutida: com sessão de admin ela entrega as marcações de toda campanha.
+      expect(parseSelect(select).embeds.filter(e => e.relacao === 'product_campaigns'), select).toEqual([])
       expect(embed!.colunas).toEqual([
         'percent',
         'campaigns(id, name, badge_text, band_color, accent_color, ends_at)',
@@ -503,7 +506,7 @@ describe('campanhas de desconto — a marcação em vigência chega pelos três 
 
   it('sensor: sem o embed, a peça chega com o preço de sempre — a régua acima não passa por acaso', () => {
     const sem = PRODUCT_CARD_SELECT.replace(
-      ', product_campaigns(percent, campaigns(id, name, badge_text, band_color, accent_color, ends_at))',
+      ', product_campaigns:live_product_campaigns(percent, campaigns(id, name, badge_text, band_color, accent_color, ends_at))',
       '',
     )
     expect(sem).not.toBe(PRODUCT_CARD_SELECT)

@@ -4,14 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
 /**
- * A campanha em vigência, lida pela policy pública de `campaigns` (filtrada por `now()` no banco).
- * O dublê ENXERGA a tabela e o `select`: um que devolvesse dado para qualquer chamada aprovaria um
- * hook que lê a tabela errada.
+ * A campanha em vigência, lida da view `live_campaigns` — a vigência é aplicada pelo banco, com o
+ * relógio dele, para qualquer sessão (a de admin inclusive: a policy de admin de `campaigns` entrega
+ * todas). O dublê ENXERGA a tabela e o `select`: um que devolvesse dado para qualquer chamada
+ * aprovaria um hook que lê a tabela errada.
  */
 const { fromMock, selectMock } = vi.hoisted(() => ({ fromMock: vi.fn(), selectMock: vi.fn() }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
-import { LIVE_CAMPAIGN_SELECT, useLiveCampaign } from '../useLiveCampaign'
+import { LIVE_CAMPAIGN_SELECT, LiveCampaignQueryError, useLiveCampaign } from '../useLiveCampaign'
 
 let client: QueryClient
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -26,7 +27,7 @@ beforeEach(() => {
 })
 
 describe('useLiveCampaign', () => {
-  it('lê `campaigns` com os percentuais embutidos e devolve a campanha com eles em ordem', async () => {
+  it('lê `live_campaigns` com os percentuais embutidos e devolve a campanha com eles em ordem', async () => {
     selectMock.mockResolvedValue({
       data: [
         {
@@ -44,7 +45,8 @@ describe('useLiveCampaign', () => {
     const { result } = renderHook(() => useLiveCampaign(), { wrapper })
     await waitFor(() => expect(result.current.data).toBeTruthy())
 
-    expect(fromMock).toHaveBeenCalledWith('campaigns')
+    expect(fromMock).toHaveBeenCalledTimes(1)
+    expect(fromMock).toHaveBeenCalledWith('live_campaigns')
     expect(selectMock).toHaveBeenCalledWith(LIVE_CAMPAIGN_SELECT)
     expect(LIVE_CAMPAIGN_SELECT).toContain('campaign_percents(percent)')
     expect(result.current.data).toEqual({
@@ -70,5 +72,6 @@ describe('useLiveCampaign', () => {
     const { result } = renderHook(() => useLiveCampaign(), { wrapper })
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(result.current.data).toBeUndefined()
+    expect(result.current.error).toBeInstanceOf(LiveCampaignQueryError)
   })
 })

@@ -355,3 +355,103 @@ describe('a migration não escreve dado', () => {
     expect(escreveDado(`${LIMPO}\nupdate public.products set base_price = 1;`)).toBe(true)
   })
 })
+
+// -------------------------------------------------------------------------------------------
+// A campanha que a loja vê — as views da vigência
+// -------------------------------------------------------------------------------------------
+//
+// Com sessão de admin aberta na loja ou na prévia, a policy de admin de `campaigns` e a de
+// `product_campaigns` entregam TODAS as campanhas e marcações — a agendada, a encerrada e a desligada
+// junto. A loja passa a ler por duas views que aplicam a vigência no banco, para qualquer sessão. As
+// policies ficam como estão: o painel lê todas as campanhas pela de admin.
+//
+// O comportamento (admin e visitante vendo só a vigente, pelas views e pelo embed HTTP) é do probe
+// `01-campanha-vigente.sql`; aqui se guarda a forma.
+
+/** O caminho por extenso, de propósito: a régua nunca é o objeto medido. */
+const MIGRATION_VIGENCIA = join(ROOT, 'supabase/migrations/20261130160000_103-campanha-vigente.sql')
+
+const SQL_VIGENCIA = readFileSync(MIGRATION_VIGENCIA, 'utf8')
+const VIGENCIA = semComentario(SQL_VIGENCIA)
+
+const VIEWS = ['live_campaigns', 'live_product_campaigns'] as const
+
+/** O corpo (`select …`) da view, quando ela é criada com `security_invoker`; `null` sem ele. */
+const viewDaVigencia = (texto: string, view: string): string | null => {
+  const m = texto.match(
+    new RegExp(`create or replace view public\\.${view} with \\(security_invoker = true\\) as\\s+([\\s\\S]*?);`, 'i'),
+  )
+  return m ? m[1].replace(/\s+/g, ' ').trim() : null
+}
+
+/** As colunas do `select` de topo da view, na ordem. */
+const colunasDaView = (corpo: string | null): string[] | null => {
+  const m = corpo?.match(/^select (.*?) from /i)
+  return m ? m[1].split(',').map(c => c.trim()) : null
+}
+
+/** Todo `grant` da migration, normalizado. */
+const grants = (texto: string): string[] =>
+  [...texto.matchAll(/\bgrant\b[^;]*;/gi)].map(m => m[0].replace(/\s+/g, ' ').trim())
+
+/** Qualquer comando que mexa em policy ou em tabela — a migration só cria leitura. */
+const mexeEmPolicyOuTabela = (texto: string): boolean =>
+  /\b(create|drop|alter)\s+policy\b|\balter\s+table\b|\bdrop\s+(table|view)\b|\bdisable\s+row\s+level\s+security\b/i.test(texto)
+
+describe('as views da vigência — âncora', () => {
+  it('a migration foi lida e as duas views foram encontradas', () => {
+    expect(SQL_VIGENCIA.length).toBeGreaterThan(500)
+    for (const v of VIEWS) expect(viewDaVigencia(VIGENCIA, v), v).not.toBeNull()
+  })
+})
+
+describe('as views da vigência — a forma', () => {
+  it.each(VIEWS)('%s roda com a RLS de quem consulta (`security_invoker`)', view => {
+    expect(viewDaVigencia(VIGENCIA, view)).not.toBeNull()
+    const sem = mutar(VIGENCIA, `public.${view} with (security_invoker = true) as`, `public.${view} as`)
+    expect(viewDaVigencia(sem, view)).toBeNull()
+  })
+
+  it('`live_campaigns` entrega as colunas que a loja lê, só da campanha em vigência pelo `now()` do banco', () => {
+    const corpo = viewDaVigencia(VIGENCIA, 'live_campaigns')!
+    expect(colunasDaView(corpo)).toEqual(['id', 'name', 'badge_text', 'band_color', 'accent_color', 'ends_at'])
+    expect(corpo).toMatch(/ from public\.campaigns where active and starts_at <= now\(\) and now\(\) < ends_at$/i)
+    const semFiltro = mutar(VIGENCIA, /\s+where active and starts_at <= now\(\) and now\(\) < ends_at/i, '')
+    expect(viewDaVigencia(semFiltro, 'live_campaigns')).not.toMatch(/now\(\)/)
+  })
+
+  it('`live_product_campaigns` entrega a marcação só da campanha que `live_campaigns` entrega', () => {
+    const corpo = viewDaVigencia(VIGENCIA, 'live_product_campaigns')!
+    expect(colunasDaView(corpo)).toEqual(['pc.product_id', 'pc.campaign_id', 'pc.percent'])
+    expect(corpo).toMatch(
+      /^select .* from public\.product_campaigns pc where exists \(select 1 from public\.live_campaigns lc where lc\.id = pc\.campaign_id\)$/i,
+    )
+    const crua = mutar(VIGENCIA, /\s+where exists \(select 1 from public\.live_campaigns lc where lc\.id = pc\.campaign_id\)/i, '')
+    expect(viewDaVigencia(crua, 'live_product_campaigns')).not.toMatch(/live_campaigns/)
+  })
+
+  it('o `select` alcança só `anon` e `authenticated`, e ninguém recebe escrita', () => {
+    for (const v of VIEWS) {
+      expect(VIGENCIA).toMatch(new RegExp(`revoke all on public\\.${v} from public, anon, authenticated;`, 'i'))
+    }
+    expect(grants(VIGENCIA)).toEqual([
+      'grant select on public.live_campaigns to anon, authenticated;',
+      'grant select on public.live_product_campaigns to anon, authenticated;',
+    ])
+    expect(grants(`${VIGENCIA}\ngrant insert on public.live_campaigns to anon;`)).toHaveLength(3)
+    expect(
+      mutar(VIGENCIA, /revoke all on public\.live_product_campaigns from public, anon, authenticated;/i, ''),
+    ).not.toMatch(/revoke all on public\.live_product_campaigns/i)
+  })
+
+  it('não toca em policy nem em tabela — o painel lê todas as campanhas pela policy de admin', () => {
+    expect(mexeEmPolicyOuTabela(VIGENCIA)).toBe(false)
+    expect(mexeEmPolicyOuTabela(`${VIGENCIA}\ndrop policy if exists "x" on public.campaigns;`)).toBe(true)
+    expect(mexeEmPolicyOuTabela(`${VIGENCIA}\nalter table public.campaigns enable row level security;`)).toBe(true)
+  })
+
+  it('não escreve dado', () => {
+    expect(escreveDado(VIGENCIA)).toBe(false)
+    expect(escreveDado(`${VIGENCIA}\ndelete from public.product_campaigns;`)).toBe(true)
+  })
+})

@@ -42,10 +42,12 @@ export const PRODUCT_OPTION_MARKS_EMBED = 'product_option_filter_values(option_n
 /**
  * Campanhas de desconto — a marcação da peça na campanha em vigência, nos dois `select`.
  *
- * A RLS de `product_campaigns` e de `campaigns` entrega à loja só a campanha LIGADA com
- * `starts_at <= now() < ends_at` (relógio do banco) e a marcação de peça ativa. Por isso este
- * mapeador não olha relógio nenhum: marcação presente com a campanha embutida é campanha valendo.
- * A agendada, a encerrada e a desligada chegam como lista vazia (ou com a campanha `null`).
+ * A marcação vem da view `live_product_campaigns`, que só entrega as marcações da campanha LIGADA
+ * com `starts_at <= now() < ends_at` (relógio do banco) — para qualquer sessão. A tabela crua não
+ * serve à loja: com sessão de admin aberta, a policy de admin entrega as marcações de toda campanha.
+ * O alias mantém a chave `product_campaigns` na linha devolvida, que é a que este mapeador lê. Por
+ * isso ele não olha relógio nenhum: marcação presente com a campanha embutida é campanha valendo.
+ * A agendada, a encerrada e a desligada chegam como lista vazia.
  *
  * Este arquivo é o ÚNICO da loja que decide o preço da peça de campanha: ele chama
  * `campaignUnitPrice` (`@estrelinha/core/campaigns`), a mesma função do servidor, e devolve o preço
@@ -53,7 +55,7 @@ export const PRODUCT_OPTION_MARKS_EMBED = 'product_option_filter_values(option_n
  * campanha.
  */
 export const PRODUCT_CAMPAIGNS_EMBED =
-  'product_campaigns(percent, campaigns(id, name, badge_text, band_color, accent_color, ends_at))'
+  'product_campaigns:live_product_campaigns(percent, campaigns(id, name, badge_text, band_color, accent_color, ends_at))'
 
 /**
  * O `select` que traz tudo o que este mapper lê. Uma string só, para os 3 hooks não divergirem.
@@ -203,7 +205,7 @@ const toOptionMarks = (raw: unknown): OptionMark[] =>
     : []
 
 /**
- * O embed `product_campaigns(...)` → a campanha em vigência com o percentual da peça, ou `null`.
+ * O embed da marcação (chave `product_campaigns`) → a campanha em vigência com o percentual da peça, ou `null`.
  * Só há uma campanha ligada por vez (exclusão no banco); a primeira linha com a campanha embutida e
  * um percentual numérico vale. Linha torta é descartada, nunca página quebrada.
  */

@@ -3,7 +3,7 @@ import { mapDbToProduct } from '../mapProduct'
 
 // O preço efetivo da peça de campanha, entregue pelo mapeador.
 //
-// A marcação chega pelo embed `product_campaigns(percent, campaigns(...))`, que a RLS só preenche
+// A marcação chega pelo embed da view `live_product_campaigns` (chave `product_campaigns`), que só preenche
 // para a campanha EM VIGÊNCIA (ligada, `starts_at <= now() < ends_at`) e peça ativa. O mapeador não
 // olha relógio: marcação presente com a campanha embutida é campanha valendo. Os valores esperados
 // são os dos critérios de aceite (R$ 209,90 a 20% = R$ 167,92; R$ 259,90/R$ 239,90 a 10% = R$ 233,91).

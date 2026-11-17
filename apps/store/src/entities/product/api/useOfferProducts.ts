@@ -8,14 +8,15 @@ import type { Product } from '@estrelinha/supabase/types'
  * As peças da vitrine `/ofertas` — as marcadas na campanha de desconto EM VIGÊNCIA.
  *
  * A vitrine é DERIVADA das marcações, nunca uma linha em `categories` com vínculos gravados: o filtro
- * roda no servidor por um embed **aliased** de `product_campaigns` com `!inner`, pela mesma razão do
+ * roda no servidor por um embed **aliased** da view `live_product_campaigns` com `!inner`, pela mesma razão do
  * alias da categoria (`PRODUCT_CARD_SELECT_BY_CATEGORY`): o embed completo da marcação, que o
  * mapeador lê para o preço e o selo, volta inteiro, e só `oferta` é recortado.
  *
- * A RLS faz o resto: a marcação só é pública para peça ATIVA e campanha ligada dentro da vigência
- * (relógio do banco), e `products` só entrega a peça ativa. A loja não decide a vigência.
+ * O banco faz o resto: a view só entrega as marcações da campanha ligada dentro da vigência (relógio
+ * do banco), também para a sessão de admin — a tabela crua de marcações, com essa sessão, entrega as
+ * de toda campanha —, e `products` só entrega a peça ativa ao visitante. A loja não decide a vigência.
  */
-export const PRODUCT_CARD_SELECT_BY_CAMPAIGN = `${PRODUCT_CARD_SELECT}, oferta:product_campaigns!inner(campaign_id)`
+export const PRODUCT_CARD_SELECT_BY_CAMPAIGN = `${PRODUCT_CARD_SELECT}, oferta:live_product_campaigns!inner(campaign_id)`
 
 /** A coluna do embed aliased, para o `.eq()` da campanha. */
 export const CAMPAIGN_FILTER_COLUMN = 'oferta.campaign_id'

@@ -79,7 +79,7 @@ describe('useCampaignOfferProducts', () => {
 
     expect(chamadas).toContainEqual(['from', 'products'])
     expect(chamadas).toContainEqual(['select', CAMPAIGN_OFFERS_SELECT])
-    expect(CAMPAIGN_OFFERS_SELECT).toContain('oferta:product_campaigns!inner(campaign_id)')
+    expect(CAMPAIGN_OFFERS_SELECT).toContain('oferta:live_product_campaigns!inner(campaign_id)')
     expect(chamadas).toContainEqual(['eq', 'oferta.campaign_id', 'camp-bf'])
     expect(chamadas).toContainEqual(['limit', 4])
   })
