@@ -375,7 +375,12 @@ const ProductCard = ({
           </h3>
           {campanha && hasDiscount ? (
             <div className="flex flex-col">
-              <span className="text-[13px] font-medium leading-[16px] text-estrelinha-ink-soft line-through">
+              {/*
+                `relative` prende o "De " do leitor de tela (`sr-only`, que é absoluto) ao próprio
+                preço. Sem ancestral posicionado dentro do card, o bloco de contenção dele fica fora da
+                fita que rola: ele escapa do recorte dela e alarga a página no celular.
+              */}
+              <span className="relative text-[13px] font-medium leading-[16px] text-estrelinha-ink-soft line-through">
                 <span className="sr-only">De </span>
                 {formatPrice(selectedCompare!)}
               </span>
