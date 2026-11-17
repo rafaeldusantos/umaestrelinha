@@ -298,6 +298,76 @@ describe('a cor do texto do item principal', () => {
     expect(onSave).not.toHaveBeenCalled()
   })
 
+  describe('apagar o código inteiro é "sem cor" naquela superfície', () => {
+    /**
+     * Os dois jeitos de o campo ficar vazio: o teclado (o navegador troca o valor e avisa) e o
+     * preenchimento por fora — autopreenchimento, automação —, que escreve `value` direto no campo e
+     * só depois dispara o `input`.
+     */
+    const apagarPeloTeclado = (campo: HTMLElement) => fireEvent.change(campo, { target: { value: '' } })
+    const apagarPorFora = (campo: HTMLElement) => {
+      ;(campo as HTMLInputElement).value = ''
+      fireEvent.input(campo)
+    }
+
+    for (const [como, apagar] of [
+      ['pelo teclado', apagarPeloTeclado],
+      ['por preenchimento vazio', apagarPorFora],
+    ] as const) {
+      it(`${como}: o campo fica vazio, sem a recusa da cor apagada e com o seletor no preto da lista`, () => {
+        montar(raizDeCategoria())
+        fireEvent.change(corFolha(), { target: { value: '#E8C77A' } })
+        expect(screen.getByTestId('cor-folha-medida')).toHaveTextContent('1,6:1')
+
+        apagar(corFolha())
+
+        expect(corFolha()).toHaveValue('')
+        expect(screen.queryByTestId('cor-folha-medida')).toBeNull()
+        expect(screen.getByTestId('cor-folha-seletor')).toHaveValue('#000000')
+        expect(screen.getByTestId('cor-folha-padrao')).toBeDisabled()
+      })
+
+      it(`${como}: digitar no OUTRO campo não devolve o código apagado`, () => {
+        montar(raizDeCategoria())
+        fireEvent.change(corFolha(), { target: { value: '#E8C77A' } })
+        apagar(corFolha())
+
+        fireEvent.change(corBarra(), { target: { value: '#F' } })
+
+        expect(corFolha()).toHaveValue('')
+        expect(screen.queryByTestId('cor-folha-medida')).toBeNull()
+        expect(screen.getByTestId('cor-folha-seletor')).toHaveValue('#000000')
+      })
+
+      it(`${como}: Salvar grava a lista sem cor, e a barra com a que ficou`, async () => {
+        montar(raizDeCategoria({ labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }))
+        fireEvent.change(corFolha(), { target: { value: '#E8C77A' } })
+        apagar(corFolha())
+        salvar()
+        await waitFor(() => expect(onSave).toHaveBeenCalled())
+        expect(onSave.mock.calls[0][0]).toEqual({
+          label: null,
+          icon: 'corrente',
+          labelColors: { bar: '#F7F3EC', sheet: null },
+        })
+      })
+
+      it(`${como}: apagadas as duas, o item fica sem cor nenhuma`, async () => {
+        montar(raizDeCategoria({ labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }))
+        apagar(corBarra())
+        apagar(corFolha())
+        expect(screen.getByTestId('cor-barra-seletor')).toHaveValue('#ffffff')
+        salvar()
+        await waitFor(() => expect(onSave).toHaveBeenCalled())
+        expect(onSave.mock.calls[0][0]).toEqual({
+          label: null,
+          icon: 'corrente',
+          labelColors: { bar: null, sheet: null },
+        })
+      })
+    }
+  })
+
   it('"Usar a cor padrão" volta a `null`', async () => {
     montar(raizDeCategoria({ labelColors: { bar: '#F7F3EC', sheet: '#23303A' } }))
     fireEvent.click(screen.getByTestId('cor-barra-padrao'))

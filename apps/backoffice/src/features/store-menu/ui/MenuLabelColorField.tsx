@@ -30,6 +30,10 @@ const MenuLabelColorField = ({ id, label, surface, value, placeholderColor, onCh
   const valida = MENU_LABEL_HEX.test(value)
   const recusa = valida ? menuLabelColorSurfaceRefusal(value, surface) : null
   const aprovacao = valida ? menuLabelColorApproval(value, surface) : null
+  // O `onChange` do React só avisa quando o valor difere do último que ELE viu no campo; quem escreve
+  // `value` direto e depois dispara o `input` (autopreenchimento, automação) passa calado, e o campo
+  // vazio fica mostrando "sem cor" com a cor anterior ainda no estado. O `input` nativo avisa sempre.
+  const digitado = (e: { currentTarget: HTMLInputElement }) => onChange(e.currentTarget.value.trim().toUpperCase())
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
@@ -48,7 +52,8 @@ const MenuLabelColorField = ({ id, label, surface, value, placeholderColor, onCh
           value={value}
           maxLength={7}
           placeholder="Padrão"
-          onChange={e => onChange(e.target.value.trim().toUpperCase())}
+          onChange={digitado}
+          onInput={digitado}
           className="h-11 w-32 min-w-0 border-input font-mono uppercase"
         />
         <Button
