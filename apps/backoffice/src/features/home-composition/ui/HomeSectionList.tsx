@@ -20,7 +20,8 @@ import {
 } from 'react'
 import { reorderSections, type ResolvedSection } from '@estrelinha/core/home'
 import type { AdminCampaign } from '@/entities/campaign'
-import HomeSectionRow, { type CampanhasDaLista } from './HomeSectionRow'
+import { secaoNoAr, type CampanhasDaLista } from '../model/sectionOnAir'
+import HomeSectionRow from './HomeSectionRow'
 
 interface Props {
   /** Já resolvida por `resolveHomeSections` — a mesma regra que a loja usa para desenhar. */
@@ -220,7 +221,9 @@ const HomeSectionList = ({
     error: campaignsError,
     now: agora,
   }
-  const noAr = resolved.filter(e => e.section.active).length
+  // A mesma resposta que a linha dá no estado: o bloco "Joias em oferta" ligado fora de vigência não
+  // aparece na loja, e não entra na conta.
+  const noAr = resolved.filter(e => secaoNoAr(e.section, campanhas)).length
   const { acesas, entrando } = useMovimentoDaLista(resolved)
 
   /**

@@ -139,7 +139,19 @@ const CampaignOffersEditor = ({
   }, [campaignId, marcas.ids])
 
   const escolhidos = items.map(i => i.product_id).filter((id): id is string => !!id)
-  const pecas = useCampaignPiecesState(campaignId, escolhidos)
+  // A conta "N das M saíram do ar" junta as peças do rascunho e as apagadas do catálogo que a seção
+  // GRAVADA ainda tem (item sem id, pelo nome congelado): a apagada é escolhida até a dona salvar,
+  // mesmo depois que a conferência a tirou do rascunho. Salvo, a seção relida já não a tem — e a
+  // conta volta a ser a mesma da linha da lista, com o editor ainda aberto (`VIV-05`).
+  const pecas = useCampaignPiecesState(campaignId, [
+    ...items
+      .filter(i => !!i.product_id)
+      .map(i => ({ product_id: i.product_id, label_snapshot: i.label_snapshot ?? null })),
+    ...[...(section.items ?? [])]
+      .filter(i => !i.product_id)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .map(i => ({ product_id: null, label_snapshot: i.label_snapshot ?? null })),
+  ])
   const estadoPorId = new Map((pecas.states ?? []).map(s => [s.product_id, s.status]))
   const foraDoAr = pecas.states ? piecesOffAirText(pecas.states) : null
   const naoBarateadas = pecas.states ? piecesNotLoweredText(pecas.states) : null

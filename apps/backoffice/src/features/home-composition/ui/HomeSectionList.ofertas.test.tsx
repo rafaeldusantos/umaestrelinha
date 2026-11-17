@@ -4,7 +4,7 @@
 // A lista é montada pelo `resolveHomeSections` de verdade, e as peças são lidas pelo hook de
 // verdade sobre o dublê do client, que responde às marcações da campanha e às peças por id.
 
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -211,6 +211,60 @@ describe('a linha do bloco "Joias em oferta" — a campanha e o estado', () => {
   })
 })
 
+describe('a linha do bloco "Joias em oferta" — está no ar? pela mesma regra da loja', () => {
+  const contador = () => screen.getByTestId('contador-secoes').textContent
+  const estado = (id = 'ofertas') => within(linha(id)).getByTestId(`estado-${id}`).textContent
+  const newsletter = bloco({ id: 'newsletter', type: 'newsletter', position: 2, campaign_id: undefined })
+
+  it.each([
+    ['sem campanha', null],
+    ['com campanha agendada', 'c-maes'],
+    ['com campanha desligada', 'c-pausada'],
+    ['com campanha encerrada', 'c-inverno'],
+  ])('ligado %s: a linha não diz "No ar" e o bloco fica fora da conta', (_caso, campaignId) => {
+    montar([bloco({ campaign_id: campaignId }), newsletter])
+    expect(within(linha()).getByRole('switch')).toBeChecked()
+    expect(estado()).toBe('Ligada, mas não aparece na loja')
+    expect(within(linha()).queryByText('No ar')).toBeNull()
+    expect(contador()).toBe('2 seções · 1 no ar')
+  })
+
+  it('ligado com a campanha em vigência: diz "No ar" e entra na conta', () => {
+    montar([bloco({ campaign_id: 'c-natal' }), newsletter])
+    expect(estado()).toBe('No ar')
+    expect(contador()).toBe('2 seções · 2 no ar')
+  })
+
+  it('desligado segue dizendo "Desligada", com ou sem campanha', () => {
+    montar([bloco({ active: false, campaign_id: 'c-natal' }), newsletter])
+    expect(estado()).toBe('Desligada')
+    expect(contador()).toBe('2 seções · 1 no ar')
+  })
+
+  it('enquanto as campanhas carregam ou falham, a linha diz só que o bloco está ligado', () => {
+    montar([bloco({ campaign_id: 'c-natal' }), newsletter], { campaigns: [], campaignsLoading: true })
+    expect(estado()).toBe('Ligada')
+    expect(contador()).toBe('2 seções · 1 no ar')
+    cleanup()
+    montar([bloco({ campaign_id: 'c-natal' }), newsletter], { campaigns: [], campaignsError: 'permission denied' })
+    expect(estado()).toBe('Ligada')
+    expect(contador()).toBe('2 seções · 1 no ar')
+  })
+
+  it('os outros tipos de bloco ligados seguem dizendo "No ar" e entrando na conta', () => {
+    montar([
+      bloco({ campaign_id: null }),
+      newsletter,
+      bloco({ id: 'hero', type: 'hero', position: 3, campaign_id: undefined }),
+      bloco({ id: 'faixa', type: 'trust_bar', position: 4, campaign_id: undefined, active: false }),
+    ])
+    expect(estado('newsletter')).toBe('No ar')
+    expect(estado('hero')).toBe('No ar')
+    expect(estado('faixa')).toBe('Desligada')
+    expect(contador()).toBe('4 seções · 2 no ar')
+  })
+})
+
 describe('a linha do bloco "Joias em oferta" — o bloco novo da bandeja', () => {
   it('nasce desligado e sem campanha, e a linha pede a escolha mesmo desligado', () => {
     montar([bloco({ id: 'novo', active: false, campaign_id: null, items: [] })])
@@ -277,6 +331,50 @@ describe('a linha do bloco "Joias em oferta" — as peças escolhidas que não a
     montar([bloco({ items: [peca('p1', 1)] })])
     expect(await screen.findByTestId('pecas-falha-ofertas')).toHaveTextContent(
       'Não foi possível conferir as peças escolhidas',
+    )
+  })
+})
+
+describe('a linha do bloco "Joias em oferta" — a peça escolhida apagada do catálogo', () => {
+  // Apagar a peça do catálogo zera o `product_id` do item (a FK é `on delete set null`), e o item
+  // continua na seção com o nome congelado em `label_snapshot`.
+  const apagada = (position: number): HomeSectionItem =>
+    ({ ...peca('x', position), id: 'i-apagada', product_id: null, product_slug: null, label_snapshot: 'Peça descartável' }) as HomeSectionItem
+
+  beforeEach(() => {
+    const ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']
+    h.responder = r => {
+      const reg = r as Registro
+      if (reg.table === 'product_campaigns') {
+        if (ehContagem(reg)) return { count: ids.length }
+        return { data: ids.map(product_id => ({ product_id, percent: 10 })) }
+      }
+      if (reg.table === 'products') {
+        return {
+          data: ids.map(id => ({
+            id,
+            name: id === 'p2' ? 'Anel Lua' : `Peça ${id}`,
+            is_active: id !== 'p2',
+            base_price: 100,
+            original_price: null,
+            product_variants: [],
+          })),
+        }
+      }
+      return { data: [] }
+    }
+  })
+
+  it('a despublicada e a apagada entram na conta "2 das 7", as duas pelo nome', async () => {
+    montar([
+      bloco({
+        items: [peca('p1', 1), peca('p2', 2), peca('p3', 3), peca('p4', 4), apagada(5), peca('p5', 6), peca('p6', 7)],
+      }),
+    ])
+
+    const foraDoAr = await screen.findByTestId('pecas-fora-do-ar-ofertas')
+    expect(foraDoAr.textContent).toBe(
+      '2 das 7 saíram do ar: “Anel Lua” e “Peça descartável”. A loja as pula enquanto elas não voltarem.',
     )
   })
 })

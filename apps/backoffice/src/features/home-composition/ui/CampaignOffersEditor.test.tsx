@@ -17,7 +17,7 @@ import {
   type HomeSection,
   type ResolvedSection,
 } from '@estrelinha/core/home'
-import type { AdminCampaign, CampaignPieceState } from '@/entities/campaign'
+import { campaignPieceStates, type AdminCampaign, type CampaignPieceState } from '@/entities/campaign'
 
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
@@ -35,6 +35,8 @@ const camp = vi.hoisted(() => ({
   estados: null as unknown,
   erroPecas: null as string | null,
   carregandoPecas: false,
+  /** Quando presente, o estado das peças sai do que o editor PASSA ao hook, pela regra de verdade. */
+  estadosDe: null as ((chosen: readonly unknown[]) => unknown) | null,
   retry: vi.fn(),
 }))
 
@@ -52,7 +54,11 @@ vi.mock('@/entities/campaign', async importOriginal => ({
       retry: camp.retry,
     }
   },
-  useCampaignPiecesState: () => ({ states: camp.estados, loading: camp.carregandoPecas, error: camp.erroPecas }),
+  useCampaignPiecesState: (_id: string | null, chosen: readonly unknown[]) => ({
+    states: camp.estadosDe ? camp.estadosDe(chosen) : camp.estados,
+    loading: camp.carregandoPecas,
+    error: camp.erroPecas,
+  }),
 }))
 
 import HomeSectionEditor, { type SectionSaveDraft } from './HomeSectionEditor'
@@ -196,6 +202,7 @@ beforeEach(() => {
   camp.estados = null
   camp.erroPecas = null
   camp.carregandoPecas = false
+  camp.estadosDe = null
   camp.retry.mockReset()
 })
 
@@ -425,6 +432,57 @@ describe('Os avisos das peças escolhidas e da campanha agendada', () => {
     ] satisfies CampaignPieceState[]
     montar({ campaign_id: 'c-natal', items: [item(1, 'p1'), item(2, 'p2')] })
     expect(screen.getByTestId('pecas-fora-do-ar')).toHaveTextContent('1 das 2 saiu do ar: “Pingente Gota”')
+  })
+
+  /** Sete escolhidas: a 2ª despublicada, a 5ª apagada do catálogo (sem id, com o nome guardado). */
+  const encenaDespublicadaEApagada = () => {
+    const ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']
+    camp.marcas['c-natal'] = { ids }
+    const linhas = ids.map(id => ({
+      id,
+      name: id === 'p2' ? 'Pingente Gota' : `Peça ${id}`,
+      is_active: id !== 'p2',
+      base_price: 100,
+      original_price: null,
+      product_variants: [],
+    }))
+    camp.estadosDe = chosen =>
+      campaignPieceStates(
+        chosen as Parameters<typeof campaignPieceStates>[0],
+        ids.map(product_id => ({ product_id, percent: 10 })),
+        linhas,
+      )
+    return {
+      campaign_id: 'c-natal',
+      items: [
+        item(1, 'p1'),
+        item(2, 'p2'),
+        item(3, 'p3'),
+        item(4, 'p4'),
+        item(5, null, 'Peça descartável'),
+        item(6, 'p5'),
+        item(7, 'p6'),
+      ],
+    }
+  }
+
+  it('a apagada do catálogo, que saiu da lista, entra na conta "2 das 7" com a despublicada, as duas pelo nome', () => {
+    montar(encenaDespublicadaEApagada())
+    expect(screen.getByTestId('pecas-fora-do-ar').textContent).toBe(
+      '2 das 7 saíram do ar: “Pingente Gota” e “Peça descartável”. A loja as pula enquanto elas não voltarem.',
+    )
+  })
+
+  it('depois de salvar, a apagada já não é escolhida: a conta volta a ser a da seção gravada, "1 das 6"', async () => {
+    montarPaginaQueGrava(encenaDespublicadaEApagada())
+    expect(screen.getByTestId('pecas-fora-do-ar').textContent).toMatch(/^2 das 7 /)
+
+    salvar()
+    await waitFor(() => expect(recibo()).toHaveTextContent('Salvo'))
+
+    expect(screen.getByTestId('pecas-fora-do-ar').textContent).toBe(
+      '1 das 6 saiu do ar: “Pingente Gota”. A loja a pula enquanto ela não voltar.',
+    )
   })
 
   it('as peças que a campanha não barateia, nomeadas', () => {

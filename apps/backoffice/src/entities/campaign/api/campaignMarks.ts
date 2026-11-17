@@ -13,6 +13,7 @@ import { readAllPages } from '@estrelinha/core/paging'
 import { supabase } from '@estrelinha/supabase/client'
 import {
   campaignPieceStates,
+  type ChosenPiece,
   type CampaignMark,
   type CampaignPieceRow,
   type CampaignPieceState,
@@ -118,13 +119,19 @@ export interface CampaignPiecesStateRead {
 }
 
 /**
- * O estado das peças escolhidas contra a campanha do bloco: fora do ar, fora da campanha, não
- * barateada. Sem campanha, ou com uma das duas leituras falhando, não diz nada (`states: null`).
+ * O estado das peças escolhidas contra a campanha do bloco: apagada, fora do ar, fora da campanha,
+ * não barateada. Sem campanha, ou com uma das duas leituras falhando, não diz nada (`states: null`).
+ *
+ * A escolhida é o id da peça, ou o item da seção — o item sem id (a peça apagada do catálogo) entra
+ * na conta como apagada, pelo nome congelado, sem ser lido.
  */
 export const useCampaignPiecesState = (
   campaignId: string | null,
-  productIds: readonly string[],
+  chosen: readonly (string | ChosenPiece)[],
 ): CampaignPiecesStateRead => {
+  const productIds = chosen
+    .map(item => (typeof item === 'string' ? item : item.product_id))
+    .filter((id): id is string => !!id)
   const marcas = useCampaignMarks(campaignId)
   const chave = [...new Set(productIds)].sort().join(',')
   const pecas = useQuery({
@@ -134,7 +141,7 @@ export const useCampaignPiecesState = (
   })
 
   const prontas = productIds.length === 0 ? [] : pecas.isSuccess ? pecas.data : null
-  const states = campaignId && marcas.marks && prontas ? campaignPieceStates(productIds, marcas.marks, prontas) : null
+  const states = campaignId && marcas.marks && prontas ? campaignPieceStates(chosen, marcas.marks, prontas) : null
   return {
     states,
     loading: marcas.loading || (!!campaignId && productIds.length > 0 && pecas.isPending),

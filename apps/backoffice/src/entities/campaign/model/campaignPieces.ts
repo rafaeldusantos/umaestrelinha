@@ -37,29 +37,48 @@ export interface CampaignPieceRow {
 export type CampaignPieceStatus = 'no-ar' | 'apagada' | 'fora-do-ar' | 'fora-da-campanha' | 'nao-barateada'
 
 export interface CampaignPieceState {
-  product_id: string
+  /** O id da peça, ou `null` quando ela foi apagada do catálogo e a FK zerou o do item. */
+  product_id: string | null
   /** O nome do catálogo, ou `null` quando a peça foi apagada. */
   name: string | null
   status: CampaignPieceStatus
 }
 
 /**
+ * A peça escolhida como o item da seção a guarda: o id e o nome congelado na escolha.
+ *
+ * Apagar a peça do catálogo zera o `product_id` do item (`on delete set null`) e o item continua na
+ * seção — é o `label_snapshot` que ainda diz qual peça era.
+ */
+export interface ChosenPiece {
+  product_id: string | null
+  label_snapshot?: string | null
+}
+
+const nomeCongelado = (escolhida: ChosenPiece): string | null => escolhida.label_snapshot?.trim() || null
+
+/**
  * O estado de cada peça escolhida, na ordem da lista.
+ *
+ * Cada escolhida é o id da peça, ou o item da seção inteiro — que é como a peça apagada do catálogo
+ * entra na conta: sem id, mas com o nome congelado.
  *
  * As cobranças vêm na ordem em que a loja as aplicaria: existir, estar no ar, estar na campanha, e só
  * então a campanha baixar o preço.
  */
 export function campaignPieceStates(
-  productIds: readonly string[],
+  chosen: readonly (string | ChosenPiece)[],
   marks: readonly CampaignMark[],
   pieces: readonly CampaignPieceRow[],
 ): CampaignPieceState[] {
   const percentual = new Map(marks.map(m => [m.product_id, m.percent]))
   const porId = new Map(pieces.map(p => [p.id, p]))
 
-  return productIds.map(id => {
-    const peca = porId.get(id)
-    if (!peca) return { product_id: id, name: null, status: 'apagada' }
+  return chosen.map(item => {
+    const escolhida: ChosenPiece = typeof item === 'string' ? { product_id: item } : item
+    const id = escolhida.product_id?.trim() || null
+    const peca = id ? porId.get(id) : undefined
+    if (!peca) return { product_id: id, name: nomeCongelado(escolhida), status: 'apagada' }
     const base = { product_id: id, name: peca.name }
     if (!peca.is_active) return { ...base, status: 'fora-do-ar' }
     if (!percentual.has(id)) return { ...base, status: 'fora-da-campanha' }

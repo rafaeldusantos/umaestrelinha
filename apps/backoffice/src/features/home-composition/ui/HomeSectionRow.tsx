@@ -50,6 +50,7 @@ import {
   useCampaignPiecesState,
   type AdminCampaign,
 } from '@/entities/campaign'
+import { secaoNoAr, type CampanhasDaLista } from '../model/sectionOnAir'
 
 /**
  * O desenho de cada tipo.
@@ -143,25 +144,14 @@ const resumo = (entry: ResolvedSection, ofertas: LeituraDaCampanha | null): stri
   }
 }
 
-/**
- * As campanhas, como a lista as leu (`useCampaigns`), e o relógio do painel.
- *
- * `loading`/`error` existem porque "ainda não li as campanhas" não é "o bloco está sem campanha":
- * dizer a segunda enquanto a primeira é verdade mandaria a dona escolher de novo o que já escolheu.
- */
-export interface CampanhasDaLista {
-  campaigns: readonly AdminCampaign[]
-  loading: boolean
-  error: string | null
-  now: number
-}
-
 interface LeituraDaCampanha {
   resumo: string
   /** Por que o bloco não vai aparecer, ou `null`. */
   aviso: string | null
   /** A campanha escolhida, lida — só com ela as peças se conferem. */
   campanha: AdminCampaign | null
+  /** Falso enquanto as campanhas não foram lidas (carregando ou com falha): não se sabe se aparece. */
+  conferida: boolean
 }
 
 /**
@@ -176,10 +166,14 @@ interface LeituraDaCampanha {
  */
 const leituraDaCampanha = (section: HomeSection, campanhas: CampanhasDaLista | undefined): LeituraDaCampanha => {
   const id = section.campaign_id?.trim() || null
-  const semCampanha = { resumo: 'sem campanha', aviso: CAMPAIGN_OFFERS_NO_CAMPAIGN, campanha: null }
+  const semCampanha = { resumo: 'sem campanha', aviso: CAMPAIGN_OFFERS_NO_CAMPAIGN, campanha: null, conferida: true }
   if (!id) return semCampanha
-  if (!campanhas || campanhas.loading) return { resumo: 'lendo a campanha…', aviso: null, campanha: null }
-  if (campanhas.error) return { resumo: 'não foi possível ler a campanha', aviso: null, campanha: null }
+  if (!campanhas || campanhas.loading) {
+    return { resumo: 'lendo a campanha…', aviso: null, campanha: null, conferida: false }
+  }
+  if (campanhas.error) {
+    return { resumo: 'não foi possível ler a campanha', aviso: null, campanha: null, conferida: false }
+  }
 
   const campanha = campanhas.campaigns.find(c => c.id === id)
   if (!campanha) return semCampanha
@@ -189,6 +183,7 @@ const leituraDaCampanha = (section: HomeSection, campanhas: CampanhasDaLista | u
     resumo: `Campanha “${campanha.name}” · ${campaignStatusLine(campanha, campanhas.now)}`,
     aviso: section.active ? campaignOffersHiddenReason(id, estado) : null,
     campanha,
+    conferida: true,
   }
 }
 
@@ -202,10 +197,11 @@ const AVISO_DA_LINHA = 'flex items-start gap-2 pb-2.5 pr-4 text-xs'
  * A leitura que falha é dita: sumir com o aviso diria "nenhuma peça fora", que não se sabe.
  */
 const PecasDoBloco = ({ section, campaignId, recuo }: { section: HomeSection; campaignId: string; recuo: string }) => {
+  // O item inteiro, e não só o id: a peça apagada do catálogo fica na seção sem id (a FK o zera), e
+  // é pelo nome congelado que ela entra na conta "N das M saíram do ar".
   const escolhidas = [...(section.items ?? [])]
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-    .map(i => i.product_id)
-    .filter((id): id is string => !!id)
+    .map(i => ({ product_id: i.product_id ?? null, label_snapshot: i.label_snapshot ?? null }))
   const { states, error } = useCampaignPiecesState(campaignId, escolhidas)
 
   const avisos: [string, string][] = error
@@ -317,6 +313,7 @@ const HomeSectionRow = ({
   const ofertas = section.type === 'campaign_offers' ? leituraDaCampanha(section, campanhas) : null
   const avisoDeAusencia = ofertas ? ofertas.aviso : section.active && !renders ? hiddenReason : null
   const recuo = nested ? 'pl-16' : 'pl-11'
+  const noAr = secaoNoAr(section, campanhas)
 
   return (
     <li
@@ -394,8 +391,21 @@ const HomeSectionRow = ({
         {/* Feature 25: a palavra saiu de vista e ficou na árvore de acessibilidade. O rail tem
             **380px** desde a inversão do layout, e esses ~50px são do nome da seção — que truncava.
             Visualmente a posição do interruptor e a opacidade da linha já dizem o mesmo; para quem
-            usa leitor de tela, o texto continua sendo a resposta em palavras. */}
-        <span className="sr-only">{section.active ? 'No ar' : 'Desligada'}</span>
+            usa leitor de tela, o texto continua sendo a resposta em palavras.
+
+            "No ar" é a mesma resposta que o cabeçalho soma (`secaoNoAr`). O interruptor diz se a
+            seção está ligada; o bloco "Joias em oferta" ligado cuja campanha não está em vigência
+            não aparece na loja, e a palavra diz isso em vez de "No ar". Enquanto as campanhas não
+            foram lidas, a palavra diz só que ele está ligado: não se afirma o que não se conferiu. */}
+        <span data-testid={`estado-${section.id}`} className="sr-only">
+          {!section.active
+            ? 'Desligada'
+            : noAr
+              ? 'No ar'
+              : ofertas && !ofertas.conferida
+                ? 'Ligada'
+                : 'Ligada, mas não aparece na loja'}
+        </span>
 
         <span className="flex h-11 w-11 shrink-0 items-center justify-center md:h-9 md:w-9">
           <Switch
