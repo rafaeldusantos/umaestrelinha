@@ -6,6 +6,9 @@
 // **copiar**: `apps/backoffice` não importa de `apps/store` (`previaUnica.test.ts` derruba a suíte
 // se importar), e a cliente veria um glifo na barra e a Adri outro na tela onde o escolheu.
 //
+// **Dois grupos, uma grade de cada**: os desenhos da marca ("Da Uma Estrelinha") e os ícones do
+// sistema ("Do sistema"). A partição é de `core` (`MENU_ICON_GROUPS`); os títulos são desta tela.
+//
 // **Não há upload.** O conjunto é fechado porque ele é um conjunto: mesma grade de 24, mesmo traço
 // de 1,5, mesmo realce. Um PNG enviado pela dona entraria com outro peso e outro humor ao lado dos
 // desenhados, e a barra deixaria de parecer uma barra.
@@ -15,9 +18,11 @@ import { cn } from '@estrelinha/ui/lib/utils'
 import { Ban, Search } from 'lucide-react'
 import { MENU_ICON_COMPONENTS } from '@estrelinha/ui/icons'
 import {
+  MENU_ICON_GROUPS,
   MENU_ICON_KEYS,
   MENU_ICON_LABELS,
   menuIconKey,
+  type MenuIconGroup,
   type MenuIconKey,
 } from '@estrelinha/core/menu'
 import { dobrarTexto } from '@/shared/lib/texto'
@@ -33,6 +38,12 @@ interface Props {
   /** A chave gravada. Valor fora do catálogo lê como "sem ícone" (`NAV-19`). */
   value: string | null
   onChange: (icon: MenuIconKey | null) => void
+}
+
+/** O título de cada grupo, na voz da tela. */
+const TITULO_DO_GRUPO: Record<MenuIconGroup, string> = {
+  marca: 'Da Uma Estrelinha',
+  sistema: 'Do sistema',
 }
 
 const CELA =
@@ -53,16 +64,22 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
    * num `select` no banco. Quem está conferindo um valor gravado procura por `gota-afetiva`, e não
    * por "Gota afetiva" — casar só o rótulo faria a busca falhar justamente na conferência.
    */
-  const oferecidos = useMemo(
+  const grupos = useMemo(
     () =>
-      termo === ''
-        ? MENU_ICON_KEYS
-        : MENU_ICON_KEYS.filter(
-            chave =>
-              dobrarTexto(MENU_ICON_LABELS[chave]).includes(termo) || dobrarTexto(chave).includes(termo),
-          ),
+      MENU_ICON_GROUPS.map(grupo => ({
+        id: grupo.id,
+        chaves:
+          termo === ''
+            ? grupo.keys
+            : grupo.keys.filter(
+                chave =>
+                  dobrarTexto(MENU_ICON_LABELS[chave]).includes(termo) ||
+                  dobrarTexto(chave).includes(termo),
+              ),
+      })).filter(grupo => grupo.chaves.length > 0),
     [termo],
   )
+  const totalOferecido = grupos.reduce((soma, grupo) => soma + grupo.chaves.length, 0)
 
   return (
     <div className="rounded-2xl border border-border bg-card">
@@ -75,12 +92,13 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
           >
             {termo === ''
               ? `${MENU_ICON_KEYS.length} no conjunto`
-              : `${oferecidos.length} de ${MENU_ICON_KEYS.length}`}
+              : `${totalOferecido} de ${MENU_ICON_KEYS.length}`}
           </span>
         </div>
         <p className="text-[11px] leading-snug text-muted-foreground">
-          São os ícones desenhados para a loja — não há upload. O mesmo traço vale na barra do
-          computador e na lista do celular; sem escolha, a entrada aparece só com o nome.
+          Os ícones da Uma Estrelinha e os do sistema, todos no mesmo traço — não há upload. O
+          ícone aparece na barra do computador e na lista do celular; sem escolha, a entrada
+          aparece só com o nome.
         </p>
 
         {/* A busca é `type="search"` e não `type="text"`: o navegador dá o "×" de limpar de graça, e
@@ -104,9 +122,10 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
         </label>
       </header>
 
-      {/* A grade rola dentro do próprio cartão: com 28 celas de 76px ela empurraria a prévia para
-          fora da tela, e o que a dona veio ver aqui é o efeito do ícone, não a lista inteira. */}
-      <div className="flex max-h-[280px] flex-wrap gap-2.5 overflow-y-auto p-4">
+      {/* A área rola dentro do próprio cartão: com quase 40 celas de 76px ela empurraria a prévia
+          para fora da tela, e o que a dona veio ver aqui é o efeito do ícone, não a lista inteira.
+          As duas grades rolam juntas, na mesma área. */}
+      <div className="flex max-h-[280px] flex-col gap-3 overflow-y-auto p-4">
         {/* "Sem ícone" é a PRIMEIRA cela, e não a última: é o estado inicial de toda entrada e o
             caminho de volta de quem escolheu por engano — enterrá-lo no fim de 28 celas o esconde.
 
@@ -129,46 +148,63 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
           <span className="text-[11px] font-medium text-muted-foreground">Sem ícone</span>
         </button>
 
-        {oferecidos.map(chave => {
-          const Icone = MENU_ICON_COMPONENTS[chave]
-          const escolhida = atual === chave
-
+        {grupos.map(grupo => {
+          const tituloId = `grupo-icones-${grupo.id}`
           return (
-            <button
-              key={chave}
-              type="button"
-              data-testid={`icone-opcao-${chave}`}
-              aria-pressed={escolhida}
-              onClick={() => onChange(chave)}
-              className={cn(
-                CELA,
-                escolhida
-                  ? 'border-2 border-primary bg-primary/5'
-                  : 'border-border hover:bg-muted/40',
-              )}
-            >
-              <Icone className="h-[22px] w-[22px]" aria-hidden />
-              {/* O nome ao lado do desenho é AC (`NAV-16`): uma grade de glifos sem rótulo obriga a
-                  dona a adivinhar o que cada um significa, e dois deles são parecidos de propósito
-                  (mecha de cabelo × mecha amarrada). */}
-              <span
-                className={cn(
-                  'px-1 text-[11px] leading-tight',
-                  escolhida ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground',
-                )}
+            <section key={grupo.id} role="group" aria-labelledby={tituloId}>
+              <h3
+                id={tituloId}
+                className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
               >
-                {MENU_ICON_LABELS[chave]}
-              </span>
-            </button>
+                {TITULO_DO_GRUPO[grupo.id]}
+              </h3>
+              <div className="flex flex-wrap gap-2.5">
+                {grupo.chaves.map(chave => {
+                  const Icone = MENU_ICON_COMPONENTS[chave]
+                  const escolhida = atual === chave
+
+                  return (
+                    <button
+                      key={chave}
+                      type="button"
+                      data-testid={`icone-opcao-${chave}`}
+                      aria-pressed={escolhida}
+                      onClick={() => onChange(chave)}
+                      className={cn(
+                        CELA,
+                        escolhida
+                          ? 'border-2 border-primary bg-primary/5'
+                          : 'border-border hover:bg-muted/40',
+                      )}
+                    >
+                      <Icone className="h-[22px] w-[22px]" aria-hidden />
+                      {/* O nome ao lado do desenho é AC (`NAV-16`): uma grade de glifos sem
+                          rótulo obriga a dona a adivinhar o que cada um significa, e dois deles
+                          são parecidos de propósito (mecha de cabelo × mecha amarrada). */}
+                      <span
+                        className={cn(
+                          'px-1 text-[11px] leading-tight',
+                          escolhida
+                            ? 'font-semibold text-foreground'
+                            : 'font-medium text-muted-foreground',
+                        )}
+                      >
+                        {MENU_ICON_LABELS[chave]}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
           )
         })}
 
         {/* Busca sem resultado DIZ isso. Sem esta linha a grade ficaria com a cela "Sem ícone"
             sozinha, o que se lê como "só existe esta opção" e não como "nada casou". */}
-        {termo !== '' && oferecidos.length === 0 && (
+        {termo !== '' && totalOferecido === 0 && (
           <p
             data-testid="icones-sem-resultado"
-            className="flex-1 self-center px-2 text-xs text-muted-foreground"
+            className="px-2 text-xs text-muted-foreground"
           >
             Nenhum ícone com esse nome. Apague a busca para ver os {MENU_ICON_KEYS.length}.
           </p>

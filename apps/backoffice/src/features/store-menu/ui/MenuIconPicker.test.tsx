@@ -4,9 +4,14 @@
 // `@estrelinha/core/menu`, o desenho de `@estrelinha/ui/icons` — e o painel não importa de
 // `apps/store`), que "sem ícone" limpa, e que a busca acha sem acento e sem caixa.
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { MENU_ICON_KEYS, MENU_ICON_LABELS } from '@estrelinha/core/menu'
+import {
+  MENU_BRAND_ICON_KEYS,
+  MENU_ICON_KEYS,
+  MENU_ICON_LABELS,
+  MENU_SYSTEM_ICON_KEYS,
+} from '@estrelinha/core/menu'
 import MenuIconPicker from './MenuIconPicker'
 
 const montar = (value: string | null = null, onChange = vi.fn()) => {
@@ -36,6 +41,93 @@ describe('NAV-16 — o conjunto é fechado e é o mesmo da loja', () => {
       <MenuIconPicker itemName="Joias" value={null} onChange={vi.fn()} />,
     )
     expect(container.querySelector('input[type="file"]')).toBeNull()
+  })
+})
+
+describe('os dois grupos — os ícones da marca e os do sistema', () => {
+  const grupo = (titulo: string) => screen.getByRole('group', { name: titulo })
+  const celasDe = (el: HTMLElement) =>
+    within(el)
+      .getAllByTestId(/^icone-opcao-/)
+      .map(no => no.getAttribute('data-testid'))
+
+  it('mostra "Da Uma Estrelinha" e "Do sistema", cada um com os seus ícones', () => {
+    montar()
+    expect(screen.getByRole('heading', { name: 'Da Uma Estrelinha' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Do sistema' })).toBeInTheDocument()
+
+    expect(celasDe(grupo('Da Uma Estrelinha'))).toEqual(
+      MENU_BRAND_ICON_KEYS.map(chave => `icone-opcao-${chave}`),
+    )
+    expect(celasDe(grupo('Do sistema'))).toEqual([
+      'icone-opcao-etiqueta',
+      'icone-opcao-porcentagem',
+      'icone-opcao-presente',
+      'icone-opcao-coracao',
+      'icone-opcao-cupom',
+      'icone-opcao-frete',
+      'icone-opcao-calendario',
+      'icone-opcao-informacao',
+      'icone-opcao-duvida',
+      'icone-opcao-inicio',
+    ])
+    expect(within(grupo('Do sistema')).getByText('Calendário')).toBeInTheDocument()
+  })
+
+  it('"Sem ícone" fica fora dos dois grupos', () => {
+    montar()
+    const nenhum = screen.getByTestId('icone-nenhum')
+    expect(grupo('Da Uma Estrelinha')).not.toContainElement(nenhum)
+    expect(grupo('Do sistema')).not.toContainElement(nenhum)
+  })
+
+  it('escolher um ícone do sistema grava a chave dele', () => {
+    const onChange = montar()
+    fireEvent.click(screen.getByTestId('icone-opcao-presente'))
+    expect(onChange).toHaveBeenCalledWith('presente')
+  })
+
+  it('um valor gravado do sistema aparece marcado', () => {
+    montar('frete')
+    expect(screen.getByTestId('icone-opcao-frete')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('icone-nenhum')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('a busca pelo rótulo acha no grupo do sistema, e o grupo da marca some com o título', () => {
+    montar()
+    buscar('Etiqueta')
+    expect(celasDe(grupo('Do sistema'))).toEqual(['icone-opcao-etiqueta'])
+    expect(screen.queryByRole('group', { name: 'Da Uma Estrelinha' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Da Uma Estrelinha' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('icone-nenhum')).toBeInTheDocument()
+  })
+
+  it('a busca pela chave acha no grupo do sistema', () => {
+    montar()
+    buscar('informacao')
+    expect(oferecidos()).toEqual(['icone-opcao-informacao'])
+    expect(celasDe(grupo('Do sistema'))).toEqual(['icone-opcao-informacao'])
+  })
+
+  it('o grupo do sistema também some quando nada dele casa', () => {
+    montar()
+    buscar('gravacao')
+    expect(celasDe(grupo('Da Uma Estrelinha'))).toEqual(['icone-opcao-gravacao'])
+    expect(screen.queryByRole('group', { name: 'Do sistema' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Do sistema' })).not.toBeInTheDocument()
+  })
+
+  it('o contador soma os dois grupos', () => {
+    montar()
+    expect(screen.getByTestId('contador-icones')).toHaveTextContent(
+      `${MENU_BRAND_ICON_KEYS.length + MENU_SYSTEM_ICON_KEYS.length} no conjunto`,
+    )
+  })
+
+  it('o cabeçalho não diz mais que são só os ícones desenhados para a loja', () => {
+    montar()
+    expect(screen.queryByText(/desenhados para a loja/)).not.toBeInTheDocument()
+    expect(screen.getByText(/os do sistema/)).toBeInTheDocument()
   })
 })
 

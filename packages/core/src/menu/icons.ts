@@ -10,11 +10,17 @@
 // Sem esta divisão, o seletor do painel desenharia um segundo conjunto — o backoffice não importa de
 // `apps/store` (`previaUnica.test.ts`), então a alternativa real não era "reusar", era "copiar", e a
 // cliente veria um glifo na barra e a dona outro na tela onde escolheu.
+//
+// O conjunto tem dois grupos: os desenhos da marca e os ícones do sistema (etiqueta, presente,
+// calendário…). Os do sistema são vocabulário genérico que o lucide também tem, e **mesmo assim**
+// são desenhados no conjunto da casa — é a exceção declarada à regra "o que o lucide resolve
+// continua vindo de lá": o vocabulário do menu é composto pela dona, os dois grupos aparecem lado a
+// lado na mesma barra, e todo ícone dele precisa do mesmo traço e do mesmo realce.
 
 /**
- * O conjunto, na ordem em que o seletor o apresenta.
+ * Os desenhos da marca, na ordem em que o seletor os apresenta — o grupo "Da Uma Estrelinha".
  *
- * São as chaves de `ESTRELINHA_ICONS` — o registro por nome que a loja já mantém. **`pix` fica de
+ * Junto com `MENU_SYSTEM_ICON_KEYS`, são as chaves de `ESTRELINHA_ICONS` — o registro por nome que a loja já mantém. **`pix` fica de
  * fora de propósito**: aquele desenho é a marca oficial do arranjo (grade de 16, preenchido) e não
  * obedece às regras do conjunto (grade 24, traço 1,5, contorno em `currentColor`). Pôr a marca de um
  * meio de pagamento como ícone de departamento seria dizer outra coisa.
@@ -23,7 +29,7 @@
  * `categories.icon`, que guardava emoji do catálogo anterior. Chave que não casa com ela seria
  * apagada pelo banco e degradaria para "sem ícone" na leitura seguinte.
  */
-export const MENU_ICON_KEYS = [
+export const MENU_BRAND_ICON_KEYS = [
   'atendimento',
   'caixa-pac',
   'carta-registrada',
@@ -55,7 +61,52 @@ export const MENU_ICON_KEYS = [
   'unha',
 ] as const
 
+/**
+ * Os ícones do sistema, na ordem em que o seletor os apresenta — o grupo "Do sistema".
+ *
+ * Vocabulário genérico de loja (oferta, presente, frete, ajuda), desenhado no conjunto da casa e não
+ * trazido do lucide: grade 24, traço 1,5, contorno em `currentColor` e realce em ouro, como os da
+ * marca. Ficam de fora relógio, raio e estrela de cinco pontas — o tom desta loja é memorial, e a
+ * estrela da casa é a da marca.
+ *
+ * Nenhuma chave nem rótulo daqui contém "mecha" ou "unha": esses termos já são nomes de desenhos da
+ * marca, e a busca do seletor os acharia nos dois grupos.
+ */
+export const MENU_SYSTEM_ICON_KEYS = [
+  'etiqueta',
+  'porcentagem',
+  'presente',
+  'coracao',
+  'cupom',
+  'frete',
+  'calendario',
+  'informacao',
+  'duvida',
+  'inicio',
+] as const
+
+/**
+ * O conjunto inteiro: a marca e depois o sistema. É contra ele que `menuIconKey` lê o valor gravado,
+ * então uma chave de qualquer dos dois grupos é lida igual pela loja e pelo painel.
+ */
+export const MENU_ICON_KEYS = [...MENU_BRAND_ICON_KEYS, ...MENU_SYSTEM_ICON_KEYS] as const
+
 export type MenuIconKey = (typeof MENU_ICON_KEYS)[number]
+
+/** O grupo de uma chave no seletor: os desenhos da marca ou os ícones do sistema. */
+export type MenuIconGroup = 'marca' | 'sistema'
+
+/**
+ * Os grupos, na ordem do seletor, cada um com as suas chaves. Juntos cobrem `MENU_ICON_KEYS` sem
+ * sobreposição. O título que a dona lê é do painel — aqui mora só a partição.
+ */
+export const MENU_ICON_GROUPS: readonly {
+  readonly id: MenuIconGroup
+  readonly keys: readonly MenuIconKey[]
+}[] = [
+  { id: 'marca', keys: MENU_BRAND_ICON_KEYS },
+  { id: 'sistema', keys: MENU_SYSTEM_ICON_KEYS },
+]
 
 /**
  * O nome que a dona lê no seletor.
@@ -95,6 +146,16 @@ export const MENU_ICON_LABELS: Record<MenuIconKey, string> = {
   sacola: 'Sacola',
   'tampa-vedada': 'Tampa vedada',
   unha: 'Unha',
+  etiqueta: 'Etiqueta',
+  porcentagem: 'Porcentagem',
+  presente: 'Presente',
+  coracao: 'Coração',
+  cupom: 'Cupom',
+  frete: 'Frete',
+  calendario: 'Calendário',
+  informacao: 'Informação',
+  duvida: 'Dúvida',
+  inicio: 'Início',
 }
 
 const CHAVES = new Set<string>(MENU_ICON_KEYS)

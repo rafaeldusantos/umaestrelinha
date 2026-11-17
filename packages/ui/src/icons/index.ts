@@ -6,6 +6,12 @@
  * O que o lucide já resolve bem (seta, coração, `+`, lupa) continua vindo de lá — duplicar um ícone
  * genérico só cria um segundo lugar para consertar.
  *
+ * **A exceção é o vocabulário do menu.** Os ícones que a dona escolhe para os itens do menu são
+ * compostos por ela, e aparecem lado a lado na mesma barra: todo ícone dali precisa do mesmo traço e
+ * do mesmo realce. Por isso os ícones do sistema do menu (etiqueta, presente, coração, calendário…)
+ * são desenhados aqui, no conjunto da casa, mesmo tendo equivalente no lucide — e o menu nunca
+ * importa `lucide-react`. Fora do menu, a regra acima continua.
+ *
  * **Esta é a única porta.** Importe daqui (`@estrelinha/ui/icons`), nunca do arquivo do componente:
  * dois caminhos para o mesmo ícone é o "defeito 01" do projeto em miniatura. O `PixIcon` morava
  * solto em `shared/ui/` e foi trazido para cá pelo mesmo motivo.
@@ -36,17 +42,25 @@ export {
 
 export { default as AtendimentoIcon } from './AtendimentoIcon'
 export { default as CaixaPacIcon } from './CaixaPacIcon'
+export { default as CalendarioIcon } from './CalendarioIcon'
 export { default as CartaRegistradaIcon } from './CartaRegistradaIcon'
 export { default as ColetaFrascoIcon } from './ColetaFrascoIcon'
+export { default as CoracaoIcon } from './CoracaoIcon'
 export { default as CorrenteIcon } from './CorrenteIcon'
 export { default as CotoUmbilicalIcon } from './CotoUmbilicalIcon'
+export { default as CupomIcon } from './CupomIcon'
 export { default as DenteLeiteIcon } from './DenteLeiteIcon'
+export { default as DuvidaIcon } from './DuvidaIcon'
 export { default as EnvioIcon } from './EnvioIcon'
 export { default as EstrelinhaStarIcon } from './EstrelinhaStarIcon'
+export { default as EtiquetaIcon } from './EtiquetaIcon'
 export { default as FlorPrensadaIcon } from './FlorPrensadaIcon'
 export { default as FrascoLeiteIcon } from './FrascoLeiteIcon'
+export { default as FreteIcon } from './FreteIcon'
 export { default as GotaAfetivaIcon } from './GotaAfetivaIcon'
 export { default as GravacaoIcon } from './GravacaoIcon'
+export { default as InformacaoIcon } from './InformacaoIcon'
+export { default as InicioIcon } from './InicioIcon'
 export { default as MechaAmarradaIcon } from './MechaAmarradaIcon'
 export { default as MechaCabeloIcon } from './MechaCabeloIcon'
 export { default as PapelAluminioIcon } from './PapelAluminioIcon'
@@ -58,8 +72,10 @@ export { default as PingenteIcon } from './PingenteIcon'
 export { default as PixIcon } from './PixIcon'
 export { default as PlacentaIcon } from './PlacentaIcon'
 export { default as PlasticoFilmeIcon } from './PlasticoFilmeIcon'
+export { default as PorcentagemIcon } from './PorcentagemIcon'
 export { default as PoteCinzasIcon } from './PoteCinzasIcon'
 export { default as PoteTampaIcon } from './PoteTampaIcon'
+export { default as PresenteIcon } from './PresenteIcon'
 export { default as SacoIdentificadoIcon } from './SacoIdentificadoIcon'
 export { default as SacolaIcon } from './SacolaIcon'
 export { default as TampaVedadaIcon } from './TampaVedadaIcon'
@@ -67,17 +83,25 @@ export { default as UnhaIcon } from './UnhaIcon'
 
 import AtendimentoIcon from './AtendimentoIcon'
 import CaixaPacIcon from './CaixaPacIcon'
+import CalendarioIcon from './CalendarioIcon'
 import CartaRegistradaIcon from './CartaRegistradaIcon'
 import ColetaFrascoIcon from './ColetaFrascoIcon'
+import CoracaoIcon from './CoracaoIcon'
 import CorrenteIcon from './CorrenteIcon'
 import CotoUmbilicalIcon from './CotoUmbilicalIcon'
+import CupomIcon from './CupomIcon'
 import DenteLeiteIcon from './DenteLeiteIcon'
+import DuvidaIcon from './DuvidaIcon'
 import EnvioIcon from './EnvioIcon'
 import EstrelinhaStarIcon from './EstrelinhaStarIcon'
+import EtiquetaIcon from './EtiquetaIcon'
 import FlorPrensadaIcon from './FlorPrensadaIcon'
 import FrascoLeiteIcon from './FrascoLeiteIcon'
+import FreteIcon from './FreteIcon'
 import GotaAfetivaIcon from './GotaAfetivaIcon'
 import GravacaoIcon from './GravacaoIcon'
+import InformacaoIcon from './InformacaoIcon'
+import InicioIcon from './InicioIcon'
 import MechaAmarradaIcon from './MechaAmarradaIcon'
 import MechaCabeloIcon from './MechaCabeloIcon'
 import PapelAluminioIcon from './PapelAluminioIcon'
@@ -89,8 +113,10 @@ import PingenteIcon from './PingenteIcon'
 import PixIcon from './PixIcon'
 import PlacentaIcon from './PlacentaIcon'
 import PlasticoFilmeIcon from './PlasticoFilmeIcon'
+import PorcentagemIcon from './PorcentagemIcon'
 import PoteCinzasIcon from './PoteCinzasIcon'
 import PoteTampaIcon from './PoteTampaIcon'
+import PresenteIcon from './PresenteIcon'
 import SacoIdentificadoIcon from './SacoIdentificadoIcon'
 import SacolaIcon from './SacolaIcon'
 import TampaVedadaIcon from './TampaVedadaIcon'
@@ -135,6 +161,17 @@ export const ESTRELINHA_ICONS = {
   sacola: SacolaIcon,
   'tampa-vedada': TampaVedadaIcon,
   unha: UnhaIcon,
+  // Os ícones do sistema do menu (`MENU_SYSTEM_ICON_KEYS`, em `@estrelinha/core/menu`).
+  etiqueta: EtiquetaIcon,
+  porcentagem: PorcentagemIcon,
+  presente: PresenteIcon,
+  coracao: CoracaoIcon,
+  cupom: CupomIcon,
+  frete: FreteIcon,
+  calendario: CalendarioIcon,
+  informacao: InformacaoIcon,
+  duvida: DuvidaIcon,
+  inicio: InicioIcon,
 } satisfies Record<string, (props: IconProps) => JSX.Element>
 
 export type EstrelinhaIconName = keyof typeof ESTRELINHA_ICONS
