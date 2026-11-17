@@ -34,7 +34,22 @@ import {
   DropdownMenuTrigger,
 } from '@estrelinha/ui/dropdown-menu'
 import { cn } from '@estrelinha/ui/lib/utils'
-import { sectionMeta, type HomeSectionType, type ResolvedSection } from '@estrelinha/core/home'
+import {
+  CAMPAIGN_OFFERS_NO_CAMPAIGN,
+  campaignOffersHiddenReason,
+  sectionMeta,
+  type HomeSection,
+  type HomeSectionType,
+  type ResolvedSection,
+} from '@estrelinha/core/home'
+import { campaignStatus, campaignStatusLine } from '@estrelinha/core/campaigns'
+import {
+  piecesNotLoweredText,
+  piecesOffAirText,
+  piecesOutOfCampaignText,
+  useCampaignPiecesState,
+  type AdminCampaign,
+} from '@/entities/campaign'
 
 /**
  * O desenho de cada tipo.
@@ -75,7 +90,7 @@ const plural = (n: number, singular: string, prural: string): string =>
  * derivação automática. É o que responde "por que apareceu essa coleção aqui?" sem uma segunda
  * viagem à tela do editor.
  */
-const resumo = (entry: ResolvedSection): string => {
+const resumo = (entry: ResolvedSection, ofertas: LeituraDaCampanha | null): string => {
   const { section, items } = entry
   const config = section.config ?? {}
   const curado = (section.items ?? []).length > 0
@@ -119,13 +134,104 @@ const resumo = (entry: ResolvedSection): string => {
       return [aspas(config.title), plural(items.length, 'categoria', 'categorias')]
         .filter(Boolean)
         .join(' · ')
-    // Joias em oferta não tem conteúdo próprio: sem este ramo a linha cairia no padrão e
-    // diria "automático" de um bloco que só repete a campanha em vigência.
+    // Joias em oferta: o que a dona reconhece é a campanha escolhida e o estado dela — sem este
+    // ramo a linha cairia no padrão e diria "automático" de um bloco que nunca é.
     case 'campaign_offers':
-      return 'o título e os percentuais vêm da campanha em vigência'
+      return ofertas?.resumo ?? 'sem campanha'
     default:
       return fonte
   }
+}
+
+/**
+ * As campanhas, como a lista as leu (`useCampaigns`), e o relógio do painel.
+ *
+ * `loading`/`error` existem porque "ainda não li as campanhas" não é "o bloco está sem campanha":
+ * dizer a segunda enquanto a primeira é verdade mandaria a dona escolher de novo o que já escolheu.
+ */
+export interface CampanhasDaLista {
+  campaigns: readonly AdminCampaign[]
+  loading: boolean
+  error: string | null
+  now: number
+}
+
+interface LeituraDaCampanha {
+  resumo: string
+  /** Por que o bloco não vai aparecer, ou `null`. */
+  aviso: string | null
+  /** A campanha escolhida, lida — só com ela as peças se conferem. */
+  campanha: AdminCampaign | null
+}
+
+/**
+ * A campanha do bloco "Joias em oferta" vista da linha: o resumo e o motivo de não aparecer.
+ *
+ * O bloco SEM campanha — o novo da bandeja, e o que perdeu a dele (a FK zera `campaign_id`, e o id
+ * que não está entre as campanhas é o mesmo caso) — avisa **mesmo desligado**: ligá-lo não o faz
+ * aparecer, e a linha é onde a dona descobre isso. Com campanha, o aviso segue a regra das outras
+ * linhas (só a seção ligada que não vai aparecer), porque "Desligada" já responde o resto. Quem
+ * decide "vai aparecer?" é o estado da campanha pelo relógio do painel, como o resto do painel; a
+ * loja decide pelo banco.
+ */
+const leituraDaCampanha = (section: HomeSection, campanhas: CampanhasDaLista | undefined): LeituraDaCampanha => {
+  const id = section.campaign_id?.trim() || null
+  const semCampanha = { resumo: 'sem campanha', aviso: CAMPAIGN_OFFERS_NO_CAMPAIGN, campanha: null }
+  if (!id) return semCampanha
+  if (!campanhas || campanhas.loading) return { resumo: 'lendo a campanha…', aviso: null, campanha: null }
+  if (campanhas.error) return { resumo: 'não foi possível ler a campanha', aviso: null, campanha: null }
+
+  const campanha = campanhas.campaigns.find(c => c.id === id)
+  if (!campanha) return semCampanha
+
+  const estado = campaignStatus(campanha, campanhas.now)
+  return {
+    resumo: `Campanha “${campanha.name}” · ${campaignStatusLine(campanha, campanhas.now)}`,
+    aviso: section.active ? campaignOffersHiddenReason(id, estado) : null,
+    campanha,
+  }
+}
+
+const AVISO_DA_LINHA = 'flex items-start gap-2 pb-2.5 pr-4 text-xs'
+
+/**
+ * As peças escolhidas que não aparecem no bloco: fora do ar (nomeadas, "N das M"), as que a
+ * campanha não barateia e as que não estão marcadas nela. Quem responde é o hook da campanha — a
+ * pergunta "a campanha baixa o preço?" é de `core/campaigns`, nunca desta linha.
+ *
+ * A leitura que falha é dita: sumir com o aviso diria "nenhuma peça fora", que não se sabe.
+ */
+const PecasDoBloco = ({ section, campaignId, recuo }: { section: HomeSection; campaignId: string; recuo: string }) => {
+  const escolhidas = [...(section.items ?? [])]
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map(i => i.product_id)
+    .filter((id): id is string => !!id)
+  const { states, error } = useCampaignPiecesState(campaignId, escolhidas)
+
+  const avisos: [string, string][] = error
+    ? [['pecas-falha', `Não foi possível conferir as peças escolhidas: ${error}`]]
+    : states
+      ? ([
+          ['pecas-fora-do-ar', piecesOffAirText(states)],
+          ['pecas-nao-barateadas', piecesNotLoweredText(states)],
+          ['pecas-fora-da-campanha', piecesOutOfCampaignText(states)],
+        ].filter(([, texto]) => !!texto) as [string, string][])
+      : []
+
+  return (
+    <>
+      {avisos.map(([chave, texto]) => (
+        <p
+          key={chave}
+          data-testid={`${chave}-${section.id}`}
+          className={cn(AVISO_DA_LINHA, 'text-muted-foreground', recuo)}
+        >
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-estrelinha-admin-amber" aria-hidden />
+          <span className="min-w-0 break-words">{texto}</span>
+        </p>
+      ))}
+    </>
+  )
 }
 
 // SPEC_DEVIATION: a AC da T22 nomeia `TAP_44` para o alvo de toque; aqui os controles têm 44px de
@@ -172,6 +278,8 @@ interface Props {
    * do dedo de quem clicou (`ANI-06`).
    */
   saindo?: boolean
+  /** As campanhas — só a linha do bloco "Joias em oferta" as lê. */
+  campanhas?: CampanhasDaLista
 }
 
 const HomeSectionRow = ({
@@ -185,6 +293,7 @@ const HomeSectionRow = ({
   recemSalva = false,
   entrando = false,
   saindo = false,
+  campanhas,
 }: Props) => {
   const { section, renders, hiddenReason } = entry
   const meta = sectionMeta(section.type)
@@ -203,7 +312,11 @@ const HomeSectionRow = ({
 
   // `HOME-09`: seção LIGADA que mesmo assim não vai aparecer. A desligada não precisa de aviso —
   // "Desligada" já é a resposta, e ela está na coluna de estado.
-  const avisoDeAusencia = section.active && !renders ? hiddenReason : null
+  //
+  // O bloco "Joias em oferta" não tem fonte de itens que o esconda: quem decide é a campanha dele.
+  const ofertas = section.type === 'campaign_offers' ? leituraDaCampanha(section, campanhas) : null
+  const avisoDeAusencia = ofertas ? ofertas.aviso : section.active && !renders ? hiddenReason : null
+  const recuo = nested ? 'pl-16' : 'pl-11'
 
   return (
     <li
@@ -275,7 +388,7 @@ const HomeSectionRow = ({
           <span className="truncate text-sm font-semibold text-foreground">
             {meta?.label ?? section.type}
           </span>
-          <span className="line-clamp-2 text-xs text-muted-foreground">{resumo(entry)}</span>
+          <span className="line-clamp-2 text-xs text-muted-foreground">{resumo(entry, ofertas)}</span>
         </button>
 
         {/* Feature 25: a palavra saiu de vista e ficou na árvore de acessibilidade. O rail tem
@@ -345,17 +458,13 @@ const HomeSectionRow = ({
       </div>
 
       {avisoDeAusencia && (
-        <p
-          data-testid={`aviso-${section.id}`}
-          className={cn(
-            'flex items-start gap-2 pb-2.5 pr-4 text-xs text-destructive',
-            nested ? 'pl-16' : 'pl-11',
-          )}
-        >
+        <p data-testid={`aviso-${section.id}`} className={cn(AVISO_DA_LINHA, 'text-destructive', recuo)}>
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          {avisoDeAusencia}
+          <span className="min-w-0 break-words">{avisoDeAusencia}</span>
         </p>
       )}
+
+      {ofertas?.campanha && <PecasDoBloco section={section} campaignId={ofertas.campanha.id} recuo={recuo} />}
     </li>
   )
 }

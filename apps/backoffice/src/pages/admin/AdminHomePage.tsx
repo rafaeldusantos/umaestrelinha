@@ -68,9 +68,10 @@ const AdminHomePage = () => {
   } = useAdminHomeSections()
   const { categories, loading: loadingCategorias } = useAdminCategories()
   const { produtos } = useProductPool()
-  // Só o nome de cada campanha: a frase da colisão "esta campanha já está no Nº bloco" diz o título
-  // do outro bloco, e o recuo dele é o nome da campanha.
-  const { campaigns } = useCampaigns()
+  // As campanhas: a frase da colisão "esta campanha já está no Nº bloco" diz o título do outro
+  // bloco (o recuo dele é o nome da campanha), e a linha de cada bloco "Joias em oferta" diz qual
+  // campanha ele mostra e em que estado.
+  const { campaigns, loading: carregandoCampanhas, error: erroCampanhas } = useCampaigns()
 
   const navigate = useNavigate()
   const { sectionId } = useParams()
@@ -414,6 +415,9 @@ const AdminHomePage = () => {
                   onReorder={handleReorder}
                   onHover={setApontada}
                   onRemove={handleRemove}
+                  campaigns={campaigns}
+                  campaignsLoading={carregandoCampanhas}
+                  campaignsError={erroCampanhas}
                   footer={
                     <div id="blocos">
                       <HomeBlockTray sections={sections} onAdd={handleAdd} />

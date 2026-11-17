@@ -290,6 +290,20 @@ describe('useAdminHomeSections — criar (HOME-10)', () => {
     expect(escritas('home_section_items')).toEqual([])
   })
 
+  it('Joias em oferta nasce DESLIGADO e SEM campanha — a campanha é escolha da dona no editor', async () => {
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.createSection('campaign_offers')
+    })
+    expect(escritas('home_sections')[0].insert).toEqual({
+      type: 'campaign_offers',
+      position: 4,
+      active: false,
+      config: {},
+    })
+    expect(escritas('home_section_items')).toEqual([])
+  })
+
   it('entra no FIM da lista: a posição é a maior existente mais um', async () => {
     const { result } = await montar()
     await act(async () => {

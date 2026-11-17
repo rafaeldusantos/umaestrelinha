@@ -19,7 +19,8 @@ import {
   type SetStateAction,
 } from 'react'
 import { reorderSections, type ResolvedSection } from '@estrelinha/core/home'
-import HomeSectionRow from './HomeSectionRow'
+import type { AdminCampaign } from '@/entities/campaign'
+import HomeSectionRow, { type CampanhasDaLista } from './HomeSectionRow'
 
 interface Props {
   /** Já resolvida por `resolveHomeSections` — a mesma regra que a loja usa para desenhar. */
@@ -43,6 +44,13 @@ interface Props {
    * o estado de saída da linha (`ANI-04`). Ela nunca é esperada ANTES da chamada (`ANI-07`).
    */
   onRemove?: (id: string) => void | Promise<unknown>
+  /**
+   * As campanhas (`useCampaigns`), para a linha do bloco "Joias em oferta" dizer qual ele mostra e
+   * em que estado. Com a leitura em curso ou falhando, a linha não diz "sem campanha".
+   */
+  campaigns?: readonly AdminCampaign[]
+  campaignsLoading?: boolean
+  campaignsError?: string | null
 }
 
 /**
@@ -95,6 +103,8 @@ const assinatura = (entry: ResolvedSection): string =>
     active: entry.section.active,
     position: entry.section.position,
     config: entry.section.config ?? {},
+    // Trocar a campanha do bloco "Joias em oferta" é mudar o que ele mostra.
+    campaign_id: entry.section.campaign_id ?? null,
     items: (entry.section.items ?? []).map(i => [i.id, i.position, i.label_snapshot]),
   })
 
@@ -188,8 +198,28 @@ const useMovimentoDaLista = (resolved: readonly ResolvedSection[]): Movimento =>
   return { acesas, entrando }
 }
 
-const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer, onHover, onRemove }: Props) => {
+const HomeSectionList = ({
+  resolved,
+  onToggle,
+  onOpen,
+  onReorder,
+  footer,
+  onHover,
+  onRemove,
+  campaigns = [],
+  campaignsLoading = false,
+  campaignsError = null,
+}: Props) => {
   const dentro = aninhadas(resolved)
+  // O relógio do painel, uma vez por abertura da lista — o mesmo critério do editor do bloco: o
+  // estado da campanha não pisca enquanto a dona trabalha.
+  const [agora] = useState(() => Date.now())
+  const campanhas: CampanhasDaLista = {
+    campaigns,
+    loading: campaignsLoading,
+    error: campaignsError,
+    now: agora,
+  }
   const noAr = resolved.filter(e => e.section.active).length
   const { acesas, entrando } = useMovimentoDaLista(resolved)
 
@@ -246,6 +276,7 @@ const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer, onHove
             recemSalva={acesas.has(entry.section.id)}
             entrando={entrando.has(entry.section.id)}
             saindo={saindo === entry.section.id}
+            campanhas={campanhas}
             onToggle={onToggle}
             onOpen={onOpen}
             onDrop={handleDrop}
