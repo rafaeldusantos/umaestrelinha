@@ -94,6 +94,25 @@ export const toNewItems = (drafts: readonly DraftItem[]): NewHomeSectionItem[] =
   drafts.map(({ key: _key, product_slug: _slug, ...resto }) => resto)
 
 /**
+ * A assinatura da curadoria para COMPARAR — o que `toNewItems` gravaria, com as colunas em ordem fixa.
+ *
+ * `JSON.stringify` depende da ordem em que as chaves foram escritas, e as duas pontas da comparação
+ * não nascem da mesma escrita: o item relido do banco passa por `toDraftItems`, e o acrescentado
+ * pela busca é montado pelo `ProductPicker`, com outra ordem. Comparar o objeto como veio acusava
+ * alteração em toda lista com peça acrescentada, mesmo depois de gravada — o editor seguia dizendo
+ * "Alterações não salvas" com tudo salvo. As colunas continuam sendo as de `toNewItems`, o dono de
+ * "o que vai para o banco"; aqui só a ordem é fixada.
+ */
+const curadoriaParaComparar = (drafts: readonly DraftItem[]): string =>
+  JSON.stringify(
+    toNewItems(drafts).map(item =>
+      Object.keys(item)
+        .sort()
+        .map(coluna => [coluna, item[coluna as keyof typeof item] ?? null]),
+    ),
+  )
+
+/**
  * O rascunho mudou em relação ao que está no banco?
  *
  * Compara **o que seria gravado**, não a estrutura de tela: a `key` fica de fora, senão reabrir a
@@ -109,12 +128,12 @@ export const draftChanged = (
   campaignId?: string | null,
 ): boolean =>
   JSON.stringify(config ?? {}) !== JSON.stringify(section.config ?? {}) ||
-  JSON.stringify(toNewItems(items)) !== JSON.stringify(toNewItems(toDraftItems(section.items))) ||
+  curadoriaParaComparar(items) !== curadoriaParaComparar(toDraftItems(section.items)) ||
   (campaignId !== undefined && (campaignId ?? null) !== (section.campaign_id ?? null))
 
 /** A curadoria mudou? Só então vale apagar e reescrever a lista inteira. */
 export const itemsChanged = (section: HomeSection, items: readonly DraftItem[]): boolean =>
-  JSON.stringify(toNewItems(items)) !== JSON.stringify(toNewItems(toDraftItems(section.items)))
+  curadoriaParaComparar(items) !== curadoriaParaComparar(toDraftItems(section.items))
 
 /**
  * A composição **como a prévia deve mostrá-la** — o que está no banco, com o rascunho por cima

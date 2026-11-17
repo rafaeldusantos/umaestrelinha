@@ -5,9 +5,10 @@
 // fronteira (os hooks de `entities/campaign`, provados em `campaignMarks.test.tsx`); o catálogo da
 // busca vem do dublê do client, como o `ProductSearchField` o lê na tela.
 
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CAMPAIGN_OFFERS_NO_CAMPAIGN,
@@ -54,7 +55,7 @@ vi.mock('@/entities/campaign', async importOriginal => ({
   useCampaignPiecesState: () => ({ states: camp.estados, loading: camp.carregandoPecas, error: camp.erroPecas }),
 }))
 
-import HomeSectionEditor from './HomeSectionEditor'
+import HomeSectionEditor, { type SectionSaveDraft } from './HomeSectionEditor'
 import { SECTION_EDITORS } from './sectionEditors'
 import CampaignOffersEditor from './CampaignOffersEditor'
 import { campaignOffersSectionRefusal } from '../model/sectionRefusals'
@@ -518,5 +519,131 @@ describe('A recusa, pelo casco: `onSave` não é chamado e o rascunho fica', () 
     expect(gravado.config).toEqual({ title: 'Para o Natal' })
     expect(gravado.campaign_id).toBe('c-natal')
     expect(gravado.items.map(i => i.product_id)).toEqual(['p1'])
+  })
+})
+
+/**
+ * A página, no tamanho que importa para o recibo: guarda a seção como o banco a devolve depois de
+ * gravar e liga o `Salvo` — o mesmo caminho de `AdminHomePage` (`curateSection` reescreve a lista,
+ * a releitura troca a seção, e o editor CONTINUA aberto, `VIV-05`).
+ *
+ * A seção relida é montada como `mapItem` de `useAdminHomeSections` a monta: ids novos, `position` a
+ * partir de 1 e as colunas na ordem da leitura — não na ordem em que a busca montou o rascunho.
+ */
+const comoOBancoDevolve = (section: HomeSection, draft: SectionSaveDraft): HomeSection => ({
+  ...section,
+  config: draft.config,
+  campaign_id: draft.campaign_id ?? null,
+  items: draft.items.map((d, index) => ({
+    id: `gravado-${index + 1}`,
+    section_id: section.id,
+    position: index + 1,
+    category_id: d.category_id ?? null,
+    product_id: d.product_id ?? null,
+    product_slug: d.product_slug ?? null,
+    href: d.href ?? null,
+    image_url: d.image_url ?? null,
+    image_mobile_url: d.image_mobile_url ?? null,
+    alt: d.alt ?? null,
+    title: d.title ?? null,
+    label_snapshot: d.label_snapshot ?? null,
+  })),
+})
+
+const PaginaQueGrava = ({ inicial }: { inicial: HomeSection }) => {
+  const [section, setSection] = useState(inicial)
+  const [salvo, setSalvo] = useState(false)
+  const hero = { ...SECAO, id: 'hero', type: 'hero', position: 1, campaign_id: null } as HomeSection
+  return (
+    <HomeSectionEditor
+      entry={
+        {
+          section,
+          renders: false,
+          hiddenReason: null,
+          items: [],
+          droppedCount: 0,
+          nestedUnder: null,
+        } as unknown as ResolvedSection
+      }
+      sections={[hero, section]}
+      categories={[]}
+      products={PECAS}
+      saving={false}
+      justSaved={salvo}
+      onCancel={vi.fn()}
+      onSave={async draft => {
+        setSection(atual => comoOBancoDevolve(atual, draft))
+        setSalvo(true)
+        return null
+      }}
+      onDraftChange={() => setSalvo(false)}
+    />
+  )
+}
+
+const montarPaginaQueGrava = (over: Partial<HomeSection> = {}) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <PaginaQueGrava inicial={{ ...SECAO, ...over }} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+const pendente = () => screen.queryByText('Alterações não salvas')
+const recibo = () => screen.queryByTestId('botao-salvo')
+
+describe('O recibo depois de gravar — "Salvo" no lugar de "Alterações não salvas"', () => {
+  it('gravar com uma peça acrescentada dá "Salvo" e tira a pendência', async () => {
+    montarPaginaQueGrava({ campaign_id: 'c-natal', config: { title: 'Para o Natal' } })
+    await waitFor(() => expect(screen.getByTestId('peca-p2')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('peca-p2'))
+    expect(pendente()).not.toBeNull()
+
+    salvar()
+
+    await waitFor(() => expect(recibo()).toHaveTextContent('Salvo'))
+    expect(pendente()).toBeNull()
+  })
+
+  it('mexer num campo depois do "Salvo" devolve a pendência', async () => {
+    montarPaginaQueGrava({ campaign_id: 'c-natal', config: { title: 'Para o Natal' } })
+    await waitFor(() => expect(screen.getByTestId('peca-p1')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('peca-p1'))
+    salvar()
+    await waitFor(() => expect(recibo()).toHaveTextContent('Salvo'))
+
+    fireEvent.change(screen.getByLabelText('Título do bloco'), { target: { value: 'Para o Natal de 2026' } })
+
+    expect(pendente()).not.toBeNull()
+    expect(recibo()).toBeNull()
+  })
+
+  it('as gravações que já davam "Salvo" continuam dando: só a campanha, sem peças, só tirando peças', async () => {
+    // Só a campanha.
+    montarPaginaQueGrava({ config: { title: 'Presentes' } })
+    fireEvent.click(screen.getByRole('radio', { name: /Natal 2026/ }))
+    salvar()
+    await waitFor(() => expect(recibo()).toHaveTextContent('Salvo'))
+    expect(pendente()).toBeNull()
+    cleanup()
+
+    // Sem peças: só o título, num bloco com campanha e lista vazia.
+    montarPaginaQueGrava({ campaign_id: 'c-natal' })
+    fireEvent.change(screen.getByLabelText('Título do bloco'), { target: { value: 'Para o Natal' } })
+    salvar()
+    await waitFor(() => expect(recibo()).toHaveTextContent('Salvo'))
+    expect(pendente()).toBeNull()
+    cleanup()
+
+    // Só tirando peças.
+    montarPaginaQueGrava({ campaign_id: 'c-natal', items: [item(1, 'p1', 'Colar de Cinzas'), item(2, 'p2', 'Pingente Gota')] })
+    fireEvent.click(screen.getByRole('button', { name: 'Remover a 1ª peça' }))
+    salvar()
+    await waitFor(() => expect(recibo()).toHaveTextContent('Salvo'))
+    expect(pendente()).toBeNull()
   })
 })

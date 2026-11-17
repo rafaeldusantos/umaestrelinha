@@ -133,7 +133,10 @@ const FormPageHeader = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* A fila quebra linha: em 390 px com a fonte a 200 %, `Cancelar` e o primário juntos passam
+            da largura da tela, e uma fila que não quebra faz a página inteira rolar de lado. Cada um
+            sozinho cabe, então o primário desce para a linha de baixo, na mesma ordem. */}
+        <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" onClick={onBack} disabled={saving}>
             Cancelar
           </Button>

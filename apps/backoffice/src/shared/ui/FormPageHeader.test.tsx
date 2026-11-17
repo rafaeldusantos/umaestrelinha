@@ -353,3 +353,28 @@ describe('FormPageHeader — o botão de salvar (ANI-01)', () => {
     expect(classes).toContain('motion-reduce:transition-none')
   })
 })
+
+/**
+ * A barra em 390 px com a fonte do sistema a 200 %.
+ *
+ * jsdom não mede layout (devolve 0 para toda medida), então o que se confere aqui são as CLASSES que
+ * decidem a quebra; a medida de verdade é do navegador. Medido lá: com `Cancelar` e o primário numa
+ * fila que não quebra, os dois juntos passam de 500 px a 200 % e a página rola de lado. Cada um
+ * sozinho cabe — o que falta é a fila poder descer o primário para a linha de baixo.
+ */
+describe('FormPageHeader — a fila de ações cabe na tela com a fonte grande', () => {
+  const tokens = (el: HTMLElement) => el.className.split(/\s+/)
+
+  it('a fila de `Cancelar` e do primário quebra linha em vez de forçar largura', () => {
+    setup()
+    const acoes = screen.getByRole('button', { name: 'Cancelar' }).parentElement!
+    expect(acoes.contains(screen.getByRole('button', { name: /Salvar promoção/ }))).toBe(true)
+    expect(tokens(acoes)).toContain('flex-wrap')
+  })
+
+  it('a linha de fora também quebra: a fila de ações desce para baixo do título', () => {
+    setup()
+    const acoes = screen.getByRole('button', { name: 'Cancelar' }).parentElement!
+    expect(tokens(acoes.parentElement!)).toContain('flex-wrap')
+  })
+})
