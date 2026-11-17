@@ -4,8 +4,8 @@
 // por isso aceitava `/produtos/inexistente` (o item levava a cliente à 404) e gravava `/sobre/` e
 // `/SOBRE` como páginas distintas. Aqui a pergunta é outra: **há uma página da loja neste endereço?**
 //
-// - rota fixa conhecida: `SITEMAP_STATIC_PATHS` e as não indexáveis sem parâmetro (as listas da loja,
-//   nunca uma terceira);
+// - rota fixa conhecida: `SITEMAP_STATIC_PATHS`, as não indexáveis sem parâmetro (as listas da loja)
+//   e a vitrine da campanha (`OFFERS_PATH`);
 // - categoria: o caminho de uma categoria ATIVA, montado por `categoryHref` (o dono da canônica,
 //   `AD-018`) sobre as ativas — a mesma conta da loja;
 // - peça: `/produtos/<slug>`, e aí a resposta depende do banco (`activeProductExists`, uma leitura).
@@ -28,7 +28,7 @@ import {
   type MenuCategory,
 } from '@estrelinha/core/menu'
 import { resolveCategoryRoute } from '@estrelinha/core/page/categoryRoute'
-import { NON_INDEXABLE_PATHS, SITEMAP_STATIC_PATHS } from '@estrelinha/core/routes'
+import { NON_INDEXABLE_PATHS, OFFERS_PATH, SITEMAP_STATIC_PATHS } from '@estrelinha/core/routes'
 
 /** Discriminado por literal de STRING (`strictNullChecks: false`). */
 export type EnderecoConferido =
@@ -36,8 +36,12 @@ export type EnderecoConferido =
   | { kind: 'peca'; href: string; slug: string }
   | { kind: 'recusa'; motivo: string }
 
+// A vitrine da campanha (`OFFERS_PATH`, WI 102) é a terceira classe de rota: fora das duas listas
+// porque a indexação depende do banco, mas a página existe sempre (sem campanha ela diz que não há
+// ofertas). Sem ela aqui, "Outro endereço da loja" recusava `/ofertas` com "Não há página".
 const ROTAS_FIXAS: ReadonlySet<string> = new Set([
   ...SITEMAP_STATIC_PATHS,
+  OFFERS_PATH,
   ...NON_INDEXABLE_PATHS.map(r => r.path).filter(p => !p.includes(':')),
 ])
 

@@ -27,6 +27,12 @@ describe('conferirEnderecoDaLoja', () => {
     expect(conferirEnderecoDaLoja('/carrinho', ARVORE)).toEqual({ kind: 'ok', href: '/carrinho' })
   })
 
+  it('a vitrine da campanha (/ofertas, fora das duas listas) passa, com a query do desconto', () => {
+    expect(conferirEnderecoDaLoja('/ofertas', ARVORE)).toEqual({ kind: 'ok', href: '/ofertas' })
+    expect(conferirEnderecoDaLoja('/Ofertas/', ARVORE)).toEqual({ kind: 'ok', href: '/ofertas' })
+    expect(conferirEnderecoDaLoja('/ofertas?desconto=20', ARVORE).kind).toBe('ok')
+  })
+
   it('caminho de categoria ATIVA passa; o da inativa e o inventado recusam', () => {
     expect(conferirEnderecoDaLoja('/joias-afetivas', ARVORE)).toEqual({ kind: 'ok', href: '/joias-afetivas' })
     expect(conferirEnderecoDaLoja('/Joias-Afetivas/Aneis/', ARVORE)).toEqual({
@@ -86,6 +92,7 @@ describe('R01 — propriedade: o que conferirEnderecoDaLoja aceita, menuDocument
     '/sobre', // rota fixa
     '/perguntas-frequentes',
     '/conta',
+    '/ofertas', // a vitrine da campanha (WI 102)
     '/', // a Home
     '/botanicas', // coleção raiz
     '/Botanicas/', // coleção raiz, grafia da barra do navegador
