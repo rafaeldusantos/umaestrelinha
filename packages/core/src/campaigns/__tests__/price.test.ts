@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campaignUnitPrice, percentOffCents, pieceComparePrice } from '../index.ts'
+import { campaignLowersPrice, campaignUnitPrice, percentOffCents, pieceComparePrice } from '../index.ts'
 
 describe('campaignUnitPrice — centavos inteiros, meio centavo para cima, por unidade', () => {
   it('20% sobre R$ 209,90 = R$ 167,92', () => {
@@ -89,5 +89,44 @@ describe('pieceComparePrice — o "de" da peça sem grade mora na variação ún
   it('sem variação, ou com a lista ausente, fica o "de" da peça', () => {
     expect(pieceComparePrice(100, 120, [])).toBe(120)
     expect(pieceComparePrice(100, null, null)).toBeNull()
+  })
+})
+
+describe('campaignLowersPrice — a campanha baixa o preço desta peça?', () => {
+  it('peça sem grade: 20% sobre R$ 209,90 baixa', () => {
+    expect(campaignLowersPrice(209.9, null, [], 20)).toBe(true)
+  })
+
+  it('o "de/por" que já vence a campanha: R$ 100 com "de" R$ 110 e 5% (R$ 104,50) não baixa', () => {
+    expect(campaignLowersPrice(100, 110, [], 5)).toBe(false)
+  })
+
+  it('o "de" da variação única também conta: R$ 100 com "de" R$ 110 na variação e 5% não baixa', () => {
+    expect(campaignLowersPrice(100, null, [{ price: 100, compare_price: 110 }], 5)).toBe(false)
+  })
+
+  it('com grade, basta uma variação que a campanha baixe', () => {
+    const variacoes = [
+      { price: 100, compare_price: 200 },
+      { price: 150, compare_price: null },
+    ]
+    // A peça (R$ 100, "de" R$ 200) não baixa com 10% (R$ 180); a segunda variação (R$ 150) baixa.
+    expect(campaignLowersPrice(100, 200, variacoes, 10)).toBe(true)
+  })
+
+  it('com grade, nenhuma variação baixando, não baixa', () => {
+    const variacoes = [
+      { price: 100, compare_price: 200 },
+      { price: 100, compare_price: 300 },
+    ]
+    expect(campaignLowersPrice(100, 200, variacoes, 10)).toBe(false)
+  })
+
+  it('variação sem preço próprio não conta como baixa', () => {
+    expect(campaignLowersPrice(100, 200, [{ price: null, compare_price: null }, { price: 100, compare_price: 200 }], 10)).toBe(false)
+  })
+
+  it('sem percentual, não baixa', () => {
+    expect(campaignLowersPrice(209.9, null, [], null)).toBe(false)
   })
 })

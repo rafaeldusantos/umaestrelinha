@@ -208,6 +208,22 @@ describe('useAdminHomeSections — leitura', () => {
     expect(result.current.sections.map(s => s.id)).toEqual(['mm', 'aa', 'zz'])
   })
 
+  it('a campanha do bloco chega mapeada, e a linha sem a coluna chega com null', async () => {
+    // Sem a linha no mapper o editor abriria o bloco "Joias em oferta" sem campanha, e o próximo
+    // salvar a apagaria.
+    readResponse = {
+      data: [
+        { id: 'sec-natal', type: 'campaign_offers', position: 1, active: true, config: {}, items: [], campaign_id: 'camp-natal' },
+        { id: 'sec-sem', type: 'campaign_offers', position: 2, active: false, config: {}, items: [] },
+      ],
+      error: null,
+    }
+    const { result } = await montar()
+    const porId = new Map(result.current.sections.map(s => [s.id, s]))
+    expect(porId.get('sec-natal')!.campaign_id).toBe('camp-natal')
+    expect(porId.get('sec-sem')).toHaveProperty('campaign_id', null)
+  })
+
   it('o título do item chega mapeado, e a linha sem a coluna chega com null (LCT-28)', async () => {
     // O mapper do painel enumera coluna a coluna, como o da loja: sem a linha nele, o editor abriria
     // o item com o título vazio e o próximo salvar APAGARIA o título gravado.

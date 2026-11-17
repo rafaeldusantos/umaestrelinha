@@ -30,9 +30,11 @@ export const HOME_SECTION_TYPES: readonly HomeSectionType[] = [
  * índice faz a mesma regra valer contra escrita direta — esconder o botão é UX, o índice é a
  * garantia.
  *
- * Os cinco que ficam de fora são repetíveis por natureza: grade de banners, destaque em coleção,
- * carrossel de produtos, grade de coleções e **banner principal** são blocos de campanha, e a dona
- * pode querer dois — em posições diferentes da página, inclusive.
+ * Os seis que ficam de fora são repetíveis por natureza: grade de banners, destaque em coleção,
+ * carrossel de produtos, grade de coleções, **banner principal** e **Joias em oferta** são blocos de
+ * campanha, e a dona pode querer dois — em posições diferentes da página, inclusive. "Joias em
+ * oferta" tem um bloco por campanha: quem garante é o índice único parcial por `campaign_id`
+ * (`CAMPAIGN_OFFERS_CAMPAIGN_INDEX`), não este catálogo.
  */
 export const UNIQUE_SECTION_TYPES: readonly HomeSectionType[] = [
   'hero',
@@ -41,9 +43,6 @@ export const UNIQUE_SECTION_TYPES: readonly HomeSectionType[] = [
   'brand_statement',
   'trending_tags',
   'newsletter',
-  // Os percentuais e as peças vêm da campanha em vigência, que é uma só: um segundo bloco seria a
-  // mesma vitrine repetida na mesma página.
-  'campaign_offers',
 ]
 
 /**

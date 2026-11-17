@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  CAMPAIGN_OFFERS_CAMPAIGN_INDEX,
   HOME_SECTION_TYPES,
   UNIQUE_SECTION_TYPES,
   DEFAULT_HOME_COMPOSITION,
@@ -74,6 +75,20 @@ const MIGRATION_OFERTAS = join(ROOT, 'supabase/migrations/20261130140000_102-joi
 const SQL_OFERTAS = readFileSync(MIGRATION_OFERTAS, 'utf8')
 
 const LIMPO_OFERTAS = semComentarios(SQL_OFERTAS)
+
+/**
+ * A migration do bloco "Joias em oferta" por campanha. Ela recria o índice único parcial dos tipos
+ * SEM `campaign_offers` (o bloco passou a ser repetível, um por campanha), cria a coluna
+ * `campaign_id` e o índice único parcial por campanha. O `check` de tipos continua o da anterior.
+ */
+const MIGRATION_POR_CAMPANHA = join(
+  ROOT,
+  'supabase/migrations/20261130170000_103-joias-em-oferta-por-campanha.sql',
+)
+
+const SQL_POR_CAMPANHA = readFileSync(MIGRATION_POR_CAMPANHA, 'utf8')
+
+const LIMPO_POR_CAMPANHA = semComentarios(SQL_POR_CAMPANHA)
 
 /** Todas as migrations, na ordem em que o `db push` as aplica (prefixo numérico). */
 const PASTA_DE_MIGRATIONS = join(ROOT, 'supabase/migrations')
@@ -175,9 +190,10 @@ const policiesDaHome = (fonte: string): Policy[] => {
   }))
 }
 
-/** Do arquivo do bloco **Joias em oferta**, que recria as duas listas por último. Ver `MIGRATION_OFERTAS`. */
+/** O `check` vigente é o da migration do bloco Joias em oferta (`MIGRATION_OFERTAS`). */
 const TIPOS_DO_CHECK = tiposDoCheck(LIMPO_OFERTAS)
-const TIPOS_UNICOS_DO_INDICE = tiposUnicosDoIndice(LIMPO_OFERTAS)
+/** O índice de tipos vigente é o da migration por campanha (`MIGRATION_POR_CAMPANHA`). */
+const TIPOS_UNICOS_DO_INDICE = tiposUnicosDoIndice(LIMPO_POR_CAMPANHA)
 const SEMENTE = sementeDoSql(LIMPO)
 const FKS = acoesDeFk(LIMPO)
 const POLICIES = policiesDaHome(LIMPO)
@@ -199,25 +215,27 @@ describe('âncora da leitura da migration da Home', () => {
     expect(TIPOS_DO_CHECK).toHaveLength(12)
   })
 
-  it('extraiu os 7 tipos do índice único parcial vigente', () => {
-    expect(TIPOS_UNICOS_DO_INDICE).toHaveLength(7)
+  it('extraiu os 6 tipos do índice único parcial vigente', () => {
+    expect(TIPOS_UNICOS_DO_INDICE).toHaveLength(6)
   })
 
-  it('o `check` e o índice VIGENTES são os da migration do bloco Joias em oferta — a última que os define', () => {
-    // Sem esta asserção, uma migration posterior que recriasse a constraint deixaria este guarda
-    // medindo uma lista que o banco já não tem, com a suíte verde.
+  it('o `check` VIGENTE é o da migration do bloco Joias em oferta, e o índice de tipos o da migration por campanha', () => {
+    // Sem esta asserção, uma migration posterior que recriasse a constraint ou o índice deixaria este
+    // guarda medindo uma lista que o banco já não tem, com a suíte verde.
     expect(TODAS_AS_MIGRATIONS.length).toBeGreaterThan(70)
     expect(ultimaQueDefine('add constraint home_sections_type_check')).toBe(
       '20261130140000_102-joias-em-oferta-na-home.sql',
     )
     expect(ultimaQueDefine('create unique index if not exists home_sections_unique_types_idx')).toBe(
-      '20261130140000_102-joias-em-oferta-na-home.sql',
+      '20261130170000_103-joias-em-oferta-por-campanha.sql',
     )
-    // E a recriação derruba antes de criar: `if not exists` sobre o índice da 24 não mudaria nada.
+    // E a recriação derruba antes de criar: `if not exists` sobre o índice anterior não mudaria nada.
     expect(LIMPO_OFERTAS).toContain('drop constraint if exists home_sections_type_check')
-    expect(LIMPO_OFERTAS).toContain('drop index if exists public.home_sections_unique_types_idx')
-    expect(LIMPO_OFERTAS.indexOf('drop index if exists public.home_sections_unique_types_idx')).toBeLessThan(
-      LIMPO_OFERTAS.indexOf('create unique index if not exists home_sections_unique_types_idx'),
+    expect(LIMPO_POR_CAMPANHA).toContain('drop index if exists public.home_sections_unique_types_idx')
+    expect(
+      LIMPO_POR_CAMPANHA.indexOf('drop index if exists public.home_sections_unique_types_idx'),
+    ).toBeLessThan(
+      LIMPO_POR_CAMPANHA.indexOf('create unique index if not exists home_sections_unique_types_idx'),
     )
   })
 
@@ -228,6 +246,17 @@ describe('âncora da leitura da migration da Home', () => {
     expect(LIMPO_OFERTAS).not.toMatch(/\bupdate\s+public\./i)
     expect(LIMPO_OFERTAS).not.toMatch(/\bdelete\s+from\b/i)
     expect(LIMPO_OFERTAS).not.toMatch(/\bgrant\b/i)
+  })
+
+  it('a migration por campanha não toca dado nem abre escrita a `anon`', () => {
+    // O bloco que já existe fica sem campanha até a dona escolher uma: gravar a vigente nele seria
+    // decidir por ela, e mudaria a Home de quem já a tem.
+    expect(SQL_POR_CAMPANHA.length).toBeGreaterThan(500)
+    expect(LIMPO_POR_CAMPANHA).not.toMatch(/\binsert\s+into\b/i)
+    expect(LIMPO_POR_CAMPANHA).not.toMatch(/\bupdate\s+(public\.)?\w+\s+set\b/i)
+    expect(LIMPO_POR_CAMPANHA).not.toMatch(/\bdelete\s+from\b/i)
+    expect(LIMPO_POR_CAMPANHA).not.toMatch(/\btruncate\b/i)
+    expect(LIMPO_POR_CAMPANHA).not.toMatch(/\bgrant\b/i)
   })
 
   it('extraiu as 7 linhas da semente', () => {
@@ -587,5 +616,85 @@ describe('a migration da 41 não toca dado (BNR-46)', () => {
         `drop trigger if exists ${nome}`,
       )
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// O bloco "Joias em oferta" por campanha
+// ---------------------------------------------------------------------------
+
+/** A declaração da coluna `campaign_id` de `home_sections`, até o `;`. */
+const colunaDaCampanha = (fonte: string): string => {
+  const inicio = fonte.search(/alter table public\.home_sections\s+add column if not exists campaign_id\b/)
+  if (inicio === -1) return ''
+  const fim = fonte.indexOf(';', inicio)
+  return fim === -1 ? fonte.slice(inicio) : fonte.slice(inicio, fim)
+}
+
+/** A criação do índice por campanha, até o `;`. */
+const indiceDaCampanha = (fonte: string, nome: string): string => {
+  const inicio = fonte.indexOf(`create unique index if not exists ${nome}`)
+  if (inicio === -1) return ''
+  const fim = fonte.indexOf(';', inicio)
+  return fim === -1 ? fonte.slice(inicio) : fonte.slice(inicio, fim)
+}
+
+const normaliza = (trecho: string): string => trecho.replace(/\s+/g, ' ').trim()
+
+describe('a campanha do bloco Joias em oferta', () => {
+  const coluna = normaliza(colunaDaCampanha(LIMPO_POR_CAMPANHA))
+  const indice = normaliza(indiceDaCampanha(LIMPO_POR_CAMPANHA, CAMPAIGN_OFFERS_CAMPAIGN_INDEX))
+
+  it('âncora: achou a coluna e o índice por campanha', () => {
+    expect(coluna.length).toBeGreaterThan(0)
+    expect(indice.length).toBeGreaterThan(0)
+  })
+
+  it('a coluna é uuid, opcional e aditiva, com FK para `campaigns`', () => {
+    expect(coluna).toMatch(/add column if not exists campaign_id uuid\b/)
+    expect(coluna).toMatch(/references public\.campaigns ?\(id\)/)
+    expect(coluna).not.toMatch(/not null/)
+  })
+
+  it('apagar a campanha ZERA a coluna — `on delete set null`, nunca cascade nem restrict', () => {
+    // Cascade apagaria o bloco da Home junto com a campanha; restrict impediria a dona de apagar a
+    // campanha por causa de um bloco. O bloco fica sem campanha e o painel pede a escolha.
+    expect(coluna).toMatch(/on delete set null/)
+    expect(coluna).not.toMatch(/cascade/)
+    expect(coluna).not.toMatch(/restrict/)
+  })
+
+  it('o índice por campanha é único, parcial, e tem o nome estável que o painel reconhece', () => {
+    expect(CAMPAIGN_OFFERS_CAMPAIGN_INDEX).toBe('home_sections_campaign_offers_campaign_idx')
+    expect(indice).toMatch(/on public\.home_sections ?\(campaign_id\)/)
+    expect(indice).toMatch(/where type = 'campaign_offers' and campaign_id is not null$/)
+  })
+
+  it('o bloco sem campanha não entra no índice — dois blocos sem campanha convivem', () => {
+    expect(indice).toContain('campaign_id is not null')
+  })
+
+  it('`campaign_offers` saiu do índice de tipos, e os outros seis continuam', () => {
+    expect(TIPOS_UNICOS_DO_INDICE).not.toContain('campaign_offers')
+    expect([...TIPOS_UNICOS_DO_INDICE].sort()).toEqual(
+      ['brand_statement', 'collection_rows', 'hero', 'newsletter', 'trending_tags', 'trust_bar'],
+    )
+  })
+
+  it('sensor: os parsers reprovam a coluna em cascade e o índice sem o recorte', () => {
+    const cascade = normaliza(
+      colunaDaCampanha(
+        'alter table public.home_sections add column if not exists campaign_id uuid references public.campaigns (id) on delete cascade;',
+      ),
+    )
+    expect(cascade).toMatch(/cascade/)
+    expect(cascade).not.toMatch(/on delete set null/)
+    const semRecorte = normaliza(
+      indiceDaCampanha(
+        `create unique index if not exists ${CAMPAIGN_OFFERS_CAMPAIGN_INDEX} on public.home_sections (campaign_id);`,
+        CAMPAIGN_OFFERS_CAMPAIGN_INDEX,
+      ),
+    )
+    expect(semRecorte).not.toMatch(/where type = 'campaign_offers' and campaign_id is not null$/)
   })
 })

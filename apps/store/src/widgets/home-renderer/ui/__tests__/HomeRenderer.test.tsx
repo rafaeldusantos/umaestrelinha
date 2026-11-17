@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { DEFAULT_HOME_COMPOSITION, type HomeSection } from '@estrelinha/core/home'
 import HomeRenderer from '../HomeRenderer'
@@ -67,6 +67,16 @@ const secao = (type: string, over: Partial<HomeSection> = {}): HomeSection => {
   return { ...semeada, ...over } as HomeSection
 }
 
+const campanhaVivaMaes = () => ({
+  id: 'camp-maes',
+  name: 'Dia das Mães',
+  badge_text: 'DIA DAS MÃES',
+  band_color: '#23303A',
+  accent_color: '#F7F3EC',
+  ends_at: '2026-05-11T03:00:00Z',
+  percents: [10, 20],
+})
+
 const renderHome = (sections: HomeSection[]) =>
   render(
     <MemoryRouter>
@@ -106,7 +116,7 @@ describe('HomeRenderer — o registro tipo → componente', () => {
     ).toEqual([])
   })
 
-  it('Joias em oferta tem desenho, e a Home o desenha só com campanha em vigência', () => {
+  it('Joias em oferta tem desenho, e a Home o desenha só com a campanha DELE em vigência', () => {
     expect(HOME_SECTION_RENDERERS.campaign_offers).not.toBeNull()
     const ofertas: HomeSection = {
       id: 'ofertas',
@@ -114,6 +124,7 @@ describe('HomeRenderer — o registro tipo → componente', () => {
       position: 2,
       active: true,
       config: {},
+      campaign_id: 'camp-maes',
     }
 
     campanhaViva.data = {
@@ -134,9 +145,56 @@ describe('HomeRenderer — o registro tipo → componente', () => {
     unmount()
 
     campanhaViva.data = null
+    const semVigente = renderHome([secao('hero', { position: 1 }), ofertas])
+    expect(screen.queryByTestId('joias-em-oferta')).toBeNull()
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
+    semVigente.unmount()
+
+    // Outra campanha em vigência: o bloco da campanha das mães não aparece.
+    campanhaViva.data = { ...campanhaVivaMaes(), id: 'camp-natal', name: 'Natal' }
     renderHome([secao('hero', { position: 1 }), ofertas])
     expect(screen.queryByTestId('joias-em-oferta')).toBeNull()
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
+  })
+
+  it('Joias em oferta recebe a seção e os itens: o título do bloco e as peças escolhidas', () => {
+    campanhaViva.data = campanhaVivaMaes()
+    escolhidos.porId = {
+      'p-anel': { id: 'p-anel', name: 'Anel Memória', campaign: { id: 'camp-maes' } },
+      'p-colar': { id: 'p-colar', name: 'Colar Saudade', campaign: { id: 'camp-maes' } },
+    }
+    const item = (productId: string, position: number) => ({
+      id: `i-${productId}`,
+      section_id: 'ofertas',
+      position,
+      category_id: null,
+      product_id: productId,
+      product_slug: productId,
+      href: null,
+      image_url: null,
+      alt: null,
+      label_snapshot: null,
+    })
+    renderHome([
+      secao('hero', { position: 1 }),
+      {
+        id: 'ofertas',
+        type: 'campaign_offers',
+        position: 2,
+        active: true,
+        config: { title: 'Para quem é colo' },
+        campaign_id: 'camp-maes',
+        items: [item('p-colar', 0), item('p-anel', 1)],
+      },
+    ])
+
+    const bloco = screen.getByTestId('joias-em-oferta')
+    expect(within(bloco).getByRole('heading', { level: 2, name: 'Para quem é colo' })).toBeInTheDocument()
+    expect(within(bloco).getAllByTestId('produto').map(p => p.textContent)).toEqual([
+      'Colar Saudade',
+      'Anel Memória',
+    ])
+    escolhidos.porId = {}
   })
 
   it('Produtos em destaque GANHOU desenho na feature 50 (DST-04)', () => {

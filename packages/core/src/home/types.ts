@@ -38,9 +38,10 @@ export type HomeSectionType =
    */
   | 'hero_carousel'
   /**
-   * O bloco "Joias em oferta": os percentuais e algumas peças da campanha de desconto em vigência.
-   * Sem campos — o título, o rótulo e os percentuais vêm da campanha, e sem campanha em vigência a
-   * loja não o desenha. Único na Home.
+   * O bloco "Joias em oferta": os percentuais e as peças de UMA campanha de desconto, a escolhida em
+   * `HomeSection.campaign_id`. Aparece só quando ela é a vigente. Título e descrição em
+   * `config.title`/`config.subtitle`, com recuo para o nome da campanha e a frase dos percentuais;
+   * as peças escolhidas são os itens. Repetível — um bloco por campanha. Regras em `campaignOffers.ts`.
    */
   | 'campaign_offers'
 
@@ -136,9 +137,9 @@ export interface HomeSectionConfig {
   display?: HomeFeaturedDisplay
   /** `collection_rows`, `trending_tags`, `product_carousel`, `category_grid`. */
   limit?: number
-  /** `brand_statement`, `trending_tags`, `newsletter`, `collection_feature`, e os dois de P3. */
+  /** `brand_statement`, `trending_tags`, `newsletter`, `collection_feature`, `campaign_offers`, e os dois de P3. */
   title?: string
-  /** `trending_tags`, `newsletter`. */
+  /** `trending_tags`, `newsletter`, `campaign_offers` (a descrição do bloco). */
   subtitle?: string
   /** `collection_feature` — o texto curto ao lado da imagem. */
   text?: string
@@ -248,4 +249,10 @@ export interface HomeSection {
   config: HomeSectionConfig
   /** Vazio ou ausente = derivação de hoje. Ver `HomeSectionItem`. */
   items?: HomeSectionItem[]
+  /**
+   * `campaign_offers` — a campanha do bloco (FK `on delete set null`): apagar a campanha zera a
+   * coluna, e o bloco fica sem campanha. Os outros tipos não a usam. Opcional porque a coluna é nova
+   * e as seções montadas à mão (semente, testes) não a declaram — ausente vale como `null`.
+   */
+  campaign_id?: string | null
 }

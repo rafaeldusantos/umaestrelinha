@@ -168,6 +168,23 @@ describe('useHomeSections — o que o banco devolve chega mapeado', () => {
     expect(result.current.data[0].items[0]).toHaveProperty('title', null)
   })
 
+  it('a campanha do bloco chega mapeada, e a linha sem ela chega com campaign_id null', async () => {
+    // O bloco "Joias em oferta" decide se aparece comparando esta coluna com a campanha vigente:
+    // sem a linha no mapper, todo bloco ficaria sem campanha e nunca apareceria.
+    const semColuna = linhaDoBanco({ id: 'sec-sem' })
+    delete (semColuna as { campaign_id?: unknown }).campaign_id
+    respondeCom([
+      linhaDoBanco({ id: 'sec-natal', type: 'campaign_offers', campaign_id: 'camp-natal' }),
+      semColuna,
+    ])
+
+    const result = await ler()
+
+    const porId = new Map(result.current.data.map(s => [s.id, s]))
+    expect(porId.get('sec-natal')!.campaign_id).toBe('camp-natal')
+    expect(porId.get('sec-sem')).toHaveProperty('campaign_id', null)
+  })
+
   it('seção sem curadoria chega com a lista vazia — que é a derivação de hoje, não "sem conteúdo"', async () => {
     respondeCom([linhaDoBanco()])
 

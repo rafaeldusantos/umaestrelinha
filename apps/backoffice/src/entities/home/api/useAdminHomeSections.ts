@@ -92,6 +92,7 @@ const mapSection = (row: DbHomeSection): HomeSection => ({
   active: row.active ?? false,
   config: (row.config ?? {}) as HomeSectionConfig,
   items: (row.items ?? []).map(mapItem),
+  campaign_id: row.campaign_id ?? null,
 })
 
 export const useAdminHomeSections = () => {

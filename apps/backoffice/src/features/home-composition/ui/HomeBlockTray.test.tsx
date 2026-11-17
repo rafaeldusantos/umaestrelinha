@@ -203,20 +203,23 @@ describe('HomeBlockTray — a bandeja mostra o catálogo inteiro', () => {
     expect(onAdd).toHaveBeenCalledWith('campaign_offers')
   })
 
-  it('Joias em oferta é ÚNICO: já na Home, a bandeja diz isso e não acrescenta outro', () => {
+  it('Joias em oferta é REPETÍVEL: com um bloco na Home, a bandeja oferece o segundo', () => {
+    // Um bloco por campanha — quem recusa a mesma campanha duas vezes é o índice por campanha do
+    // banco, não a bandeja.
     const naHome: HomeSection = {
       id: 'ofertas',
       type: 'campaign_offers',
       position: 8,
       active: false,
       config: {},
+      campaign_id: 'camp-natal',
     }
     const onAdd = montar([...DEFAULT_HOME_COMPOSITION, naHome])
 
-    expect(bloco('campaign_offers')).toBeDisabled()
-    expect(screen.getByTestId('motivo-campaign_offers')).toHaveTextContent('já está na Home')
+    expect(bloco('campaign_offers')).not.toBeDisabled()
+    expect(screen.queryByTestId('motivo-campaign_offers')).toBeNull()
     fireEvent.click(bloco('campaign_offers'))
-    expect(onAdd).not.toHaveBeenCalled()
+    expect(onAdd).toHaveBeenCalledWith('campaign_offers')
   })
 
   it('diz que a seção nova nasce desligada (HOME-10)', () => {

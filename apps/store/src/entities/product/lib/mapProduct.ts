@@ -16,7 +16,7 @@ import { normalizeImages, primaryImage } from '@estrelinha/core/media'
 import { normalizeCategoryLinks, normalizeOptions, normalizeVariants, toStockPolicy } from '@estrelinha/core/product'
 import { toMaterialKinds } from '@estrelinha/core/material'
 import type { OptionMark } from '@estrelinha/core/filters'
-import { campaignUnitPrice, pieceComparePrice } from '@estrelinha/core/campaigns'
+import { campaignLowersPrice, campaignUnitPrice, pieceComparePrice } from '@estrelinha/core/campaigns'
 import type { Product, ProductCampaign, ProductVariant } from '@estrelinha/supabase/types'
 
 /**
@@ -252,16 +252,18 @@ const withCampaign = (product: Product, campaign: CampaignMark | null): Product 
     compare_price: pieceComparePrice(product.price, product.compare_price, product.variants),
     variants: listVariants,
   }
+  // "A campanha baixa esta peça?" é de `core/campaigns`: a vitrine e o bloco da Home perguntam ao
+  // mesmo dono, e a peça que não baixa some dos dois.
+  if (!campaignLowersPrice(product.price, product.compare_price, product.variants, campaign.percent)) {
+    return { ...product, campaign: null }
+  }
   const daPeca = campaignUnitPrice(product.price, list_prices.compare_price, campaign.percent)
-  let baixou = daPeca.discounted
   const variants = product.variants.map((v): ProductVariant => {
     if (v.price === null) return v
     const daLinha = campaignUnitPrice(v.price, v.compare_price, campaign.percent)
     if (!daLinha.discounted) return v
-    baixou = true
     return { ...v, price: daLinha.charged, compare_price: daLinha.full }
   })
-  if (!baixou) return { ...product, campaign: null }
   return {
     ...product,
     ...(daPeca.discounted ? { price: daPeca.charged, compare_price: daPeca.full } : {}),

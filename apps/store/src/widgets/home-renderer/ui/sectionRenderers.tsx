@@ -80,7 +80,8 @@ export const HOME_SECTION_RENDERERS: Record<
   // com trilho vazio seria uma vaga de altura reservada mostrando nada.
   hero_carousel: ({ section, items }) =>
     items.length ? <HeroCarousel section={section} items={items} /> : null,
-  // Joias em oferta: sem campo nem item — o que ele mostra vem da campanha em vigência, e
-  // sem campanha ele mesmo não desenha nada.
-  campaign_offers: () => <CampaignOffers />,
+  // Joias em oferta: a seção traz a campanha do bloco, o título e a descrição; os itens são as peças
+  // escolhidas. Sem item a seção chega mesmo assim — a fileira mostra as primeiras da campanha —, e
+  // quem decide se o bloco aparece (a campanha dele é a vigente?) é o próprio bloco.
+  campaign_offers: ({ section, items }) => <CampaignOffers section={section} items={items} />,
 }

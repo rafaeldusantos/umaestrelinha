@@ -72,6 +72,11 @@ export interface DbHomeSection {
   /** Seção nova nasce `false` (`HOME-10`). O hero não desliga — o trigger recusa (`HOME-08`). */
   active: boolean
   config: Record<string, unknown>
+  /**
+   * `campaign_offers` — a campanha do bloco (`references campaigns(id) on delete set null`). Opcional
+   * porque linhas montadas à mão e respostas anteriores à coluna não a trazem; ausente vale `null`.
+   */
+  campaign_id?: string | null
   created_at: string
   updated_at: string
   /**

@@ -63,8 +63,8 @@ describe('HOME_SECTION_TYPES — o que NÃO pode entrar (HOME-06)', () => {
   })
 })
 
-describe('UNIQUE_SECTION_TYPES — os sete que só existem uma vez', () => {
-  it('declara os sete únicos', () => {
+describe('UNIQUE_SECTION_TYPES — os seis que só existem uma vez', () => {
+  it('declara os seis únicos', () => {
     expect(UNIQUE_SECTION_TYPES).toEqual([
       'hero',
       'trust_bar',
@@ -72,9 +72,8 @@ describe('UNIQUE_SECTION_TYPES — os sete que só existem uma vez', () => {
       'brand_statement',
       'trending_tags',
       'newsletter',
-      'campaign_offers',
     ])
-    expect(UNIQUE_SECTION_TYPES).toHaveLength(7)
+    expect(UNIQUE_SECTION_TYPES).toHaveLength(6)
   })
 
   it('todo tipo único é um tipo do catálogo', () => {
@@ -83,7 +82,7 @@ describe('UNIQUE_SECTION_TYPES — os sete que só existem uma vez', () => {
     }
   })
 
-  it('os cinco repetíveis são os blocos de campanha', () => {
+  it('os seis repetíveis são os blocos de campanha', () => {
     const repetiveis = HOME_SECTION_TYPES.filter(t => !UNIQUE_SECTION_TYPES.includes(t))
     expect(repetiveis).toEqual([
       'banner_grid',
@@ -91,7 +90,12 @@ describe('UNIQUE_SECTION_TYPES — os sete que só existem uma vez', () => {
       'product_carousel',
       'category_grid',
       'hero_carousel',
+      'campaign_offers',
     ])
+  })
+
+  it('Joias em oferta é REPETÍVEL — um bloco por campanha, quem limita é o índice por campanha', () => {
+    expect(UNIQUE_SECTION_TYPES).not.toContain('campaign_offers')
   })
 
   it('o banner principal é REPETÍVEL — a dona pode querer dois (BNR-03)', () => {
@@ -171,13 +175,13 @@ describe('sectionMeta — o que ainda é "em breve" (emenda E3)', () => {
     ])
   })
 
-  it('Joias em oferta: o rótulo que a dona lê, único na Home, sem `limit` e pronto', () => {
+  it('Joias em oferta: o rótulo que a dona lê, repetível, sem `limit` e pronto', () => {
     expect(sectionMeta('campaign_offers')).toEqual({
       type: 'campaign_offers',
       label: 'Joias em oferta',
       comingSoon: false,
       limit: null,
-      unique: true,
+      unique: false,
     })
     const rotulos = HOME_SECTION_TYPES.filter(t => t !== 'campaign_offers').map(
       t => sectionMeta(t)!.label,

@@ -67,6 +67,9 @@ const mapSection = (row: DbHomeSection): HomeSection => ({
   active: row.active ?? true,
   config: (row.config ?? {}) as HomeSectionConfig,
   items: (row.items ?? []).map(mapItem),
+  // O bloco "Joias em oferta" aparece só quando esta campanha é a vigente. Campo novo na tabela é
+  // campo novo AQUI, ou ele não chega à tela.
+  campaign_id: row.campaign_id ?? null,
 })
 
 /**

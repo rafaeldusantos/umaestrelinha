@@ -1,20 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { HomeSection, HomeSectionItem, ResolvedItem } from '@estrelinha/core/home'
 import CampaignOffers from '../CampaignOffers'
 
 /**
  * O bloco "Joias em oferta".
  *
- * O que se prova: sem campanha em vigência o bloco não desenha nada; com ela, um cartão por
- * percentual levando à vitrine recortada, o rótulo e o título da própria campanha (outra campanha,
- * outro texto, sem mudança de código) e a fileira de peças marcadas.
+ * O que se prova: o bloco aparece só quando a campanha dele é a vigente que o banco entrega — sem
+ * campanha, com outra em vigência, ou carregando, ele não desenha nada. Com ela: um cartão por
+ * percentual levando à vitrine recortada; o selo acima do título; o título e a descrição da dona, ou
+ * os recuos para o nome da campanha e a frase dos percentuais; e a fileira — as peças escolhidas na
+ * ordem da dona, em fita, sem completar a vaga da que deixou de valer, ou as quatro primeiras da
+ * campanha quando não há escolha.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const { campanha, pecas } = vi.hoisted(() => ({
+const { campanha, pecas, escolhidas } = vi.hoisted(() => ({
   campanha: { estado: { data: null, isLoading: false, isError: false } as any },
   pecas: { estado: { data: [], isLoading: false, isError: false } as any, pedidos: [] as unknown[] },
+  escolhidas: { estado: { data: [], isLoading: false, isError: false } as any, pedidos: [] as unknown[] },
 }))
 
 vi.mock('@/entities/campaign', () => ({ useLiveCampaign: () => campanha.estado }))
@@ -22,6 +27,12 @@ vi.mock('../../model/useCampaignOfferProducts', () => ({
   useCampaignOfferProducts: (id: unknown) => {
     pecas.pedidos.push(id)
     return pecas.estado
+  },
+}))
+vi.mock('@/entities/product/api/useProductsByIds', () => ({
+  useProductsByIds: (ids: readonly string[]) => {
+    escolhidas.pedidos.push([...ids])
+    return escolhidas.estado
   },
 }))
 vi.mock('@/entities/product/ui/ProductCard', () => ({
@@ -38,10 +49,60 @@ const blackFriday = (percents: number[]) => ({
   percents,
 })
 
-const montar = () =>
+const secao = (over: Partial<HomeSection> = {}): HomeSection => ({
+  id: 'sec-ofertas',
+  type: 'campaign_offers',
+  position: 2,
+  active: true,
+  config: {},
+  items: [],
+  campaign_id: 'camp-bf',
+  ...over,
+})
+
+/** A linha curada como o banco a guarda. */
+const linha = (productId: string, position: number): HomeSectionItem => ({
+  id: `item-${productId}`,
+  section_id: 'sec-ofertas',
+  position,
+  category_id: null,
+  product_id: productId,
+  href: null,
+  image_url: null,
+  alt: null,
+  label_snapshot: null,
+})
+
+/** O item já resolvido, como o renderizador o entrega. */
+const resolvido = (productId: string): ResolvedItem => ({
+  id: `item-${productId}`,
+  categoryId: null,
+  productId,
+  slug: productId,
+  label: '',
+  description: null,
+  href: `/produtos/${productId}`,
+  imageUrl: null,
+  imageMobileUrl: null,
+  curated: true,
+})
+
+/** Uma seção com estas peças escolhidas, na ordem. */
+const comEscolhidas = (ids: string[], over: Partial<HomeSection> = {}) => ({
+  section: secao({ items: ids.map((id, i) => linha(id, i)), ...over }),
+  items: ids.map(resolvido),
+})
+
+const peca = (id: string, name: string, campanhaId: string | null = 'camp-bf') => ({
+  id,
+  name,
+  campaign: campanhaId ? { id: campanhaId } : null,
+})
+
+const montar = (props: { section?: HomeSection; items?: ResolvedItem[] } = {}) =>
   render(
     <MemoryRouter>
-      <CampaignOffers />
+      <CampaignOffers section={props.section ?? secao()} items={props.items ?? []} />
     </MemoryRouter>,
   )
 
@@ -51,11 +112,39 @@ beforeEach(() => {
   campanha.estado = { data: null, isLoading: false, isError: false }
   pecas.estado = { data: [], isLoading: false, isError: false }
   pecas.pedidos = []
+  escolhidas.estado = { data: [], isLoading: false, isError: false }
+  escolhidas.pedidos = []
 })
 
-describe('sem campanha em vigência, o bloco não aparece', () => {
-  it('campanha `null`: nada no DOM', () => {
+describe('o bloco aparece só com a campanha dele em vigência', () => {
+  it('nenhuma campanha em vigência (agendada, encerrada ou desligada): nada no DOM', () => {
     const { container } = montar()
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('a vigente é OUTRA campanha: nada no DOM, e não pede peça nenhuma', () => {
+    campanha.estado = {
+      data: { ...blackFriday([10]), id: 'camp-maes', name: 'Dia das Mães' },
+      isLoading: false,
+      isError: false,
+    }
+    const { container } = montar(comEscolhidas(['p1']))
+    expect(container).toBeEmptyDOMElement()
+    expect(pecas.pedidos.filter(Boolean)).toEqual([])
+    expect(escolhidas.pedidos.filter(ids => (ids as string[]).length > 0)).toEqual([])
+  })
+
+  it('o bloco sem campanha (nunca teve, ou a campanha foi apagada): nada no DOM, mesmo com uma vigente', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    const { container } = montar({ section: secao({ campaign_id: null }) })
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('a seção lida sem a coluna (campaign_id ausente): nada no DOM', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    const semColuna = secao()
+    delete semColuna.campaign_id
+    const { container } = montar({ section: semColuna })
     expect(container).toBeEmptyDOMElement()
   })
 
@@ -136,7 +225,36 @@ describe('os cartões de percentual', () => {
   })
 })
 
-describe('o texto vem da campanha', () => {
+describe('o selo, o título e a descrição', () => {
+  it('título e descrição do bloco, como a dona escreveu, com o selo da campanha acima', () => {
+    campanha.estado = { data: blackFriday([10, 15, 20]), isLoading: false, isError: false }
+    montar({
+      section: secao({
+        config: { title: 'Presentes que guardam memória', subtitle: 'Joias para quem você ama.' },
+      }),
+    })
+
+    const titulo = screen.getByRole('heading', { level: 2, name: 'Presentes que guardam memória' })
+    const selo = screen.getByText('BLACK FRIDAY')
+    expect(screen.getByText('Joias para quem você ama.')).toBeInTheDocument()
+    expect(screen.queryByText(/Peças selecionadas com/)).toBeNull()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Black Friday' })).toBeNull()
+    // O selo vem ANTES do título no documento.
+    expect(selo.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('título e descrição vazios recuam para o nome da campanha e a frase dos percentuais', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    montar({ section: secao({ config: { title: '  ', subtitle: '' } }) })
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Black Friday' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Peças selecionadas com 10% e 20% de desconto. O valor de cada joia já aparece com o desconto.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('Black Friday: o rótulo, o título e o texto com os percentuais', () => {
     campanha.estado = { data: blackFriday([10, 15, 20]), isLoading: false, isError: false }
     montar()
@@ -156,7 +274,7 @@ describe('o texto vem da campanha', () => {
       isLoading: false,
       isError: false,
     }
-    montar()
+    montar({ section: secao({ campaign_id: 'camp-maes' }) })
 
     expect(screen.getByRole('heading', { level: 2, name: 'Dia das Mães' })).toBeInTheDocument()
     expect(screen.getByText('DIA DAS MÃES')).toBeInTheDocument()
@@ -170,7 +288,107 @@ describe('o texto vem da campanha', () => {
   })
 })
 
-describe('a fileira de peças em oferta', () => {
+describe('a fileira das peças escolhidas', () => {
+  it('as escolhidas na ordem da dona, não na da resposta', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    escolhidas.estado = {
+      data: [peca('p1', 'Pingente Estrela'), peca('p3', 'Brinco Lua'), peca('p2', 'Anel Memória')],
+      isLoading: false,
+      isError: false,
+    }
+    montar(comEscolhidas(['p2', 'p3', 'p1']))
+
+    expect(escolhidas.pedidos).toContainEqual(['p2', 'p3', 'p1'])
+    expect(screen.getAllByTestId('peca').map(p => p.textContent)).toEqual([
+      'Anel Memória',
+      'Brinco Lua',
+      'Pingente Estrela',
+    ])
+    // Com escolha, as primeiras da campanha não são pedidas.
+    expect(pecas.pedidos.filter(Boolean)).toEqual([])
+  })
+
+  it('em fita: rola no celular e continua fita no computador', () => {
+    campanha.estado = { data: blackFriday([10]), isLoading: false, isError: false }
+    escolhidas.estado = { data: [peca('p1', 'Pingente Estrela')], isLoading: false, isError: false }
+    montar(comEscolhidas(['p1']))
+
+    const trilho = screen.getByTestId('joias-em-oferta').querySelector('[aria-busy]')!
+    const tokens = trilho.className.split(/\s+/)
+    expect(tokens).toEqual(expect.arrayContaining(['flex', 'overflow-x-auto']))
+    expect(tokens).not.toContain('md:grid')
+    expect(tokens).not.toContain('md:grid-cols-4')
+  })
+
+  it('carregando: uma vaga de esqueleto por peça escolhida', () => {
+    campanha.estado = { data: blackFriday([10]), isLoading: false, isError: false }
+    escolhidas.estado = { data: undefined, isLoading: true, isError: false }
+    montar(comEscolhidas(['p1', 'p2', 'p3', 'p4', 'p5', 'p6']))
+
+    const bloco = screen.getByTestId('joias-em-oferta')
+    expect(bloco.querySelector('[aria-busy="true"]')!.childElementCount).toBe(6)
+  })
+
+  it('a peça tirada da campanha e a que a campanha não barateia somem, e a vaga fica vazia', () => {
+    campanha.estado = { data: blackFriday([10]), isLoading: false, isError: false }
+    escolhidas.estado = {
+      data: [
+        peca('p1', 'Pingente Estrela'),
+        // Tirada da campanha, ou marcada sem que o preço baixe: o mapeador a entrega sem campanha.
+        peca('p2', 'Anel Memória', null),
+        // De outra campanha.
+        peca('p3', 'Brinco Lua', 'camp-maes'),
+        peca('p4', 'Colar Saudade'),
+      ],
+      isLoading: false,
+      isError: false,
+    }
+    montar(comEscolhidas(['p1', 'p2', 'p3', 'p4']))
+
+    expect(screen.getAllByTestId('peca').map(p => p.textContent)).toEqual([
+      'Pingente Estrela',
+      'Colar Saudade',
+    ])
+    // Sem completar com outra peça da campanha.
+    expect(pecas.pedidos.filter(Boolean)).toEqual([])
+  })
+
+  it('todas as escolhidas deixaram de valer: só os cartões, sem a fileira', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    escolhidas.estado = {
+      data: [peca('p1', 'Pingente Estrela', null), peca('p2', 'Anel Memória', null)],
+      isLoading: false,
+      isError: false,
+    }
+    montar(comEscolhidas(['p1', 'p2']))
+
+    expect(cartoes()).toHaveLength(2)
+    expect(screen.queryAllByTestId('peca')).toEqual([])
+    expect(screen.queryByRole('heading', { name: 'Algumas das peças em oferta' })).toBeNull()
+    expect(pecas.pedidos.filter(Boolean)).toEqual([])
+  })
+
+  it('todas as escolhidas saíram do ar (nenhuma resolveu): só os cartões, sem completar', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    const { section } = comEscolhidas(['p1', 'p2'])
+    montar({ section, items: [] })
+
+    expect(cartoes()).toHaveLength(2)
+    expect(screen.queryByRole('heading', { name: 'Algumas das peças em oferta' })).toBeNull()
+    expect(pecas.pedidos.filter(Boolean)).toEqual([])
+  })
+
+  it('a leitura das escolhidas falhou: os cartões ficam, a fileira some', () => {
+    campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
+    escolhidas.estado = { data: undefined, isLoading: false, isError: true }
+    montar(comEscolhidas(['p1', 'p2']))
+
+    expect(cartoes()).toHaveLength(2)
+    expect(screen.queryByRole('heading', { name: 'Algumas das peças em oferta' })).toBeNull()
+  })
+})
+
+describe('sem peça escolhida, as primeiras da campanha', () => {
   it('pede as peças da MESMA campanha do título e as desenha, com "Ver todas" para a vitrine', () => {
     campanha.estado = { data: blackFriday([10, 20]), isLoading: false, isError: false }
     pecas.estado = {

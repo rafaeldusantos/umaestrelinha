@@ -93,6 +93,9 @@ describe('a loja não decide a vigência da campanha', () => {
   it('metade positiva: o mapeador precifica pela função de `core` e pede a marcação pela view da vigência', () => {
     const codigo = de(MAPEADOR)!.codigo
     expect(codigo).toMatch(/\bcampaignUnitPrice\(/)
+    // "A campanha baixa esta peça?" tem dono em `core/campaigns`: o mapeador pergunta a ele, e o
+    // bloco "Joias em oferta" da Home esconde a mesma peça que a vitrine esconde.
+    expect(codigo).toMatch(/\bcampaignLowersPrice\(/)
     expect(codigo).toContain(':live_product_campaigns(percent, campaigns(')
   })
 

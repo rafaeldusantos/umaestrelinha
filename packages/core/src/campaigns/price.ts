@@ -91,3 +91,34 @@ export function pieceComparePrice(
   if (preco === null || deVariacao === null || toCents(preco) !== toCents(price)) return daPeca
   return daPeca === null || toCents(deVariacao) > toCents(daPeca) ? deVariacao : daPeca
 }
+
+/**
+ * A campanha baixa o preço desta peça? — o dono da pergunta.
+ *
+ * Baixa quando o preço da peça (com o "de" de `pieceComparePrice`) cai, ou quando ao menos uma
+ * variação com preço próprio cai. Peça marcada cujo "de/por" já vence a campanha não baixa: não tem
+ * selo nem desconto para mostrar, e some da vitrine e do bloco "Joias em oferta" da Home. O mapeador
+ * da loja decide por esta função; uma segunda escrita faria o bloco mostrar a peça que a vitrine
+ * esconde.
+ *
+ * @param price o preço de hoje da peça
+ * @param comparePrice o "de" da peça, quando existe
+ * @param variants as variações (preço e "de" de cada uma; preço `null` = sem preço próprio)
+ * @param percent o percentual marcado na peça para a campanha, ou `null`
+ */
+export function campaignLowersPrice(
+  price: number,
+  comparePrice: number | null | undefined,
+  variants: readonly VariantListPrice[] | null | undefined,
+  percent: number | null | undefined,
+): boolean {
+  if (percent === null || percent === undefined) return false
+  const de = pieceComparePrice(price, comparePrice, variants)
+  if (campaignUnitPrice(price, de, percent).discounted) return true
+  for (const v of variants ?? []) {
+    const preco = reaisOuNulo(v.price)
+    if (preco === null) continue
+    if (campaignUnitPrice(preco, reaisOuNulo(v.compare_price), percent).discounted) return true
+  }
+  return false
+}
