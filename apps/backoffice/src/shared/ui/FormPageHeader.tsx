@@ -7,9 +7,9 @@
 // atalho.
 //
 // Por que sticky: as duas telas rolam (o repetidor de faixas cresce), e um save que sai da viewport
-// obriga a subir a página inteira para gravar.
+// obriga a subir a página inteira para gravar. Mas só enquanto a barra cabe — ver `cabeNoTopo`.
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Badge } from '@estrelinha/ui/badge'
@@ -61,6 +61,21 @@ interface Props {
   bleed?: boolean
 }
 
+/**
+ * Quanto da janela a barra pode ocupar e ainda grudar no topo: um quarto da altura.
+ *
+ * A fila de ações quebra linha para não fazer a página rolar de lado, e por isso, em 390 × 844 com a
+ * fonte do sistema a 200 %, a barra passa de 340 px. Grudada, ela e a barra do painel cobriam mais da
+ * metade da tela: o foco ia parar debaixo dela, e o toque num controle visto pelo fundo translúcido
+ * caía no primário. A 100 % (~73 px) e a 130 % (~162 px) ela cabe com folga e gruda como sempre.
+ * Acima do limite ela fica no fluxo, no topo do formulário — o primário continua a uma rolagem e ao
+ * `⌘S` de distância.
+ */
+const FRACAO_MAXIMA_DA_JANELA = 1 / 4
+
+const cabeNoTopo = (alturaDaBarra: number, alturaDaJanela: number) =>
+  alturaDaBarra <= alturaDaJanela * FRACAO_MAXIMA_DA_JANELA
+
 const FormPageHeader = ({
   group,
   parentLabel,
@@ -86,6 +101,27 @@ const FormPageHeader = ({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onSave, saving])
 
+  // A medida é reavaliada quando a barra muda de altura (a fonte, um selo que entra, a largura que
+  // faz a fila quebrar) e quando a janela muda de altura. Sem `ResizeObserver` não há como
+  // acompanhar a barra, e ela gruda como sempre grudou.
+  const barraRef = useRef<HTMLElement>(null)
+  const [gruda, setGruda] = useState(true)
+  useEffect(() => {
+    const barra = barraRef.current
+    if (!barra || typeof ResizeObserver === 'undefined') return
+
+    const medir = () => setGruda(cabeNoTopo(barra.getBoundingClientRect().height, window.innerHeight))
+    medir()
+
+    const observador = new ResizeObserver(medir)
+    observador.observe(barra)
+    window.addEventListener('resize', medir)
+    return () => {
+      observador.disconnect()
+      window.removeEventListener('resize', medir)
+    }
+  }, [])
+
   /**
    * O estado da gravação, desenhado no botão (`ANI-01`).
    *
@@ -100,8 +136,10 @@ const FormPageHeader = ({
 
   return (
     <header
+      ref={barraRef}
       className={cn(
-        'sticky top-14 z-20 mb-6 md:top-0 border-b border-border bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        'mb-6 border-b border-border bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        gruda && 'sticky top-14 z-20 md:top-0',
         bleed && '-mx-4 px-4',
       )}
     >

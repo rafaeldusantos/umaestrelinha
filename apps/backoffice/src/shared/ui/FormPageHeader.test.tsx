@@ -1,7 +1,7 @@
 // Feature 18 / T3 — DSC-03.
 
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import FormPageHeader from './FormPageHeader'
 
 const onBack = vi.fn()
@@ -376,5 +376,163 @@ describe('FormPageHeader — a fila de ações cabe na tela com a fonte grande',
     setup()
     const acoes = screen.getByRole('button', { name: 'Cancelar' }).parentElement!
     expect(tokens(acoes.parentElement!)).toContain('flex-wrap')
+  })
+})
+
+/**
+ * A barra só gruda no topo enquanto cabe: no máximo um quarto da altura da janela.
+ *
+ * Em 390 × 844 com a fonte do sistema a 200 %, a fila de ações quebra linha (é o que impede a
+ * rolagem lateral) e a barra passa de 340 px. Grudada, ela e a barra do painel cobriam mais da
+ * metade da tela: o foco sumia debaixo dela e o toque num controle da lista caía no primário. A
+ * 100 % (~73 px) e a 130 % (~162 px) ela continua grudando como sempre.
+ *
+ * jsdom não mede layout, então a altura da barra, a da janela e o `ResizeObserver` são dublados.
+ */
+describe('FormPageHeader — a barra só gruda enquanto cabe na tela', () => {
+  const tokens = (el: HTMLElement) => el.className.split(/\s+/)
+  const CLASSES_DE_GRUDAR = ['sticky', 'top-14', 'md:top-0', 'z-20']
+  const gruda = () => CLASSES_DE_GRUDAR.every(c => tokens(barra()).includes(c))
+  const naoGruda = () => CLASSES_DE_GRUDAR.every(c => !tokens(barra()).includes(c))
+
+  let alturaDaBarra = 0
+  let avisos: Array<() => void> = []
+  let observados: Element[] = []
+  let desligados = 0
+
+  class ResizeObserverDublado {
+    private readonly avisar: () => void
+    constructor(callback: ResizeObserverCallback) {
+      this.avisar = () => callback([], this as unknown as ResizeObserver)
+      avisos.push(this.avisar)
+    }
+    observe(alvo: Element) {
+      observados.push(alvo)
+    }
+    unobserve() {}
+    disconnect() {
+      desligados += 1
+      avisos = avisos.filter(a => a !== this.avisar)
+    }
+  }
+
+  const alturaDaJanelaOriginal = window.innerHeight
+  // O `setup` do teste declara o stub como `writable`, mas não `configurable`: troca-se por
+  // atribuição, e não por `defineProperty` (que é o que `vi.stubGlobal` faria).
+  const observadorOriginal = globalThis.ResizeObserver
+  const trocarObservador = (valor: unknown) => {
+    globalThis.ResizeObserver = valor as typeof ResizeObserver
+  }
+  const definirJanela = (altura: number) =>
+    Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: altura })
+
+  beforeEach(() => {
+    alturaDaBarra = 0
+    avisos = []
+    observados = []
+    desligados = 0
+    definirJanela(844)
+    trocarObservador(ResizeObserverDublado)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const altura = this.tagName === 'HEADER' ? alturaDaBarra : 0
+      return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: altura, width: 0, height: altura, toJSON: () => ({}) } as DOMRect
+    })
+  })
+
+  afterEach(() => {
+    trocarObservador(observadorOriginal)
+    vi.restoreAllMocks()
+    definirJanela(alturaDaJanelaOriginal)
+  })
+
+  it('a 100 % (73 px numa janela de 844) a barra gruda, com as classes de sempre', () => {
+    alturaDaBarra = 73
+    setup()
+    expect(gruda()).toBe(true)
+  })
+
+  it('a 130 % (162 px numa janela de 844) a barra continua grudando', () => {
+    alturaDaBarra = 162
+    setup()
+    expect(gruda()).toBe(true)
+  })
+
+  it('a 200 % (345 px numa janela de 844) a barra NÃO gruda: fica no fluxo, no topo do formulário', () => {
+    alturaDaBarra = 345
+    setup()
+    expect(naoGruda()).toBe(true)
+    // Só o grudar sai: cor, borda, padding e sangria seguem os de sempre.
+    expect(tokens(barra())).toEqual(
+      expect.arrayContaining(['border-b', 'border-border', 'bg-background/95', 'py-3', '-mx-4', 'px-4', 'mb-6']),
+    )
+  })
+
+  it('o limite é inclusivo: exatamente um quarto da janela ainda gruda', () => {
+    alturaDaBarra = 211
+    setup()
+    expect(gruda()).toBe(true)
+  })
+
+  it('a barra observada é o próprio cabeçalho', () => {
+    setup()
+    expect(observados).toEqual([barra()])
+  })
+
+  it('a barra muda de altura depois de montar: o estado acompanha, nos dois sentidos', () => {
+    alturaDaBarra = 73
+    setup()
+    expect(gruda()).toBe(true)
+
+    alturaDaBarra = 345
+    act(() => avisos.forEach(avisar => avisar()))
+    expect(naoGruda()).toBe(true)
+
+    alturaDaBarra = 162
+    act(() => avisos.forEach(avisar => avisar()))
+    expect(gruda()).toBe(true)
+  })
+
+  it('a janela muda de altura: o estado acompanha, nos dois sentidos', () => {
+    alturaDaBarra = 162
+    setup()
+    expect(gruda()).toBe(true)
+
+    // Janela baixa (o teclado virtual, o celular deitado): 162 px passa de um quarto de 500.
+    definirJanela(500)
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+    expect(naoGruda()).toBe(true)
+
+    definirJanela(844)
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+    expect(gruda()).toBe(true)
+  })
+
+  it('sem `ResizeObserver` no ambiente, a barra gruda como sempre, mesmo alta', () => {
+    trocarObservador(undefined)
+    alturaDaBarra = 345
+    setup()
+    expect(gruda()).toBe(true)
+  })
+
+  it('ao desmontar, o observador e o ouvinte de `resize` são desligados', () => {
+    const removidos: string[] = []
+    const remover = window.removeEventListener.bind(window)
+    vi.spyOn(window, 'removeEventListener').mockImplementation((tipo, ouvinte, opcoes) => {
+      removidos.push(tipo)
+      remover(tipo, ouvinte, opcoes)
+    })
+
+    const { unmount } = setup()
+    expect(desligados).toBe(0)
+    unmount()
+
+    expect(desligados).toBe(1)
+    expect(removidos).toContain('resize')
   })
 })
